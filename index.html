@@ -2016,36 +2016,66 @@ function agregarMes() {
 // MIGRATION — agrega agentes si no existen
 // ============================================================
 function migrarAgentes() {
+  // Lista oficial con nombres completos y sueldo quincenal correcto
   const lista = [
-    { nombre:'CHRISTIAN',  sueldoQuincenal:25 },
-    { nombre:'LEIDY',      sueldoQuincenal:50 },
-    { nombre:'ORIANA',     sueldoQuincenal:125 },
-    { nombre:'CONTADORA',  sueldoQuincenal:0  },
-    { nombre:'JUNIOR',     sueldoQuincenal:62.5 },
-    { nombre:'PAOLA',      sueldoQuincenal:50 },
-    { nombre:'CLAUDIA',    sueldoQuincenal:50 },
-    { nombre:'DREIK',      sueldoQuincenal:50 },
-    { nombre:'CARLOS N',   sueldoQuincenal:32.5 },
-    { nombre:'MELIANGEL',  sueldoQuincenal:50 },
-    { nombre:'YOXANI',     sueldoQuincenal:32.5 },
-    { nombre:'MARIA J',    sueldoQuincenal:50 },
-    { nombre:'CARLOS S',   sueldoQuincenal:50 },
-    { nombre:'ANDREA',     sueldoQuincenal:32.5 },
-    { nombre:'MARIA G',    sueldoQuincenal:50 },
-    { nombre:'GAEL',       sueldoQuincenal:32.5 },
-    { nombre:'KARINE',     sueldoQuincenal:50 },
-    { nombre:'MILEIDY',    sueldoQuincenal:32.5 },
-    { nombre:'FABIAN',     sueldoQuincenal:50 },
-    { nombre:'CARLOS P',   sueldoQuincenal:50 },
-    { nombre:'LEONARDO',   sueldoQuincenal:75 },
-    { nombre:'EDUARDO',    sueldoQuincenal:62.5 },
-    { nombre:'ASTRID',     sueldoQuincenal:50 },
+    { nombre:'Christian',       sueldoQuincenal:50  },
+    { nombre:'Leidy',           sueldoQuincenal:100 },
+    { nombre:'Oriana',          sueldoQuincenal:250 },
+    { nombre:'Contadora',       sueldoQuincenal:0   },
+    { nombre:'Junior',          sueldoQuincenal:125 },
+    { nombre:'Paola',           sueldoQuincenal:100 },
+    { nombre:'Claudia',         sueldoQuincenal:100 },
+    { nombre:'Dreik',           sueldoQuincenal:100 },
+    { nombre:'Carlos Natera',   sueldoQuincenal:65  },
+    { nombre:'Meliangel',       sueldoQuincenal:100 },
+    { nombre:'Yoxani',          sueldoQuincenal:65  },
+    { nombre:'María José',      sueldoQuincenal:100 },
+    { nombre:'Carlos Salas',    sueldoQuincenal:100 },
+    { nombre:'Andrea',          sueldoQuincenal:65  },
+    { nombre:'María González',  sueldoQuincenal:100 },
+    { nombre:'Gael',            sueldoQuincenal:65  },
+    { nombre:'Karine',          sueldoQuincenal:100 },
+    { nombre:'Mileidy',         sueldoQuincenal:65  },
+    { nombre:'Fabián',          sueldoQuincenal:100 },
+    { nombre:'Carlos Perdomo',  sueldoQuincenal:100 },
+    { nombre:'Leonardo',        sueldoQuincenal:150 },
+    { nombre:'Eduardo',         sueldoQuincenal:125 },
+    { nombre:'Astrid',          sueldoQuincenal:100 },
   ];
+  // Alias para detectar versiones anteriores del nombre y actualizarlas
+  const alias = {
+    'christian':'Christian','leidy':'Leidy','oriana':'Oriana',
+    'contadora':'Contadora','junior':'Junior','paola':'Paola',
+    'claudia':'Claudia','dreik':'Dreik',
+    'carlos n':'Carlos Natera','carlos natera':'Carlos Natera',
+    'meliangel':'Meliangel','yoxani':'Yoxani',
+    'maria j':'María José','maría josé':'María José',
+    'carlos s':'Carlos Salas','carlos salas':'Carlos Salas',
+    'andrea':'Andrea',
+    'maria g':'María González','maría gonzález':'María González',
+    'gael':'Gael','karine':'Karine','mileidy':'Mileidy',
+    'fabian':'Fabián','fabián':'Fabián',
+    'carlos p':'Carlos Perdomo','carlos perdomo':'Carlos Perdomo',
+    'leonardo':'Leonardo','eduardo':'Eduardo','astrid':'Astrid',
+  };
   let changed = false;
   let maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
+
   lista.forEach(ag=>{
-    const ya = appData.agentes.find(a=>a.nombre.trim().toLowerCase()===ag.nombre.trim().toLowerCase());
-    if(!ya) {
+    const nombreLow = ag.nombre.toLowerCase();
+    // Buscar por nombre exacto o alias
+    let existente = appData.agentes.find(a=>{
+      const n = (a.nombre||'').trim().toLowerCase();
+      return n===nombreLow || alias[n]===ag.nombre;
+    });
+    if(existente) {
+      // Actualizar nombre completo y sueldo si cambiaron
+      if(existente.nombre !== ag.nombre || existente.sueldoQuincenal !== ag.sueldoQuincenal) {
+        existente.nombre = ag.nombre;
+        existente.sueldoQuincenal = ag.sueldoQuincenal;
+        changed = true;
+      }
+    } else {
       appData.agentes.push({
         id: ++maxId,
         nombre: ag.nombre,
