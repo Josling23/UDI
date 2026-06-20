@@ -965,9 +965,10 @@ function renderDashboard() {
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
   </tr>`).join('') : '<tr><td colspan="8" class="tbl-empty">Sin ventas registradas</td></tr>';
 
-  // Top agentes del mes (excluir soloHQ)
+  // Top agentes del mes (excluir soloHQ) — solo líneas principales (mobility) e internet
   const agSum = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
-    const vv = ventasMes.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase());
+    const vv = ventasMes.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase()
+      && (v.categoria==='mobility'||v.categoria==='internet'));
     const com = vv.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
     const units = vv.reduce((s,v)=>s+v.cantidad,0);
     return { nombre:a.nombre, com, units, ventas:vv.length };
