@@ -170,22 +170,30 @@ tr:hover td{background:#EAF0FB}
     <h1 style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">USA Distributor</h1>
     <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">AT&T VND · Dealer #594193</p>
   </div>
-  <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:500px;width:100%">
+  <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:700px;width:100%">
     <button onclick="abrirAcceso('admin',null)"
-      style="flex:1;min-width:200px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.2s;text-align:center"
+      style="flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center"
       onmouseover="this.style.background='rgba(0,159,219,0.25)';this.style.borderColor='#009FDB'"
       onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
-      <div style="font-size:36px;margin-bottom:10px">📋</div>
-      <div style="color:#fff;font-size:16px;font-weight:800">Administración</div>
-      <div style="color:rgba(255,255,255,0.45);font-size:11px;margin-top:4px">Dashboard · Ventas · Agentes<br>Pagos · Gastos · Nómina</div>
+      <div style="font-size:34px;margin-bottom:8px">📋</div>
+      <div style="color:#fff;font-size:15px;font-weight:800">Administración</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Dashboard · Ventas · Agentes<br>Pagos · Gastos · Nómina</div>
+    </button>
+    <button onclick="abrirAcceso('hq',null)"
+      style="flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center"
+      onmouseover="this.style.background='rgba(0,189,165,0.25)';this.style.borderColor='#00BDA5'"
+      onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
+      <div style="font-size:34px;margin-bottom:8px">🏛️</div>
+      <div style="color:#fff;font-size:15px;font-weight:800">HEADQUARTERS</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Pagos · Comisiones<br>Gerente General</div>
     </button>
     <button onclick="abrirAcceso('top',null)"
-      style="flex:1;min-width:200px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.2s;text-align:center"
+      style="flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center"
       onmouseover="this.style.background='rgba(255,122,89,0.25)';this.style.borderColor='#FF7A59'"
       onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
-      <div style="font-size:36px;margin-bottom:10px">⭐</div>
-      <div style="color:#fff;font-size:16px;font-weight:800">TOP</div>
-      <div style="color:rgba(255,255,255,0.45);font-size:11px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
+      <div style="font-size:34px;margin-bottom:8px">⭐</div>
+      <div style="color:#fff;font-size:15px;font-weight:800">TOP</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
     </button>
   </div>
   <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:40px">USA Distributor Inc · AT&T VND</div>
@@ -222,9 +230,15 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('admin')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
+    <div class="nav-section">🏛️ HEADQUARTERS</div>
+    <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('hq')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
-    <div class="nav-section">TOP</div>
-    <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">⭐</span><span>ROI & Finanzas</span></div>
+    <div class="nav-section">⭐ TOP</div>
+    <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('top')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
@@ -370,12 +384,17 @@ tr:hover td{background:#EAF0FB}
       </div>
     </div>
 
+    <!-- ===== HEADQUARTERS ===== -->
+    <div class="page" id="page-hq">
+      <div id="hq-content"></div>
+    </div>
+
     <!-- ===== TOP ===== -->
     <div class="page" id="page-top">
       <div id="top-content"></div>
     </div>
 
-    <!-- ===== ADMINISTRACIÓN ===== -->
+    <!-- ===== ADMINISTRACIÓN (Gastos & Nómina) ===== -->
     <div class="page" id="page-admin">
       <div id="admin-content"></div>
     </div>
@@ -629,7 +648,7 @@ let appData = {
   gastos: [],
   nextId: 1,
   nextGastoId: 1,
-  pins: { top: '1234', admin: '0000' }, // PINs por defecto — cambiar en área TOP
+  pins: { top: '1234', admin: '0000', hq: '7777' }, // PINs por defecto — cambiar en área TOP
   pagosRecibidos: {}, // { 'Junio 2026': 5000 } — lo que pagó AT&T por periodo
   accesoPrivado: [], // nombres de agentes con acceso gerente
 };
@@ -641,7 +660,8 @@ function guardar() {
 function cargar() {
   const s = localStorage.getItem('attVND_v1');
   if (s) {
-    appData = { comisiones:{}, quincenas:{}, gastos:[], pins:{top:'1234',admin:'0000'}, pagosRecibidos:{}, accesoPrivado:[], ...JSON.parse(s) };
+    appData = { comisiones:{}, quincenas:{}, gastos:[], pins:{top:'1234',admin:'0000',hq:'7777'}, pagosRecibidos:{}, accesoPrivado:[], ...JSON.parse(s) };
+    if(!appData.pins.hq) appData.pins.hq = '7777';
   } else {
     // Datos de ejemplo
     const hoy = new Date();
@@ -649,7 +669,7 @@ function cargar() {
     const mesAnterior = MESES_ES[hoy.getMonth()-1 < 0 ? 11 : hoy.getMonth()-1] + ' ' + (hoy.getMonth()===0 ? hoy.getFullYear()-1 : hoy.getFullYear());
     appData.meses = [mesAnterior, mesActual];
     appData.agentes = [
-      { id:1, nombre:'Jose',    rol:'gerente',    sueldoQuincenal:0,  tel:'', email:'', activo:true,
+      { id:1, nombre:'Jose Piña', rol:'gerente', soloHQ:true, sueldoQuincenal:0, tel:'', email:'', activo:true,
         comisionesPersonales:{ 'att-act8':2,'att-act10':2,'att-upgrade':1,'air':5,'lyca':1,'att-combo':2 },
         agentesSupervisa:['Claudia','Carlos'] },
       { id:2, nombre:'Claudia', rol:'agente',     sueldoQuincenal:100, tel:'', email:'', activo:true,
@@ -727,7 +747,7 @@ function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.g
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', productos:'📦 Productos & Comisiones',
-  top:'⭐ TOP', admin:'📋 Administración'
+  top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS'
 };
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -745,6 +765,7 @@ function renderPage(name) {
   if(name==='pagos') renderPagos();
   if(name==='productos') renderProductos();
   if(name==='top')   renderTop();
+  if(name==='hq')    renderHQ();
   if(name==='admin') renderAdmin(); // Gastos & Nómina (dentro de sesión admin)
 }
 
@@ -847,8 +868,8 @@ function renderDashboard() {
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
   </tr>`).join('') : '<tr><td colspan="8" class="tbl-empty">Sin ventas registradas</td></tr>';
 
-  // Top agentes del mes
-  const agSum = appData.agentes.map(a=>{
+  // Top agentes del mes (excluir soloHQ)
+  const agSum = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
     const vv = ventasMes.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase());
     const com = vv.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
     const units = vv.reduce((s,v)=>s+v.cantidad,0);
@@ -1045,10 +1066,11 @@ let editAgenteId = null;
 function renderAgentes() {
   populateAgente('filter-agente-page', true);
   const mes = mesActual();
-  // Separar por rol
-  const gerentes    = appData.agentes.filter(a=>a.rol==='gerente');
-  const supervisors = appData.agentes.filter(a=>a.rol==='supervisor');
-  const agentes     = appData.agentes.filter(a=>!a.rol||a.rol==='agente');
+  // Separar por rol (excluir soloHQ — van solo a HEADQUARTERS)
+  const visibles    = appData.agentes.filter(a=>!a.soloHQ);
+  const gerentes    = visibles.filter(a=>a.rol==='gerente');
+  const supervisors = visibles.filter(a=>a.rol==='supervisor');
+  const agentes     = visibles.filter(a=>!a.rol||a.rol==='agente');
 
   function agenteCard(a) {
     const rol = a.rol||'agente';
@@ -1289,8 +1311,8 @@ function renderResumen() {
     }).join('') + `</tbody></table>`
     : '<div style="color:#99ACC2;font-size:12px;padding:10px">Sin ventas de Prepago / Servicios</div>');
 
-  // Por agente
-  const agRows = appData.agentes.map(a=>{
+  // Por agente (excluir soloHQ)
+  const agRows = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
     const vv = ventas.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase());
     const com = vv.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
     const units = vv.reduce((s,v)=>s+v.cantidad,0);
@@ -1360,11 +1382,11 @@ function extraInput(tipo, agente, mes, color, placeholder) {
 
 function renderPagos() {
   const meses = getMeses();
-  // Agrupar por rol: gerentes primero, luego supervisores, luego agentes
+  // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
   const ordenados = [
-    ...appData.agentes.filter(a=>a.rol==='gerente'),
-    ...appData.agentes.filter(a=>a.rol==='supervisor'),
-    ...appData.agentes.filter(a=>!a.rol||a.rol==='agente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
   ];
   document.getElementById('pagos-content').innerHTML = `
     <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 18px;margin-bottom:18px;font-size:12px;color:#0057A8">
@@ -1475,8 +1497,14 @@ function updateComision(prodId, valor) {
 // ============================================================
 // AUTH — TOP & ADMIN
 // ============================================================
-let sesion = { top: false, admin: false };
+let sesion = { top:false, admin:false, hq:false };
 let _pinTarget = null;
+
+const AREA_CFG = {
+  admin: { icon:'📋', titulo:'Administración',  color:'linear-gradient(135deg,#004A9A,#009FDB)' },
+  hq:    { icon:'🏛️', titulo:'HEADQUARTERS',    color:'linear-gradient(135deg,#006644,#00BDA5)' },
+  top:   { icon:'⭐', titulo:'TOP',              color:'linear-gradient(135deg,#1a2b3c,#33475B)' },
+};
 
 function mostrarLogin() {
   document.getElementById('login-screen').style.display = 'flex';
@@ -1486,26 +1514,22 @@ function mostrarLogin() {
 function mostrarApp(area) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'flex';
-  // Mostrar el nav correcto
   document.getElementById('sidebar-nav-admin').style.display = area==='admin' ? 'block' : 'none';
+  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'    ? 'block' : 'none';
   document.getElementById('sidebar-nav-top').style.display   = area==='top'   ? 'block' : 'none';
-  if(area==='admin') {
-    showPage('dashboard', document.getElementById('nav-dashboard'));
-  } else {
-    showPage('top', null);
-  }
+  if(area==='admin') showPage('dashboard', document.getElementById('nav-dashboard'));
+  else if(area==='hq')  showPage('hq',  null);
+  else if(area==='top') showPage('top', null);
 }
 
 function abrirAcceso(area, el) {
   if(sesion[area]) { mostrarApp(area); return; }
   _pinTarget = area;
-  const esTop = area==='top';
-  document.getElementById('pin-titulo').textContent  = esTop ? '⭐ TOP' : '📋 Administración';
-  document.getElementById('pin-icon').textContent    = esTop ? '⭐' : '📋';
-  document.getElementById('pin-desc').textContent    = esTop ? 'PIN del propietario' : 'PIN de administración';
-  document.getElementById('pin-header').style.background = esTop
-    ? 'linear-gradient(135deg,#1a2b3c,#33475B)'
-    : 'linear-gradient(135deg,#004A9A,#009FDB)';
+  const cfg = AREA_CFG[area];
+  document.getElementById('pin-titulo').textContent  = cfg.titulo;
+  document.getElementById('pin-icon').textContent    = cfg.icon;
+  document.getElementById('pin-desc').textContent    = 'Ingresa tu PIN para acceder';
+  document.getElementById('pin-header').style.background = cfg.color;
   document.getElementById('pin-error').style.display = 'none';
   document.getElementById('pin-input').value = '';
   document.getElementById('modal-pin').classList.add('open');
@@ -1514,8 +1538,8 @@ function abrirAcceso(area, el) {
 
 function verificarPin() {
   const input = document.getElementById('pin-input').value.trim();
-  const pins  = appData.pins || { top:'1234', admin:'0000' };
-  const pinCorrecto = _pinTarget==='top' ? pins.top : pins.admin;
+  const pins  = appData.pins || { top:'1234', admin:'0000', hq:'7777' };
+  const pinCorrecto = pins[_pinTarget];
   if(input !== pinCorrecto) {
     document.getElementById('pin-error').style.display = 'block';
     document.getElementById('pin-input').value = '';
@@ -1525,13 +1549,137 @@ function verificarPin() {
   sesion[_pinTarget] = true;
   closeModal('modal-pin');
   mostrarApp(_pinTarget);
-  showNotif('🔓 Bienvenido — ' + (_pinTarget==='top' ? '⭐ TOP' : '📋 Administración'));
+  showNotif('🔓 Bienvenido — ' + AREA_CFG[_pinTarget].titulo);
 }
 
 function cerrarSesion(area) {
   sesion[area] = false;
   mostrarLogin();
   showNotif('🔒 Sesión cerrada');
+}
+
+// ============================================================
+// HEADQUARTERS — RENDER
+// ============================================================
+function renderHQ() {
+  if(!sesion.hq) { document.getElementById('hq-content').innerHTML=''; return; }
+  const meses = getMeses();
+  // Solo agentes marcados soloHQ
+  const hqAgentes = appData.agentes.filter(a=>a.soloHQ);
+
+  if(!hqAgentes.length) {
+    document.getElementById('hq-content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:#99ACC2">
+        <div style="font-size:48px;margin-bottom:16px">🏛️</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px">HEADQUARTERS</div>
+        <div style="font-size:13px">No hay agentes asignados a HEADQUARTERS.<br>Ve a Agentes y activa <b>Solo HQ</b> en el perfil del Gerente General.</div>
+      </div>`;
+    return;
+  }
+
+  const selMes = document.getElementById('hq-mes-sel')?.value ?? (meses[meses.length-1]||'');
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">🏛️ HEADQUARTERS</h2>
+        <div style="font-size:11px;color:#99ACC2">Pagos & Comisiones — Gerente General</div>
+      </div>
+      <select id="hq-mes-sel" onchange="renderHQ()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
+        <option value="">📊 Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>`;
+
+  hqAgentes.forEach(a=>{
+    const msFiltro = selMes ? [selMes] : meses;
+    const comTotal = msFiltro.reduce((s,m)=>s+getComisionesMes(a,m),0);
+    const basicoTotal = (a.sueldoQuincenal||0)*2*msFiltro.length;
+    const bonosTotal  = msFiltro.reduce((s,m)=>s+getExtra('bono',a.nombre,m),0);
+    const prestTotal  = msFiltro.reduce((s,m)=>s+getExtra('prest',a.nombre,m),0);
+    const descTotal   = msFiltro.reduce((s,m)=>s+getExtra('desc',a.nombre,m),0);
+    const netTotal    = comTotal+basicoTotal+bonosTotal+prestTotal-descTotal;
+
+    // Cards resumen
+    html += `
+      <div style="background:linear-gradient(135deg,#006644,#00BDA5);border-radius:12px;padding:20px;margin-bottom:18px;color:#fff">
+        <div style="font-size:13px;font-weight:700;opacity:0.7;margin-bottom:14px;text-transform:uppercase;letter-spacing:1px">
+          👤 ${a.nombre} — ${ROL_LABELS[a.rol||'gerente']}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Comisiones</div><div style="font-size:20px;font-weight:800;color:#A7F3D0">${fmt(comTotal)}</div></div>
+          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTotal>0?fmt(basicoTotal):'—'}</div></div>
+          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Bonos</div><div style="font-size:20px;font-weight:800">${bonosTotal>0?fmt(bonosTotal):'—'}</div></div>
+          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Descuentos</div><div style="font-size:20px;font-weight:800;color:#FCA5A5">${descTotal>0?'−'+fmt(descTotal):'—'}</div></div>
+          <div style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+            <div style="font-size:10px;opacity:0.7;text-transform:uppercase">TOTAL A PAGAR</div>
+            <div style="font-size:24px;font-weight:900">${fmt(netTotal)}</div>
+          </div>
+        </div>
+      </div>`;
+
+    // Tabla por mes
+    const filas = meses.map(mes=>{
+      const q1 = appData.quincenas[getQuincenaKey(a.nombre,mes,1)];
+      const q2 = appData.quincenas[getQuincenaKey(a.nombre,mes,2)];
+      const com   = getComisionesMes(a,mes);
+      const bas   = (a.sueldoQuincenal||0)*2;
+      const bon   = getExtra('bono',a.nombre,mes);
+      const pres  = getExtra('prest',a.nombre,mes);
+      const desc  = getExtra('desc',a.nombre,mes);
+      const total = com+bas+bon+pres-desc;
+      return `<tr>
+        <td style="font-weight:600">${mes}</td>
+        <td><button class="q-btn ${q1?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre}','${mes}',1);renderHQ()">${q1?'✅ Q1':'⏳ Q1'}</button></td>
+        <td><button class="q-btn ${q2?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre}','${mes}',2);renderHQ()">${q2?'✅ Q2':'⏳ Q2'}</button></td>
+        <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(com)}</td>
+        <td style="text-align:right;color:#7C98B6">${bas>0?fmt(bas):'—'}</td>
+        <td style="text-align:right">${extraInput('bono',a.nombre,mes,'#6A78D1','0.00')}</td>
+        <td style="text-align:right">${extraInput('prest',a.nombre,mes,'#F5C26B','0.00')}</td>
+        <td style="text-align:right">${extraInput('desc',a.nombre,mes,'#F2545B','0.00')}</td>
+        <td style="text-align:right;font-weight:800;font-size:13px;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
+      </tr>`;
+    }).join('');
+
+    html += `
+      <div class="section" style="margin-bottom:22px">
+        <div class="section-header"><h2>📅 Historial de Pagos</h2></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>Mes</th><th>1ª Quinc.</th><th>2ª Quinc.</th>
+            <th style="text-align:right">Comisiones</th>
+            <th style="text-align:right">Básico</th>
+            <th style="text-align:right">Bonos</th>
+            <th style="text-align:right">Préstamos</th>
+            <th style="text-align:right">Descuento</th>
+            <th style="text-align:right">TOTAL</th>
+          </tr></thead>
+          <tbody>${filas}</tbody>
+        </table></div>
+      </div>`;
+
+    // Ventas supervisadas por mes
+    if(selMes) {
+      const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+      const ventasSup = appData.ventas.filter(v=>v.mes===selMes && supervisados.includes((v.agente||'').trim().toLowerCase()));
+      const prodBreak = [...new Set(ventasSup.map(v=>v.productoId))].map(pid=>{
+        const vs = ventasSup.filter(v=>v.productoId===pid);
+        const qty = vs.reduce((s,v)=>s+v.cantidad,0);
+        const com = vs.reduce((s,v)=>s+getComisionParaAgente(v.productoId,a.nombre)*v.cantidad,0);
+        return `<tr><td style="font-weight:600">${getProdNombre(pid)}</td><td style="text-align:right;color:#009FDB;font-weight:700">${qty}</td><td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(com)}</td></tr>`;
+      }).join('');
+      if(prodBreak) html += `
+        <div class="section" style="margin-bottom:22px">
+          <div class="section-header"><h2>📦 Desglose de Comisiones — ${selMes}</h2></div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Producto</th><th style="text-align:right">Unidades</th><th style="text-align:right">Com. Ganada</th></tr></thead>
+            <tbody>${prodBreak}</tbody>
+          </table></div>
+        </div>`;
+    }
+  });
+
+  document.getElementById('hq-content').innerHTML = html;
 }
 
 // ============================================================
@@ -1679,33 +1827,40 @@ function guardarPagoRecibido() {
 }
 
 function renderTopConfig() {
-  const pins = appData.pins||{top:'1234',admin:'0000'};
+  const pins = appData.pins||{top:'1234',admin:'0000',hq:'7777'};
   document.getElementById('top-config').innerHTML = `
     <div class="section">
-      <div class="section-header"><h2>🔑 Cambiar PINs</h2></div>
-      <div class="form-grid" style="max-width:500px">
+      <div class="section-header"><h2>🔑 Cambiar PINs de Acceso</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;max-width:700px">
         <div class="form-group">
           <label>PIN — TOP (solo tú)</label>
           <input type="password" id="cfg-pin-top" value="${pins.top||''}"
-            style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none">
+            style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none;width:100%">
         </div>
         <div class="form-group">
           <label>PIN — Administración</label>
           <input type="password" id="cfg-pin-admin" value="${pins.admin||''}"
-            style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none">
+            style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>PIN — HEADQUARTERS</label>
+          <input type="password" id="cfg-pin-hq" value="${pins.hq||''}"
+            style="background:#fff;border:1.5px solid #00BDA5;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none;width:100%">
         </div>
       </div>
-      <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="guardarPins()">💾 Guardar PINs</button>
-      <div style="font-size:11px;color:#F2545B;margin-top:8px;font-weight:600">⚠️ Cambia el PIN TOP (1234) y Admin (0000) por unos seguros ahora.</div>
+      <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="guardarPins()">💾 Guardar PINs</button>
+      <div style="font-size:11px;color:#F2545B;margin-top:8px;font-weight:600">⚠️ Cambia los PINs por defecto por unos seguros.</div>
     </div>`;
 }
 
 function guardarPins() {
   const top   = document.getElementById('cfg-pin-top').value.trim();
   const admin = document.getElementById('cfg-pin-admin').value.trim();
-  if(!top||!admin) { showNotif('⚠️ Ingresa ambos PINs','error'); return; }
-  if(top===admin)  { showNotif('⚠️ Los PINs deben ser diferentes','error'); return; }
-  appData.pins = { top, admin };
+  const hq    = document.getElementById('cfg-pin-hq').value.trim();
+  if(!top||!admin||!hq) { showNotif('⚠️ Ingresa los 3 PINs','error'); return; }
+  const todos = [top, admin, hq];
+  if(new Set(todos).size !== todos.length) { showNotif('⚠️ Los PINs deben ser todos diferentes','error'); return; }
+  appData.pins = { top, admin, hq };
   guardar();
   showNotif('✅ PINs actualizados correctamente');
 }
@@ -1805,7 +1960,7 @@ function eliminarGasto(id) {
 function renderAdminNomina() {
   const meses = getMeses();
   const html = meses.map(mes=>{
-    const filas = appData.agentes.map(a=>{
+    const filas = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
       const q1 = appData.quincenas[getQuincenaKey(a.nombre,mes,1)];
       const q2 = appData.quincenas[getQuincenaKey(a.nombre,mes,2)];
       const com   = getComisionesMes(a,mes);
@@ -1826,7 +1981,7 @@ function renderAdminNomina() {
         <td>${q1?'✅':''} Q1 ${q2?'✅':''} Q2</td>
       </tr>`;
     }).join('');
-    const totalNom = appData.agentes.reduce((s,a)=>{
+    const totalNom = appData.agentes.filter(a=>!a.soloHQ).reduce((s,a)=>{
       return s+getComisionesMes(a,mes)+(a.sueldoQuincenal||0)*2
         +getExtra('bono',a.nombre,mes)+getExtra('prest',a.nombre,mes)-getExtra('desc',a.nombre,mes);
     },0);
