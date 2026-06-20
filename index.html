@@ -811,6 +811,30 @@ function getProdNombre(productoId) {
   return p ? p.nombre : productoId;
 }
 function getMeses() { return appData.meses || []; }
+
+// Comisiones de una quincena específica según fecha de las ventas (Q1=días 1-15, Q2=días 16-31)
+function getComisionesQuincena(a, mes, q) {
+  const nombreLow = (a.nombre||'').trim().toLowerCase();
+  function enQ(fecha) {
+    const dia = parseInt((fecha||'').split('-')[2]||'0');
+    return q===1 ? (dia>=1 && dia<=15) : dia>=16;
+  }
+  // Ventas directas propias → tarifa directa
+  const propias = appData.ventas
+    .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow && enQ(v.fecha))
+    .reduce((s,v)=>s + getComisionDirectaAgente(v.productoId, a.nombre)*v.cantidad, 0);
+  // Gerentes/supervisores: ventas de agentes supervisados → tarifa de supervisión
+  if(a.rol==='gerente'||a.rol==='supervisor') {
+    const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+    const deAgentes = sups.length
+      ? appData.ventas
+          .filter(v=>v.mes===mes && sups.includes((v.agente||'').trim().toLowerCase()) && enQ(v.fecha))
+          .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
+      : 0;
+    return propias + deAgentes;
+  }
+  return propias;
+}
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
 
@@ -1502,44 +1526,44 @@ function renderPagos() {
     const rol = a.rol||'agente';
     let totalPagado = 0, totalPend = 0;
 
-    // Una fila por mes: comisiones completas, Q1/Q2 solo para el básico
-    const filas = meses.map(mes=>{
-      const q1      = appData.quincenas[getQuincenaKey(a.nombre, mes, 1)];
-      const q2      = appData.quincenas[getQuincenaKey(a.nombre, mes, 2)];
-      const com     = getComisionesMes(a, mes);   // mes completo, sin dividir
-      const basico  = a.sueldoQuincenal||0;        // por quincena
-      const basicoPagado = (q1?basico:0) + (q2?basico:0);
-      const bonos   = getExtra('bono',  a.nombre, mes);
-      const prestamo= getExtra('prest', a.nombre, mes);
-      const desc    = getExtra('desc',  a.nombre, mes);
-      const idxMes  = meses.indexOf(mes);
-      const deAnt   = idxMes>0 ? getPend(a.nombre, meses[idxMes-1], 2) : 0;
-      const subTotal= com + basicoPagado + bonos + prestamo + deAnt;
-      const total   = subTotal - desc;
+    // Dos filas por mes — comisiones por quincena según fecha de venta (Q1=días 1-15, Q2=días 16-31)
+    const filas = meses.flatMap(mes=>{
+      return [1,2].map(q=>{
+        const pagado  = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
+        const comQ    = getComisionesQuincena(a, mes, q);  // real por fecha, sin dividir
+        const basico  = a.sueldoQuincenal||0;
+        const bonos   = getExtra('bono',  a.nombre, mes+'Q'+q);
+        const prestamo= getExtra('prest', a.nombre, mes+'Q'+q);
+        const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
+        const prev    = getPrevQuincena(meses, mes, q);
+        const deAnt   = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
+        const subTotal= comQ + basico + bonos + prestamo + deAnt;
+        const total   = subTotal - desc;
 
-      if(q1) totalPagado += basico; else totalPend += basico;
-      if(q2) totalPagado += basico; else totalPend += basico;
+        if(pagado) totalPagado += basico; else totalPend += basico;
 
-      const deAntCell = deAnt>0
-        ? `<span style="font-weight:700;color:#D4A017;background:#FFFBE8;border-radius:5px;padding:2px 6px;font-size:11px">+${fmt(deAnt)}</span>`
-        : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
+        const deAntCell = deAnt>0
+          ? `<span style="font-weight:700;color:#D4A017;background:#FFFBE8;border-radius:5px;padding:2px 6px;font-size:11px">+${fmt(deAnt)}</span>`
+          : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
 
-      return `<tr>
-        <td style="font-weight:600;white-space:nowrap">${mes}</td>
-        <td style="white-space:nowrap">
-          <button class="q-btn ${q1?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',1);renderPagos()">${q1?'✅':'⏳'} Q1</button>
-          <button class="q-btn ${q2?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',2);renderPagos()" style="margin-left:4px">${q2?'✅':'⏳'} Q2</button>
-        </td>
-        <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(com)}</td>
-        <td style="color:#33475B;text-align:right">${basicoPagado>0?fmt(basicoPagado):'—'}</td>
-        <td style="text-align:right">${extraInput('bono',a.nombre,mes,'#6A78D1','0.00')}</td>
-        <td style="text-align:right">${extraInput('prest',a.nombre,mes,'#F5C26B','0.00')}</td>
-        <td style="text-align:right">${deAntCell}</td>
-        <td style="font-weight:700;text-align:right;color:#33475B">${fmt(subTotal)}</td>
-        <td style="text-align:right">${extraInput('desc',a.nombre,mes,'#F2545B','0.00')}</td>
-        <td style="font-weight:800;font-size:13px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
-        <td style="text-align:right">${pendInput(a.nombre,mes,2)}</td>
-      </tr>`;
+        return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
+          <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–15)':'(días 16–31)'}</span></td>
+          <td>
+            <button class="q-btn ${pagado?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',${q});renderPagos()">
+              ${pagado?'✅':'⏳'} Q${q}
+            </button>
+          </td>
+          <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(comQ)}</td>
+          <td style="color:#33475B;text-align:right">${basico>0?fmt(basico):'—'}</td>
+          <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00')}</td>
+          <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00')}</td>
+          <td style="text-align:right">${deAntCell}</td>
+          <td style="font-weight:700;text-align:right;color:#33475B">${fmt(subTotal)}</td>
+          <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00')}</td>
+          <td style="font-weight:800;font-size:13px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
+          <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
+        </tr>`;
+      });
     }).join('');
 
     const supeInfo = (rol==='gerente'||rol==='supervisor') && (a.agentesSupervisa||[]).length
@@ -1960,39 +1984,39 @@ function renderHQ() {
         </div>`;
     }
 
-    // ── HISTORIAL DE PAGOS — una fila por mes, comisiones completas ──
-    const filasHist = meses.map(mes=>{
-      const q1     = appData.quincenas[getQuincenaKey(a.nombre,mes,1)];
-      const q2     = appData.quincenas[getQuincenaKey(a.nombre,mes,2)];
-      const com    = getComisionesMes(a, mes);          // mes completo, sin dividir
-      const bas    = a.sueldoQuincenal||0;               // por quincena
-      const bon    = getExtra('bono', a.nombre, mes);
-      const pres   = getExtra('prest',a.nombre, mes);
-      const desc   = getExtra('desc', a.nombre, mes);
-      // Básico pagado = solo las quincenas marcadas
-      const basicoPagado = (q1?bas:0) + (q2?bas:0);
-      // Pendiente de quincena anterior (del Q2 del mes prev)
-      const idxMes = meses.indexOf(mes);
-      const deAnt  = idxMes>0 ? getPend(a.nombre, meses[idxMes-1], 2) : 0;
-      const total  = com + basicoPagado + bon + pres + deAnt - desc;
-      const deAntCell = deAnt>0
-        ? `<b style="color:#D4A017">+${fmt(deAnt)}</b>`
-        : `<span style="color:#CBD6E2">—</span>`;
-      return `<tr>
-        <td style="font-weight:600;white-space:nowrap">${mes}</td>
-        <td style="white-space:nowrap">
-          <button class="q-btn ${q1?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',1);renderHQ()">${q1?'✅':'⏳'} Q1</button>
-          <button class="q-btn ${q2?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',2);renderHQ()" style="margin-left:4px">${q2?'✅':'⏳'} Q2</button>
-        </td>
-        <td style="text-align:right;font-weight:800;color:#00BDA5;font-size:13px">${fmt(com)}</td>
-        <td style="text-align:right;color:#7C98B6">${basicoPagado>0?fmt(basicoPagado):'—'}</td>
-        <td style="text-align:right">${extraInput('bono',a.nombre,mes,'#6A78D1','0.00')}</td>
-        <td style="text-align:right">${extraInput('prest',a.nombre,mes,'#F5C26B','0.00')}</td>
-        <td style="text-align:right">${deAntCell}</td>
-        <td style="text-align:right">${extraInput('desc',a.nombre,mes,'#F2545B','0.00')}</td>
-        <td style="text-align:right;font-weight:900;font-size:14px;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
-        <td style="text-align:right">${pendInput(a.nombre,mes,2)}</td>
-      </tr>`;
+    // ── HISTORIAL DE PAGOS — dos filas por mes (Q1 días 1-15, Q2 días 16-31) ──
+    const filasHist = meses.flatMap((mes, idxMes)=>{
+      return [1,2].map(q=>{
+        const pagado = appData.quincenas[getQuincenaKey(a.nombre,mes,q)];
+        const comQ   = getComisionesQuincena(a, mes, q);
+        const bas    = a.sueldoQuincenal||0;
+        const bon    = getExtra('bono',  a.nombre, mes+'Q'+q);
+        const pres   = getExtra('prest', a.nombre, mes+'Q'+q);
+        const desc   = getExtra('desc',  a.nombre, mes+'Q'+q);
+        // Pendiente de quincena anterior
+        const prev   = getPrevQuincena(meses, mes, q);
+        const deAnt  = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
+        const subTotal = comQ + bas + bon + pres + deAnt;
+        const total    = subTotal - desc;
+        const deAntCell = deAnt>0
+          ? `<b style="color:#D4A017">+${fmt(deAnt)}</b>`
+          : `<span style="color:#CBD6E2">—</span>`;
+        const dias = q===1 ? '1-15' : '16-31';
+        return `<tr style="${q===2?'border-bottom:2px solid #E5EFF8':''}">
+          <td style="font-weight:600;white-space:nowrap${q===1?';padding-bottom:2px':';padding-top:2px'}">${q===1?mes:''}</td>
+          <td style="white-space:nowrap">
+            <button class="q-btn ${pagado?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',${q});renderHQ()">${pagado?'✅':'⏳'} Q${q} <span style="font-size:10px;opacity:.7">(${dias})</span></button>
+          </td>
+          <td style="text-align:right;font-weight:800;color:#00BDA5;font-size:13px">${fmt(comQ)}</td>
+          <td style="text-align:right;color:#7C98B6">${pagado?fmt(bas):'—'}</td>
+          <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00')}</td>
+          <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00')}</td>
+          <td style="text-align:right">${deAntCell}</td>
+          <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00')}</td>
+          <td style="text-align:right;font-weight:900;font-size:14px;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
+          <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
+        </tr>`;
+      });
     }).join('');
 
     html += `
@@ -2001,9 +2025,9 @@ function renderHQ() {
         <div class="tbl-wrap"><table>
           <thead><tr>
             <th>Mes</th>
-            <th>Básico — Quincenas</th>
+            <th>Quincena</th>
             <th style="text-align:right">Comisiones</th>
-            <th style="text-align:right">Básico Pagado</th>
+            <th style="text-align:right">Básico</th>
             <th style="text-align:right">Bonos</th>
             <th style="text-align:right">Préstamos</th>
             <th style="text-align:right">🔄 De Q.Ant.</th>
