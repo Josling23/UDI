@@ -1880,16 +1880,20 @@ function renderHQ() {
         const prods = [...new Set(vv.map(v=>v.productoId))];
         let subAg = 0;
         const filasProd = prods.map(pid=>{
-          const vs  = vv.filter(v=>v.productoId===pid);
-          const qty = vs.reduce((s,v)=>s+v.cantidad,0);
-          const rate= getComisionParaAgente(pid, a.nombre);
-          const com = rate * qty;
+          const vs   = vv.filter(v=>v.productoId===pid);
+          const qty  = vs.reduce((s,v)=>s+v.cantidad,0);
+          const rate = getComisionParaAgente(pid, a.nombre);
+          const com  = rate * qty;
           subAg += com;
-          return `<tr>
-            <td style="padding-left:18px;color:#7C98B6">${getProdNombre(pid)}</td>
+          const sinTarifa = rate === 0;
+          return `<tr style="${sinTarifa?'background:#FFF8F0':''}">
+            <td style="padding-left:18px;color:${sinTarifa?'#D4A017':'#7C98B6'}">
+              ${getProdNombre(pid)}
+              ${sinTarifa?`<span style="font-size:9px;background:#FFF3CD;color:#856404;border-radius:4px;padding:1px 6px;margin-left:6px;font-weight:700">⚠️ $0 — configura tarifa</span>`:''}
+            </td>
             <td style="text-align:right;color:#009FDB;font-weight:700">${qty}</td>
-            <td style="text-align:right;color:#7C98B6">${fmt(rate)}</td>
-            <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(com)}</td>
+            <td style="text-align:right;color:${sinTarifa?'#F2545B':'#7C98B6'};font-weight:${sinTarifa?'700':'400'}">${sinTarifa?'⚠️ $0.00':fmt(rate)}</td>
+            <td style="text-align:right;font-weight:700;color:${sinTarifa?'#99ACC2':'#00BDA5'}">${fmt(com)}</td>
           </tr>`;
         }).join('');
         grandTotal += subAg;
@@ -1927,40 +1931,35 @@ function renderHQ() {
           </tr>${filasP}`;
       }
 
-      if(desglose) {
-        html += `
-          <div class="section" style="margin-bottom:18px">
-            <div class="section-header">
-              <h2>📦 Desglose de Comisiones — ${mesPara}</h2>
+      const hayVentas = ventasSup.length > 0 || ventasPropias.length > 0;
+      html += `
+        <div class="section" style="margin-bottom:18px">
+          <div class="section-header">
+            <h2>📦 Desglose de Comisiones — ${mesPara}</h2>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-success btn-sm" onclick="openHQConfig(${a.id})">⚙️ Configurar Tarifas</button>
               <button class="btn btn-primary btn-sm" onclick="openVentaHQ()">➕ Venta Directa</button>
             </div>
-            <div class="tbl-wrap"><table>
-              <thead><tr>
-                <th>Agente / Producto</th>
-                <th style="text-align:right">Unidades</th>
-                <th style="text-align:right">Mi Comisión/u</th>
-                <th style="text-align:right">Total Ganado</th>
-              </tr></thead>
-              <tbody>${desglose}
-              <tr style="background:#F5F8FA;border-top:2px solid #CBD6E2">
-                <td colspan="3" style="font-weight:800;color:#33475B">TOTAL COMISIONES ${mesPara}</td>
-                <td style="text-align:right;font-weight:900;font-size:15px;color:#00BDA5">${fmt(grandTotal)}</td>
-              </tr></tbody>
-            </table></div>
-          </div>`;
-      } else {
-        html += `
-          <div class="section" style="margin-bottom:18px">
-            <div class="section-header">
-              <h2>📦 Desglose de Comisiones — ${mesPara}</h2>
-              <button class="btn btn-primary btn-sm" onclick="openVentaHQ()">➕ Venta Directa</button>
-            </div>
-            <div style="color:#99ACC2;padding:20px;text-align:center;font-size:13px">
-              Sin ventas registradas de los agentes supervisados en ${mesPara}.<br>
-              <span style="font-size:11px">Las ventas que registres en Administración → Registro Diario aparecerán aquí automáticamente.</span>
-            </div>
-          </div>`;
-      }
+          </div>
+          ${desglose ? `
+          <div class="tbl-wrap"><table>
+            <thead><tr>
+              <th>Agente / Producto</th>
+              <th style="text-align:right">Unidades</th>
+              <th style="text-align:right">Mi Com./u</th>
+              <th style="text-align:right">Total Ganado</th>
+            </tr></thead>
+            <tbody>${desglose}
+            <tr style="background:#F5F8FA;border-top:2px solid #CBD6E2">
+              <td colspan="3" style="font-weight:800;color:#33475B">TOTAL COMISIONES ${mesPara}</td>
+              <td style="text-align:right;font-weight:900;font-size:15px;color:#00BDA5">${fmt(grandTotal)}</td>
+            </tr></tbody>
+          </table></div>
+          ` : `<div style="color:#99ACC2;padding:20px;text-align:center;font-size:13px">
+            Sin ventas registradas de los agentes supervisados en ${mesPara}.<br>
+            <span style="font-size:11px">Las ventas en Administración → Registro Diario aparecerán aquí automáticamente.</span>
+          </div>`}
+        </div>`;
     }
 
     // ── HISTORIAL DE PAGOS ────────────────────────────────────
