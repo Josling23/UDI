@@ -2013,9 +2013,59 @@ function agregarMes() {
 }
 
 // ============================================================
+// MIGRATION — agrega agentes si no existen
+// ============================================================
+function migrarAgentes() {
+  const lista = [
+    { nombre:'CHRISTIAN',  sueldoQuincenal:25 },
+    { nombre:'LEIDY',      sueldoQuincenal:50 },
+    { nombre:'ORIANA',     sueldoQuincenal:125 },
+    { nombre:'CONTADORA',  sueldoQuincenal:0  },
+    { nombre:'JUNIOR',     sueldoQuincenal:62.5 },
+    { nombre:'PAOLA',      sueldoQuincenal:50 },
+    { nombre:'CLAUDIA',    sueldoQuincenal:50 },
+    { nombre:'DREIK',      sueldoQuincenal:50 },
+    { nombre:'CARLOS N',   sueldoQuincenal:32.5 },
+    { nombre:'MELIANGEL',  sueldoQuincenal:50 },
+    { nombre:'YOXANI',     sueldoQuincenal:32.5 },
+    { nombre:'MARIA J',    sueldoQuincenal:50 },
+    { nombre:'CARLOS S',   sueldoQuincenal:50 },
+    { nombre:'ANDREA',     sueldoQuincenal:32.5 },
+    { nombre:'MARIA G',    sueldoQuincenal:50 },
+    { nombre:'GAEL',       sueldoQuincenal:32.5 },
+    { nombre:'KARINE',     sueldoQuincenal:50 },
+    { nombre:'MILEIDY',    sueldoQuincenal:32.5 },
+    { nombre:'FABIAN',     sueldoQuincenal:50 },
+    { nombre:'CARLOS P',   sueldoQuincenal:50 },
+    { nombre:'LEONARDO',   sueldoQuincenal:75 },
+    { nombre:'EDUARDO',    sueldoQuincenal:62.5 },
+    { nombre:'ASTRID',     sueldoQuincenal:50 },
+  ];
+  let changed = false;
+  let maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
+  lista.forEach(ag=>{
+    const ya = appData.agentes.find(a=>a.nombre.trim().toLowerCase()===ag.nombre.trim().toLowerCase());
+    if(!ya) {
+      appData.agentes.push({
+        id: ++maxId,
+        nombre: ag.nombre,
+        rol: 'agente',
+        sueldoQuincenal: ag.sueldoQuincenal,
+        tel: '', email: '', activo: true,
+        comisionesPersonales: {},
+        agentesSupervisa: [],
+      });
+      changed = true;
+    }
+  });
+  if(changed) { if(!appData.nextId||appData.nextId<=maxId) appData.nextId=maxId+1; guardar(); }
+}
+
+// ============================================================
 // INIT
 // ============================================================
 cargar();
+migrarAgentes();
 
 // Date in topbar
 const hoy = new Date();
