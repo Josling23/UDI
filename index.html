@@ -581,6 +581,53 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL HQ CONFIG ===== -->
+<div class="modal-overlay" id="modal-hq-config">
+  <div class="modal" style="max-width:740px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#006644,#00BDA5)">
+      <h3 style="color:#fff">🏛️ Perfil Gerente General — HEADQUARTERS</h3>
+      <button class="modal-close" style="color:rgba(255,255,255,0.7)" onclick="closeModal('modal-hq-config')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Info básica -->
+      <div style="font-size:10px;font-weight:700;color:#00A492;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">📋 Información Básica</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre *</label><input type="text" id="hqc-nombre" placeholder="Nombre completo"></div>
+        <div class="form-group">
+          <label>Rol</label>
+          <select id="hqc-rol">
+            <option value="gerente">⭐ Gerente General</option>
+            <option value="supervisor">🔷 Supervisor</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Sueldo Quincenal ($)</label>
+          <input type="number" id="hqc-sueldo" placeholder="0.00" step="0.01" min="0">
+        </div>
+        <div class="form-group"><label>Teléfono</label><input type="text" id="hqc-tel" placeholder="(305) 000-0000"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Email</label><input type="email" id="hqc-email" placeholder="correo@email.com"></div>
+      </div>
+
+      <!-- Comisiones por producto -->
+      <div style="font-size:10px;font-weight:700;color:#00A492;text-transform:uppercase;letter-spacing:1.2px;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2;margin-bottom:6px">
+        💰 Comisión Personal por Producto
+        <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — lo que gana él por cada unidad vendida por sus agentes</span>
+      </div>
+      <div id="hqc-comisiones" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+
+      <!-- Agentes de quienes gana comisión -->
+      <div style="font-size:10px;font-weight:700;color:#00A492;text-transform:uppercase;letter-spacing:1.2px;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2;margin-bottom:8px">
+        👥 Gana comisión de ventas de estos agentes:
+      </div>
+      <div id="hqc-supervisa" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-hq-config')">Cancelar</button>
+      <button class="btn btn-success" onclick="guardarHQAgente()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // MESES
@@ -1612,20 +1659,92 @@ function cerrarSesion(area) {
 }
 
 // ============================================================
+// HEADQUARTERS — CONFIG MODAL
+// ============================================================
+function openHQConfig(id=null) {
+  const a = id ? appData.agentes.find(x=>x.id===id) : null;
+  const comPs = a?.comisionesPersonales||{};
+  const supervisados = a?.agentesSupervisa||[];
+  const otros = appData.agentes.filter(x=>!x.soloHQ);
+
+  const comFields = PRODUCTOS_CATALOG.map(p=>{
+    const val = comPs[p.id]!==undefined ? comPs[p.id] : '';
+    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center;gap:6px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}</div>
+        <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
+      </div>
+      <input type="number" min="0" step="0.01" value="${val}" placeholder="${p.comision}"
+        data-prod-id="${p.id}" class="hq-prod-com"
+        style="width:68px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#00BDA5;outline:none;text-align:right"
+        onfocus="this.style.borderColor='#00BDA5'" onblur="this.style.borderColor='#CBD6E2'">
+    </div>`;
+  }).join('');
+
+  const checkboxes = otros.length
+    ? otros.map(ag=>`<label style="display:flex;align-items:center;gap:6px;background:#F5F8FA;border:1px solid #CBD6E2;border-radius:7px;padding:7px 11px;cursor:pointer;font-size:12px;font-weight:600">
+        <input type="checkbox" value="${ag.nombre}" ${supervisados.includes(ag.nombre)?'checked':''}>
+        ${ag.nombre}
+        <span style="font-size:10px;color:${ROL_COLORS[ag.rol||'agente']};font-weight:400">${ROL_LABELS[ag.rol||'agente']}</span>
+      </label>`).join('')
+    : '<div style="color:#99ACC2;font-size:12px">No hay agentes registrados aún</div>';
+
+  document.getElementById('modal-hq-config').dataset.editId = id||'';
+  document.getElementById('hqc-nombre').value = a?.nombre||'';
+  document.getElementById('hqc-rol').value = a?.rol||'gerente';
+  document.getElementById('hqc-sueldo').value = a?.sueldoQuincenal!=null ? a.sueldoQuincenal : '';
+  document.getElementById('hqc-tel').value = a?.tel||'';
+  document.getElementById('hqc-email').value = a?.email||'';
+  document.getElementById('hqc-comisiones').innerHTML = comFields;
+  document.getElementById('hqc-supervisa').innerHTML = checkboxes;
+  document.getElementById('modal-hq-config').classList.add('open');
+}
+
+function guardarHQAgente() {
+  const nombre = document.getElementById('hqc-nombre').value.trim();
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre','error'); return; }
+  const rol    = document.getElementById('hqc-rol').value;
+  const sueldo = parseFloat(document.getElementById('hqc-sueldo').value)||0;
+  const tel    = document.getElementById('hqc-tel').value.trim();
+  const email  = document.getElementById('hqc-email').value.trim();
+  const comPs  = {};
+  document.querySelectorAll('.hq-prod-com').forEach(inp=>{
+    if(inp.value!=='') comPs[inp.dataset.prodId] = parseFloat(inp.value)||0;
+  });
+  const agentesSupervisa = [];
+  document.querySelectorAll('#hqc-supervisa input[type=checkbox]:checked').forEach(cb=>agentesSupervisa.push(cb.value));
+
+  const editId = parseInt(document.getElementById('modal-hq-config').dataset.editId)||null;
+  if(editId) {
+    const a = appData.agentes.find(x=>x.id===editId);
+    if(a) Object.assign(a, { nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, agentesSupervisa, soloHQ:true, activo:true });
+    showNotif('✅ Datos actualizados');
+  } else {
+    const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
+    appData.agentes.push({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, agentesSupervisa, soloHQ:true, activo:true });
+    if(!appData.nextId||appData.nextId<=maxId+1) appData.nextId=maxId+2;
+    showNotif('✅ Perfil creado en HEADQUARTERS');
+  }
+  guardar();
+  closeModal('modal-hq-config');
+  renderHQ();
+}
+
+// ============================================================
 // HEADQUARTERS — RENDER
 // ============================================================
 function renderHQ() {
   if(!sesion.hq) { document.getElementById('hq-content').innerHTML=''; return; }
   const meses = getMeses();
-  // Solo agentes marcados soloHQ
   const hqAgentes = appData.agentes.filter(a=>a.soloHQ);
 
   if(!hqAgentes.length) {
     document.getElementById('hq-content').innerHTML = `
-      <div style="text-align:center;padding:60px 20px;color:#99ACC2">
-        <div style="font-size:48px;margin-bottom:16px">🏛️</div>
-        <div style="font-size:16px;font-weight:700;margin-bottom:8px">HEADQUARTERS</div>
-        <div style="font-size:13px">No hay agentes asignados a HEADQUARTERS.<br>Ve a Agentes y activa <b>Solo HQ</b> en el perfil del Gerente General.</div>
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:56px;margin-bottom:16px">🏛️</div>
+        <div style="font-size:18px;font-weight:800;color:#33475B;margin-bottom:8px">HEADQUARTERS</div>
+        <div style="font-size:13px;color:#99ACC2;margin-bottom:28px">Crea el perfil del Gerente General para empezar a registrar sus pagos y comisiones.</div>
+        <button class="btn btn-success" style="font-size:14px;padding:12px 28px" onclick="openHQConfig()">➕ Crear Perfil de Gerente General</button>
       </div>`;
     return;
   }
@@ -1638,10 +1757,14 @@ function renderHQ() {
         <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">🏛️ HEADQUARTERS</h2>
         <div style="font-size:11px;color:#99ACC2">Pagos & Comisiones — Gerente General</div>
       </div>
-      <select id="hq-mes-sel" onchange="renderHQ()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
-        <option value="">📊 Todos los meses</option>
-        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
-      </select>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="hq-mes-sel" onchange="renderHQ()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
+          <option value="">📊 Todos los meses</option>
+          ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+        </select>
+        <button class="btn btn-success btn-sm" onclick="openHQConfig(${hqAgentes[0]?.id||''})">✏️ Editar Perfil</button>
+        <button class="btn btn-primary btn-sm" onclick="openHQConfig()">➕ Agregar</button>
+      </div>
     </div>`;
 
   hqAgentes.forEach(a=>{
@@ -1653,13 +1776,28 @@ function renderHQ() {
     const descTotal   = msFiltro.reduce((s,m)=>s+getExtra('desc',a.nombre,m),0);
     const netTotal    = comTotal+basicoTotal+bonosTotal+prestTotal-descTotal;
 
-    // Cards resumen
+    // Perfil + Cards resumen
+    const comPs = a.comisionesPersonales||{};
+    const prodsConRate = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
+    const supervisa = (a.agentesSupervisa||[]);
     html += `
       <div style="background:linear-gradient(135deg,#006644,#00BDA5);border-radius:12px;padding:20px;margin-bottom:18px;color:#fff">
-        <div style="font-size:13px;font-weight:700;opacity:0.7;margin-bottom:14px;text-transform:uppercase;letter-spacing:1px">
-          👤 ${a.nombre} — ${ROL_LABELS[a.rol||'gerente']}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:18px;font-weight:900;letter-spacing:-0.3px">👤 ${a.nombre}</div>
+            <div style="font-size:11px;opacity:0.7;margin-top:2px">${ROL_LABELS[a.rol||'gerente']} · Quincenal: ${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal):'Solo comisión'}${a.tel?` · 📞 ${a.tel}`:''}</div>
+            ${supervisa.length?`<div style="font-size:10px;opacity:0.6;margin-top:3px">Gana comisiones de: ${supervisa.join(', ')}</div>`:''}
+          </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+        <!-- Comisiones personales configuradas -->
+        ${prodsConRate.length?`<div style="margin-bottom:14px">
+          <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Comisiones personales por producto</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${prodsConRate.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.15);border-radius:5px;padding:3px 9px;font-weight:700">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
+          </div>
+        </div>`:'<div style="font-size:11px;opacity:0.5;margin-bottom:14px">Sin comisiones personales configuradas — usa el botón ✏️ Editar Perfil</div>'}
+        <!-- Resumen financiero -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;border-top:1px solid rgba(255,255,255,0.2);padding-top:14px">
           <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Comisiones</div><div style="font-size:20px;font-weight:800;color:#A7F3D0">${fmt(comTotal)}</div></div>
           <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTotal>0?fmt(basicoTotal):'—'}</div></div>
           <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Bonos</div><div style="font-size:20px;font-weight:800">${bonosTotal>0?fmt(bonosTotal):'—'}</div></div>
