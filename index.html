@@ -767,18 +767,22 @@ function getComision(v) {
 
 // Total de comisiones que un agente (o gerente/supervisor) gana en un mes
 function getComisionesMes(a, mes) {
+  const nombreLow = (a.nombre||'').trim().toLowerCase();
+  // Ventas directas propias (aplica a todos los roles)
+  const propias = appData.ventas
+    .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow)
+    .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0);
+  // Para gerentes/supervisores: también gana de sus agentes supervisados
   if(a.rol==='gerente'||a.rol==='supervisor') {
-    // Gana de las ventas de agentes que supervisa
     const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
-    if(!supervisados.length) return 0;
-    return appData.ventas
-      .filter(v=>v.mes===mes && supervisados.includes((v.agente||'').trim().toLowerCase()))
-      .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0);
-  } else {
-    return appData.ventas
-      .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase())
-      .reduce((s,v)=>s + getComision(v)*v.cantidad, 0);
+    const deAgentes = supervisados.length
+      ? appData.ventas
+          .filter(v=>v.mes===mes && supervisados.includes((v.agente||'').trim().toLowerCase()))
+          .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
+      : 0;
+    return propias + deAgentes;
   }
+  return propias;
 }
 function getProdNombre(productoId) {
   const p = PRODUCTOS_CATALOG.find(x=>x.id===productoId);
@@ -1769,71 +1773,176 @@ function renderHQ() {
 
   hqAgentes.forEach(a=>{
     const msFiltro = selMes ? [selMes] : meses;
-    const comTotal = msFiltro.reduce((s,m)=>s+getComisionesMes(a,m),0);
-    const basicoTotal = (a.sueldoQuincenal||0)*2*msFiltro.length;
-    const bonosTotal  = msFiltro.reduce((s,m)=>s+getExtra('bono',a.nombre,m),0);
-    const prestTotal  = msFiltro.reduce((s,m)=>s+getExtra('prest',a.nombre,m),0);
-    const descTotal   = msFiltro.reduce((s,m)=>s+getExtra('desc',a.nombre,m),0);
-    const netTotal    = comTotal+basicoTotal+bonosTotal+prestTotal-descTotal;
+    const comTotal  = msFiltro.reduce((s,m)=>s+getComisionesMes(a,m),0);
+    const basicoTot = (a.sueldoQuincenal||0)*2*msFiltro.length;
+    const bonosTot  = msFiltro.reduce((s,m)=>s+getExtra('bono',a.nombre,m),0);
+    const prestTot  = msFiltro.reduce((s,m)=>s+getExtra('prest',a.nombre,m),0);
+    const descTot   = msFiltro.reduce((s,m)=>s+getExtra('desc',a.nombre,m),0);
+    const netTotal  = comTotal+basicoTot+bonosTot+prestTot-descTot;
 
-    // Perfil + Cards resumen
-    const comPs = a.comisionesPersonales||{};
+    const comPs    = a.comisionesPersonales||{};
+    const supervisa= a.agentesSupervisa||[];
+
+    // ── CARD PERFIL ───────────────────────────────────────────
     const prodsConRate = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
-    const supervisa = (a.agentesSupervisa||[]);
     html += `
       <div style="background:linear-gradient(135deg,#006644,#00BDA5);border-radius:12px;padding:20px;margin-bottom:18px;color:#fff">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <div>
-            <div style="font-size:18px;font-weight:900;letter-spacing:-0.3px">👤 ${a.nombre}</div>
+            <div style="font-size:18px;font-weight:900">👤 ${a.nombre}</div>
             <div style="font-size:11px;opacity:0.7;margin-top:2px">${ROL_LABELS[a.rol||'gerente']} · Quincenal: ${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal):'Solo comisión'}${a.tel?` · 📞 ${a.tel}`:''}</div>
-            ${supervisa.length?`<div style="font-size:10px;opacity:0.6;margin-top:3px">Gana comisiones de: ${supervisa.join(', ')}</div>`:''}
+            ${supervisa.length?`<div style="font-size:10px;opacity:0.6;margin-top:3px">Gana comisiones de: <b>${supervisa.join(', ')}</b></div>`:'<div style="font-size:10px;color:#FCA5A5;margin-top:3px">⚠️ Sin agentes asignados — usa ✏️ Editar Perfil</div>'}
           </div>
         </div>
-        <!-- Comisiones personales configuradas -->
-        ${prodsConRate.length?`<div style="margin-bottom:14px">
-          <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Comisiones personales por producto</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px">
-            ${prodsConRate.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.15);border-radius:5px;padding:3px 9px;font-weight:700">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
-          </div>
-        </div>`:'<div style="font-size:11px;opacity:0.5;margin-bottom:14px">Sin comisiones personales configuradas — usa el botón ✏️ Editar Perfil</div>'}
-        <!-- Resumen financiero -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;border-top:1px solid rgba(255,255,255,0.2);padding-top:14px">
-          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Comisiones</div><div style="font-size:20px;font-weight:800;color:#A7F3D0">${fmt(comTotal)}</div></div>
-          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTotal>0?fmt(basicoTotal):'—'}</div></div>
-          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Bonos</div><div style="font-size:20px;font-weight:800">${bonosTotal>0?fmt(bonosTotal):'—'}</div></div>
-          <div><div style="font-size:10px;opacity:0.6;text-transform:uppercase">Descuentos</div><div style="font-size:20px;font-weight:800;color:#FCA5A5">${descTotal>0?'−'+fmt(descTotal):'—'}</div></div>
+        ${prodsConRate.length?`
+          <div style="margin-bottom:14px">
+            <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Su comisión por producto</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              ${prodsConRate.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.15);border-radius:5px;padding:3px 9px;font-weight:700">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
+            </div>
+          </div>`
+        :`<div style="font-size:11px;opacity:0.5;margin-bottom:14px">Sin comisiones por producto configuradas — usa ✏️ Editar Perfil</div>`}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;border-top:1px solid rgba(255,255,255,0.2);padding-top:14px">
+          <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Comisiones</div><div style="font-size:20px;font-weight:800;color:#A7F3D0">${fmt(comTotal)}</div></div>
+          <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTot>0?fmt(basicoTot):'—'}</div></div>
+          <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Bonos</div><div style="font-size:20px;font-weight:800">${bonosTot>0?fmt(bonosTot):'—'}</div></div>
+          <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Descuentos</div><div style="font-size:20px;font-weight:800;color:#FCA5A5">${descTot>0?'−'+fmt(descTot):'—'}</div></div>
           <div style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
-            <div style="font-size:10px;opacity:0.7;text-transform:uppercase">TOTAL A PAGAR</div>
-            <div style="font-size:24px;font-weight:900">${fmt(netTotal)}</div>
+            <div style="font-size:9px;opacity:0.7;text-transform:uppercase">TOTAL A PAGAR</div>
+            <div style="font-size:22px;font-weight:900">${fmt(netTotal)}</div>
           </div>
         </div>
       </div>`;
 
-    // Tabla por mes — dos filas por mes (Q1 y Q2)
-    const filas = meses.flatMap(mes=>{
+    // ── DESGLOSE COMISIONES POR AGENTE Y PRODUCTO ─────────────
+    const mesPara = selMes || (meses[meses.length-1]||'');
+    if(mesPara) {
+      const nombreLow = a.nombre.trim().toLowerCase();
+      // Ventas de agentes supervisados
+      const supervisadosLow = supervisa.map(n=>n.trim().toLowerCase());
+      const ventasSup = appData.ventas.filter(v=>v.mes===mesPara && supervisadosLow.includes((v.agente||'').trim().toLowerCase()));
+      // Ventas directas del propio gerente
+      const ventasPropias = appData.ventas.filter(v=>v.mes===mesPara && (v.agente||'').trim().toLowerCase()===nombreLow);
+
+      // Agrupar por agente → por producto
+      let desglose = '';
+      let grandTotal = 0;
+
+      // Sección por agente supervisado
+      supervisa.forEach(agNombre=>{
+        const vv = ventasSup.filter(v=>(v.agente||'').trim().toLowerCase()===agNombre.trim().toLowerCase());
+        if(!vv.length) return;
+        const prods = [...new Set(vv.map(v=>v.productoId))];
+        let subAg = 0;
+        const filasProd = prods.map(pid=>{
+          const vs  = vv.filter(v=>v.productoId===pid);
+          const qty = vs.reduce((s,v)=>s+v.cantidad,0);
+          const rate= getComisionParaAgente(pid, a.nombre);
+          const com = rate * qty;
+          subAg += com;
+          return `<tr>
+            <td style="padding-left:18px;color:#7C98B6">${getProdNombre(pid)}</td>
+            <td style="text-align:right;color:#009FDB;font-weight:700">${qty}</td>
+            <td style="text-align:right;color:#7C98B6">${fmt(rate)}</td>
+            <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(com)}</td>
+          </tr>`;
+        }).join('');
+        grandTotal += subAg;
+        desglose += `
+          <tr style="background:#EAF7FB">
+            <td style="font-weight:700;color:#0057A8">👤 ${agNombre}</td>
+            <td></td><td></td>
+            <td style="text-align:right;font-weight:800;color:#0057A8">${fmt(subAg)}</td>
+          </tr>${filasProd}`;
+      });
+
+      // Ventas directas propias
+      if(ventasPropias.length) {
+        const prodsPropios = [...new Set(ventasPropias.map(v=>v.productoId))];
+        let subProp = 0;
+        const filasP = prodsPropios.map(pid=>{
+          const vs  = ventasPropias.filter(v=>v.productoId===pid);
+          const qty = vs.reduce((s,v)=>s+v.cantidad,0);
+          const rate= getComisionParaAgente(pid, a.nombre);
+          const com = rate*qty;
+          subProp += com;
+          return `<tr>
+            <td style="padding-left:18px;color:#7C98B6">${getProdNombre(pid)}</td>
+            <td style="text-align:right;color:#6A78D1;font-weight:700">${qty}</td>
+            <td style="text-align:right;color:#7C98B6">${fmt(rate)}</td>
+            <td style="text-align:right;font-weight:700;color:#6A78D1">${fmt(com)}</td>
+          </tr>`;
+        }).join('');
+        grandTotal += subProp;
+        desglose += `
+          <tr style="background:#F0EDFF">
+            <td style="font-weight:700;color:#6A78D1">⭐ Ventas directas (${a.nombre})</td>
+            <td></td><td></td>
+            <td style="text-align:right;font-weight:800;color:#6A78D1">${fmt(subProp)}</td>
+          </tr>${filasP}`;
+      }
+
+      if(desglose) {
+        html += `
+          <div class="section" style="margin-bottom:18px">
+            <div class="section-header">
+              <h2>📦 Desglose de Comisiones — ${mesPara}</h2>
+              <button class="btn btn-primary btn-sm" onclick="openVentaHQ()">➕ Venta Directa</button>
+            </div>
+            <div class="tbl-wrap"><table>
+              <thead><tr>
+                <th>Agente / Producto</th>
+                <th style="text-align:right">Unidades</th>
+                <th style="text-align:right">Mi Comisión/u</th>
+                <th style="text-align:right">Total Ganado</th>
+              </tr></thead>
+              <tbody>${desglose}
+              <tr style="background:#F5F8FA;border-top:2px solid #CBD6E2">
+                <td colspan="3" style="font-weight:800;color:#33475B">TOTAL COMISIONES ${mesPara}</td>
+                <td style="text-align:right;font-weight:900;font-size:15px;color:#00BDA5">${fmt(grandTotal)}</td>
+              </tr></tbody>
+            </table></div>
+          </div>`;
+      } else {
+        html += `
+          <div class="section" style="margin-bottom:18px">
+            <div class="section-header">
+              <h2>📦 Desglose de Comisiones — ${mesPara}</h2>
+              <button class="btn btn-primary btn-sm" onclick="openVentaHQ()">➕ Venta Directa</button>
+            </div>
+            <div style="color:#99ACC2;padding:20px;text-align:center;font-size:13px">
+              Sin ventas registradas de los agentes supervisados en ${mesPara}.<br>
+              <span style="font-size:11px">Las ventas que registres en Administración → Registro Diario aparecerán aquí automáticamente.</span>
+            </div>
+          </div>`;
+      }
+    }
+
+    // ── HISTORIAL DE PAGOS ────────────────────────────────────
+    const filasHist = meses.flatMap(mes=>{
       return [1,2].map(q=>{
-        const pagado = appData.quincenas[getQuincenaKey(a.nombre,mes,q)];
-        const com    = getComisionesMes(a,mes)/2;
-        const bas    = (a.sueldoQuincenal||0);
-        const bon    = getExtra('bono',a.nombre,mes)/2;
-        const pres   = getExtra('prest',a.nombre,mes)/2;
-        const desc   = getExtra('desc',a.nombre,mes)/2;
-        const prev   = getPrevQuincena(meses,mes,q);
-        const deAnt  = prev ? getPend(a.nombre,prev.mes,prev.q) : 0;
-        const total  = com+bas+bon+pres+deAnt-desc;
+        const pagado= appData.quincenas[getQuincenaKey(a.nombre,mes,q)];
+        const com   = getComisionesMes(a,mes)/2;
+        const bas   = a.sueldoQuincenal||0;
+        const bon   = getExtra('bono',a.nombre,mes)/2;
+        const pres  = getExtra('prest',a.nombre,mes)/2;
+        const desc  = getExtra('desc',a.nombre,mes)/2;
+        const prev  = getPrevQuincena(meses,mes,q);
+        const deAnt = prev ? getPend(a.nombre,prev.mes,prev.q) : 0;
+        const total = com+bas+bon+pres+deAnt-desc;
         const deAntCell = deAnt>0
-          ? `<span style="font-weight:700;color:#D4A017;background:rgba(255,255,255,0.2);border-radius:5px;padding:2px 6px;font-size:11px">+${fmt(deAnt)}</span>`
-          : `<span style="opacity:0.4;font-size:11px">—</span>`;
-        return `<tr style="background:${q===2?'rgba(0,0,0,0.06)':'transparent'}">
-          <td style="font-weight:600;opacity:0.8">${mes} Q${q}</td>
+          ? `<b style="color:#D4A017">+${fmt(deAnt)}</b>`
+          : `<span style="color:#CBD6E2">—</span>`;
+        return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
+          <td style="font-weight:600;color:#7C98B6;font-size:11px">${mes} Q${q}</td>
           <td><button class="q-btn ${pagado?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',${q});renderHQ()">${pagado?'✅':'⏳'} Q${q}</button></td>
-          <td style="text-align:right;font-weight:700;color:#A7F3D0">${fmt(com)}</td>
-          <td style="text-align:right;opacity:0.8">${bas>0?fmt(bas):'—'}</td>
+          <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(com)}</td>
+          <td style="text-align:right;color:#7C98B6">${bas>0?fmt(bas):'—'}</td>
           <td style="text-align:right">${extraInput('bono',a.nombre,mes,'#6A78D1','0.00')}</td>
           <td style="text-align:right">${extraInput('prest',a.nombre,mes,'#F5C26B','0.00')}</td>
           <td style="text-align:right">${deAntCell}</td>
           <td style="text-align:right">${extraInput('desc',a.nombre,mes,'#F2545B','0.00')}</td>
-          <td style="text-align:right;font-weight:800;font-size:13px;color:${total>=0?'#A7F3D0':'#FCA5A5'}">${fmt(total)}</td>
+          <td style="text-align:right;font-weight:800;font-size:13px;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
           <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
         </tr>`;
       });
@@ -1841,7 +1950,7 @@ function renderHQ() {
 
     html += `
       <div class="section" style="margin-bottom:22px">
-        <div class="section-header"><h2>📅 Historial de Pagos</h2></div>
+        <div class="section-header"><h2>📅 Historial de Pagos por Quincena</h2></div>
         <div class="tbl-wrap"><table>
           <thead><tr>
             <th>Periodo</th><th>Estado</th>
@@ -1854,32 +1963,20 @@ function renderHQ() {
             <th style="text-align:right">TOTAL</th>
             <th style="text-align:right">⏩ Pend.→Sig.</th>
           </tr></thead>
-          <tbody>${filas}</tbody>
+          <tbody>${filasHist}</tbody>
         </table></div>
       </div>`;
-
-    // Ventas supervisadas por mes
-    if(selMes) {
-      const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
-      const ventasSup = appData.ventas.filter(v=>v.mes===selMes && supervisados.includes((v.agente||'').trim().toLowerCase()));
-      const prodBreak = [...new Set(ventasSup.map(v=>v.productoId))].map(pid=>{
-        const vs = ventasSup.filter(v=>v.productoId===pid);
-        const qty = vs.reduce((s,v)=>s+v.cantidad,0);
-        const com = vs.reduce((s,v)=>s+getComisionParaAgente(v.productoId,a.nombre)*v.cantidad,0);
-        return `<tr><td style="font-weight:600">${getProdNombre(pid)}</td><td style="text-align:right;color:#009FDB;font-weight:700">${qty}</td><td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(com)}</td></tr>`;
-      }).join('');
-      if(prodBreak) html += `
-        <div class="section" style="margin-bottom:22px">
-          <div class="section-header"><h2>📦 Desglose de Comisiones — ${selMes}</h2></div>
-          <div class="tbl-wrap"><table>
-            <thead><tr><th>Producto</th><th style="text-align:right">Unidades</th><th style="text-align:right">Com. Ganada</th></tr></thead>
-            <tbody>${prodBreak}</tbody>
-          </table></div>
-        </div>`;
-    }
   });
 
   document.getElementById('hq-content').innerHTML = html;
+}
+
+// Abrir modal de venta preseleccionando el agente HQ
+function openVentaHQ() {
+  const hqA = appData.agentes.find(a=>a.soloHQ);
+  openVentaModal();
+  if(hqA) setTimeout(()=>{ document.getElementById('v-agente').value=hqA.nombre; },50);
+  showNotif('📝 Registra la venta directa de '+( hqA?.nombre||'HQ'));
 }
 
 // ============================================================
