@@ -133,6 +133,18 @@ tr:hover td{background:#EAF0FB}
 .q-btn.pagado{background:#E8F9F7;color:#00A492;border-color:#00BDA5}
 .q-btn.pendiente{background:#FFFBE8;color:#D4A017;border-color:#F5C26B}
 
+/* PRIVADO */
+.priv-tab{padding:8px 18px;border-radius:8px 8px 0 0;border:none;cursor:pointer;font-size:12px;font-weight:700;background:#F5F8FA;color:#7C98B6;border-bottom:2px solid transparent;transition:all 0.15s}
+.priv-tab.active{background:#fff;color:#33475B;border-bottom:2px solid #009FDB}
+.priv-tabs{display:flex;gap:4px;border-bottom:1px solid #CBD6E2;margin-bottom:18px}
+.priv-section{display:none}.priv-section.active{display:block}
+.roi-card{background:linear-gradient(135deg,#33475B,#1a2b3c);border-radius:12px;padding:20px;color:#fff;margin-bottom:18px}
+.roi-card h3{font-size:13px;font-weight:700;opacity:0.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+.roi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.roi-item label{font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px}
+.roi-item .val{font-size:20px;font-weight:800;margin-top:4px}
+.roi-item .val.green{color:#00BDA5}.roi-item .val.red{color:#FF7A59}.roi-item .val.blue{color:#009FDB}.roi-item .val.yellow{color:#F5C26B}
+
 @media(max-width:768px){
 .sidebar{width:60px}
 .sidebar-logo p,.nav-item span,.nav-section,.sidebar-footer{display:none}
@@ -171,6 +183,8 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-section">Config</div>
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
+    <div class="nav-section">Privado</div>
+    <div class="nav-item" onclick="abrirPrivado(this)" id="nav-privado"><span class="icon">🔐</span><span>Área del Dueño</span></div>
   </nav>
   <div class="sidebar-footer">Dealer #594193 · USA Distributor</div>
 </aside>
@@ -314,9 +328,69 @@ tr:hover td{background:#EAF0FB}
       </div>
     </div>
 
+    <!-- ===== ÁREA PRIVADA ===== -->
+    <div class="page" id="page-privado">
+      <div id="privado-content"></div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 </div><!-- /app-wrap -->
+
+<!-- ===== MODAL PIN ===== -->
+<div class="modal-overlay" id="modal-pin">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#33475B,#1a2b3c)">
+      <h3 style="color:#fff" id="pin-titulo">🔐 Área Privada</h3>
+      <button class="modal-close" style="color:rgba(255,255,255,0.6)" onclick="closeModal('modal-pin')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:30px">
+      <div style="font-size:40px;margin-bottom:12px">🔒</div>
+      <div style="font-size:13px;color:#7C98B6;margin-bottom:20px" id="pin-desc">Ingresa tu PIN para acceder</div>
+      <input type="password" id="pin-input" maxlength="20" placeholder="••••••"
+        style="width:100%;text-align:center;font-size:22px;letter-spacing:6px;padding:12px;border:2px solid #CBD6E2;border-radius:10px;outline:none;color:#33475B;background:#F5F8FA"
+        onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'"
+        onkeydown="if(event.key==='Enter')verificarPin()">
+      <div id="pin-error" style="color:#F2545B;font-size:12px;margin-top:8px;display:none">PIN incorrecto. Intenta de nuevo.</div>
+      <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="verificarPin()">Entrar</button>
+      <div style="margin-top:14px;font-size:11px;color:#99ACC2" id="pin-hint"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL GASTO ===== -->
+<div class="modal-overlay" id="modal-gasto">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3 id="modal-gasto-title">➕ Nuevo Gasto</h3>
+      <button class="modal-close" onclick="closeModal('modal-gasto')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="g-fecha"></div>
+        <div class="form-group">
+          <label>Tipo *</label>
+          <select id="g-tipo">
+            <option value="fijo">📌 Gasto Fijo</option>
+            <option value="variable">📊 Gasto Variable</option>
+            <option value="otro">📎 Otro</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1"><label>Descripción *</label><input type="text" id="g-desc" placeholder="Ej: Renta oficina, Publicidad..."></div>
+        <div class="form-group"><label>Monto ($) *</label><input type="number" id="g-monto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group">
+          <label>Mes</label>
+          <select id="g-mes"></select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1"><label>Notas</label><input type="text" id="g-notas" placeholder="Observaciones..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-gasto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarGasto()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== MODAL VENTA ===== -->
 <div class="modal-overlay" id="modal-venta">
@@ -504,8 +578,12 @@ let appData = {
   ventas: [],
   quincenas: {},
   meses: [],
-  comisiones: {}, // { productoId: monto } — overrides del catálogo
+  comisiones: {},
+  gastos: [],
   nextId: 1,
+  nextGastoId: 1,
+  pins: { dueno: '1234', gerente: '0000' }, // PINs por defecto (dueño debe cambiar)
+  accesoPrivado: [], // nombres de agentes con acceso gerente
 };
 
 function guardar() {
@@ -515,7 +593,7 @@ function guardar() {
 function cargar() {
   const s = localStorage.getItem('attVND_v1');
   if (s) {
-    appData = { comisiones:{}, quincenas:{}, ...JSON.parse(s) };
+    appData = { comisiones:{}, quincenas:{}, gastos:[], nextGastoId:1, pins:{dueno:'1234',gerente:'0000'}, accesoPrivado:[], ...JSON.parse(s) };
   } else {
     // Datos de ejemplo
     const hoy = new Date();
@@ -600,7 +678,8 @@ function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.g
 // ============================================================
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
-  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', productos:'📦 Productos & Comisiones'
+  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', productos:'📦 Productos & Comisiones',
+  privado:'🔐 Área Privada'
 };
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -617,6 +696,7 @@ function renderPage(name) {
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
   if(name==='productos') renderProductos();
+  if(name==='privado') renderPrivado();
 }
 
 // ============================================================
@@ -1341,6 +1421,355 @@ function updateComision(prodId, valor) {
   appData.comisiones[prodId] = valor;
   guardar();
   showNotif(`✅ Comisión actualizada: ${fmt(valor)}`);
+}
+
+// ============================================================
+// ÁREA PRIVADA — AUTH
+// ============================================================
+let privadoNivel = null; // null | 'dueno' | 'gerente'
+
+function abrirPrivado(el) {
+  if(privadoNivel) {
+    showPage('privado', el);
+    return;
+  }
+  document.getElementById('pin-titulo').textContent = '🔐 Área Privada';
+  document.getElementById('pin-desc').textContent = 'Ingresa tu PIN de acceso';
+  document.getElementById('pin-hint').innerHTML = '¿Eres gerente/supervisor? Usa el PIN de acceso gerencial.';
+  document.getElementById('pin-error').style.display='none';
+  document.getElementById('pin-input').value='';
+  document.getElementById('modal-pin').classList.add('open');
+  document.getElementById('modal-pin').dataset.navEl = '';
+  setTimeout(()=>document.getElementById('pin-input').focus(),200);
+  // Guardamos el elemento nav para activarlo si entra bien
+  window._privNavEl = el;
+}
+
+function verificarPin() {
+  const input = document.getElementById('pin-input').value.trim();
+  const pins = appData.pins || { dueno:'1234', gerente:'0000' };
+  if(input === pins.dueno) {
+    privadoNivel = 'dueno';
+  } else if(input === pins.gerente) {
+    privadoNivel = 'gerente';
+  } else {
+    document.getElementById('pin-error').style.display='block';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').focus();
+    return;
+  }
+  closeModal('modal-pin');
+  showPage('privado', window._privNavEl);
+  showNotif('🔓 Acceso concedido — '+(privadoNivel==='dueno'?'Dueño':'Gerencial'));
+}
+
+function cerrarSesionPrivada() {
+  privadoNivel = null;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const dashNav = document.querySelector('.nav-item[onclick*="dashboard"]');
+  if(dashNav) dashNav.classList.add('active');
+  showPage('dashboard');
+  showNotif('🔒 Sesión privada cerrada');
+}
+
+// ============================================================
+// ÁREA PRIVADA — RENDER
+// ============================================================
+function renderPrivado() {
+  if(!privadoNivel) { document.getElementById('privado-content').innerHTML='<div style="padding:40px;text-align:center;color:#99ACC2">Sin acceso</div>'; return; }
+  const esDueno = privadoNivel==='dueno';
+
+  document.getElementById('privado-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:17px;font-weight:800;color:#33475B">🔐 Área Privada — ${esDueno?'👑 Dueño':'🔷 Gerencial'}</h2>
+        <div style="font-size:11px;color:#99ACC2;margin-top:2px">${esDueno?'Acceso completo: ROI, gastos, nómina, configuración':'Acceso a nómina y comisiones pagadas'}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="cerrarSesionPrivada()">🔒 Cerrar sesión</button>
+    </div>
+    <div class="priv-tabs">
+      <button class="priv-tab active" onclick="switchPrivTab('roi',this)">📈 ROI & Finanzas</button>
+      <button class="priv-tab" onclick="switchPrivTab('gastos',this)">💸 Gastos</button>
+      <button class="priv-tab" onclick="switchPrivTab('nomina',this)">👥 Nómina</button>
+      ${esDueno?`<button class="priv-tab" onclick="switchPrivTab('config',this)">⚙️ Config</button>`:''}
+    </div>
+    <div class="priv-section active" id="priv-roi"></div>
+    <div class="priv-section" id="priv-gastos"></div>
+    <div class="priv-section" id="priv-nomina"></div>
+    ${esDueno?`<div class="priv-section" id="priv-config"></div>`:''}
+  `;
+  renderPrivROI();
+  renderPrivGastos();
+  renderPrivNomina();
+  if(esDueno) renderPrivConfig();
+}
+
+function switchPrivTab(id, el) {
+  document.querySelectorAll('.priv-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.priv-section').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('priv-'+id).classList.add('active');
+}
+
+// ── ROI & Finanzas ──────────────────────────────────────────
+function renderPrivROI() {
+  const meses = getMeses();
+  const selMes = document.getElementById('priv-roi-mes-sel')?.value || meses[meses.length-1] || '';
+
+  // Para cada venta: empresa gana precio catálogo, agente gana su tarifa personal
+  function calcMes(mes) {
+    const ventas = mes ? appData.ventas.filter(v=>v.mes===mes) : appData.ventas;
+    const ingresosEmpresa = ventas.reduce((s,v)=>s+getCatalogCom(v.productoId)*v.cantidad, 0);
+    const comAgentes = ventas.reduce((s,v)=>s+getComision(v)*v.cantidad, 0);
+    // Gerentes/supervisores también cobran de ventas
+    const comGerentes = appData.agentes
+      .filter(a=>a.rol==='gerente'||a.rol==='supervisor')
+      .reduce((s,a)=>s+(mes?getComisionesMes(a,mes):getMeses().reduce((ss,m)=>ss+getComisionesMes(a,m),0)), 0);
+    const gastos = (mes ? appData.gastos.filter(g=>g.mes===mes) : appData.gastos).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const gastosFijos = (mes ? appData.gastos.filter(g=>g.mes===mes&&g.tipo==='fijo') : appData.gastos.filter(g=>g.tipo==='fijo')).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const gastosVar = (mes ? appData.gastos.filter(g=>g.mes===mes&&g.tipo==='variable') : appData.gastos.filter(g=>g.tipo==='variable')).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    // Nómina pagada (quincenas marcadas)
+    let nominaPagada = 0;
+    appData.agentes.forEach(a=>{
+      const msLista = mes ? [mes] : getMeses();
+      msLista.forEach(m=>{
+        if(appData.quincenas[getQuincenaKey(a.nombre,m,1)]) nominaPagada+=a.sueldoQuincenal||0;
+        if(appData.quincenas[getQuincenaKey(a.nombre,m,2)]) nominaPagada+=a.sueldoQuincenal||0;
+      });
+    });
+    const totalEgresos = comAgentes + comGerentes + gastos + nominaPagada;
+    const utilidad = ingresosEmpresa - totalEgresos;
+    const roi = ingresosEmpresa>0 ? (utilidad/ingresosEmpresa*100) : 0;
+    return { ingresosEmpresa, comAgentes, comGerentes, gastos, gastosFijos, gastosVar, nominaPagada, totalEgresos, utilidad, roi, ventas:ventas.length, units:ventas.reduce((s,v)=>s+v.cantidad,0) };
+  }
+
+  const d = calcMes(selMes);
+
+  // Desglose por producto
+  const ventasMes = selMes ? appData.ventas.filter(v=>v.mes===selMes) : appData.ventas;
+  const prodBreak = PRODUCTOS_CATALOG.map(p=>{
+    const vs = ventasMes.filter(v=>v.productoId===p.id);
+    if(!vs.length) return null;
+    const qty = vs.reduce((s,v)=>s+v.cantidad,0);
+    const ingresos = getCatalogCom(p.id)*qty;
+    const pagadoAgentes = vs.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+    const pagadoGerentes = appData.agentes
+      .filter(a=>a.rol==='gerente'||a.rol==='supervisor')
+      .reduce((s,a)=>{
+        const supervisados=(a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+        const vvsup=vs.filter(v=>supervisados.includes((v.agente||'').trim().toLowerCase()));
+        return s+vvsup.reduce((ss,v)=>ss+getComisionParaAgente(v.productoId,a.nombre)*v.cantidad,0);
+      },0);
+    const pagadoTotal = pagadoAgentes+pagadoGerentes;
+    const margen = ingresos - pagadoTotal;
+    const pct = ingresos>0?(margen/ingresos*100):0;
+    return { nombre:p.nombre, cat:p.cat, qty, ingresos, pagadoTotal, margen, pct };
+  }).filter(Boolean);
+
+  document.getElementById('priv-roi').innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+      <label style="font-size:12px;font-weight:600;color:#7C98B6">Mes:</label>
+      <select onchange="renderPrivROI()" id="priv-roi-mes-sel" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:6px 12px;border-radius:8px;font-size:12px;outline:none">
+        <option value="">📊 Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="roi-card">
+      <h3>📊 Resumen Financiero — ${selMes||'Todos los meses'}</h3>
+      <div class="roi-grid">
+        <div class="roi-item"><label>Ingresos AT&T</label><div class="val blue">${fmt(d.ingresosEmpresa)}</div><div style="font-size:10px;opacity:0.5">${d.units} unidades</div></div>
+        <div class="roi-item"><label>Com. Agentes</label><div class="val red">−${fmt(d.comAgentes)}</div></div>
+        <div class="roi-item"><label>Com. Gerentes</label><div class="val red">−${fmt(d.comGerentes)}</div></div>
+        <div class="roi-item"><label>Nómina Pagada</label><div class="val red">−${fmt(d.nominaPagada)}</div></div>
+        <div class="roi-item"><label>Gastos Fijos</label><div class="val red">−${fmt(d.gastosFijos)}</div></div>
+        <div class="roi-item"><label>Gastos Variables</label><div class="val red">−${fmt(d.gastosVar)}</div></div>
+        <div class="roi-item" style="background:rgba(255,255,255,0.08);border-radius:8px;padding:10px"><label>UTILIDAD NETA</label><div class="val ${d.utilidad>=0?'green':'red'}">${fmt(d.utilidad)}</div></div>
+        <div class="roi-item" style="background:rgba(255,255,255,0.08);border-radius:8px;padding:10px"><label>ROI</label><div class="val ${d.roi>=0?'green':'red'}">${d.roi.toFixed(1)}%</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><h2>📦 Margen por Producto</h2></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Producto</th><th style="text-align:right">Unidades</th><th style="text-align:right">Ingreso AT&T</th><th style="text-align:right">Pagado a Equipo</th><th style="text-align:right">Margen</th><th style="text-align:right">% Margen</th></tr></thead>
+        <tbody>
+        ${prodBreak.map(p=>`<tr>
+          <td style="font-weight:600">${p.nombre}</td>
+          <td style="text-align:right;color:#009FDB;font-weight:700">${p.qty}</td>
+          <td style="text-align:right;color:#00BDA5;font-weight:700">${fmt(p.ingresos)}</td>
+          <td style="text-align:right;color:#F2545B">${fmt(p.pagadoTotal)}</td>
+          <td style="text-align:right;font-weight:800;color:${p.margen>=0?'#00BDA5':'#F2545B'}">${fmt(p.margen)}</td>
+          <td style="text-align:right">
+            <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${p.pct>=30?'#E8F9F7':p.pct>=10?'#FFFBE8':'#FFF0F0'};color:${p.pct>=30?'#00A492':p.pct>=10?'#D4A017':'#E04048'}">${p.pct.toFixed(0)}%</span>
+          </td>
+        </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+}
+
+// ── Gastos ──────────────────────────────────────────────────
+let editGastoId = null;
+function renderPrivGastos() {
+  const meses = getMeses();
+  const gastos = [...appData.gastos].sort((a,b)=>b.id-a.id);
+  const totalFijo = gastos.filter(g=>g.tipo==='fijo').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  const totalVar  = gastos.filter(g=>g.tipo==='variable').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  document.getElementById('priv-gastos').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:12px;font-size:13px">
+        <span>Gastos Fijos: <b style="color:#F2545B">${fmt(totalFijo)}</b></span>
+        <span>Gastos Variables: <b style="color:#FF7A59">${fmt(totalVar)}</b></span>
+        <span>Total: <b style="color:#33475B">${fmt(totalFijo+totalVar)}</b></span>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openGastoModal()">➕ Nuevo Gasto</button>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Mes</th><th style="text-align:right">Monto</th><th>Acc.</th></tr></thead>
+      <tbody>${gastos.length ? gastos.map(g=>`<tr>
+        <td>${g.fecha}</td>
+        <td><span style="font-size:10px;padding:2px 8px;border-radius:20px;background:${g.tipo==='fijo'?'#FFF0F0':'#FFF3EE'};color:${g.tipo==='fijo'?'#E04048':'#E66E50'};font-weight:700">${g.tipo==='fijo'?'📌 Fijo':'📊 Variable'}</span></td>
+        <td style="font-weight:600">${g.descripcion}</td>
+        <td style="color:#7C98B6">${g.mes||'—'}</td>
+        <td style="text-align:right;font-weight:700;color:#F2545B">${fmt(g.monto)}</td>
+        <td><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${g.id})">✕</button></td>
+      </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Sin gastos registrados</td></tr>'}</tbody>
+    </table></div>`;
+}
+
+function openGastoModal(id=null) {
+  editGastoId = id;
+  const meses = getMeses();
+  document.getElementById('g-mes').innerHTML = meses.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('g-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('g-tipo').value = 'fijo';
+  document.getElementById('g-desc').value = '';
+  document.getElementById('g-monto').value = '';
+  document.getElementById('g-notas').value = '';
+  document.getElementById('g-mes').value = meses[meses.length-1]||'';
+  document.getElementById('modal-gasto').classList.add('open');
+}
+function guardarGasto() {
+  const desc = document.getElementById('g-desc').value.trim();
+  const monto = parseFloat(document.getElementById('g-monto').value)||0;
+  if(!desc) { showNotif('⚠️ Ingresa la descripción','error'); return; }
+  if(!monto) { showNotif('⚠️ Ingresa el monto','error'); return; }
+  const maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
+  appData.gastos.push({
+    id: maxId+1,
+    fecha: document.getElementById('g-fecha').value,
+    tipo: document.getElementById('g-tipo').value,
+    descripcion: desc,
+    monto,
+    mes: document.getElementById('g-mes').value,
+    notas: document.getElementById('g-notas').value.trim(),
+  });
+  guardar();
+  closeModal('modal-gasto');
+  renderPrivGastos();
+  showNotif('✅ Gasto registrado');
+}
+function eliminarGasto(id) {
+  if(!confirm('¿Eliminar gasto?')) return;
+  appData.gastos = appData.gastos.filter(g=>g.id!==id);
+  guardar();
+  renderPrivGastos();
+  showNotif('🗑️ Gasto eliminado');
+}
+
+// ── Nómina ──────────────────────────────────────────────────
+function renderPrivNomina() {
+  const meses = getMeses();
+  let htmlMeses = meses.map(mes=>{
+    const filas = appData.agentes.map(a=>{
+      const q1 = appData.quincenas[getQuincenaKey(a.nombre,mes,1)];
+      const q2 = appData.quincenas[getQuincenaKey(a.nombre,mes,2)];
+      const comMes  = getComisionesMes(a,mes);
+      const basico  = (a.sueldoQuincenal||0)*2;
+      const bonos   = getExtra('bono',a.nombre,mes);
+      const prest   = getExtra('prest',a.nombre,mes);
+      const desc    = getExtra('desc',a.nombre,mes);
+      const total   = comMes+basico+bonos+prest-desc;
+      return `<tr>
+        <td style="font-weight:600">${a.nombre}</td>
+        <td><span style="font-size:10px;padding:2px 7px;border-radius:20px;background:${ROL_BG[a.rol||'agente']};color:${ROL_COLORS[a.rol||'agente']};font-weight:700">${ROL_LABELS[a.rol||'agente']}</span></td>
+        <td style="text-align:right;color:#009FDB;font-weight:700">${fmt(comMes)}</td>
+        <td style="text-align:right;color:#7C98B6">${basico>0?fmt(basico):'—'}</td>
+        <td style="text-align:right;color:#6A78D1">${bonos>0?fmt(bonos):'—'}</td>
+        <td style="text-align:right;color:#F5C26B">${prest>0?fmt(prest):'—'}</td>
+        <td style="text-align:right;color:#F2545B">${desc>0?fmt(desc):'—'}</td>
+        <td style="text-align:right;font-weight:800;color:#00BDA5">${fmt(total)}</td>
+        <td style="text-align:center">${q1?'✅':''} Q1 ${q2?'✅':''} Q2</td>
+      </tr>`;
+    }).join('');
+    const totalNomina = appData.agentes.reduce((s,a)=>{
+      const comMes=getComisionesMes(a,mes);
+      const basico=(a.sueldoQuincenal||0)*2;
+      const bonos=getExtra('bono',a.nombre,mes);
+      const prest=getExtra('prest',a.nombre,mes);
+      const desc=getExtra('desc',a.nombre,mes);
+      return s+comMes+basico+bonos+prest-desc;
+    },0);
+    return `<div class="section" style="margin-bottom:14px">
+      <div class="section-header">
+        <h2>📅 ${mes}</h2>
+        <span style="font-size:13px;font-weight:700;color:#F2545B">Total a pagar: ${fmt(totalNomina)}</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Agente</th><th>Rol</th><th style="text-align:right">Comisiones</th><th style="text-align:right">Básico</th><th style="text-align:right">Bonos</th><th style="text-align:right">Préstamos</th><th style="text-align:right">Descuento</th><th style="text-align:right">TOTAL</th><th>Quinc.</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
+  document.getElementById('priv-nomina').innerHTML = htmlMeses || '<div style="color:#99ACC2;padding:20px">Sin datos de nómina</div>';
+}
+
+// ── Config Dueño ────────────────────────────────────────────
+function renderPrivConfig() {
+  const pins = appData.pins||{dueno:'1234',gerente:'0000'};
+  const acceso = appData.accesoPrivado||[];
+  document.getElementById('priv-config').innerHTML = `
+    <div class="section" style="margin-bottom:16px">
+      <div class="section-header"><h2>🔑 PINs de Acceso</h2></div>
+      <div class="form-grid" style="max-width:480px">
+        <div class="form-group">
+          <label>PIN del Dueño</label>
+          <input type="password" id="cfg-pin-dueno" value="${pins.dueno}" placeholder="PIN" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:13px;outline:none">
+        </div>
+        <div class="form-group">
+          <label>PIN Gerencial (Jose, Oriana, etc.)</label>
+          <input type="password" id="cfg-pin-gerente" value="${pins.gerente}" placeholder="PIN" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:13px;outline:none">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="guardarPins()">💾 Guardar PINs</button>
+      <div style="font-size:11px;color:#99ACC2;margin-top:8px">⚠️ Cambia los PINs por defecto (1234 / 0000) por unos seguros.</div>
+    </div>
+    <div class="section">
+      <div class="section-header"><h2>👥 Acceso Gerencial</h2><div style="font-size:11px;color:#7C98B6">Personas con acceso al PIN gerencial</div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        ${appData.agentes.filter(a=>a.rol==='supervisor'||a.rol==='gerente').map(a=>`
+          <label style="display:flex;align-items:center;gap:6px;background:#F5F8FA;border:1px solid #CBD6E2;border-radius:7px;padding:7px 12px;cursor:pointer;font-size:12px">
+            <input type="checkbox" value="${a.nombre}" ${acceso.includes(a.nombre)?'checked':''} onchange="toggleAcceso('${a.nombre}',this.checked)">
+            ${a.nombre}
+          </label>`).join('') || '<div style="color:#99ACC2;font-size:12px">No hay supervisores/gerentes registrados</div>'}
+      </div>
+    </div>`;
+}
+
+function guardarPins() {
+  const dueno = document.getElementById('cfg-pin-dueno').value.trim();
+  const gerente = document.getElementById('cfg-pin-gerente').value.trim();
+  if(!dueno||!gerente) { showNotif('⚠️ Ingresa ambos PINs','error'); return; }
+  appData.pins = { dueno, gerente };
+  guardar();
+  showNotif('✅ PINs actualizados');
+}
+function toggleAcceso(nombre, checked) {
+  if(!appData.accesoPrivado) appData.accesoPrivado=[];
+  if(checked) { if(!appData.accesoPrivado.includes(nombre)) appData.accesoPrivado.push(nombre); }
+  else appData.accesoPrivado = appData.accesoPrivado.filter(n=>n!==nombre);
+  guardar();
 }
 
 // ============================================================
