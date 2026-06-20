@@ -613,7 +613,7 @@ tr:hover td{background:#EAF0FB}
         💰 Comisión Personal por Producto
         <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — lo que gana él por cada unidad vendida por sus agentes</span>
       </div>
-      <div id="hqc-comisiones" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+      <div id="hqc-comisiones" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"></div>
 
       <!-- Agentes de quienes gana comisión -->
       <div style="font-size:10px;font-weight:700;color:#00A492;text-transform:uppercase;letter-spacing:1.2px;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2;margin-bottom:8px">
@@ -751,13 +751,22 @@ function getCatalogCom(productoId) {
   return prod ? (prod.comision||0) : 0;
 }
 
-// Devuelve la comisión personal del agente para un producto (o la del catálogo si no tiene override)
+// Devuelve la comisión de supervisión (lo que gana de ventas de agentes supervisados)
 function getComisionParaAgente(productoId, agenteNombre) {
   const a = appData.agentes.find(x=>(x.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
   if(a && a.comisionesPersonales && a.comisionesPersonales[productoId] !== undefined) {
     return parseFloat(a.comisionesPersonales[productoId])||0;
   }
   return getCatalogCom(productoId);
+}
+// Devuelve la comisión de VENTA DIRECTA (lo que gana cuando él mismo hace la venta)
+function getComisionDirectaAgente(productoId, agenteNombre) {
+  const a = appData.agentes.find(x=>(x.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
+  if(a && a.comisionesDirectas && a.comisionesDirectas[productoId] !== undefined) {
+    return parseFloat(a.comisionesDirectas[productoId])||0;
+  }
+  // Si no tiene tarifa directa configurada, usa la personal (supervisión) o catálogo
+  return getComisionParaAgente(productoId, agenteNombre);
 }
 
 // Comisión de una venta (usa la del agente que la hizo)
@@ -768,11 +777,11 @@ function getComision(v) {
 // Total de comisiones que un agente (o gerente/supervisor) gana en un mes
 function getComisionesMes(a, mes) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
-  // Ventas directas propias (aplica a todos los roles)
+  // Ventas directas propias → usa tarifa DIRECTA (la más alta)
   const propias = appData.ventas
     .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow)
-    .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0);
-  // Para gerentes/supervisores: también gana de sus agentes supervisados
+    .reduce((s,v)=>s + getComisionDirectaAgente(v.productoId, a.nombre)*v.cantidad, 0);
+  // Gerentes/supervisores: también gana de agentes supervisados → usa tarifa DE SUPERVISIÓN (la pequeña)
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
     const deAgentes = supervisados.length
@@ -1671,17 +1680,28 @@ function openHQConfig(id=null) {
   const supervisados = a?.agentesSupervisa||[];
   const otros = appData.agentes.filter(x=>!x.soloHQ);
 
+  const comDirs = a?.comisionesDirectas||{};
   const comFields = PRODUCTOS_CATALOG.map(p=>{
-    const val = comPs[p.id]!==undefined ? comPs[p.id] : '';
-    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center;gap:6px">
-      <div>
-        <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}</div>
-        <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
+    const valSup = comPs[p.id]!==undefined ? comPs[p.id] : '';
+    const valDir = comDirs[p.id]!==undefined ? comDirs[p.id] : '';
+    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2">
+      <div style="font-size:11px;font-weight:600;color:#33475B;margin-bottom:6px">${p.nombre} <span style="font-size:9px;color:#99ACC2;font-weight:400">· catálogo: ${fmt(p.comision)}</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1">
+          <div style="font-size:9px;color:#6A78D1;font-weight:700;text-transform:uppercase;margin-bottom:2px">👥 De Agentes</div>
+          <input type="number" min="0" step="0.01" value="${valSup}" placeholder="0.00"
+            data-prod-id="${p.id}" class="hq-prod-com"
+            style="width:100%;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#6A78D1;outline:none;text-align:right"
+            onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='#CBD6E2'">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:9px;color:#00BDA5;font-weight:700;text-transform:uppercase;margin-bottom:2px">⭐ Venta Directa</div>
+          <input type="number" min="0" step="0.01" value="${valDir}" placeholder="0.00"
+            data-prod-id="${p.id}" class="hq-prod-dir"
+            style="width:100%;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#00BDA5;outline:none;text-align:right"
+            onfocus="this.style.borderColor='#00BDA5'" onblur="this.style.borderColor='#CBD6E2'">
+        </div>
       </div>
-      <input type="number" min="0" step="0.01" value="${val}" placeholder="${p.comision}"
-        data-prod-id="${p.id}" class="hq-prod-com"
-        style="width:68px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#00BDA5;outline:none;text-align:right"
-        onfocus="this.style.borderColor='#00BDA5'" onblur="this.style.borderColor='#CBD6E2'">
     </div>`;
   }).join('');
 
@@ -1715,17 +1735,21 @@ function guardarHQAgente() {
   document.querySelectorAll('.hq-prod-com').forEach(inp=>{
     if(inp.value!=='') comPs[inp.dataset.prodId] = parseFloat(inp.value)||0;
   });
+  const comDirs = {};
+  document.querySelectorAll('.hq-prod-dir').forEach(inp=>{
+    if(inp.value!=='') comDirs[inp.dataset.prodId] = parseFloat(inp.value)||0;
+  });
   const agentesSupervisa = [];
   document.querySelectorAll('#hqc-supervisa input[type=checkbox]:checked').forEach(cb=>agentesSupervisa.push(cb.value));
 
   const editId = parseInt(document.getElementById('modal-hq-config').dataset.editId)||null;
   if(editId) {
     const a = appData.agentes.find(x=>x.id===editId);
-    if(a) Object.assign(a, { nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, agentesSupervisa, soloHQ:true, activo:true });
+    if(a) Object.assign(a, { nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, soloHQ:true, activo:true });
     showNotif('✅ Datos actualizados');
   } else {
     const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
-    appData.agentes.push({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, agentesSupervisa, soloHQ:true, activo:true });
+    appData.agentes.push({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, soloHQ:true, activo:true });
     if(!appData.nextId||appData.nextId<=maxId+1) appData.nextId=maxId+2;
     showNotif('✅ Perfil creado en HEADQUARTERS');
   }
@@ -1781,27 +1805,35 @@ function renderHQ() {
     const netTotal  = comTotal+basicoTot+bonosTot+prestTot-descTot;
 
     const comPs    = a.comisionesPersonales||{};
+    const comDirs  = a.comisionesDirectas||{};
     const supervisa= a.agentesSupervisa||[];
 
     // ── CARD PERFIL ───────────────────────────────────────────
-    const prodsConRate = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
+    const prodsConSup = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
+    const prodsConDir = PRODUCTOS_CATALOG.filter(p=>comDirs[p.id]!==undefined);
     html += `
       <div style="background:linear-gradient(135deg,#006644,#00BDA5);border-radius:12px;padding:20px;margin-bottom:18px;color:#fff">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <div>
             <div style="font-size:18px;font-weight:900">👤 ${a.nombre}</div>
             <div style="font-size:11px;opacity:0.7;margin-top:2px">${ROL_LABELS[a.rol||'gerente']} · Quincenal: ${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal):'Solo comisión'}${a.tel?` · 📞 ${a.tel}`:''}</div>
-            ${supervisa.length?`<div style="font-size:10px;opacity:0.6;margin-top:3px">Gana comisiones de: <b>${supervisa.join(', ')}</b></div>`:'<div style="font-size:10px;color:#FCA5A5;margin-top:3px">⚠️ Sin agentes asignados — usa ✏️ Editar Perfil</div>'}
+            ${supervisa.length?`<div style="font-size:10px;opacity:0.6;margin-top:3px">Gana supervisión de: <b>${supervisa.join(', ')}</b></div>`:'<div style="font-size:10px;color:#FCA5A5;margin-top:3px">⚠️ Sin agentes asignados — usa ✏️ Editar Perfil</div>'}
           </div>
         </div>
-        ${prodsConRate.length?`
-          <div style="margin-bottom:14px">
-            <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Su comisión por producto</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px">
-              ${prodsConRate.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.15);border-radius:5px;padding:3px 9px;font-weight:700">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${prodsConSup.length?`<div>
+            <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">👥 Com. de Agentes (supervisión)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              ${prodsConSup.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.12);border-radius:5px;padding:2px 8px;font-weight:700">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
             </div>
-          </div>`
-        :`<div style="font-size:11px;opacity:0.5;margin-bottom:14px">Sin comisiones por producto configuradas — usa ✏️ Editar Perfil</div>`}
+          </div>`:'<div style="font-size:11px;opacity:0.4">Sin tarifas de supervisión</div>'}
+          ${prodsConDir.length?`<div>
+            <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">⭐ Com. Venta Directa</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              ${prodsConDir.map(p=>`<span style="font-size:10px;background:rgba(167,243,208,0.2);border:1px solid rgba(167,243,208,0.4);border-radius:5px;padding:2px 8px;font-weight:700;color:#A7F3D0">${p.nombre}: ${fmt(comDirs[p.id])}</span>`).join('')}
+            </div>
+          </div>`:'<div style="font-size:11px;opacity:0.4">Sin tarifas directas configuradas</div>'}
+        </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;border-top:1px solid rgba(255,255,255,0.2);padding-top:14px">
           <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Comisiones</div><div style="font-size:20px;font-weight:800;color:#A7F3D0">${fmt(comTotal)}</div></div>
           <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTot>0?fmt(basicoTot):'—'}</div></div>
@@ -1856,29 +1888,29 @@ function renderHQ() {
           </tr>${filasProd}`;
       });
 
-      // Ventas directas propias
+      // Ventas directas propias → usa tarifa DIRECTA
       if(ventasPropias.length) {
         const prodsPropios = [...new Set(ventasPropias.map(v=>v.productoId))];
         let subProp = 0;
         const filasP = prodsPropios.map(pid=>{
           const vs  = ventasPropias.filter(v=>v.productoId===pid);
           const qty = vs.reduce((s,v)=>s+v.cantidad,0);
-          const rate= getComisionParaAgente(pid, a.nombre);
+          const rate= getComisionDirectaAgente(pid, a.nombre);
           const com = rate*qty;
           subProp += com;
           return `<tr>
             <td style="padding-left:18px;color:#7C98B6">${getProdNombre(pid)}</td>
-            <td style="text-align:right;color:#6A78D1;font-weight:700">${qty}</td>
+            <td style="text-align:right;color:#00BDA5;font-weight:700">${qty}</td>
             <td style="text-align:right;color:#7C98B6">${fmt(rate)}</td>
-            <td style="text-align:right;font-weight:700;color:#6A78D1">${fmt(com)}</td>
+            <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(com)}</td>
           </tr>`;
         }).join('');
         grandTotal += subProp;
         desglose += `
-          <tr style="background:#F0EDFF">
-            <td style="font-weight:700;color:#6A78D1">⭐ Ventas directas (${a.nombre})</td>
+          <tr style="background:#E8F9F7">
+            <td style="font-weight:700;color:#00A492">⭐ Ventas directas — ${a.nombre}</td>
             <td></td><td></td>
-            <td style="text-align:right;font-weight:800;color:#6A78D1">${fmt(subProp)}</td>
+            <td style="text-align:right;font-weight:800;color:#00A492">${fmt(subProp)}</td>
           </tr>${filasP}`;
       }
 
