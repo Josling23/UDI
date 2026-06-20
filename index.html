@@ -157,7 +157,41 @@ tr:hover td{background:#EAF0FB}
 </head>
 <body>
 <div class="notif" id="notif"></div>
-<div class="app-wrap">
+
+<!-- ===== PANTALLA DE LOGIN ===== -->
+<div id="login-screen" style="display:flex;min-height:100vh;background:linear-gradient(135deg,#1a2b3c 0%,#33475B 50%,#004A9A 100%);align-items:center;justify-content:center;flex-direction:column;padding:20px">
+  <div style="text-align:center;margin-bottom:40px">
+    <svg viewBox="0 0 80 80" fill="none" width="80" height="80" style="margin:0 auto 16px;display:block">
+      <circle cx="40" cy="40" r="38" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+      <text x="40" y="32" text-anchor="middle" fill="white" font-size="18" font-weight="900" font-family="Segoe UI,sans-serif">AT&T</text>
+      <rect x="14" y="37" width="52" height="3" rx="1.5" fill="rgba(255,255,255,0.5)"/>
+      <text x="40" y="54" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="8" font-weight="700" font-family="Segoe UI,sans-serif" letter-spacing="1">VND DASHBOARD</text>
+    </svg>
+    <h1 style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">USA Distributor</h1>
+    <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">AT&T VND · Dealer #594193</p>
+  </div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:500px;width:100%">
+    <button onclick="abrirAcceso('admin',null)"
+      style="flex:1;min-width:200px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.2s;text-align:center"
+      onmouseover="this.style.background='rgba(0,159,219,0.25)';this.style.borderColor='#009FDB'"
+      onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
+      <div style="font-size:36px;margin-bottom:10px">📋</div>
+      <div style="color:#fff;font-size:16px;font-weight:800">Administración</div>
+      <div style="color:rgba(255,255,255,0.45);font-size:11px;margin-top:4px">Dashboard · Ventas · Agentes<br>Pagos · Gastos · Nómina</div>
+    </button>
+    <button onclick="abrirAcceso('top',null)"
+      style="flex:1;min-width:200px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.2s;text-align:center"
+      onmouseover="this.style.background='rgba(255,122,89,0.25)';this.style.borderColor='#FF7A59'"
+      onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
+      <div style="font-size:36px;margin-bottom:10px">⭐</div>
+      <div style="color:#fff;font-size:16px;font-weight:800">TOP</div>
+      <div style="color:rgba(255,255,255,0.45);font-size:11px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
+    </button>
+  </div>
+  <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:40px">USA Distributor Inc · AT&T VND</div>
+</div>
+
+<div class="app-wrap" id="app-wrap" style="display:none">
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
@@ -173,9 +207,9 @@ tr:hover td{background:#EAF0FB}
       <p>AT&T Sales CRM</p>
     </div>
   </div>
-  <nav class="sidebar-nav">
+  <nav class="sidebar-nav" id="sidebar-nav-admin" style="display:none">
     <div class="nav-section">Principal</div>
-    <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
+    <div class="nav-item" onclick="showPage('dashboard',this)" id="nav-dashboard"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('ventas',this)"><span class="icon">📝</span><span>Registro Diario</span></div>
     <div class="nav-item" onclick="showPage('agentes',this)"><span class="icon">👥</span><span>Agentes</span></div>
     <div class="nav-section">Reportes</div>
@@ -183,9 +217,16 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-section">Config</div>
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
-    <div class="nav-section">Acceso Restringido</div>
-    <div class="nav-item" onclick="abrirAcceso('top',this)" id="nav-top"><span class="icon">⭐</span><span>TOP</span></div>
-    <div class="nav-item" onclick="abrirAcceso('admin',this)" id="nav-admin"><span class="icon">📋</span><span>Administración</span></div>
+    <div class="nav-section">Finanzas</div>
+    <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('admin')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
+    <div class="nav-section">TOP</div>
+    <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">⭐</span><span>ROI & Finanzas</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('top')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <div class="sidebar-footer">Dealer #594193 · USA Distributor</div>
 </aside>
@@ -342,6 +383,7 @@ tr:hover td{background:#EAF0FB}
   </div><!-- /content -->
 </div><!-- /main -->
 </div><!-- /app-wrap -->
+</div><!-- /#app-wrap -->
 
 <!-- ===== MODAL PIN ===== -->
 <div class="modal-overlay" id="modal-pin">
@@ -702,8 +744,8 @@ function renderPage(name) {
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
   if(name==='productos') renderProductos();
-  if(name==='top') renderTop();
-  if(name==='admin') renderAdmin();
+  if(name==='top')   renderTop();
+  if(name==='admin') renderAdmin(); // Gastos & Nómina (dentro de sesión admin)
 }
 
 // ============================================================
@@ -1434,14 +1476,30 @@ function updateComision(prodId, valor) {
 // AUTH — TOP & ADMIN
 // ============================================================
 let sesion = { top: false, admin: false };
-let _pinTarget = null; // 'top' | 'admin'
-let _pinNavEl  = null;
+let _pinTarget = null;
+
+function mostrarLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-wrap').style.display = 'none';
+}
+
+function mostrarApp(area) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'flex';
+  // Mostrar el nav correcto
+  document.getElementById('sidebar-nav-admin').style.display = area==='admin' ? 'flex' : 'none';
+  document.getElementById('sidebar-nav-top').style.display   = area==='top'   ? 'flex' : 'none';
+  if(area==='admin') {
+    showPage('dashboard', document.getElementById('nav-dashboard'));
+  } else {
+    showPage('top', null);
+  }
+}
 
 function abrirAcceso(area, el) {
-  if(sesion[area]) { showPage(area, el); return; }
+  if(sesion[area]) { mostrarApp(area); return; }
   _pinTarget = area;
-  _pinNavEl  = el;
-  const esTop = area === 'top';
+  const esTop = area==='top';
   document.getElementById('pin-titulo').textContent  = esTop ? '⭐ TOP' : '📋 Administración';
   document.getElementById('pin-icon').textContent    = esTop ? '⭐' : '📋';
   document.getElementById('pin-desc').textContent    = esTop ? 'PIN del propietario' : 'PIN de administración';
@@ -1466,13 +1524,13 @@ function verificarPin() {
   }
   sesion[_pinTarget] = true;
   closeModal('modal-pin');
-  showPage(_pinTarget, _pinNavEl);
-  showNotif('🔓 Acceso concedido — ' + (_pinTarget==='top' ? '⭐ TOP' : '📋 Administración'));
+  mostrarApp(_pinTarget);
+  showNotif('🔓 Bienvenido — ' + (_pinTarget==='top' ? '⭐ TOP' : '📋 Administración'));
 }
 
 function cerrarSesion(area) {
   sesion[area] = false;
-  showPage('dashboard', document.querySelector('.nav-item'));
+  mostrarLogin();
   showNotif('🔒 Sesión cerrada');
 }
 
@@ -1490,7 +1548,6 @@ function renderTop() {
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('config',this)">⚙️ Config</button>
-        <button class="btn btn-danger btn-sm" onclick="cerrarSesion('top')">🔒 Salir</button>
       </div>
     </div>
     <div class="priv-section active" id="top-roi"></div>
@@ -1661,13 +1718,12 @@ function renderAdmin() {
   document.getElementById('admin-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <div>
-        <h2 style="font-size:18px;font-weight:800;color:#33475B">📋 Administración</h2>
-        <div style="font-size:11px;color:#99ACC2">Gastos, nómina y marketing — estos datos alimentan el ROI del área TOP</div>
+        <h2 style="font-size:18px;font-weight:800;color:#33475B">💸 Gastos & Nómina</h2>
+        <div style="font-size:11px;color:#99ACC2">Estos datos se reflejan automáticamente en el ROI del área TOP</div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('gastos',this)">💸 Gastos</button>
         <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('nomina',this)">👥 Nómina</button>
-        <button class="btn btn-danger btn-sm" onclick="cerrarSesion('admin')">🔒 Salir</button>
       </div>
     </div>
     <div class="priv-section active" id="admin-gastos"></div>
@@ -1818,7 +1874,8 @@ document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
   ' <button class="btn btn-ghost btn-sm" onclick="agregarMes()">➕ Mes</button>'
 );
 
-renderDashboard();
+// Arrancar con pantalla de login
+mostrarLogin();
 </script>
 </body>
 </html>
