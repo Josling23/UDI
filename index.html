@@ -423,37 +423,36 @@ const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 // PRODUCTOS CATALOG
 // ============================================================
 const PRODUCTOS_CATALOG = [
-  // MOBILITY
-  { id:'att-new',      cat:'mobility',       nombre:'Líneas Nuevas AT&T',       comision:100 },
-  { id:'att-port',     cat:'mobility',       nombre:'Portabilidades AT&T',       comision:130 },
-  { id:'att-upgrade',  cat:'mobility',       nombre:'Upgrades AT&T',             comision:50  },
-  { id:'att-tablet',   cat:'mobility',       nombre:'Tablets / iPads AT&T',      comision:75  },
-  { id:'att-watch',    cat:'mobility',       nombre:'Smart Watches AT&T',        comision:50  },
-  { id:'att-protect',  cat:'mobility',       nombre:'AT&T Protect Advantage',    comision:10  },
-  { id:'att-extra',    cat:'mobility',       nombre:'Plan Unlimited Extra',       comision:25  },
-  { id:'att-premium',  cat:'mobility',       nombre:'Plan Unlimited Premium',     comision:35  },
-  { id:'att-nextup',   cat:'mobility',       nombre:'Next Up Anytime',           comision:20  },
+  // MOBILITY — montos según reporte VND real
+  { id:'att-act8',     cat:'mobility',       nombre:'Activación $8 (Plan Base)',        comision:8   },
+  { id:'att-act10',    cat:'mobility',       nombre:'Activación $10 (Plan Premium)',    comision:10  },
+  { id:'att-port',     cat:'mobility',       nombre:'Portabilidad AT&T',               comision:10  },
+  { id:'att-upgrade',  cat:'mobility',       nombre:'Upgrade / Release / iPad',        comision:3   },
+  { id:'att-watch',    cat:'mobility',       nombre:'Smart Watch AT&T',               comision:10  },
+  { id:'att-protect',  cat:'mobility',       nombre:'AT&T Protect (SEG)',              comision:1   },
+  { id:'att-combo',    cat:'mobility',       nombre:'Combo AT&T',                      comision:8   },
+  { id:'att-extra',    cat:'mobility',       nombre:'Plan Unlimited Extra',            comision:25  },
+  { id:'att-premium',  cat:'mobility',       nombre:'Plan Unlimited Premium',          comision:35  },
   // INTERNET RESIDENCIAL
-  { id:'fiber-100',    cat:'internet',       nombre:'AT&T Fiber 100 Mbps',       comision:100 },
-  { id:'fiber-300',    cat:'internet',       nombre:'AT&T Fiber 300 Mbps',       comision:100 },
-  { id:'fiber-500',    cat:'internet',       nombre:'AT&T Fiber 500 Mbps',       comision:110 },
-  { id:'fiber-1g',     cat:'internet',       nombre:'AT&T Fiber 1 Gig',          comision:120 },
-  { id:'fiber-5g',     cat:'internet',       nombre:'AT&T Fiber 5 Gig',          comision:150 },
-  { id:'air',          cat:'internet',       nombre:'AT&T Internet Air',         comision:80  },
+  { id:'fiber-300',    cat:'internet',       nombre:'AT&T Fiber 300 Mbps',            comision:100 },
+  { id:'fiber-500',    cat:'internet',       nombre:'AT&T Fiber 500 Mbps',            comision:110 },
+  { id:'fiber-1g',     cat:'internet',       nombre:'AT&T Fiber >= 1 Gig',            comision:120 },
+  { id:'fiber-5g',     cat:'internet',       nombre:'AT&T Fiber 5 Gig',               comision:150 },
+  { id:'air',          cat:'internet',       nombre:'AT&T Internet Air',              comision:45  },
   // OTROS INTERNET
-  { id:'el-fiber',     cat:'otros-internet', nombre:'EarthLink Fiber',           comision:80  },
-  { id:'el-wireless',  cat:'otros-internet', nombre:'EarthLink Wireless',        comision:60  },
-  { id:'spectrum',     cat:'otros-internet', nombre:'Spectrum Internet',         comision:80  },
-  { id:'optimum',      cat:'otros-internet', nombre:'Optimum Internet',          comision:80  },
-  { id:'windstream',   cat:'otros-internet', nombre:'Windstream Internet',       comision:60  },
+  { id:'el-fiber',     cat:'otros-internet', nombre:'EarthLink Fiber',                comision:80  },
+  { id:'el-wireless',  cat:'otros-internet', nombre:'EarthLink Wireless',             comision:60  },
+  { id:'spectrum',     cat:'otros-internet', nombre:'Spectrum Internet',              comision:80  },
+  { id:'optimum',      cat:'otros-internet', nombre:'Optimum Internet',               comision:80  },
+  { id:'windstream',   cat:'otros-internet', nombre:'Windstream Internet',            comision:60  },
   // PREPAGO
-  { id:'lyca',         cat:'prepago',        nombre:'Lyca Mobile',               comision:10  },
-  // SERVICIOS
-  { id:'svc-activ',    cat:'servicios',      nombre:'Activación de Equipos',     comision:15  },
-  { id:'svc-transfer', cat:'servicios',      nombre:'Transferencia de Info',     comision:10  },
-  { id:'svc-config',   cat:'servicios',      nombre:'Configuración Dispositivos',comision:10  },
-  { id:'svc-acces',    cat:'servicios',      nombre:'Venta de Accesorios',       comision:5   },
-  { id:'svc-repair',   cat:'servicios',      nombre:'Reparaciones',              comision:20  },
+  { id:'lyca',         cat:'prepago',        nombre:'Lyca Mobile',                    comision:6   },
+  // SERVICIOS / BONOS
+  { id:'svc-bono',     cat:'servicios',      nombre:'Bono / Propina',                 comision:0   },
+  { id:'svc-repair',   cat:'servicios',      nombre:'Reparaciones',                   comision:20  },
+  { id:'svc-acces',    cat:'servicios',      nombre:'Venta de Accesorios',            comision:5   },
+  { id:'svc-transfer', cat:'servicios',      nombre:'Transferencia de Info',          comision:10  },
+  { id:'svc-config',   cat:'servicios',      nombre:'Configuración Dispositivos',     comision:10  },
 ];
 
 const CAT_LABELS = {
@@ -503,10 +502,11 @@ function cargar() {
     ];
     const hoyStr = hoy.toISOString().split('T')[0];
     appData.ventas = [
-      { id:1, fecha:hoyStr, agente:'Agente Demo', productoId:'att-new',   categoria:'mobility', cantidad:2, comision:100, cliente:'Cliente A', cuenta:'', mes:mesActual, notas:'' },
-      { id:2, fecha:hoyStr, agente:'Agente Demo', productoId:'att-port',  categoria:'mobility', cantidad:1, comision:130, cliente:'Cliente B', cuenta:'', mes:mesActual, notas:'' },
-      { id:3, fecha:hoyStr, agente:'Agente Demo', productoId:'fiber-1g',  categoria:'internet', cantidad:1, comision:120, cliente:'Cliente C', cuenta:'', mes:mesActual, notas:'' },
-      { id:4, fecha:hoyStr, agente:'Agente Demo', productoId:'att-watch', categoria:'mobility', cantidad:2, comision:50,  cliente:'Cliente D', cuenta:'', mes:mesActual, notas:'' },
+      { id:1, fecha:hoyStr, agente:'Agente Demo', productoId:'att-act8',  categoria:'mobility', cantidad:3, comision:8,  cliente:'Cliente A', cuenta:'', mes:mesActual, notas:'' },
+      { id:2, fecha:hoyStr, agente:'Agente Demo', productoId:'att-port',  categoria:'mobility', cantidad:1, comision:10, cliente:'Cliente B', cuenta:'', mes:mesActual, notas:'' },
+      { id:3, fecha:hoyStr, agente:'Agente Demo', productoId:'air',       categoria:'internet', cantidad:1, comision:45, cliente:'Cliente C', cuenta:'', mes:mesActual, notas:'' },
+      { id:4, fecha:hoyStr, agente:'Agente Demo', productoId:'att-upgrade',categoria:'mobility', cantidad:2, comision:3,  cliente:'Cliente D', cuenta:'', mes:mesActual, notas:'' },
+      { id:5, fecha:hoyStr, agente:'Agente Demo', productoId:'lyca',      categoria:'prepago',  cantidad:1, comision:6,  cliente:'Cliente E', cuenta:'', mes:mesActual, notas:'' },
     ];
     appData.nextId = 10;
     guardar();
@@ -1082,6 +1082,20 @@ function toggleQuincena(agenteNombre, mes, q) {
   showNotif(`💳 Q${q} ${mes} — ${appData.quincenas[key] ? 'marcada pagada' : 'desmarcada'}`);
 }
 
+function getDescuentoKey(agente, mes) { return `desc||${agente.trim().toLowerCase()}||${mes}`; }
+function getBonoKey(agente, mes) { return `bono||${agente.trim().toLowerCase()}||${mes}`; }
+
+function setDescuento(agente, mes, valor) {
+  appData.quincenas[getDescuentoKey(agente,mes)] = parseFloat(valor)||0;
+  guardar();
+  showNotif('✅ Descuento guardado');
+}
+function setBono(agente, mes, valor) {
+  appData.quincenas[getBonoKey(agente,mes)] = parseFloat(valor)||0;
+  guardar();
+  showNotif('✅ Bono guardado');
+}
+
 function renderPagos() {
   const meses = getMeses();
   document.getElementById('pagos-content').innerHTML = appData.agentes.map(a=>{
@@ -1091,7 +1105,11 @@ function renderPagos() {
       const q2 = appData.quincenas[getQuincenaKey(a.nombre, mes, 2)];
       const ventas = appData.ventas.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase() && v.mes===mes);
       const comMes = ventas.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
-      const sueldoMes = (a.sueldoQuincenal||0)*2;
+      const basico = (a.sueldoQuincenal||0)*2;
+      const descuento = parseFloat(appData.quincenas[getDescuentoKey(a.nombre,mes)])||0;
+      const bono = parseFloat(appData.quincenas[getBonoKey(a.nombre,mes)])||0;
+      const subTotal = comMes + bono + basico;
+      const totalNeto = subTotal - descuento;
       if(q1) totalPagado += a.sueldoQuincenal||0;
       else totalPend += a.sueldoQuincenal||0;
       if(q2) totalPagado += a.sueldoQuincenal||0;
@@ -1100,20 +1118,22 @@ function renderPagos() {
         <td style="font-weight:600">${mes}</td>
         <td><button class="q-btn ${q1?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre}','${mes}',1)">${q1?'✅ Q1 PAGADA':'⏳ Q1 PEND.'}</button>${q1&&q1.fecha?`<span style="font-size:9px;color:#7C98B6;margin-left:5px">${q1.fecha}</span>`:''}</td>
         <td><button class="q-btn ${q2?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre}','${mes}',2)">${q2?'✅ Q2 PAGADA':'⏳ Q2 PEND.'}</button>${q2&&q2.fecha?`<span style="font-size:9px;color:#7C98B6;margin-left:5px">${q2.fecha}</span>`:''}</td>
-        <td style="font-weight:700;color:#${q1&&q2?'00BDA5':'F5C26B'}">${fmt((q1?a.sueldoQuincenal:0)+(q2?a.sueldoQuincenal:0))}</td>
-        <td style="color:#7C98B6">${fmt(sueldoMes)}</td>
         <td style="font-weight:700;color:#009FDB">${fmt(comMes)}</td>
+        <td style="color:#7C98B6">${fmt(basico)}</td>
+        <td style="color:#6A78D1"><input type="number" min="0" step="0.01" value="${bono||''}" placeholder="0.00" style="width:75px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:12px;color:#6A78D1;outline:none" onchange="setBono('${a.nombre}','${mes}',this.value)" title="Bono / Propina"></td>
+        <td style="color:#F2545B"><input type="number" min="0" step="0.01" value="${descuento||''}" placeholder="0.00" style="width:75px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:12px;color:#F2545B;outline:none" onchange="setDescuento('${a.nombre}','${mes}',this.value)" title="Descuento / Seguro Médico"></td>
+        <td style="font-weight:800;color:${totalNeto>=0?'#00BDA5':'#F2545B'}">${fmt(totalNeto)}</td>
       </tr>`;
     }).join('');
     return `<div style="margin-bottom:22px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h3 style="font-size:14px;font-weight:700;color:#33475B">👤 ${a.nombre} <span style="font-size:11px;color:#7C98B6;font-weight:400">— ${fmt(a.sueldoQuincenal||0)}/quinc.</span></h3>
+        <h3 style="font-size:14px;font-weight:700;color:#33475B">👤 ${a.nombre} <span style="font-size:11px;color:#7C98B6;font-weight:400">— Básico ${fmt(a.sueldoQuincenal||0)}/quinc.</span></h3>
         <div style="display:flex;gap:14px;font-size:12px">
-          <span>Pagado: <b style="color:#00BDA5">${fmt(totalPagado)}</b></span>
+          <span>Básico Pagado: <b style="color:#00BDA5">${fmt(totalPagado)}</b></span>
           <span>Pendiente: <b style="color:#F2545B">${fmt(totalPend)}</b></span>
         </div>
       </div>
-      <table><thead><tr><th>Mes</th><th>1ª Quincena</th><th>2ª Quincena</th><th>Pagado</th><th>Sueldo Mes</th><th>Com. Empresa</th></tr></thead><tbody>${filas}</tbody></table>
+      <table><thead><tr><th>Mes</th><th>1ª Quincena</th><th>2ª Quincena</th><th>Com. Empresa</th><th>Básico</th><th>Bonos 🟣</th><th>Descuento 🔴</th><th>Total Neto</th></tr></thead><tbody>${filas}</tbody></table>
     </div>`;
   }).join('') || '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
 }
