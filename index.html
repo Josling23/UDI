@@ -2394,6 +2394,26 @@ function migrarAgentes() {
 cargar();
 migrarAgentes();
 
+// Asegurar que todos los meses del año actual estén en el sistema
+(function migrarMeses() {
+  const anio = new Date().getFullYear();
+  let changed = false;
+  MESES_ES.forEach(m => {
+    const key = `${m} ${anio}`;
+    if (!appData.meses.includes(key)) {
+      appData.meses.push(key);
+      changed = true;
+    }
+  });
+  // Ordenar cronológicamente
+  appData.meses.sort((a, b) => {
+    const [mA, yA] = [MESES_ES.indexOf(a.split(' ')[0]), parseInt(a.split(' ')[1])];
+    const [mB, yB] = [MESES_ES.indexOf(b.split(' ')[0]), parseInt(b.split(' ')[1])];
+    return yA !== yB ? yA - yB : mA - mB;
+  });
+  if (changed) guardar();
+})();
+
 // Date in topbar
 const hoy = new Date();
 document.getElementById('topbar-date').textContent = hoy.toLocaleDateString('es-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
