@@ -1487,8 +1487,8 @@ function mostrarApp(area) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'flex';
   // Mostrar el nav correcto
-  document.getElementById('sidebar-nav-admin').style.display = area==='admin' ? 'flex' : 'none';
-  document.getElementById('sidebar-nav-top').style.display   = area==='top'   ? 'flex' : 'none';
+  document.getElementById('sidebar-nav-admin').style.display = area==='admin' ? 'block' : 'none';
+  document.getElementById('sidebar-nav-top').style.display   = area==='top'   ? 'block' : 'none';
   if(area==='admin') {
     showPage('dashboard', document.getElementById('nav-dashboard'));
   } else {
