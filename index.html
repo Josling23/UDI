@@ -333,7 +333,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div class="form-group">
           <label>Agente *</label>
-          <select id="v-agente"></select>
+          <select id="v-agente" onchange="onProductoChange()"></select>
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label>Categoría *</label>
@@ -393,17 +393,45 @@ tr:hover td{background:#EAF0FB}
 
 <!-- ===== MODAL AGENTE ===== -->
 <div class="modal-overlay" id="modal-agente">
-  <div class="modal">
+  <div class="modal" style="max-width:720px">
     <div class="modal-header">
-      <h3 id="modal-agente-title">➕ Nuevo Agente</h3>
+      <h3 id="modal-agente-title">➕ Nuevo Agente / Usuario</h3>
       <button class="modal-close" onclick="closeModal('modal-agente')">✕</button>
     </div>
     <div class="modal-body">
+      <!-- Info básica -->
+      <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">📋 Información Básica</div>
       <div class="form-grid">
         <div class="form-group"><label>Nombre *</label><input type="text" id="a-nombre" placeholder="Nombre completo"></div>
-        <div class="form-group"><label>Sueldo Quincenal ($)</label><input type="number" id="a-sueldo" placeholder="400.00" step="0.01"></div>
+        <div class="form-group">
+          <label>Rol / Posición *</label>
+          <select id="a-rol" onchange="onRolChange()">
+            <option value="agente">👤 Agente</option>
+            <option value="supervisor">🔷 Supervisor</option>
+            <option value="gerente">⭐ Gerente General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Sueldo Quincenal ($) <span style="color:#99ACC2;font-weight:400;font-size:9px">— 0 = solo comisión</span></label>
+          <input type="number" id="a-sueldo" placeholder="0.00" step="0.01" min="0">
+        </div>
         <div class="form-group"><label>Teléfono</label><input type="text" id="a-tel" placeholder="(305) 000-0000"></div>
-        <div class="form-group"><label>Email</label><input type="email" id="a-email" placeholder="correo@email.com"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Email</label><input type="email" id="a-email" placeholder="correo@email.com"></div>
+      </div>
+
+      <!-- Comisiones por producto -->
+      <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2;margin-bottom:6px">
+        💰 Comisión Personal por Producto
+        <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — deja en blanco para usar la tarifa base del catálogo</span>
+      </div>
+      <div id="a-comisiones-productos" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+
+      <!-- Agentes supervisados (gerente/supervisor) -->
+      <div id="a-supervisa-section" style="display:none;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2">
+        <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
+          👥 Gana comisión de ventas de estos agentes:
+        </div>
+        <div id="a-supervisa-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -455,6 +483,11 @@ const CAT_LABELS = {
   'servicios':      '🛠️ Servicios',
 };
 
+// ROLES
+const ROL_LABELS  = { gerente:'⭐ Gerente General', supervisor:'🔷 Supervisor', agente:'👤 Agente' };
+const ROL_COLORS  = { gerente:'#FF7A59', supervisor:'#6A78D1', agente:'#009FDB' };
+const ROL_BG      = { gerente:'#FFF3EE', supervisor:'#F0EDFF', agente:'#EAF7FB' };
+
 const CAT_COLOR = {
   'mobility':       '#009FDB',
   'internet':       '#00BDA5',
@@ -490,16 +523,24 @@ function cargar() {
     const mesAnterior = MESES_ES[hoy.getMonth()-1 < 0 ? 11 : hoy.getMonth()-1] + ' ' + (hoy.getMonth()===0 ? hoy.getFullYear()-1 : hoy.getFullYear());
     appData.meses = [mesAnterior, mesActual];
     appData.agentes = [
-      { id:1, nombre:'Agente Demo', sueldoQuincenal:400, tel:'', email:'', activo:true },
+      { id:1, nombre:'Jose',    rol:'gerente',    sueldoQuincenal:0,  tel:'', email:'', activo:true,
+        comisionesPersonales:{ 'att-act8':2,'att-act10':2,'att-upgrade':1,'air':5,'lyca':1,'att-combo':2 },
+        agentesSupervisa:['Claudia','Carlos'] },
+      { id:2, nombre:'Claudia', rol:'agente',     sueldoQuincenal:100, tel:'', email:'', activo:true,
+        comisionesPersonales:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8,'att-seg':1 },
+        agentesSupervisa:[] },
+      { id:3, nombre:'Carlos',  rol:'agente',     sueldoQuincenal:65,  tel:'', email:'', activo:true,
+        comisionesPersonales:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8,'att-seg':1 },
+        agentesSupervisa:[] },
     ];
     const hoyStr = hoy.toISOString().split('T')[0];
     appData.ventas = [
-      { id:1, fecha:hoyStr, agente:'Agente Demo', productoId:'att-act8',   categoria:'mobility', cantidad:3, comision:8,  cliente:'Cliente A', cuenta:'', mes:mesActual, notas:'' },
-      { id:2, fecha:hoyStr, agente:'Agente Demo', productoId:'att-act10',  categoria:'mobility', cantidad:1, comision:10, cliente:'Cliente B', cuenta:'', mes:mesActual, notas:'' },
-      { id:3, fecha:hoyStr, agente:'Agente Demo', productoId:'air',        categoria:'internet', cantidad:1, comision:45, cliente:'Cliente C', cuenta:'', mes:mesActual, notas:'' },
-      { id:4, fecha:hoyStr, agente:'Agente Demo', productoId:'att-upgrade',categoria:'mobility', cantidad:2, comision:3,  cliente:'Cliente D', cuenta:'', mes:mesActual, notas:'' },
-      { id:5, fecha:hoyStr, agente:'Agente Demo', productoId:'lyca',       categoria:'prepago',  cantidad:2, comision:6,  cliente:'Cliente E', cuenta:'', mes:mesActual, notas:'' },
-      { id:6, fecha:hoyStr, agente:'Agente Demo', productoId:'att-combo',  categoria:'mobility', cantidad:1, comision:8,  cliente:'Cliente F', cuenta:'', mes:mesActual, notas:'' },
+      { id:1, fecha:hoyStr, agente:'Claudia', productoId:'att-act8',   categoria:'mobility', cantidad:5, cliente:'Cliente A', cuenta:'', mes:mesActual, notas:'' },
+      { id:2, fecha:hoyStr, agente:'Claudia', productoId:'att-upgrade', categoria:'mobility', cantidad:2, cliente:'Cliente B', cuenta:'', mes:mesActual, notas:'' },
+      { id:3, fecha:hoyStr, agente:'Claudia', productoId:'air',         categoria:'internet', cantidad:2, cliente:'Cliente C', cuenta:'', mes:mesActual, notas:'' },
+      { id:4, fecha:hoyStr, agente:'Carlos',  productoId:'att-act8',   categoria:'mobility', cantidad:3, cliente:'Cliente D', cuenta:'', mes:mesActual, notas:'' },
+      { id:5, fecha:hoyStr, agente:'Carlos',  productoId:'lyca',        categoria:'prepago',  cantidad:2, cliente:'Cliente E', cuenta:'', mes:mesActual, notas:'' },
+      { id:6, fecha:hoyStr, agente:'Carlos',  productoId:'att-combo',   categoria:'mobility', cantidad:1, cliente:'Cliente F', cuenta:'', mes:mesActual, notas:'' },
     ];
     appData.nextId = 10;
     guardar();
@@ -510,11 +551,41 @@ function cargar() {
 // UTILS
 // ============================================================
 function fmt(n) { return '$' + parseFloat(n||0).toFixed(2); }
+
+// Devuelve la comisión base del catálogo para un productoId
+function getCatalogCom(productoId) {
+  const prod = PRODUCTOS_CATALOG.find(p=>p.id===productoId);
+  return prod ? (prod.comision||0) : 0;
+}
+
+// Devuelve la comisión personal del agente para un producto (o la del catálogo si no tiene override)
+function getComisionParaAgente(productoId, agenteNombre) {
+  const a = appData.agentes.find(x=>(x.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
+  if(a && a.comisionesPersonales && a.comisionesPersonales[productoId] !== undefined) {
+    return parseFloat(a.comisionesPersonales[productoId])||0;
+  }
+  return getCatalogCom(productoId);
+}
+
+// Comisión de una venta (usa la del agente que la hizo)
 function getComision(v) {
-  // Use override if set, else catalog default
-  if (v.comision !== undefined) return parseFloat(v.comision)||0;
-  const prod = PRODUCTOS_CATALOG.find(p=>p.id===v.productoId);
-  return prod ? prod.comision : 0;
+  return getComisionParaAgente(v.productoId, v.agente);
+}
+
+// Total de comisiones que un agente (o gerente/supervisor) gana en un mes
+function getComisionesMes(a, mes) {
+  if(a.rol==='gerente'||a.rol==='supervisor') {
+    // Gana de las ventas de agentes que supervisa
+    const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+    if(!supervisados.length) return 0;
+    return appData.ventas
+      .filter(v=>v.mes===mes && supervisados.includes((v.agente||'').trim().toLowerCase()))
+      .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0);
+  } else {
+    return appData.ventas
+      .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase())
+      .reduce((s,v)=>s + getComision(v)*v.cantidad, 0);
+  }
 }
 function getProdNombre(productoId) {
   const p = PRODUCTOS_CATALOG.find(x=>x.id===productoId);
@@ -773,10 +844,8 @@ function onCatChange() {
 
 function onProductoChange() {
   const pid = document.getElementById('v-producto').value;
-  const prod = PRODUCTOS_CATALOG.find(p=>p.id===pid);
-  // Set default commission from catalog (or override if set)
-  const override = appData.comisiones[pid];
-  if(prod) document.getElementById('v-comision').value = override !== undefined ? override : prod.comision;
+  const agNombre = document.getElementById('v-agente').value;
+  if(pid) document.getElementById('v-comision').value = getComisionParaAgente(pid, agNombre);
   updateVentaPreview();
 }
 
@@ -846,46 +915,75 @@ let editAgenteId = null;
 
 function renderAgentes() {
   populateAgente('filter-agente-page', true);
-  document.getElementById('agent-cards').innerHTML = appData.agentes.map(a=>{
-    const nombre = (a.nombre||'').trim().toLowerCase();
-    const ventas = appData.ventas.filter(v=>(v.agente||'').trim().toLowerCase()===nombre);
-    const com = ventas.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
-    const units = ventas.reduce((s,v)=>s+v.cantidad,0);
-    const mes = mesActual();
-    const ventasMes = ventas.filter(v=>v.mes===mes);
-    const comMes = ventasMes.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
-    return `<div style="background:#F5F8FA;border-radius:10px;padding:18px;border:1px solid #CBD6E2">
+  const mes = mesActual();
+  // Separar por rol
+  const gerentes    = appData.agentes.filter(a=>a.rol==='gerente');
+  const supervisors = appData.agentes.filter(a=>a.rol==='supervisor');
+  const agentes     = appData.agentes.filter(a=>!a.rol||a.rol==='agente');
+
+  function agenteCard(a) {
+    const rol = a.rol||'agente';
+    const comMes  = getComisionesMes(a, mes);
+    const allMeses = getMeses();
+    const comTotal = allMeses.reduce((s,m)=>s+getComisionesMes(a,m),0);
+    const ventasMesRaw = appData.ventas.filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase());
+    const unitsMes = ventasMesRaw.reduce((s,v)=>s+v.cantidad,0);
+    // Tabla de comisiones personales
+    const comPs = a.comisionesPersonales||{};
+    const prodsConOverride = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
+    const supervisa = (a.agentesSupervisa||[]).join(', ');
+    return `<div style="background:#fff;border-radius:12px;padding:18px;border:1.5px solid ${ROL_COLORS[rol]||'#CBD6E2'};box-shadow:0 2px 8px rgba(0,0,0,0.06)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
-          <div style="font-size:15px;font-weight:700;color:#33475B">👤 ${a.nombre}</div>
-          <div style="font-size:11px;color:#7C98B6;margin-top:2px">💰 Quincenal: ${fmt(a.sueldoQuincenal||0)}</div>
-          ${a.tel?`<div style="font-size:11px;color:#7C98B6">📞 ${a.tel}</div>`:''}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:15px;font-weight:700;color:#33475B">${a.nombre}</span>
+            <span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;background:${ROL_BG[rol]};color:${ROL_COLORS[rol]}">${ROL_LABELS[rol]||rol}</span>
+          </div>
+          <div style="font-size:11px;color:#7C98B6">💰 Sueldo: ${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal)+'/quinc.':'Solo comisión'}${a.tel?` · 📞 ${a.tel}`:''}</div>
+          ${supervisa?`<div style="font-size:10px;color:#99ACC2;margin-top:2px">Supervisa: ${supervisa}</div>`:''}
         </div>
         <div style="display:flex;gap:5px">
-          <button class="btn btn-ghost btn-xs" onclick="openAgenteModal(${a.id})">✏️</button>
+          <button class="btn btn-ghost btn-xs" onclick="openAgenteModal(${a.id})">✏️ Editar</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarAgente(${a.id})">✕</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:#fff;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
-          <div style="font-size:10px;color:#7C98B6">Este Mes — Units</div>
-          <div style="font-size:18px;font-weight:800;color:#009FDB">${ventasMes.reduce((s,v)=>s+v.cantidad,0)}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:${prodsConOverride.length?'12px':'0'}">
+        <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
+          <div style="font-size:9px;color:#7C98B6;text-transform:uppercase">Com. Este Mes</div>
+          <div style="font-size:17px;font-weight:800;color:#00BDA5">${fmt(comMes)}</div>
         </div>
-        <div style="background:#fff;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
-          <div style="font-size:10px;color:#7C98B6">Este Mes — Com.</div>
-          <div style="font-size:16px;font-weight:800;color:#00BDA5">${fmt(comMes)}</div>
+        <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
+          <div style="font-size:9px;color:#7C98B6;text-transform:uppercase">Units Este Mes</div>
+          <div style="font-size:17px;font-weight:800;color:#009FDB">${unitsMes}</div>
         </div>
-        <div style="background:#fff;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
-          <div style="font-size:10px;color:#7C98B6">Total Histórico</div>
-          <div style="font-size:16px;font-weight:800;color:#6A78D1">${fmt(com)}</div>
-        </div>
-        <div style="background:#fff;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
-          <div style="font-size:10px;color:#7C98B6">Ventas Totales</div>
-          <div style="font-size:16px;font-weight:800;color:#33475B">${units}</div>
+        <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
+          <div style="font-size:9px;color:#7C98B6;text-transform:uppercase">Com. Total Hist.</div>
+          <div style="font-size:17px;font-weight:800;color:#6A78D1">${fmt(comTotal)}</div>
         </div>
       </div>
+      ${prodsConOverride.length ? `<div style="border-top:1px solid #F5F8FA;padding-top:10px">
+        <div style="font-size:9px;color:#7C98B6;text-transform:uppercase;margin-bottom:6px">Comisiones personales configuradas:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${prodsConOverride.map(p=>`<span style="font-size:10px;background:#EAF7FB;color:#0057A8;border:1px solid #009FDB;border-radius:5px;padding:2px 7px;white-space:nowrap">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
+        </div>
+      </div>` : ''}
     </div>`;
-  }).join('') || '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
+  }
+
+  function renderGrupo(titulo, color, lista) {
+    if(!lista.length) return '';
+    return `<div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${titulo}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">${lista.map(agenteCard).join('')}</div>
+    </div>`;
+  }
+
+  document.getElementById('agent-cards').innerHTML =
+    renderGrupo('⭐ Gerentes Generales', '#FF7A59', gerentes) +
+    renderGrupo('🔷 Supervisores', '#6A78D1', supervisors) +
+    renderGrupo('👤 Agentes', '#009FDB', agentes) ||
+    '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
+
   renderAgenteVentas();
 }
 
@@ -909,33 +1007,71 @@ function renderAgenteVentas() {
   </tr>`).join('') : '<tr><td colspan="9" class="tbl-empty">Sin ventas</td></tr>';
 }
 
+function onRolChange() {
+  const rol = document.getElementById('a-rol').value;
+  document.getElementById('a-supervisa-section').style.display =
+    (rol==='gerente'||rol==='supervisor') ? 'block' : 'none';
+}
+
 function openAgenteModal(id=null) {
   editAgenteId = id;
-  document.getElementById('modal-agente-title').textContent = id ? '✏️ Editar Agente' : '➕ Nuevo Agente';
-  if(id) {
-    const a = appData.agentes.find(x=>x.id===id);
-    if(!a) return;
-    document.getElementById('a-nombre').value = a.nombre;
-    document.getElementById('a-sueldo').value = a.sueldoQuincenal||'';
-    document.getElementById('a-tel').value = a.tel||'';
-    document.getElementById('a-email').value = a.email||'';
-  } else {
-    document.getElementById('a-nombre').value='';
-    document.getElementById('a-sueldo').value='';
-    document.getElementById('a-tel').value='';
-    document.getElementById('a-email').value='';
-  }
+  document.getElementById('modal-agente-title').textContent = id ? '✏️ Editar Agente / Usuario' : '➕ Nuevo Agente / Usuario';
+  const a = id ? appData.agentes.find(x=>x.id===id) : null;
+  document.getElementById('a-nombre').value  = a?.nombre||'';
+  document.getElementById('a-rol').value     = a?.rol||'agente';
+  document.getElementById('a-sueldo').value  = a?.sueldoQuincenal!=null ? a.sueldoQuincenal : '';
+  document.getElementById('a-tel').value     = a?.tel||'';
+  document.getElementById('a-email').value   = a?.email||'';
+
+  // Tabla de comisiones por producto
+  const comPs = a?.comisionesPersonales||{};
+  document.getElementById('a-comisiones-productos').innerHTML = PRODUCTOS_CATALOG.map(p=>{
+    const val = comPs[p.id]!==undefined ? comPs[p.id] : '';
+    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center;gap:6px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}</div>
+        <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
+      </div>
+      <input type="number" min="0" step="0.01" value="${val}" placeholder="${p.comision}"
+        data-prod-id="${p.id}" class="a-prod-com"
+        style="width:68px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#009FDB;outline:none;text-align:right"
+        onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
+    </div>`;
+  }).join('');
+
+  // Checkboxes de agentes supervisados
+  const supervisados = a?.agentesSupervisa||[];
+  const otros = appData.agentes.filter(x=>x.id!==id);
+  document.getElementById('a-supervisa-checkboxes').innerHTML = otros.length
+    ? otros.map(ag=>`<label style="display:flex;align-items:center;gap:6px;background:#F5F8FA;border:1px solid #CBD6E2;border-radius:7px;padding:7px 11px;cursor:pointer;font-size:12px;font-weight:600">
+        <input type="checkbox" value="${ag.nombre}" ${supervisados.includes(ag.nombre)?'checked':''}>
+        ${ag.nombre} <span style="font-size:10px;color:${ROL_COLORS[ag.rol||'agente']};font-weight:400">${ROL_LABELS[ag.rol||'agente']}</span>
+      </label>`).join('')
+    : '<div style="color:#99ACC2;font-size:12px">No hay otros agentes registrados</div>';
+
+  onRolChange();
   document.getElementById('modal-agente').classList.add('open');
 }
 
 function guardarAgente() {
   const nombre = document.getElementById('a-nombre').value.trim();
   if(!nombre) { showNotif('⚠️ Ingresa el nombre','error'); return; }
+  const rol = document.getElementById('a-rol').value;
+  // Comisiones personales
+  const comPs = {};
+  document.querySelectorAll('.a-prod-com').forEach(inp=>{
+    if(inp.value!=='') comPs[inp.dataset.prodId] = parseFloat(inp.value)||0;
+  });
+  // Agentes supervisados
+  const agentesSupervisa = [];
+  document.querySelectorAll('#a-supervisa-checkboxes input[type=checkbox]:checked').forEach(cb=>agentesSupervisa.push(cb.value));
   const data = {
-    nombre,
+    nombre, rol,
     sueldoQuincenal: parseFloat(document.getElementById('a-sueldo').value)||0,
-    tel: document.getElementById('a-tel').value.trim(),
+    tel:   document.getElementById('a-tel').value.trim(),
     email: document.getElementById('a-email').value.trim(),
+    comisionesPersonales: comPs,
+    agentesSupervisa: (rol==='gerente'||rol==='supervisor') ? agentesSupervisa : [],
     activo: true,
   };
   if(editAgenteId !== null) {
@@ -1095,17 +1231,24 @@ function extraInput(tipo, agente, mes, color, placeholder) {
 
 function renderPagos() {
   const meses = getMeses();
+  // Agrupar por rol: gerentes primero, luego supervisores, luego agentes
+  const ordenados = [
+    ...appData.agentes.filter(a=>a.rol==='gerente'),
+    ...appData.agentes.filter(a=>a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.rol||a.rol==='agente'),
+  ];
   document.getElementById('pagos-content').innerHTML = `
     <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 18px;margin-bottom:18px;font-size:12px;color:#0057A8">
-      <b>Fórmula:</b> Comisiones + Básico + Bonos/Propina + Préstamos − Seg. Médico/Desc = <b>TOTAL</b>
+      <b>Fórmula:</b> Comisiones + Básico + Bonos/Propina + Préstamos − Seg. Médico/Desc = <b>TOTAL</b><br>
+      <span style="font-size:10px;color:#0057A8;opacity:0.7">Gerentes y Supervisores ganan de ventas de sus agentes supervisados, con su tarifa personal por producto.</span>
     </div>` +
-  (appData.agentes.map(a=>{
+  (ordenados.map(a=>{
+    const rol = a.rol||'agente';
     let totalPagado = 0, totalPend = 0;
     const filas = meses.map(mes=>{
       const q1 = appData.quincenas[getQuincenaKey(a.nombre, mes, 1)];
       const q2 = appData.quincenas[getQuincenaKey(a.nombre, mes, 2)];
-      const ventas = appData.ventas.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase() && v.mes===mes);
-      const comMes   = ventas.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+      const comMes   = getComisionesMes(a, mes);
       const basico   = (a.sueldoQuincenal||0)*2;
       const bonos    = getExtra('bono',  a.nombre, mes);
       const prestamo = getExtra('prest', a.nombre, mes);
@@ -1119,7 +1262,7 @@ function renderPagos() {
         <td><button class="q-btn ${q1?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre}','${mes}',1)">${q1?'✅ Q1':'⏳ Q1'}</button></td>
         <td><button class="q-btn ${q2?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre}','${mes}',2)">${q2?'✅ Q2':'⏳ Q2'}</button></td>
         <td style="font-weight:700;color:#009FDB;text-align:right">${fmt(comMes)}</td>
-        <td style="color:#33475B;text-align:right">${fmt(basico)}</td>
+        <td style="color:#33475B;text-align:right">${basico>0?fmt(basico):'—'}</td>
         <td style="text-align:right">${extraInput('bono',a.nombre,mes,'#6A78D1','0.00')}</td>
         <td style="text-align:right">${extraInput('prest',a.nombre,mes,'#F5C26B','0.00')}</td>
         <td style="font-weight:700;text-align:right;color:#33475B">${fmt(subTotal)}</td>
@@ -1127,13 +1270,17 @@ function renderPagos() {
         <td style="font-weight:800;font-size:13px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
       </tr>`;
     }).join('');
-    return `<div style="margin-bottom:24px">
+    const supeInfo = (rol==='gerente'||rol==='supervisor') && (a.agentesSupervisa||[]).length
+      ? ` · Supervisa: ${a.agentesSupervisa.join(', ')}`:'';
+    return `<div style="margin-bottom:24px;border-left:4px solid ${ROL_COLORS[rol]};padding-left:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <h3 style="font-size:14px;font-weight:700;color:#33475B">👤 ${a.nombre}
-          <span style="font-size:11px;color:#7C98B6;font-weight:400"> — Básico ${fmt(a.sueldoQuincenal||0)}/quinc.</span></h3>
+        <h3 style="font-size:14px;font-weight:700;color:#33475B">
+          ${a.nombre}
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${ROL_BG[rol]};color:${ROL_COLORS[rol]};margin-left:6px">${ROL_LABELS[rol]}</span>
+          <span style="font-size:11px;color:#99ACC2;font-weight:400">${supeInfo}</span>
+        </h3>
         <div style="display:flex;gap:16px;font-size:12px">
-          <span>Básico pagado: <b style="color:#00BDA5">${fmt(totalPagado)}</b></span>
-          <span>Pendiente: <b style="color:#F2545B">${fmt(totalPend)}</b></span>
+          ${a.sueldoQuincenal>0?`<span>Básico pagado: <b style="color:#00BDA5">${fmt(totalPagado)}</b></span><span>Pend.: <b style="color:#F2545B">${fmt(totalPend)}</b></span>`:'<span style="color:#99ACC2;font-size:11px">Solo comisión</span>'}
         </div>
       </div>
       <div class="tbl-wrap"><table>
@@ -1141,10 +1288,10 @@ function renderPagos() {
           <th>Mes</th><th>1ª Quinc.</th><th>2ª Quinc.</th>
           <th style="text-align:right">Comisiones</th>
           <th style="text-align:right">Básico</th>
-          <th style="text-align:right">Bonos/<br>Propina</th>
+          <th style="text-align:right">Bonos/Propina</th>
           <th style="text-align:right">Préstamos</th>
           <th style="text-align:right">Sub-Total</th>
-          <th style="text-align:right">Seg. Médico/<br>Desc.</th>
+          <th style="text-align:right">Seg.Médico/Desc</th>
           <th style="text-align:right">TOTAL</th>
         </tr></thead>
         <tbody>${filas}</tbody>
