@@ -2615,89 +2615,9 @@ function migrarAgentes() {
 cargar();
 migrarAgentes();
 
-// ── Migrar gastos Mayo 2026 ──────────────────────────────────
-(function migrarGastosMayo2026() {
-  const MES = 'Mayo 2026';
-  const MARCA = 'gastos_mayo2026_ok';
-  if(appData[MARCA]) return;
-  const gastosMayo = [
-    { fecha:'2026-05-04', descripcion:'Compra de agua potable y gasolina moto de junior (19.41 bcv)', monto:15.00 },
-    { fecha:'2026-05-06', descripcion:'Pago de internet apartamento Josling (43.17 bcv)', monto:33.28 },
-    { fecha:'2026-05-06', descripcion:'Compra de 4 bombillos de 100w', monto:2.50 },
-    { fecha:'2026-05-07', descripcion:'Compra de lycas mayo', monto:192.00 },
-    { fecha:'2026-05-07', descripcion:'Aseo y luz el morro y paso real', monto:26.98 },
-    { fecha:'2026-05-11', descripcion:'Compra de powerbank para la venta en bravo', monto:59.88 },
-    { fecha:'2026-05-11', descripcion:'Compra de pantallas para reparaciones de tlf bravo', monto:36.45 },
-    { fecha:'2026-05-12', descripcion:'Envíos USPS combos', monto:20.94 },
-    { fecha:'2026-05-13', descripcion:'Pago de curso reparación de celulares bravo Douglas 1', monto:300.00 },
-    { fecha:'2026-05-13', descripcion:'Compra de vidrios templados para reparaciones bravo', monto:148.35 },
-    { fecha:'2026-05-14', descripcion:'Compra de agua potable, papel higiénico, bolsas para basura, cloro y lavaplatos (bcv 25,23)', monto:20.00 },
-    { fecha:'2026-05-16', descripcion:'Reparación de 7 computadoras', monto:105.00 },
-    { fecha:'2026-05-18', descripcion:'Compra de case ventas bravo', monto:58.68 },
-    { fecha:'2026-05-19', descripcion:'Compra de pantalla iPhone 17 Pro', monto:103.09 },
-    { fecha:'2026-05-19', descripcion:'Compra de táctil de iPad', monto:27.85 },
-    { fecha:'2026-05-22', descripcion:'Pago de curso reparación de celulares bravo Douglas 2', monto:300.00 },
-    { fecha:'2026-05-25', descripcion:'Pago meta marketing', monto:4398.31 },
-    { fecha:'2026-05-27', descripcion:'Compra de pasaje viaje Bogotá Josling', monto:396.13 },
-    { fecha:'2026-05-27', descripcion:'Compra de pasaje viaje Bogotá José', monto:213.00 },
-    { fecha:'2026-05-28', descripcion:'Pago de agua Hidrocentro', monto:10.00 },
-    { fecha:'2026-05-28', descripcion:'Compra de consulta y exámenes hermano de Silvia', monto:24.00 },
-    { fecha:'2026-05-29', descripcion:'Compra de torta para compartir fin de mes', monto:17.00 },
-  ];
-  let maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
-  gastosMayo.forEach(g => {
-    appData.gastos.push({ id:++maxId, fecha:g.fecha, tipo:'variable', descripcion:g.descripcion, monto:g.monto, mes:MES, notas:'' });
-  });
-  appData[MARCA] = true;
-  guardar();
-})();
-
-// ── Migrar gastos FIJOS Mayo 2026 ───────────────────────────
-(function migrarGastosFijosMayo2026() {
-  const MES = 'Mayo 2026';
-  const MARCA = 'gastos_fijos_mayo2026_ok';
-  if(appData[MARCA]) return;
-  const fijos = [
-    { fecha:'2026-05-01', descripcion:'ChatGPT Plus Gerencia', monto:20.00 },
-    { fecha:'2026-05-01', descripcion:'ZOOM tarjeta', monto:16.99 },
-    { fecha:'2026-05-01', descripcion:'Internet Fibex (BCV 300)', monto:231.00 },
-    { fecha:'2026-05-01', descripcion:'Internet SC (BCV 60)', monto:44.71 },
-    { fecha:'2026-05-01', descripcion:'Internet Bravo', monto:61.45 },
-    { fecha:'2026-05-01', descripcion:'Talkroute', monto:334.00 },
-    { fecha:'2026-05-01', descripcion:'Impuestos SD (BCV 262)', monto:198.00 },
-    { fecha:'2026-05-01', descripcion:'Contadora', monto:120.00 },
-    { fecha:'2026-05-01', descripcion:'Renta Bravo 2 punto', monto:1300.00 },
-  ];
-  let maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
-  fijos.forEach(g => {
-    appData.gastos.push({ id:++maxId, fecha:g.fecha, tipo:'fijo', descripcion:g.descripcion, monto:g.monto, mes:MES, notas:'' });
-  });
-  appData[MARCA] = true;
-  guardar();
-})();
-
-// ── Migrar Nómina Mayo 2026 ──────────────────────────────────
-(function migrarNominaMayo2026() {
-  const MES = 'Mayo 2026';
-  const MARCA = 'nomina_mayo2026_ok';
-  if(appData[MARCA]) return;
-  const items = [
-    { fecha:'2026-05-31', tipo:'fijo',  descripcion:'Nómina agentes Mayo 2026',                    monto:2958.60 },
-    { fecha:'2026-05-31', tipo:'otro',  descripcion:'Comisiones agentes Mayo 2026',                 monto:1081.33 },
-    { fecha:'2026-05-31', tipo:'otro',  descripcion:'Comisiones Jesús (subdealer) Mayo 2026',       monto:6320.00 },
-    { fecha:'2026-05-31', tipo:'fijo',  descripcion:'Sueldo Douglas Mayo 2026',                     monto:2925.00 },
-  ];
-  let maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
-  items.forEach(g => {
-    appData.gastos.push({ id:++maxId, fecha:g.fecha, tipo:g.tipo, descripcion:g.descripcion, monto:g.monto, mes:MES, notas:'' });
-  });
-  appData[MARCA] = true;
-  guardar();
-})();
-
 // ── DATOS FINANCIEROS 2026 — fuente única, limpia desde cero ──
 (function datos2026() {
-  const MARCA = 'datos_2026_final_v3';
+  const MARCA = 'datos_2026_final_v4';
   if(appData[MARCA]) return;
 
   // Borrar TODO lo anterior
