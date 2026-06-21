@@ -205,6 +205,30 @@ tr:hover td{background:#EAF0FB}
   <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:32px">© USA Distributor Inc · Kissimmee, FL · 1-800-757-2821</div>
 </div>
 
+<!-- ===== PANTALLA DE SELECCIÓN DE ÁREA (post-login) ===== -->
+<div id="area-screen" style="display:none;min-height:100vh;background:linear-gradient(135deg,#1a0000 0%,#5a0a0a 50%,#8B1A1A 100%);align-items:center;justify-content:center;flex-direction:column;padding:20px">
+  <div style="text-align:center;margin-bottom:32px">
+    <svg viewBox="0 0 100 100" width="80" height="80" style="margin:0 auto 12px;display:block;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.4))">
+      <circle cx="50" cy="50" r="48" fill="white" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+      <clipPath id="circ3"><circle cx="50" cy="50" r="48"/></clipPath>
+      <polygon points="0,0 100,0 100,40 0,70" fill="#8B1A1A" clip-path="url(#circ3)"/>
+      <polygon points="0,70 100,40 100,100 0,100" fill="white" clip-path="url(#circ3)"/>
+      <text x="50" y="38" text-anchor="middle" fill="white" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
+      <text x="50" y="78" text-anchor="middle" fill="#8B1A1A" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
+      <line x1="0" y1="70" x2="100" y2="40" stroke="#6B0F0F" stroke-width="2.5" clip-path="url(#circ3)"/>
+      <circle cx="50" cy="50" r="48" fill="none" stroke="#8B1A1A" stroke-width="2"/>
+    </svg>
+    <h1 style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">USA Distributor Inc.</h1>
+    <p style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:3px">AT&T VND · Dealer #594193</p>
+    <div id="area-user-badge" style="display:inline-block;margin-top:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:4px 14px;font-size:11px;color:rgba(255,255,255,0.6)"></div>
+  </div>
+  <div id="area-buttons" style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:700px;width:100%">
+    <!-- Botones generados dinámicamente según rol -->
+  </div>
+  <button onclick="cerrarSesion()" style="margin-top:28px;background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.4);padding:6px 16px;border-radius:20px;font-size:11px;cursor:pointer">🔒 Cerrar sesión</button>
+  <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:20px">© USA Distributor Inc · Kissimmee, FL · 1-800-757-2821</div>
+</div>
+
 <div class="app-wrap" id="app-wrap" style="display:none">
 
 <!-- SIDEBAR -->
@@ -225,9 +249,7 @@ tr:hover td{background:#EAF0FB}
       <p>AT&T VND · #594193</p>
     </div>
   </div>
-  <!-- Nav unificado: visible según rol del usuario -->
-  <nav class="sidebar-nav" id="sidebar-nav-main" style="display:none">
-    <!-- Sección ADMIN (todos los roles) -->
+  <nav class="sidebar-nav" id="sidebar-nav-admin" style="display:none">
     <div class="nav-section">Principal</div>
     <div class="nav-item" onclick="showPage('dashboard',this)" id="nav-dashboard"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('ventas',this)"><span class="icon">📝</span><span>Registro Diario</span></div>
@@ -239,16 +261,23 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
-    <!-- Sección HQ (rol: owner, jose) -->
-    <div class="nav-section nav-hq-section" style="display:none">🏛️ HEADQUARTERS</div>
-    <div class="nav-item nav-hq-item" style="display:none" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
-    <!-- Sección TOP (rol: owner únicamente) -->
-    <div class="nav-section nav-top-section" style="display:none">⭐ TOP</div>
-    <div class="nav-item nav-top-item" style="display:none" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
-    <div class="nav-item nav-top-item" style="display:none" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
-    <!-- Pie del nav -->
     <div class="nav-section" style="margin-top:auto"></div>
-    <div id="nav-user-info" style="padding:10px 20px;font-size:10px;color:rgba(255,255,255,0.35)"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
+    <div class="nav-section">🏛️ HEADQUARTERS</div>
+    <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
+    <div class="nav-section">⭐ TOP</div>
+    <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
+    <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <div class="sidebar-footer">Dealer #594193 · USA Distributor</div>
@@ -911,9 +940,6 @@ function renderPage(name) {
   if(name==='usuarios') renderUsuarios();
 }
 
-function renderAll() {
-  renderDashboard();
-}
 
 // ============================================================
 // MODAL
@@ -1696,36 +1722,69 @@ function updateComision(prodId, valor) {
 // AUTH — Firebase Authentication
 // ============================================================
 
-// Mapa de roles:  owner → ve todo (top+hq+admin)
-//                 jose  → ve hq+admin
-//                 oriana → ve solo admin
+// Roles: owner → TOP + HQ + Admin | jose → HQ + Admin | oriana → solo Admin
 function mostrarLogin() {
   document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('area-screen').style.display  = 'none';
+  document.getElementById('app-wrap').style.display     = 'none';
 }
 
-function mostrarApp() {
+function mostrarAreas() {
+  // Construir botones según rol
+  const puedeAdmin = true;
+  const puedeHQ    = (currentRole === 'owner' || currentRole === 'jose');
+  const puedeTop   = (currentRole === 'owner');
+
+  const email = currentUser ? currentUser.email.split('@')[0] : '';
+  document.getElementById('area-user-badge').textContent = '👤 ' + email;
+
+  const btnStyle = `flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center`;
+  const hoverOn  = `this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'`;
+  const hoverOff = `this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'`;
+
+  let btns = '';
+  if(puedeAdmin) btns += `
+    <button onclick="abrirArea('admin')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
+      <div style="font-size:34px;margin-bottom:8px">📋</div>
+      <div style="color:#fff;font-size:15px;font-weight:800">Administración</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Dashboard · Ventas · Agentes<br>Pagos · Gastos · Nómina</div>
+    </button>`;
+  if(puedeHQ) btns += `
+    <button onclick="abrirArea('hq')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
+      <div style="font-size:34px;margin-bottom:8px">🏛️</div>
+      <div style="color:#fff;font-size:15px;font-weight:800">HEADQUARTERS</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Pagos · Comisiones<br>Gerente General</div>
+    </button>`;
+  if(puedeTop) btns += `
+    <button onclick="abrirArea('top')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
+      <div style="font-size:34px;margin-bottom:8px">⭐</div>
+      <div style="color:#fff;font-size:15px;font-weight:800">TOP</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
+    </button>`;
+
+  document.getElementById('area-buttons').innerHTML = btns;
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'flex';
-  document.getElementById('sidebar-nav-main').style.display = 'block';
+  document.getElementById('area-screen').style.display  = 'flex';
+  document.getElementById('app-wrap').style.display     = 'none';
+}
 
-  // Mostrar/ocultar secciones HQ y TOP según rol
-  const esJoseOOwner = (currentRole === 'owner' || currentRole === 'jose');
-  const esOwner      = (currentRole === 'owner');
-  document.querySelectorAll('.nav-hq-section,.nav-hq-item').forEach(el => el.style.display = esJoseOOwner ? 'flex' : 'none');
-  document.querySelectorAll('.nav-section.nav-hq-section').forEach(el => el.style.display  = esJoseOOwner ? 'block' : 'none');
-  document.querySelectorAll('.nav-top-section,.nav-top-item').forEach(el => el.style.display = esOwner ? 'flex' : 'none');
-  document.querySelectorAll('.nav-section.nav-top-section').forEach(el => el.style.display   = esOwner ? 'block' : 'none');
+function abrirArea(area) {
+  document.getElementById('area-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display    = 'flex';
+  document.getElementById('sidebar-nav-admin').style.display = area==='admin' ? 'block' : 'none';
+  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'    ? 'block' : 'none';
+  document.getElementById('sidebar-nav-top').style.display   = area==='top'   ? 'block' : 'none';
+  if(area==='admin') showPage('dashboard', document.getElementById('nav-dashboard'));
+  else if(area==='hq')  showPage('hq', null);
+  else if(area==='top') showPage('top', null);
+}
 
-  // Info del usuario en sidebar
-  const email = currentUser ? currentUser.email : '';
-  const roleLabel = { owner:'⭐ Owner', jose:'🏛️ HQ + Admin', oriana:'📋 Admin' }[currentRole] || '';
-  document.getElementById('nav-user-info').innerHTML =
-    `<div style="font-size:10px;color:rgba(255,255,255,0.5)">${email}</div>
-     <div style="font-size:9px;color:rgba(255,100,100,0.6);margin-top:2px">${roleLabel}</div>`;
-
-  // Pantalla inicial según rol
-  showPage('dashboard', document.getElementById('nav-dashboard'));
+function volverAreas() {
+  document.getElementById('app-wrap').style.display = 'none';
+  document.getElementById('sidebar-nav-admin').style.display = 'none';
+  document.getElementById('sidebar-nav-hq').style.display    = 'none';
+  document.getElementById('sidebar-nav-top').style.display   = 'none';
+  mostrarAreas();
 }
 
 async function loginFirebase() {
@@ -1760,6 +1819,11 @@ async function cerrarSesion() {
   await fbAuth.signOut();
   currentUser = null;
   currentRole = null;
+  document.getElementById('area-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display    = 'none';
+  document.getElementById('sidebar-nav-admin').style.display = 'none';
+  document.getElementById('sidebar-nav-hq').style.display    = 'none';
+  document.getElementById('sidebar-nav-top').style.display   = 'none';
   mostrarLogin();
   showNotif('🔒 Sesión cerrada');
 }
@@ -1797,11 +1861,10 @@ fbAuth.onAuthStateChanged(async (user) => {
     currentRole = role;
     document.getElementById('login-btn').disabled = false;
     document.getElementById('login-spinner').style.display = 'none';
-    // Cargar datos y mostrar app
+    // Cargar datos y mostrar pantalla de áreas
     await cargar();
     ejecutarMigraciones();
-    mostrarApp();
-    renderAll();
+    mostrarAreas();
     showNotif(`🔓 Bienvenido, ${user.email.split('@')[0]}`);
   } else {
     mostrarLogin();
