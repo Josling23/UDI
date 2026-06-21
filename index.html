@@ -2576,6 +2576,61 @@ migrarAgentes();
   guardar();
 })();
 
+// ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
+(function gastosMaster2026() {
+  const MARCA = 'gastos_master_2026_v1';
+  if(appData[MARCA]) return;
+  // Limpiar gastos e ingresos previos migrados
+  appData.gastos = [];
+  appData.ingresos = [];
+  // Resetear marcas de migraciones anteriores
+  delete appData['gastos_mayo2026_ok'];
+  delete appData['gastos_fijos_mayo2026_ok'];
+  delete appData['nomina_mayo2026_ok'];
+  delete appData['ingresos_mayo2026_ok'];
+  delete appData['ingresos_2026_ok'];
+
+  const meses = [
+    { mes:'Enero 2026',   nomina:7206.60, comisiones:0,       gastosVar:2523.00,  gastosFijos:2800.28, jesus:0,       douglas:2925.00 },
+    { mes:'Febrero 2026', nomina:9146.00, comisiones:0,       gastosVar:2320.17,  gastosFijos:4150.13, jesus:0,       douglas:2340.00 },
+    { mes:'Marzo 2026',   nomina:8246.73, comisiones:0,       gastosVar:1626.87,  gastosFijos:3749.44, jesus:0,       douglas:2340.00 },
+    { mes:'Abril 2026',   nomina:8333.30, comisiones:0,       gastosVar:11389.93, gastosFijos:2835.72, jesus:0,       douglas:2340.00 },
+    { mes:'Mayo 2026',    nomina:5956.51, comisiones:3185.84, gastosVar:6508.44,  gastosFijos:2326.15, jesus:6262.00, douglas:2925.00 },
+    { mes:'Junio 2026',   nomina:2958.60, comisiones:1081.33, gastosVar:996.23,   gastosFijos:2047.06, jesus:6320.00, douglas:1170.00 },
+  ];
+
+  const ingresos = [
+    { mes:'Enero 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',              monto:18072.57, fecha:'2026-01-31' },
+    { mes:'Febrero 2026', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',            monto:28931.66, fecha:'2026-02-28' },
+    { mes:'Marzo 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',              monto:24461.74, fecha:'2026-03-31' },
+    { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',              monto:10739.49, fecha:'2026-04-30' },
+    { mes:'Mayo 2026',    fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',               monto:36995.54, fecha:'2026-05-31' },
+    { mes:'Mayo 2026',    fuente:'Bravo', descripcion:'Ganancia Bravo Mayo 2026',          monto:1741.03,  fecha:'2026-05-31' },
+    { mes:'Junio 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Junio 2026 (parcial)',    monto:22431.72, fecha:'2026-06-20' },
+    { mes:'Junio 2026',   fuente:'Bravo', descripcion:'Ganancia Bravo Junio 2026 (parcial)', monto:1581.90, fecha:'2026-06-20' },
+  ];
+
+  let gid = 0, iid = 0;
+  meses.forEach(({mes, nomina, comisiones, gastosVar, gastosFijos, jesus, douglas})=>{
+    const fechaFin = mes.startsWith('Enero')?'2026-01-31':mes.startsWith('Febrero')?'2026-02-28':
+      mes.startsWith('Marzo')?'2026-03-31':mes.startsWith('Abril')?'2026-04-30':
+      mes.startsWith('Mayo')?'2026-05-31':'2026-06-20';
+    if(nomina>0)     appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Nómina agentes ${mes}`,              monto:nomina,     mes});
+    if(comisiones>0) appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'otro',    descripcion:`Comisiones agentes ${mes}`,           monto:comisiones, mes});
+    if(gastosVar>0)  appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'variable',descripcion:`Gastos variables ${mes}`,             monto:gastosVar,  mes});
+    if(gastosFijos>0)appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Gastos fijos ${mes}`,                 monto:gastosFijos,mes});
+    if(jesus>0)      appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'otro',    descripcion:`Pagos Jesús (subdealer) ${mes}`,      monto:jesus,      mes});
+    if(douglas>0)    appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Sueldo Douglas ${mes}`,               monto:douglas,    mes});
+  });
+
+  ingresos.forEach(i=>{
+    appData.ingresos.push({id:++iid, fecha:i.fecha, fuente:i.fuente, descripcion:i.descripcion, monto:i.monto, mes:i.mes});
+  });
+
+  appData[MARCA] = true;
+  guardar();
+})();
+
 // ── Migrar Ingresos 2026 (todos los meses) ──────────────────
 (function migrarIngresos2026() {
   const MARCA = 'ingresos_2026_ok';
