@@ -2689,7 +2689,7 @@ migrarAgentes();
 
 // ── Reportes RS&I 2026 (bruto vs neto para calcular CB%) ────
 (function migrarRSIReportes() {
-  const MARCA = 'rsi_reportes_2026_v4';
+  const MARCA = 'rsi_reportes_2026_v5';
   if(appData[MARCA]) return;
   if(!appData.rsiReportes) appData.rsiReportes = {};
   // Enero: Total reporte $21,250.51 → ACH recibido $18,072.57 → CB 14.95%
@@ -2700,6 +2700,8 @@ migrarAgentes();
   appData.rsiReportes['Marzo 2026']   = { bruto: 29639.05, neto: 24461.74 };
   // Abril: Total reporte $23,107.12 → ACH recibido $18,744.49 → CB 18.88%
   appData.rsiReportes['Abril 2026']   = { bruto: 23107.12, neto: 18744.49 };
+  // Mayo: Total reporte $43,130.67 → ACH recibido $37,000.54 → CB 14.21%
+  appData.rsiReportes['Mayo 2026']    = { bruto: 43130.67, neto: 37000.54 };
   appData[MARCA] = true;
   guardar();
 })();
@@ -2724,7 +2726,7 @@ migrarAgentes();
 
 // ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
 (function gastosMaster2026() {
-  const MARCA = 'gastos_master_2026_v7';
+  const MARCA = 'gastos_master_2026_v8';
   if(appData[MARCA]) return;
   // Limpiar gastos e ingresos previos migrados
   appData.gastos = [];
@@ -2755,8 +2757,9 @@ migrarAgentes();
     { mes:'Marzo 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Marzo 2026',      monto:3871.00,  fecha:'2026-03-31' },
     { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',                     monto:18744.49, fecha:'2026-04-30' },
     { mes:'Abril 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Abril 2026',      monto:2119.13,  fecha:'2026-04-30' },
-    { mes:'Mayo 2026',    fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',                      monto:36995.54, fecha:'2026-05-31' },
+    { mes:'Mayo 2026',    fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',                      monto:37000.54, fecha:'2026-05-31' },
     { mes:'Mayo 2026',    fuente:'Bravo', descripcion:'Ganancia Bravo Mayo 2026',                  monto:1741.03,  fecha:'2026-05-31' },
+    { mes:'Mayo 2026',    fuente:'Salud', descripcion:'Ganancia seguro de salud Mayo 2026',        monto:2214.00,  fecha:'2026-05-31' },
     { mes:'Junio 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Junio 2026 (parcial)',            monto:22431.72, fecha:'2026-06-20' },
     { mes:'Junio 2026',   fuente:'Bravo', descripcion:'Ganancia Bravo Junio 2026 (parcial)',       monto:1581.90,  fecha:'2026-06-20' },
   ];
