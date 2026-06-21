@@ -2047,7 +2047,6 @@ function guardarHQAgente() {
 // HEADQUARTERS — RENDER
 // ============================================================
 function renderHQ() {
-  if(!sesion.hq) { document.getElementById('hq-content').innerHTML=''; return; }
   const meses = getMeses();
   const hqAgentes = appData.agentes.filter(a=>a.soloHQ);
 
@@ -2305,7 +2304,6 @@ function openVentaHQ() {
 // TOP — RENDER
 // ============================================================
 function renderTop() {
-  if(!sesion.top) { document.getElementById('top-content').innerHTML=''; return; }
   document.getElementById('top-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <div>
@@ -2620,7 +2618,6 @@ function renderTopConfig() {
 // ADMINISTRACIÓN — RENDER
 // ============================================================
 function renderAdmin() {
-  if(!sesion.admin) { document.getElementById('admin-content').innerHTML=''; return; }
   document.getElementById('admin-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <div>
