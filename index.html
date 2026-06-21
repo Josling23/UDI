@@ -2689,7 +2689,7 @@ migrarAgentes();
 
 // ── DATOS FINANCIEROS 2026 — fuente única, limpia desde cero ──
 (function datos2026() {
-  const MARCA = 'datos_2026_final_v2';
+  const MARCA = 'datos_2026_final_v3';
   if(appData[MARCA]) return;
 
   // Borrar TODO lo anterior
@@ -2723,12 +2723,16 @@ migrarAgentes();
   [
     { mes:'Enero 2026',   fecha:'2026-01-31', fuente:'RS&I',  monto:18072.57, desc:'Pago RS&I Enero 2026' },
     { mes:'Enero 2026',   fecha:'2026-01-31', fuente:'Salud', monto:1596.00,  desc:'Ganancia salud Enero 2026' },
+    { mes:'Enero 2026',   fecha:'2026-01-31', fuente:'Bravo', monto:1500.00,  desc:'Ganancia Bravo Enero 2026 (estimado)' },
     { mes:'Febrero 2026', fecha:'2026-02-28', fuente:'RS&I',  monto:28931.66, desc:'Pago RS&I Febrero 2026' },
     { mes:'Febrero 2026', fecha:'2026-02-28', fuente:'Salud', monto:2067.00,  desc:'Ganancia salud Febrero 2026' },
+    { mes:'Febrero 2026', fecha:'2026-02-28', fuente:'Bravo', monto:1500.00,  desc:'Ganancia Bravo Febrero 2026 (estimado)' },
     { mes:'Marzo 2026',   fecha:'2026-03-31', fuente:'RS&I',  monto:24461.74, desc:'Pago RS&I Marzo 2026' },
     { mes:'Marzo 2026',   fecha:'2026-03-31', fuente:'Salud', monto:3871.00,  desc:'Ganancia salud Marzo 2026' },
+    { mes:'Marzo 2026',   fecha:'2026-03-31', fuente:'Bravo', monto:1500.00,  desc:'Ganancia Bravo Marzo 2026 (estimado)' },
     { mes:'Abril 2026',   fecha:'2026-04-30', fuente:'RS&I',  monto:18744.49, desc:'Pago RS&I Abril 2026' },
     { mes:'Abril 2026',   fecha:'2026-04-30', fuente:'Salud', monto:2119.13,  desc:'Ganancia salud Abril 2026' },
+    { mes:'Abril 2026',   fecha:'2026-04-30', fuente:'Bravo', monto:1500.00,  desc:'Ganancia Bravo Abril 2026 (estimado)' },
     { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'RS&I',  monto:37000.54, desc:'Pago RS&I Mayo 2026' },
     { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'Bravo', monto:1741.03,  desc:'Ganancia Bravo Mayo 2026' },
     { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'Salud', monto:2214.00,  desc:'Ganancia salud Mayo 2026' },
