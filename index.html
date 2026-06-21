@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>USA Distributor Inc. — AT&T VND Dashboard</title>
+<!-- Firebase compat SDK (no requiere npm) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 /* === HUBSPOT PALETTE === */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -160,52 +164,45 @@ tr:hover td{background:#EAF0FB}
 
 <!-- ===== PANTALLA DE LOGIN ===== -->
 <div id="login-screen" style="display:flex;min-height:100vh;background:linear-gradient(135deg,#1a0000 0%,#5a0a0a 50%,#8B1A1A 100%);align-items:center;justify-content:center;flex-direction:column;padding:20px">
-  <div style="text-align:center;margin-bottom:40px">
-    <!-- Logo UDI -->
-    <svg viewBox="0 0 100 100" width="100" height="100" style="margin:0 auto 16px;display:block;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.4))">
+  <div style="text-align:center;margin-bottom:32px">
+    <svg viewBox="0 0 100 100" width="90" height="90" style="margin:0 auto 14px;display:block;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.4))">
       <circle cx="50" cy="50" r="48" fill="white" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
       <clipPath id="circ"><circle cx="50" cy="50" r="48"/></clipPath>
-      <!-- Diagonal slash background -->
       <polygon points="0,0 100,0 100,40 0,70" fill="#8B1A1A" clip-path="url(#circ)"/>
       <polygon points="0,70 100,40 100,100 0,100" fill="white" clip-path="url(#circ)"/>
-      <!-- UDI text top (white on red) -->
       <text x="50" y="38" text-anchor="middle" fill="white" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
-      <!-- UDI text bottom (red on white) -->
       <text x="50" y="78" text-anchor="middle" fill="#8B1A1A" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
-      <!-- Diagonal line -->
       <line x1="0" y1="70" x2="100" y2="40" stroke="#6B0F0F" stroke-width="2.5" clip-path="url(#circ)"/>
       <circle cx="50" cy="50" r="48" fill="none" stroke="#8B1A1A" stroke-width="2"/>
     </svg>
     <h1 style="color:#fff;font-size:24px;font-weight:900;letter-spacing:-0.5px">USA Distributor Inc.</h1>
     <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">AT&T VND · Dealer #594193 · Kissimmee, FL</p>
   </div>
-  <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:700px;width:100%">
-    <button onclick="abrirAcceso('admin',null)"
-      style="flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center"
-      onmouseover="this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'"
-      onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
-      <div style="font-size:34px;margin-bottom:8px">📋</div>
-      <div style="color:#fff;font-size:15px;font-weight:800">Administración</div>
-      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Dashboard · Ventas · Agentes<br>Pagos · Gastos · Nómina</div>
+  <!-- Formulario de login -->
+  <div id="login-form-box" style="background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.15);border-radius:18px;padding:32px 28px;width:100%;max-width:360px">
+    <div style="color:rgba(255,255,255,0.6);font-size:13px;text-align:center;margin-bottom:22px">Ingresa con tu cuenta autorizada</div>
+    <div style="margin-bottom:14px">
+      <input type="email" id="login-email" placeholder="Correo electrónico"
+        style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:13px;outline:none;font-family:inherit"
+        onfocus="this.style.borderColor='#FF6B6B'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div style="margin-bottom:20px">
+      <input type="password" id="login-pass" placeholder="Contraseña"
+        style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:13px;outline:none;font-family:inherit"
+        onfocus="this.style.borderColor='#FF6B6B'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
+        onkeydown="if(event.key==='Enter')loginFirebase()">
+    </div>
+    <div id="login-error" style="color:#FF6B6B;font-size:12px;text-align:center;margin-bottom:12px;display:none"></div>
+    <button onclick="loginFirebase()" id="login-btn"
+      style="width:100%;background:linear-gradient(135deg,#8B1A1A,#A52020);color:#fff;border:none;padding:12px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s"
+      onmouseover="this.style.background='linear-gradient(135deg,#a52020,#c02828)'"
+      onmouseout="this.style.background='linear-gradient(135deg,#8B1A1A,#A52020)'">
+      🔐 Iniciar Sesión
     </button>
-    <button onclick="abrirAcceso('hq',null)"
-      style="flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center"
-      onmouseover="this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'"
-      onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
-      <div style="font-size:34px;margin-bottom:8px">🏛️</div>
-      <div style="color:#fff;font-size:15px;font-weight:800">HEADQUARTERS</div>
-      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Pagos · Comisiones<br>Gerente General</div>
-    </button>
-    <button onclick="abrirAcceso('top',null)"
-      style="flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center"
-      onmouseover="this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'"
-      onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'">
-      <div style="font-size:34px;margin-bottom:8px">⭐</div>
-      <div style="color:#fff;font-size:15px;font-weight:800">TOP</div>
-      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
-    </button>
+    <div id="login-spinner" style="display:none;text-align:center;margin-top:14px;color:rgba(255,255,255,0.5);font-size:12px">⏳ Conectando...</div>
   </div>
-  <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:40px">© USA Distributor Inc · Kissimmee, FL · 1-800-757-2821</div>
+  <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:32px">© USA Distributor Inc · Kissimmee, FL · 1-800-757-2821</div>
 </div>
 
 <div class="app-wrap" id="app-wrap" style="display:none">
@@ -228,7 +225,9 @@ tr:hover td{background:#EAF0FB}
       <p>AT&T VND · #594193</p>
     </div>
   </div>
-  <nav class="sidebar-nav" id="sidebar-nav-admin" style="display:none">
+  <!-- Nav unificado: visible según rol del usuario -->
+  <nav class="sidebar-nav" id="sidebar-nav-main" style="display:none">
+    <!-- Sección ADMIN (todos los roles) -->
     <div class="nav-section">Principal</div>
     <div class="nav-item" onclick="showPage('dashboard',this)" id="nav-dashboard"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('ventas',this)"><span class="icon">📝</span><span>Registro Diario</span></div>
@@ -240,20 +239,17 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
+    <!-- Sección HQ (rol: owner, jose) -->
+    <div class="nav-section nav-hq-section" style="display:none">🏛️ HEADQUARTERS</div>
+    <div class="nav-item nav-hq-item" style="display:none" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
+    <!-- Sección TOP (rol: owner únicamente) -->
+    <div class="nav-section nav-top-section" style="display:none">⭐ TOP</div>
+    <div class="nav-item nav-top-item" style="display:none" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
+    <div class="nav-item nav-top-item" style="display:none" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
+    <!-- Pie del nav -->
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('admin')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
-  </nav>
-  <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
-    <div class="nav-section">🏛️ HEADQUARTERS</div>
-    <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
-    <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('hq')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
-  </nav>
-  <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
-    <div class="nav-section">⭐ TOP</div>
-    <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
-    <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion('top')"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+    <div id="nav-user-info" style="padding:10px 20px;font-size:10px;color:rgba(255,255,255,0.35)"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <div class="sidebar-footer">Dealer #594193 · USA Distributor</div>
 </aside>
@@ -412,30 +408,17 @@ tr:hover td{background:#EAF0FB}
       <div id="admin-content"></div>
     </div>
 
+    <!-- ===== USUARIOS (solo owner) ===== -->
+    <div class="page" id="page-usuarios">
+      <div id="usuarios-content"></div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 </div><!-- /app-wrap -->
 </div><!-- /#app-wrap -->
 
-<!-- ===== MODAL PIN ===== -->
-<div class="modal-overlay" id="modal-pin">
-  <div class="modal" style="max-width:360px">
-    <div class="modal-header" id="pin-header" style="background:linear-gradient(135deg,#1a2b3c,#33475B)">
-      <h3 style="color:#fff" id="pin-titulo">🔐 Acceso Restringido</h3>
-      <button class="modal-close" style="color:rgba(255,255,255,0.6)" onclick="closeModal('modal-pin')">✕</button>
-    </div>
-    <div class="modal-body" style="text-align:center;padding:30px">
-      <div style="font-size:44px;margin-bottom:10px" id="pin-icon">🔒</div>
-      <div style="font-size:13px;color:#7C98B6;margin-bottom:20px" id="pin-desc">Ingresa tu PIN para acceder</div>
-      <input type="password" id="pin-input" maxlength="20" placeholder="••••••"
-        style="width:100%;text-align:center;font-size:24px;letter-spacing:8px;padding:14px;border:2px solid #CBD6E2;border-radius:10px;outline:none;color:#33475B;background:#F5F8FA"
-        onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'"
-        onkeydown="if(event.key==='Enter')verificarPin()">
-      <div id="pin-error" style="color:#F2545B;font-size:12px;margin-top:8px;display:none">PIN incorrecto. Intenta de nuevo.</div>
-      <button class="btn btn-primary" style="margin-top:16px;width:100%;font-size:14px;padding:11px" onclick="verificarPin()">Entrar →</button>
-    </div>
-  </div>
-</div>
+<!-- PIN modal removed — replaced by Firebase Auth -->
 
 <!-- ===== MODAL GASTO ===== -->
 <div class="modal-overlay" id="modal-gasto">
@@ -697,6 +680,25 @@ const CAT_COLOR = {
 };
 
 // ============================================================
+// FIREBASE INIT
+// ============================================================
+const firebaseConfig = {
+  apiKey:            "AIzaSyAwmfyN3MVFPHrBD3TFQIDOB5IXhYqR15c",
+  authDomain:        "pagos-att.firebaseapp.com",
+  databaseURL:       "https://pagos-att-default-rtdb.firebaseio.com",
+  projectId:         "pagos-att",
+  storageBucket:     "pagos-att.firebasestorage.app",
+  messagingSenderId: "814678912145",
+  appId:             "1:814678912145:web:3db647b6d4aaa40a4b2330"
+};
+firebase.initializeApp(firebaseConfig);
+const fbAuth = firebase.auth();
+const fbDB   = firebase.database();
+
+let currentUser = null;   // Firebase user object
+let currentRole = null;   // 'owner' | 'jose' | 'oriana'
+
+// ============================================================
 // DATA
 // ============================================================
 let appData = {
@@ -708,27 +710,60 @@ let appData = {
   gastos: [],
   nextId: 1,
   nextGastoId: 1,
-  pins: { top: '1234', admin: '0000', hq: '7777' }, // PINs por defecto — cambiar en área TOP
-  pagosRecibidos: {}, // legado — se mantiene por compatibilidad
-  ingresos: [],      // [{ id, fecha, fuente, descripcion, monto, mes }]
-  chargebacks: {},   // { 'Enero 2026': 14.95 } — % chargeback por mes
-  rsiReportes: {},   // { 'Enero 2026': { bruto: 21250.51, neto: 18072.57 } } — datos RS&I para calcular CB%
-  accesoPrivado: [], // nombres de agentes con acceso gerente
+  pagosRecibidos: {},
+  ingresos: [],
+  chargebacks: {},
+  rsiReportes: {},
+  accesoPrivado: [],
 };
 
-function guardar() {
-  localStorage.setItem('attVND_v1', JSON.stringify(appData));
+function normalizarAppData() {
+  if(!appData.ingresos)     appData.ingresos = [];
+  if(!appData.chargebacks)  appData.chargebacks = {};
+  if(!appData.rsiReportes)  appData.rsiReportes = {};
+  if(!appData.pagosRecibidos) appData.pagosRecibidos = {};
+  if(!appData.accesoPrivado) appData.accesoPrivado = [];
+  if(!appData.agentes)  appData.agentes = [];
+  if(!appData.ventas)   appData.ventas = [];
+  if(!appData.quincenas) appData.quincenas = {};
+  if(!appData.meses)    appData.meses = [];
+  if(!appData.gastos)   appData.gastos = [];
+  if(!appData.nextId)   appData.nextId = 1;
+  // Eliminar campo pins (ya no se usa)
+  delete appData.pins;
 }
 
-function cargar() {
+// Guardar: escribe en Firebase + localStorage como caché
+function guardar() {
+  normalizarAppData();
+  localStorage.setItem('attVND_v1', JSON.stringify(appData));
+  fbDB.ref('appData').set(appData).catch(e => console.warn('Firebase write error:', e));
+}
+
+// Cargar desde Firebase (async); fallback a localStorage
+async function cargar() {
+  try {
+    const snap = await fbDB.ref('appData').get();
+    if (snap.exists()) {
+      const raw = snap.val();
+      appData = { ...appData, ...raw };
+      normalizarAppData();
+      localStorage.setItem('attVND_v1', JSON.stringify(appData));
+      return;
+    }
+  } catch(e) {
+    console.warn('Firebase read error, using localStorage:', e);
+  }
+  // Fallback localStorage
   const s = localStorage.getItem('attVND_v1');
   if (s) {
-    appData = { comisiones:{}, quincenas:{}, gastos:[], ingresos:[], chargebacks:{}, pins:{top:'1234',admin:'0000',hq:'7777'}, pagosRecibidos:{}, accesoPrivado:[], ...JSON.parse(s) };
-    if(!appData.ingresos)     appData.ingresos = [];
-    if(!appData.chargebacks)  appData.chargebacks = {};
-    if(!appData.rsiReportes)  appData.rsiReportes = {};
-    if(!appData.pins.hq) appData.pins.hq = '7777';
-  } else {
+    const parsed = JSON.parse(s);
+    appData = { ...appData, ...parsed };
+    normalizarAppData();
+    return;
+  }
+  // Sin datos previos → cargar datos de ejemplo
+  {
     // Datos de ejemplo
     const hoy = new Date();
     const mesActual = MESES_ES[hoy.getMonth()] + ' ' + hoy.getFullYear();
@@ -853,7 +888,7 @@ function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.g
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', productos:'📦 Productos & Comisiones',
-  top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS'
+  top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios'
 };
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -872,7 +907,12 @@ function renderPage(name) {
   if(name==='productos') renderProductos();
   if(name==='top')   renderTop();
   if(name==='hq')    renderHQ();
-  if(name==='admin') renderAdmin(); // Gastos & Nómina (dentro de sesión admin)
+  if(name==='admin') renderAdmin();
+  if(name==='usuarios') renderUsuarios();
+}
+
+function renderAll() {
+  renderDashboard();
 }
 
 // ============================================================
@@ -1653,67 +1693,203 @@ function updateComision(prodId, valor) {
 }
 
 // ============================================================
-// AUTH — TOP & ADMIN
+// AUTH — Firebase Authentication
 // ============================================================
-let sesion = { top:false, admin:false, hq:false };
-let _pinTarget = null;
 
-const AREA_CFG = {
-  admin: { icon:'📋', titulo:'Administración',  color:'linear-gradient(135deg,#004A9A,#009FDB)' },
-  hq:    { icon:'🏛️', titulo:'HEADQUARTERS',    color:'linear-gradient(135deg,#006644,#00BDA5)' },
-  top:   { icon:'⭐', titulo:'TOP',              color:'linear-gradient(135deg,#1a2b3c,#33475B)' },
-};
-
+// Mapa de roles:  owner → ve todo (top+hq+admin)
+//                 jose  → ve hq+admin
+//                 oriana → ve solo admin
 function mostrarLogin() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app-wrap').style.display = 'none';
 }
 
-function mostrarApp(area) {
+function mostrarApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'flex';
-  document.getElementById('sidebar-nav-admin').style.display = area==='admin' ? 'block' : 'none';
-  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'    ? 'block' : 'none';
-  document.getElementById('sidebar-nav-top').style.display   = area==='top'   ? 'block' : 'none';
-  if(area==='admin') showPage('dashboard', document.getElementById('nav-dashboard'));
-  else if(area==='hq')  showPage('hq',  null);
-  else if(area==='top') showPage('top', null);
+  document.getElementById('sidebar-nav-main').style.display = 'block';
+
+  // Mostrar/ocultar secciones HQ y TOP según rol
+  const esJoseOOwner = (currentRole === 'owner' || currentRole === 'jose');
+  const esOwner      = (currentRole === 'owner');
+  document.querySelectorAll('.nav-hq-section,.nav-hq-item').forEach(el => el.style.display = esJoseOOwner ? 'flex' : 'none');
+  document.querySelectorAll('.nav-section.nav-hq-section').forEach(el => el.style.display  = esJoseOOwner ? 'block' : 'none');
+  document.querySelectorAll('.nav-top-section,.nav-top-item').forEach(el => el.style.display = esOwner ? 'flex' : 'none');
+  document.querySelectorAll('.nav-section.nav-top-section').forEach(el => el.style.display   = esOwner ? 'block' : 'none');
+
+  // Info del usuario en sidebar
+  const email = currentUser ? currentUser.email : '';
+  const roleLabel = { owner:'⭐ Owner', jose:'🏛️ HQ + Admin', oriana:'📋 Admin' }[currentRole] || '';
+  document.getElementById('nav-user-info').innerHTML =
+    `<div style="font-size:10px;color:rgba(255,255,255,0.5)">${email}</div>
+     <div style="font-size:9px;color:rgba(255,100,100,0.6);margin-top:2px">${roleLabel}</div>`;
+
+  // Pantalla inicial según rol
+  showPage('dashboard', document.getElementById('nav-dashboard'));
 }
 
-function abrirAcceso(area, el) {
-  if(sesion[area]) { mostrarApp(area); return; }
-  _pinTarget = area;
-  const cfg = AREA_CFG[area];
-  document.getElementById('pin-titulo').textContent  = cfg.titulo;
-  document.getElementById('pin-icon').textContent    = cfg.icon;
-  document.getElementById('pin-desc').textContent    = 'Ingresa tu PIN para acceder';
-  document.getElementById('pin-header').style.background = cfg.color;
-  document.getElementById('pin-error').style.display = 'none';
-  document.getElementById('pin-input').value = '';
-  document.getElementById('modal-pin').classList.add('open');
-  setTimeout(()=>document.getElementById('pin-input').focus(), 200);
-}
-
-function verificarPin() {
-  const input = document.getElementById('pin-input').value.trim();
-  const pins  = appData.pins || { top:'1234', admin:'0000', hq:'7777' };
-  const pinCorrecto = pins[_pinTarget];
-  if(input !== pinCorrecto) {
-    document.getElementById('pin-error').style.display = 'block';
-    document.getElementById('pin-input').value = '';
-    document.getElementById('pin-input').focus();
-    return;
+async function loginFirebase() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  const btnEl = document.getElementById('login-btn');
+  const spinEl = document.getElementById('login-spinner');
+  errEl.style.display = 'none';
+  if(!email || !pass) { errEl.textContent='Ingresa correo y contraseña'; errEl.style.display='block'; return; }
+  btnEl.disabled = true;
+  spinEl.style.display = 'block';
+  try {
+    await fbAuth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged se encarga del resto
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':  'Correo no registrado.',
+      'auth/wrong-password':  'Contraseña incorrecta.',
+      'auth/invalid-email':   'Correo inválido.',
+      'auth/invalid-credential': 'Correo o contraseña incorrectos.',
+      'auth/too-many-requests': 'Demasiados intentos. Espera un momento.',
+    };
+    errEl.textContent = msgs[e.code] || ('Error: ' + e.message);
+    errEl.style.display = 'block';
+    btnEl.disabled = false;
+    spinEl.style.display = 'none';
   }
-  sesion[_pinTarget] = true;
-  closeModal('modal-pin');
-  mostrarApp(_pinTarget);
-  showNotif('🔓 Bienvenido — ' + AREA_CFG[_pinTarget].titulo);
 }
 
-function cerrarSesion(area) {
-  sesion[area] = false;
+async function cerrarSesion() {
+  await fbAuth.signOut();
+  currentUser = null;
+  currentRole = null;
   mostrarLogin();
   showNotif('🔒 Sesión cerrada');
+}
+
+// Obtener rol del usuario desde Firebase
+async function obtenerRol(uid) {
+  try {
+    const snap = await fbDB.ref(`userRoles/${uid}`).get();
+    if(snap.exists()) return snap.val();
+  } catch(e) {}
+  // Si no hay ningún rol en Firebase, el primer usuario se convierte en owner
+  try {
+    const rolesSnap = await fbDB.ref('userRoles').get();
+    if(!rolesSnap.exists()) {
+      // Primera vez — asignar owner automáticamente
+      await fbDB.ref(`userRoles/${uid}`).set('owner');
+      return 'owner';
+    }
+  } catch(e) {}
+  return null; // Sin acceso
+}
+
+// Observer de autenticación — punto de entrada principal
+fbAuth.onAuthStateChanged(async (user) => {
+  if (user) {
+    currentUser = user;
+    const role = await obtenerRol(user.uid);
+    if(!role) {
+      await fbAuth.signOut();
+      document.getElementById('login-error').textContent = 'Tu cuenta no tiene acceso autorizado.';
+      document.getElementById('login-error').style.display = 'block';
+      mostrarLogin();
+      return;
+    }
+    currentRole = role;
+    document.getElementById('login-btn').disabled = false;
+    document.getElementById('login-spinner').style.display = 'none';
+    // Cargar datos y mostrar app
+    await cargar();
+    ejecutarMigraciones();
+    mostrarApp();
+    renderAll();
+    showNotif(`🔓 Bienvenido, ${user.email.split('@')[0]}`);
+  } else {
+    mostrarLogin();
+  }
+});
+
+// ============================================================
+// GESTIÓN DE USUARIOS (página Usuarios — solo owner)
+// ============================================================
+async function renderUsuarios() {
+  const el = document.getElementById('usuarios-content');
+  el.innerHTML = '<div style="color:#7C98B6;padding:20px">⏳ Cargando usuarios...</div>';
+  let rolesData = {};
+  try {
+    const snap = await fbDB.ref('userRoles').get();
+    if(snap.exists()) rolesData = snap.val();
+  } catch(e) {}
+  const rows = Object.entries(rolesData).map(([uid, role]) =>
+    `<tr><td style="font-family:monospace;font-size:11px">${uid}</td>
+     <td><select onchange="cambiarRol('${uid}',this.value)" style="border:1px solid #CBD6E2;border-radius:5px;padding:4px 8px;font-size:12px">
+       ${['owner','jose','oriana'].map(r=>`<option value="${r}" ${r===role?'selected':''}>${r}</option>`).join('')}
+     </select></td>
+     <td><button class="btn btn-danger btn-xs" onclick="eliminarUsuario('${uid}')">🗑️</button></td></tr>`
+  ).join('');
+  el.innerHTML = `
+  <div class="section">
+    <div class="section-header">
+      <h2>👤 Gestión de Usuarios</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirCrearUsuario()">➕ Agregar Usuario</button>
+    </div>
+    <p style="font-size:12px;color:#7C98B6;margin-bottom:14px">
+      Roles: <b>owner</b> = acceso total (TOP+HQ+Admin) · <b>jose</b> = HQ+Admin · <b>oriana</b> = solo Admin
+    </p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>UID Firebase</th><th>Rol</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3" class="tbl-empty">Sin usuarios registrados</td></tr>'}</tbody>
+    </table></div>
+  </div>
+  <div class="section" id="crear-usuario-box" style="display:none">
+    <h2 style="margin-bottom:14px">➕ Crear Nuevo Usuario</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>Correo *</label><input type="email" id="nu-email" placeholder="correo@ejemplo.com"></div>
+      <div class="form-group"><label>Contraseña temporal *</label><input type="password" id="nu-pass" placeholder="mínimo 6 caracteres"></div>
+      <div class="form-group"><label>Rol *</label>
+        <select id="nu-rol"><option value="oriana">oriana (solo Admin)</option><option value="jose">jose (HQ+Admin)</option><option value="owner">owner (acceso total)</option></select>
+      </div>
+    </div>
+    <button class="btn btn-success btn-sm" style="margin-top:12px" onclick="crearUsuario()">✅ Crear Usuario</button>
+  </div>`;
+}
+
+function abrirCrearUsuario() {
+  const box = document.getElementById('crear-usuario-box');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+}
+
+async function crearUsuario() {
+  const email = document.getElementById('nu-email').value.trim();
+  const pass  = document.getElementById('nu-pass').value;
+  const rol   = document.getElementById('nu-rol').value;
+  if(!email||!pass) { showNotif('⚠️ Completa todos los campos','error'); return; }
+  if(pass.length < 6) { showNotif('⚠️ Contraseña mínimo 6 caracteres','error'); return; }
+  try {
+    // Creamos el usuario con una instancia secundaria para no cerrar la sesión del owner
+    const secondApp = firebase.initializeApp(firebaseConfig, 'secondApp_' + Date.now());
+    const cred = await secondApp.auth().createUserWithEmailAndPassword(email, pass);
+    const uid = cred.user.uid;
+    await secondApp.auth().signOut();
+    secondApp.delete();
+    await fbDB.ref(`userRoles/${uid}`).set(rol);
+    showNotif(`✅ Usuario ${email} creado con rol "${rol}"`);
+    renderUsuarios();
+  } catch(e) {
+    const msgs = { 'auth/email-already-in-use':'Este correo ya está registrado.', 'auth/weak-password':'Contraseña muy débil.' };
+    showNotif('❌ ' + (msgs[e.code] || e.message), 'error');
+  }
+}
+
+async function cambiarRol(uid, nuevoRol) {
+  await fbDB.ref(`userRoles/${uid}`).set(nuevoRol);
+  showNotif('✅ Rol actualizado');
+}
+
+async function eliminarUsuario(uid) {
+  if(!confirm('¿Eliminar acceso de este usuario?')) return;
+  await fbDB.ref(`userRoles/${uid}`).remove();
+  showNotif('🗑️ Acceso eliminado');
+  renderUsuarios();
 }
 
 // ============================================================
@@ -2361,42 +2537,19 @@ function guardarChargeback(mes, valor) {
 }
 
 function renderTopConfig() {
-  const pins = appData.pins||{top:'1234',admin:'0000',hq:'7777'};
   document.getElementById('top-config').innerHTML = `
     <div class="section">
-      <div class="section-header"><h2>🔑 Cambiar PINs de Acceso</h2></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;max-width:700px">
-        <div class="form-group">
-          <label>PIN — TOP (solo tú)</label>
-          <input type="password" id="cfg-pin-top" value="${pins.top||''}"
-            style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none;width:100%">
-        </div>
-        <div class="form-group">
-          <label>PIN — Administración</label>
-          <input type="password" id="cfg-pin-admin" value="${pins.admin||''}"
-            style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none;width:100%">
-        </div>
-        <div class="form-group">
-          <label>PIN — HEADQUARTERS</label>
-          <input type="password" id="cfg-pin-hq" value="${pins.hq||''}"
-            style="background:#fff;border:1.5px solid #00BDA5;color:#33475B;padding:9px 12px;border-radius:8px;font-size:18px;letter-spacing:4px;outline:none;width:100%">
-        </div>
+      <div class="section-header"><h2>🔑 Acceso & Seguridad</h2></div>
+      <p style="font-size:13px;color:#33475B;margin-bottom:14px">
+        El acceso ahora se gestiona con <strong>Firebase Authentication</strong>.<br>
+        Los PINs ya no se usan — los usuarios inician sesión con correo y contraseña.
+      </p>
+      <button class="btn btn-primary btn-sm" onclick="showPage('usuarios',null)">👤 Administrar Usuarios →</button>
+      <div style="margin-top:16px;padding:12px;background:#EAF7FB;border-radius:8px;font-size:12px;color:#0057A8">
+        <b>Usuario actual:</b> ${currentUser ? currentUser.email : '—'}<br>
+        <b>Rol:</b> ${currentRole || '—'}
       </div>
-      <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="guardarPins()">💾 Guardar PINs</button>
-      <div style="font-size:11px;color:#F2545B;margin-top:8px;font-weight:600">⚠️ Cambia los PINs por defecto por unos seguros.</div>
     </div>`;
-}
-
-function guardarPins() {
-  const top   = document.getElementById('cfg-pin-top').value.trim();
-  const admin = document.getElementById('cfg-pin-admin').value.trim();
-  const hq    = document.getElementById('cfg-pin-hq').value.trim();
-  if(!top||!admin||!hq) { showNotif('⚠️ Ingresa los 3 PINs','error'); return; }
-  const todos = [top, admin, hq];
-  if(new Set(todos).size !== todos.length) { showNotif('⚠️ Los PINs deben ser todos diferentes','error'); return; }
-  appData.pins = { top, admin, hq };
-  guardar();
-  showNotif('✅ PINs actualizados correctamente');
 }
 
 // ============================================================
@@ -2626,13 +2779,13 @@ function migrarAgentes() {
 }
 
 // ============================================================
-// INIT
+// INIT — ejecutarMigraciones() se llama DESPUÉS de cargar() (async)
 // ============================================================
-cargar();
-migrarAgentes();
+function ejecutarMigraciones() {
+  migrarAgentes();
 
-// ── DATOS FINANCIEROS 2026 — fuente única, limpia desde cero ──
-(function datos2026() {
+  // ── DATOS FINANCIEROS 2026 — fuente única, limpia desde cero ──
+  (function datos2026() {
   const MARCA = 'datos_2026_final_v4';
   if(appData[MARCA]) return;
 
@@ -2700,8 +2853,8 @@ migrarAgentes();
   guardar();
 })();
 
-// Asegurar que todos los meses del año actual estén en el sistema
-(function migrarMeses() {
+  // ── Asegurar que todos los meses del año actual estén en el sistema ──
+  (function migrarMeses() {
   const anio = new Date().getFullYear();
   let changed = false;
   MESES_ES.forEach(m => {
@@ -2717,8 +2870,9 @@ migrarAgentes();
     const [mB, yB] = [MESES_ES.indexOf(b.split(' ')[0]), parseInt(b.split(' ')[1])];
     return yA !== yB ? yA - yB : mA - mB;
   });
-  if (changed) guardar();
-})();
+    if (changed) guardar();
+  })();
+} // fin ejecutarMigraciones()
 
 // Date in topbar
 const hoy = new Date();
@@ -2729,8 +2883,7 @@ document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
   ' <button class="btn btn-ghost btn-sm" onclick="agregarMes()">➕ Mes</button>'
 );
 
-// Arrancar con pantalla de login
-mostrarLogin();
+// onAuthStateChanged ya se encarga del login/render — no necesitamos llamar nada aquí
 </script>
 </body>
 </html>
