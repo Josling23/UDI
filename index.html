@@ -2528,6 +2528,25 @@ migrarAgentes();
   guardar();
 })();
 
+// ── Migrar Nómina Mayo 2026 ──────────────────────────────────
+(function migrarNominaMayo2026() {
+  const MES = 'Mayo 2026';
+  const MARCA = 'nomina_mayo2026_ok';
+  if(appData[MARCA]) return;
+  const items = [
+    { fecha:'2026-05-31', tipo:'fijo',  descripcion:'Nómina agentes Mayo 2026',                    monto:2958.60 },
+    { fecha:'2026-05-31', tipo:'otro',  descripcion:'Comisiones agentes Mayo 2026',                 monto:1081.33 },
+    { fecha:'2026-05-31', tipo:'otro',  descripcion:'Comisiones Jesús (subdealer) Mayo 2026',       monto:6320.00 },
+    { fecha:'2026-05-31', tipo:'fijo',  descripcion:'Sueldo Douglas Mayo 2026',                     monto:2925.00 },
+  ];
+  let maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
+  items.forEach(g => {
+    appData.gastos.push({ id:++maxId, fecha:g.fecha, tipo:g.tipo, descripcion:g.descripcion, monto:g.monto, mes:MES, notas:'' });
+  });
+  appData[MARCA] = true;
+  guardar();
+})();
+
 // Asegurar que todos los meses del año actual estén en el sistema
 (function migrarMeses() {
   const anio = new Date().getFullYear();
