@@ -2173,25 +2173,49 @@ function renderTopROI() {
       })() : '<span style="font-size:12px;color:#99ACC2">Selecciona un mes para ver o agregar ingresos</span>'}
     </div>
 
-    <!-- ROI del mes seleccionado -->
-    <div class="roi-card" style="margin-bottom:18px">
-      <h3>📊 ${selMes||'Resumen General'}</h3>
-      <div class="roi-grid">
-        <div class="roi-item"><label>Total Ingresos</label><div class="val blue">${fmt(d.pagado)}</div></div>
-        <div class="roi-item"><label>Com. Agentes</label><div class="val red">−${fmt(d.comAgentes)}</div></div>
-        <div class="roi-item"><label>Com. Gerentes</label><div class="val red">−${fmt(d.comGerSup)}</div></div>
-        <div class="roi-item"><label>Nómina</label><div class="val red">−${fmt(d.nomina)}</div></div>
-        <div class="roi-item"><label>Gastos Fijos</label><div class="val red">−${fmt(d.gastosFijos)}</div></div>
-        <div class="roi-item"><label>Gastos Variables</label><div class="val red">−${fmt(d.gastosVar)}</div></div>
-        <div class="roi-item"><label>Marketing/Otros</label><div class="val red">−${fmt(d.gastosOtros)}</div></div>
-        <div class="roi-item" style="background:rgba(255,255,255,0.1);border-radius:8px;padding:10px">
-          <label>UTILIDAD NETA</label><div class="val ${d.utilidad>=0?'green':'red'}">${fmt(d.utilidad)}</div>
-        </div>
-        <div class="roi-item" style="background:rgba(255,255,255,0.1);border-radius:8px;padding:10px">
-          <label>ROI</label><div class="val ${d.roi>=0?'green':'red'}">${d.roi.toFixed(1)}%</div>
+    <!-- Resumen Global (todos los meses) + mes seleccionado -->
+    ${(()=>{
+      const dTotal = calcROI('');
+      const mesesConDatos = meses.filter(m=>calcROI(m).pagado>0);
+      const roiColor = c => c>=30?'#00BDA5':c>=15?'#D4A017':'#F2545B';
+      return `
+      <div class="roi-card" style="margin-bottom:18px;background:linear-gradient(135deg,#1C1C3A,#2D2D5E)">
+        <h3 style="margin-bottom:14px">🌎 Resumen Global 2026 — ${mesesConDatos.length} meses</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+          <div class="roi-item"><label>Total Ingresos</label><div class="val blue">${fmt(dTotal.pagado)}</div></div>
+          <div class="roi-item"><label>Total Gastos</label><div class="val red">−${fmt(dTotal.totalEgresos)}</div></div>
+          <div class="roi-item" style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+            <label>UTILIDAD NETA</label>
+            <div style="font-size:22px;font-weight:900;color:${dTotal.utilidad>=0?'#00BDA5':'#F2545B'}">${fmt(dTotal.utilidad)}</div>
+          </div>
+          <div class="roi-item" style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+            <label>ROI GLOBAL</label>
+            <div style="font-size:22px;font-weight:900;color:${roiColor(dTotal.roi)}">${dTotal.roi.toFixed(1)}%</div>
+          </div>
+          <div class="roi-item">
+            <label>Mejor Mes</label>
+            <div style="font-weight:700;color:#00BDA5;font-size:13px">${(()=>{const m=meses.map(x=>({x,u:calcROI(x).utilidad})).sort((a,b)=>b.u-a.u)[0];return m?`${m.x}<br><span style="font-size:11px">${fmt(m.u)}</span>`:'-';})()}</div>
+          </div>
+          <div class="roi-item">
+            <label>Promedio Mensual</label>
+            <div style="font-weight:700;color:#009FDB;font-size:13px">${mesesConDatos.length?fmt(dTotal.utilidad/mesesConDatos.length):fmt(0)}</div>
+          </div>
         </div>
       </div>
-    </div>
+      ${selMes?`<div class="roi-card" style="margin-bottom:18px;opacity:0.9">
+        <h3>📅 ${selMes}</h3>
+        <div class="roi-grid">
+          <div class="roi-item"><label>Ingresos</label><div class="val blue">${fmt(d.pagado)}</div></div>
+          <div class="roi-item"><label>Gastos</label><div class="val red">−${fmt(d.totalEgresos)}</div></div>
+          <div class="roi-item" style="background:rgba(255,255,255,0.1);border-radius:8px;padding:10px">
+            <label>UTILIDAD</label><div class="val ${d.utilidad>=0?'green':'red'}">${fmt(d.utilidad)}</div>
+          </div>
+          <div class="roi-item" style="background:rgba(255,255,255,0.1);border-radius:8px;padding:10px">
+            <label>ROI</label><div class="val ${d.roi>=0?'green':'red'}">${d.roi.toFixed(1)}%</div>
+          </div>
+        </div>
+      </div>`:''}`;
+    })()}
 
     <!-- Historial por mes -->
     <div class="section">
