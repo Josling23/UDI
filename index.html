@@ -2103,13 +2103,29 @@ function renderTopROI() {
       + parseFloat(appData.pagosRecibidos[m]||0)
       + (appData.ingresos||[]).filter(i=>i.mes===m).reduce((ss,i)=>ss+parseFloat(i.monto||0),0)
     ,0);
-    // Usar solo los gastos confirmados almacenados (ya incluyen nómina, comisiones y todo)
-    const totalEgresos = appData.gastos
-      .filter(g=>!mes||g.mes===mes)
-      .reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const utilidad = pagado - totalEgresos;
-    const roi      = pagado>0?(utilidad/pagado*100):0;
-    return { pagado, totalEgresos, utilidad, roi };
+    const comAgentes = appData.agentes
+      .filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente'))
+      .reduce((s,a)=>s+msLista.reduce((ss,m)=>ss+getComisionesMes(a,m),0),0);
+    const comGerSup = appData.agentes
+      .filter(a=>!a.soloHQ&&(a.rol==='gerente'||a.rol==='supervisor'))
+      .reduce((s,a)=>s+msLista.reduce((ss,m)=>ss+getComisionesMes(a,m),0),0);
+    let nomina = 0;
+    appData.agentes.filter(a=>!a.soloHQ).forEach(a=>{
+      msLista.forEach(m=>{
+        const basico = a.sueldoQuincenal||0;
+        if(appData.quincenas[getQuincenaKey(a.nombre,m,1)]) nomina+=basico;
+        if(appData.quincenas[getQuincenaKey(a.nombre,m,2)]) nomina+=basico;
+        nomina+=getExtra('bono',a.nombre,m)+getExtra('prest',a.nombre,m)-getExtra('desc',a.nombre,m);
+      });
+    });
+    const gastosFijos  = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='fijo').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const gastosVar    = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='variable').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const gastosOtros  = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='otro').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const totalGastos  = gastosFijos+gastosVar+gastosOtros;
+    const totalEgresos = comAgentes+comGerSup+nomina+totalGastos;
+    const utilidad     = pagado - totalEgresos;
+    const roi          = pagado>0?(utilidad/pagado*100):0;
+    return { pagado, comAgentes, comGerSup, nomina, gastosFijos, gastosVar, gastosOtros, totalGastos, totalEgresos, utilidad, roi };
   }
 
   const d = calcROI(selMes);
