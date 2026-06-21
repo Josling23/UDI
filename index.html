@@ -1742,6 +1742,7 @@ function mostrarAreas() {
   const hoverOn  = `this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'`;
   const hoverOff = `this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'`;
 
+  // Orden: Administración | TOP (centro) | HEADQUARTERS
   let btns = '';
   if(puedeAdmin) btns += `
     <button onclick="abrirArea('admin')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
@@ -1749,17 +1750,17 @@ function mostrarAreas() {
       <div style="color:#fff;font-size:15px;font-weight:800">Administración</div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Dashboard · Ventas · Agentes<br>Pagos · Gastos · Nómina</div>
     </button>`;
+  if(puedeTop) btns += `
+    <button onclick="abrirArea('top')" style="${btnStyle};border-color:rgba(255,215,0,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,215,0,0.4)'">
+      <div style="font-size:34px;margin-bottom:8px">⭐</div>
+      <div style="color:#FFD700;font-size:15px;font-weight:800">TOP</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
+    </button>`;
   if(puedeHQ) btns += `
     <button onclick="abrirArea('hq')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
       <div style="font-size:34px;margin-bottom:8px">🏛️</div>
       <div style="color:#fff;font-size:15px;font-weight:800">HEADQUARTERS</div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Pagos · Comisiones<br>Gerente General</div>
-    </button>`;
-  if(puedeTop) btns += `
-    <button onclick="abrirArea('top')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
-      <div style="font-size:34px;margin-bottom:8px">⭐</div>
-      <div style="color:#fff;font-size:15px;font-weight:800">TOP</div>
-      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">ROI · Finanzas<br>Acceso exclusivo</div>
     </button>`;
 
   document.getElementById('area-buttons').innerHTML = btns;
