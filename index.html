@@ -2504,6 +2504,30 @@ migrarAgentes();
   guardar();
 })();
 
+// ── Migrar gastos FIJOS Mayo 2026 ───────────────────────────
+(function migrarGastosFijosMayo2026() {
+  const MES = 'Mayo 2026';
+  const MARCA = 'gastos_fijos_mayo2026_ok';
+  if(appData[MARCA]) return;
+  const fijos = [
+    { fecha:'2026-05-01', descripcion:'ChatGPT Plus Gerencia', monto:20.00 },
+    { fecha:'2026-05-01', descripcion:'ZOOM tarjeta', monto:16.99 },
+    { fecha:'2026-05-01', descripcion:'Internet Fibex (BCV 300)', monto:231.00 },
+    { fecha:'2026-05-01', descripcion:'Internet SC (BCV 60)', monto:44.71 },
+    { fecha:'2026-05-01', descripcion:'Internet Bravo', monto:61.45 },
+    { fecha:'2026-05-01', descripcion:'Talkroute', monto:334.00 },
+    { fecha:'2026-05-01', descripcion:'Impuestos SD (BCV 262)', monto:198.00 },
+    { fecha:'2026-05-01', descripcion:'Contadora', monto:120.00 },
+    { fecha:'2026-05-01', descripcion:'Renta Bravo 2 punto', monto:1300.00 },
+  ];
+  let maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
+  fijos.forEach(g => {
+    appData.gastos.push({ id:++maxId, fecha:g.fecha, tipo:'fijo', descripcion:g.descripcion, monto:g.monto, mes:MES, notas:'' });
+  });
+  appData[MARCA] = true;
+  guardar();
+})();
+
 // Asegurar que todos los meses del año actual estén en el sistema
 (function migrarMeses() {
   const anio = new Date().getFullYear();
