@@ -2687,131 +2687,65 @@ migrarAgentes();
   guardar();
 })();
 
-// ── Reportes RS&I 2026 (bruto vs neto para calcular CB%) ────
-(function migrarRSIReportes() {
-  const MARCA = 'rsi_reportes_2026_v5';
+// ── DATOS FINANCIEROS 2026 — fuente única, limpia desde cero ──
+(function datos2026() {
+  const MARCA = 'datos_2026_final_v1';
   if(appData[MARCA]) return;
-  if(!appData.rsiReportes) appData.rsiReportes = {};
-  // Enero: Total reporte $21,250.51 → ACH recibido $18,072.57 → CB 14.95%
-  appData.rsiReportes['Enero 2026']   = { bruto: 21250.51, neto: 18072.57 };
-  // Febrero: Total reporte $32,713.75 → ACH recibido $28,931.66 → CB 11.56%
-  appData.rsiReportes['Febrero 2026'] = { bruto: 32713.75, neto: 28931.66 };
-  // Marzo: Total reporte $29,639.05 → ACH recibido $24,461.74 → CB 17.47%
-  appData.rsiReportes['Marzo 2026']   = { bruto: 29639.05, neto: 24461.74 };
-  // Abril: Total reporte $23,107.12 → ACH recibido $18,744.49 → CB 18.88%
-  appData.rsiReportes['Abril 2026']   = { bruto: 23107.12, neto: 18744.49 };
-  // Mayo: Total reporte $43,130.67 → ACH recibido $37,000.54 → CB 14.21%
-  appData.rsiReportes['Mayo 2026']    = { bruto: 43130.67, neto: 37000.54 };
-  appData[MARCA] = true;
-  guardar();
-})();
 
-// ── Chargebacks 2026 ────────────────────────────────────────
-(function migrarChargebacks2026() {
-  const MARCA = 'chargebacks_2026_ok';
-  if(appData[MARCA]) return;
-  if(!appData.chargebacks) appData.chargebacks = {};
-  const datos = {
-    'Enero 2026':   14.95,
-    'Febrero 2026': 11.56,
-    'Marzo 2026':   17.47,
-    'Abril 2026':   16.89,
-    'Mayo 2026':    13.32,
-    'Junio 2026':   18.50, // ~17-20%, usando punto medio
+  // Borrar TODO lo anterior
+  appData.gastos    = [];
+  appData.ingresos  = [];
+  appData.chargebacks  = {};
+  appData.rsiReportes  = {};
+
+  // Limpiar marcas de migraciones viejas
+  ['gastos_mayo2026_ok','gastos_fijos_mayo2026_ok','nomina_mayo2026_ok',
+   'ingresos_mayo2026_ok','ingresos_2026_ok','chargebacks_2026_ok',
+   'gastos_master_2026_v1','gastos_master_2026_v2','gastos_master_2026_v3',
+   'gastos_master_2026_v4','gastos_master_2026_v5','gastos_master_2026_v6',
+   'gastos_master_2026_v7','gastos_master_2026_v8',
+   'rsi_reportes_2026_ok','rsi_reportes_2026_v2','rsi_reportes_2026_v3',
+   'rsi_reportes_2026_v4','rsi_reportes_2026_v5',
+  ].forEach(k => delete appData[k]);
+
+  // ── Reportes RS&I (bruto reporte vs neto ACH recibido) ──────
+  appData.rsiReportes = {
+    'Enero 2026':   { bruto: 21250.51, neto: 18072.57 }, // CB 14.95%
+    'Febrero 2026': { bruto: 32713.75, neto: 28931.66 }, // CB 11.56%
+    'Marzo 2026':   { bruto: 29639.05, neto: 24461.74 }, // CB 17.47%
+    'Abril 2026':   { bruto: 23107.12, neto: 18744.49 }, // CB 18.88%
+    'Mayo 2026':    { bruto: 43130.67, neto: 37000.54 }, // CB 14.21%
   };
-  Object.assign(appData.chargebacks, datos);
-  appData[MARCA] = true;
-  guardar();
-})();
 
-// ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
-(function gastosMaster2026() {
-  const MARCA = 'gastos_master_2026_v8';
-  if(appData[MARCA]) return;
-  // Limpiar gastos e ingresos previos migrados
-  appData.gastos = [];
-  appData.ingresos = [];
-  // Resetear marcas de migraciones anteriores
-  delete appData['gastos_mayo2026_ok'];
-  delete appData['gastos_fijos_mayo2026_ok'];
-  delete appData['nomina_mayo2026_ok'];
-  delete appData['ingresos_mayo2026_ok'];
-  delete appData['ingresos_2026_ok'];
+  // ── Ingresos (RS&I neto + Salud + Bravo) ─────────────────────
+  let iid = 0;
+  [
+    { mes:'Enero 2026',   fecha:'2026-01-31', fuente:'RS&I',  monto:18072.57, desc:'Pago RS&I Enero 2026' },
+    { mes:'Enero 2026',   fecha:'2026-01-31', fuente:'Salud', monto:1596.00,  desc:'Ganancia salud Enero 2026' },
+    { mes:'Febrero 2026', fecha:'2026-02-28', fuente:'RS&I',  monto:28931.66, desc:'Pago RS&I Febrero 2026' },
+    { mes:'Febrero 2026', fecha:'2026-02-28', fuente:'Salud', monto:2067.00,  desc:'Ganancia salud Febrero 2026' },
+    { mes:'Marzo 2026',   fecha:'2026-03-31', fuente:'RS&I',  monto:24461.74, desc:'Pago RS&I Marzo 2026' },
+    { mes:'Marzo 2026',   fecha:'2026-03-31', fuente:'Salud', monto:3871.00,  desc:'Ganancia salud Marzo 2026' },
+    { mes:'Abril 2026',   fecha:'2026-04-30', fuente:'RS&I',  monto:18744.49, desc:'Pago RS&I Abril 2026' },
+    { mes:'Abril 2026',   fecha:'2026-04-30', fuente:'Salud', monto:2119.13,  desc:'Ganancia salud Abril 2026' },
+    { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'RS&I',  monto:37000.54, desc:'Pago RS&I Mayo 2026' },
+    { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'Bravo', monto:1741.03,  desc:'Ganancia Bravo Mayo 2026' },
+    { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'Salud', monto:2214.00,  desc:'Ganancia salud Mayo 2026' },
+    { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'RS&I',  monto:22431.72, desc:'Pago RS&I Junio 2026 (parcial)' },
+    { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'Bravo', monto:1581.90,  desc:'Ganancia Bravo Junio 2026 (parcial)' },
+  ].forEach(i => appData.ingresos.push({id:++iid, fecha:i.fecha, fuente:i.fuente, descripcion:i.desc, monto:i.monto, mes:i.mes}));
 
-  // Totales confirmados por reportes oficiales
-  const meses = [
-    { mes:'Enero 2026',  fecha:'2026-01-31', totalGastos:18234.33 },
-    { mes:'Febrero 2026',fecha:'2026-02-28', totalGastos:20735.75 },
-    { mes:'Marzo 2026',  fecha:'2026-03-31', totalGastos:18742.49 },
-    { mes:'Abril 2026',  fecha:'2026-04-30', totalGastos:16550.59 },
-    { mes:'Mayo 2026',   fecha:'2026-05-31', totalGastos:27163.94 },
-    { mes:'Junio 2026',  fecha:'2026-06-20', totalGastos:14573.22 },
-  ];
+  // ── Gastos totales confirmados por reportes ───────────────────
+  let gid = 0;
+  [
+    { mes:'Enero 2026',   fecha:'2026-01-31', total:18234.33 },
+    { mes:'Febrero 2026', fecha:'2026-02-28', total:20735.75 },
+    { mes:'Marzo 2026',   fecha:'2026-03-31', total:18742.49 },
+    { mes:'Abril 2026',   fecha:'2026-04-30', total:16550.59 },
+    { mes:'Mayo 2026',    fecha:'2026-05-31', total:27163.94 },
+    { mes:'Junio 2026',   fecha:'2026-06-20', total:14573.22 },
+  ].forEach(g => appData.gastos.push({id:++gid, fecha:g.fecha, tipo:'variable', descripcion:`Total gastos ${g.mes}`, monto:g.total, mes:g.mes}));
 
-  const ingresos = [
-    { mes:'Enero 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',                    monto:18072.57, fecha:'2026-01-31' },
-    { mes:'Enero 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Enero 2026',      monto:1596.00,  fecha:'2026-01-31' },
-    { mes:'Febrero 2026', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',                   monto:28931.66, fecha:'2026-02-28' },
-    { mes:'Febrero 2026', fuente:'Salud', descripcion:'Ganancia seguro de salud Febrero 2026',    monto:2067.00,  fecha:'2026-02-28' },
-    { mes:'Marzo 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',                     monto:24461.74, fecha:'2026-03-31' },
-    { mes:'Marzo 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Marzo 2026',      monto:3871.00,  fecha:'2026-03-31' },
-    { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',                     monto:18744.49, fecha:'2026-04-30' },
-    { mes:'Abril 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Abril 2026',      monto:2119.13,  fecha:'2026-04-30' },
-    { mes:'Mayo 2026',    fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',                      monto:37000.54, fecha:'2026-05-31' },
-    { mes:'Mayo 2026',    fuente:'Bravo', descripcion:'Ganancia Bravo Mayo 2026',                  monto:1741.03,  fecha:'2026-05-31' },
-    { mes:'Mayo 2026',    fuente:'Salud', descripcion:'Ganancia seguro de salud Mayo 2026',        monto:2214.00,  fecha:'2026-05-31' },
-    { mes:'Junio 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Junio 2026 (parcial)',            monto:22431.72, fecha:'2026-06-20' },
-    { mes:'Junio 2026',   fuente:'Bravo', descripcion:'Ganancia Bravo Junio 2026 (parcial)',       monto:1581.90,  fecha:'2026-06-20' },
-  ];
-
-  let gid = 0, iid = 0;
-  meses.forEach(({mes, fecha, totalGastos})=>{
-    if(totalGastos>0) appData.gastos.push({id:++gid, fecha, tipo:'variable', descripcion:`Total gastos ${mes}`, monto:totalGastos, mes});
-  });
-
-  ingresos.forEach(i=>{
-    appData.ingresos.push({id:++iid, fecha:i.fecha, fuente:i.fuente, descripcion:i.descripcion, monto:i.monto, mes:i.mes});
-  });
-
-  appData[MARCA] = true;
-  guardar();
-})();
-
-// ── Migrar Ingresos 2026 (todos los meses) ──────────────────
-(function migrarIngresos2026() {
-  const MARCA = 'ingresos_2026_ok';
-  if(appData[MARCA]) return;
-  if(!appData.ingresos) appData.ingresos = [];
-  const datos = [
-    { mes:'Enero 2026',    fecha:'2026-01-31', fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',      monto:18072.57 },
-    { mes:'Febrero 2026',  fecha:'2026-02-28', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',    monto:28931.66 },
-    { mes:'Marzo 2026',    fecha:'2026-03-31', fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',      monto:24461.74 },
-    { mes:'Abril 2026',    fecha:'2026-04-30', fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',      monto:10739.49 },
-    { mes:'Junio 2026',    fecha:'2026-06-20', fuente:'RS&I',  descripcion:'Pago RS&I Junio 2026 (parcial)', monto:22431.72 },
-    { mes:'Junio 2026',    fecha:'2026-06-20', fuente:'Bravo', descripcion:'Ganancia Bravo Junio 2026 (parcial)', monto:1581.90 },
-  ];
-  let maxId = appData.ingresos.reduce((m,i)=>Math.max(m,i.id||0),0);
-  datos.forEach(i=>{
-    appData.ingresos.push({ id:++maxId, fecha:i.fecha, fuente:i.fuente, descripcion:i.descripcion, monto:i.monto, mes:i.mes });
-  });
-  appData[MARCA] = true;
-  guardar();
-})();
-
-// ── Migrar Ingresos Mayo 2026 ────────────────────────────────
-(function migrarIngresosMayo2026() {
-  const MES = 'Mayo 2026';
-  const MARCA = 'ingresos_mayo2026_ok';
-  if(appData[MARCA]) return;
-  if(!appData.ingresos) appData.ingresos = [];
-  const items = [
-    { fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',   monto:36995.54 },
-    { fuente:'Bravo', descripcion:'Ganancia Bravo Mayo 2026', monto:1741.03 },
-  ];
-  let maxId = appData.ingresos.reduce((m,i)=>Math.max(m,i.id||0),0);
-  items.forEach(i=>{
-    appData.ingresos.push({ id:++maxId, fecha:'2026-05-31', fuente:i.fuente, descripcion:i.descripcion, monto:i.monto, mes:MES });
-  });
   appData[MARCA] = true;
   guardar();
 })();
