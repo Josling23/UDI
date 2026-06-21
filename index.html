@@ -1271,21 +1271,25 @@ async function cargar() {
 // ============================================================
 let saludData = {
   agentes: [
-    { id:1, nombre:'Jesus Remotos',   sueldoQuincenal:400, tel:'', email:'', activo:true },
-    { id:2, nombre:'Claudia Hidalgo', sueldoQuincenal:400, tel:'', email:'', activo:true },
-    { id:3, nombre:'Leidy Gallardo',  sueldoQuincenal:400, tel:'', email:'', activo:true }
+    { id:1, nombre:'Angela Chacon 034',   sueldoQuincenal:75,  tel:'', email:'', activo:true },
+    { id:2, nombre:'Belzai Huerfano 028', sueldoQuincenal:100, tel:'', email:'', activo:true },
+    { id:3, nombre:'Alejandro Argotte',   sueldoQuincenal:0,   tel:'', email:'', activo:true }
   ],
   clientes: [
-    { id:1,  nombre:'Cliente 1', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:29.75,  comResidualMensual:0, fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:2,  nombre:'Cliente 2', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:59.67,  comResidualMensual:0, fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:3,  nombre:'Cliente 3', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:59.67,  comResidualMensual:0, fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:4,  nombre:'Cliente 4', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:129.87, comResidualMensual:0, fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:5,  nombre:'Cliente 5', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:42.87,  comResidualMensual:0, fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:6,  nombre:'Cliente 6', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:96.14,  comResidualMensual:0, fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:7,  nombre:'Cliente Dental 1', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'dental', prima:39.44, comResidualMensual:0, fecha:'2026-06-01', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'EPICARE GO DENTAL', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:8,  nombre:'Cliente Dental 2', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'dental', prima:68.77, comResidualMensual:0, fecha:'2026-06-05', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'EPICARE GO DENTAL', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:9,  nombre:'Cliente Dental 3', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'dental', prima:49.85, comResidualMensual:0, fecha:'2026-06-10', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'EPICARE GO DENTAL', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 },
-    { id:10, nombre:'Cliente Referido Junio', cuenta:'', tel:'', email:'', agente:'Sin agente', tipo:'referido', prima:156.98, comResidualMensual:0, fecha:'2026-06-15', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8, mesesCobradosSalud:0 }
+    // ── Mayo 2026 ────────────────────────────────────────────
+    { id:1,  nombre:'MILGAUD CHARLES',      cuenta:'848 168 678',  tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:46.28,  comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-05-07', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:2,  nombre:'ASTRID PAREDES',       cuenta:'848 175 406',  tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:59.4,   comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:3,  nombre:'Cliente 4',            cuenta:'848 174 673',  tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:129.87, comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:4,  nombre:'JOSE AGUAS',           cuenta:'848173288',    tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:96.14,  comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-05-01', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:5,  nombre:'Michelle Lara Altamar',cuenta:'',             tel:'', email:'', agente:'Alejandro Argotte',   tipo:'salud',   prima:0,      comResidualMensual:75, mesesCobradosSalud:12, fecha:'2026-05-19', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:35 },
+    { id:6,  nombre:'MARILIA CHIRINOS',     cuenta:'848 175 452',  tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:118.5,  comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-05-20', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:7,  nombre:'JEANPIERRO MANUEL',    cuenta:'519 841 3482', tel:'', email:'', agente:'Angela Chacon 034',   tipo:'salud',   prima:0,      comResidualMensual:20, mesesCobradosSalud:12, fecha:'2026-05-28', fechaEfectiva:'', estado:'activo', mes:'Mayo 2026',  campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    // ── Junio 2026 ───────────────────────────────────────────
+    { id:8,  nombre:'ROMERO MEJIA VND',     cuenta:'848189182',    tel:'', email:'', agente:'Belzai Huerfano 028', tipo:'dental',  prima:39.44,  comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-06-01', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'EPICARE GO DENTAL', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:9,  nombre:'Enrique Perdomo Ch',   cuenta:'848185648',    tel:'', email:'', agente:'Belzai Huerfano 028', tipo:'dental',  prima:68.77,  comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-06-05', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'EPICARE GO DENTAL', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:10, nombre:'JAVIER PAREDES',       cuenta:'???????????',  tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:49.85,  comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-06-10', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'EPICARE GO DENTAL', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:11, nombre:'JaikerJose Chirinos R',cuenta:'848190945',    tel:'', email:'', agente:'Belzai Huerfano 028', tipo:'dental',  prima:50.9,   comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-06-19', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  },
+    { id:12, nombre:'Gelson Martinez Cueva',cuenta:'848185476',    tel:'', email:'', agente:'Angela Chacon 034',   tipo:'dental',  prima:156.98, comResidualMensual:0,  mesesCobradosSalud:0,  fecha:'2026-06-20', fechaEfectiva:'', estado:'activo', mes:'Junio 2026', campana:'', notas:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8  }
   ],
   campanas: [
     { id:1, nombre:'EPICARE GO DENTAL', plataforma:'Meta Ads', gasto:281.94, leads:62, inicio:'2026-06-01', estado:'activa', notas:'Campaña dental activa' }
@@ -1293,7 +1297,7 @@ let saludData = {
   sueldos: [],
   quincenas: {},
   meses: ['Mayo 2026','Junio 2026'],
-  nextId: 11,
+  nextId: 13,
   nextCampId: 2,
   nextSueldoId: 1
 };
@@ -2318,7 +2322,7 @@ function abrirArea(area) {
   if(area==='admin')  showPage('dashboard', document.getElementById('nav-dashboard'));
   else if(area==='hq')    showPage('hq', null);
   else if(area==='top')   showPage('top', null);
-  else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
+  else if(area==='salud') { migrarDatosSaludReales().then(()=>cargarSalud()).then(()=>showPage('salud-dashboard', null)); }
 }
 
 function volverAreas() {
@@ -4319,6 +4323,28 @@ function ejecutarMigraciones() {
     if (changed) guardar();
   })();
 } // fin ejecutarMigraciones()
+
+// ── Migración de datos reales de Salud (borra placeholders si existen) ──
+async function migrarDatosSaludReales() {
+  try {
+    const snap = await fbDB.ref('saludData').get();
+    if (snap.exists()) {
+      const d = snap.val();
+      // Si la primera agente se llama "Jesus Remotos" o el primer cliente se llama "Cliente 1"
+      // significa que aún están los placeholders → sobreescribir con datos reales
+      const primerAgente  = (d.agentes  && d.agentes[0]  && d.agentes[0].nombre)  || '';
+      const primerCliente = (d.clientes && d.clientes[0] && d.clientes[0].nombre) || '';
+      const sonPlaceholders = primerAgente === 'Jesus Remotos' || primerCliente === 'Cliente 1';
+      if (!sonPlaceholders) return; // ya tiene datos reales, no tocar
+    }
+    // Grabar datos reales
+    await fbDB.ref('saludData').set(saludData);
+    _saludLoaded = false; // forzar recarga
+    console.log('✅ Datos reales de Salud migrados a Firebase');
+  } catch(e) {
+    console.warn('migrarDatosSaludReales error:', e);
+  }
+}
 
 // Date in topbar
 const hoy = new Date();
