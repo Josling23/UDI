@@ -2666,7 +2666,7 @@ migrarAgentes();
 
 // ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
 (function gastosMaster2026() {
-  const MARCA = 'gastos_master_2026_v2';
+  const MARCA = 'gastos_master_2026_v3';
   if(appData[MARCA]) return;
   // Limpiar gastos e ingresos previos migrados
   appData.gastos = [];
@@ -2689,6 +2689,7 @@ migrarAgentes();
 
   const ingresos = [
     { mes:'Enero 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',              monto:18072.57, fecha:'2026-01-31' },
+    { mes:'Enero 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Enero 2026', monto:1596.00, fecha:'2026-01-31' },
     { mes:'Febrero 2026', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',            monto:28931.66, fecha:'2026-02-28' },
     { mes:'Marzo 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',              monto:24461.74, fecha:'2026-03-31' },
     { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',              monto:20863.62, fecha:'2026-04-30' },
