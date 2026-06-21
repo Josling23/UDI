@@ -711,6 +711,7 @@ let appData = {
   pins: { top: '1234', admin: '0000', hq: '7777' }, // PINs por defecto — cambiar en área TOP
   pagosRecibidos: {}, // legado — se mantiene por compatibilidad
   ingresos: [],      // [{ id, fecha, fuente, descripcion, monto, mes }]
+  chargebacks: {},   // { 'Enero 2026': 14.95 } — % chargeback por mes
   accesoPrivado: [], // nombres de agentes con acceso gerente
 };
 
@@ -721,8 +722,9 @@ function guardar() {
 function cargar() {
   const s = localStorage.getItem('attVND_v1');
   if (s) {
-    appData = { comisiones:{}, quincenas:{}, gastos:[], ingresos:[], pins:{top:'1234',admin:'0000',hq:'7777'}, pagosRecibidos:{}, accesoPrivado:[], ...JSON.parse(s) };
-    if(!appData.ingresos) appData.ingresos = [];
+    appData = { comisiones:{}, quincenas:{}, gastos:[], ingresos:[], chargebacks:{}, pins:{top:'1234',admin:'0000',hq:'7777'}, pagosRecibidos:{}, accesoPrivado:[], ...JSON.parse(s) };
+    if(!appData.ingresos)    appData.ingresos = [];
+    if(!appData.chargebacks) appData.chargebacks = {};
     if(!appData.pins.hq) appData.pins.hq = '7777';
   } else {
     // Datos de ejemplo
@@ -2067,13 +2069,16 @@ function renderTop() {
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('chargebacks',this)">🔴 Chargebacks</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('config',this)">⚙️ Config</button>
       </div>
     </div>
     <div class="priv-section active" id="top-roi"></div>
+    <div class="priv-section" id="top-chargebacks"></div>
     <div class="priv-section" id="top-config"></div>
   `;
   renderTopROI();
+  renderTopChargebacks();
   renderTopConfig();
 }
 
@@ -2223,6 +2228,71 @@ function eliminarIngreso(id) {
   if(!confirm('¿Eliminar este ingreso?')) return;
   appData.ingresos = (appData.ingresos||[]).filter(i=>i.id!==id);
   guardar(); renderTopROI(); showNotif('🗑️ Ingreso eliminado');
+}
+
+function renderTopChargebacks() {
+  if(!appData.chargebacks) appData.chargebacks = {};
+  const meses = getMeses();
+  const UMBRAL_OK   = 12;  // verde
+  const UMBRAL_WARN = 17;  // amarillo
+  // rojo si >= 17
+
+  const filas = meses.map(mes=>{
+    const pct = appData.chargebacks[mes];
+    const tiene = pct !== undefined && pct !== null && pct !== '';
+    const val   = parseFloat(pct||0);
+    const color = !tiene ? '#99ACC2' : val < UMBRAL_OK ? '#00A492' : val < UMBRAL_WARN ? '#D4A017' : '#E04048';
+    const badge = !tiene ? '' : val < UMBRAL_OK ? '✅ Bajo' : val < UMBRAL_WARN ? '⚠️ Moderado' : '🔴 Alto';
+    const bar   = tiene ? `<div style="background:#F5F8FA;border-radius:20px;height:8px;width:120px;display:inline-block;vertical-align:middle;margin-left:8px"><div style="background:${color};border-radius:20px;height:8px;width:${Math.min(val/25*100,100)}%"></div></div>` : '';
+    return `<tr>
+      <td style="font-weight:600">${mes}</td>
+      <td style="text-align:right;font-size:15px;font-weight:800;color:${color}">${tiene ? val.toFixed(2)+'%' : '—'}${bar}</td>
+      <td style="text-align:center;font-size:11px">${badge}</td>
+      <td style="text-align:right">
+        <input type="number" min="0" max="100" step="0.01" placeholder="0.00"
+          value="${tiene?val:''}"
+          style="width:80px;padding:5px 8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;text-align:right;outline:none"
+          onchange="guardarChargeback('${mes}',this.value)"
+          onfocus="this.style.borderColor='#E04048'" onblur="this.style.borderColor='#CBD6E2'">
+        <span style="font-size:11px;color:#99ACC2">%</span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const promedio = meses.filter(m=>appData.chargebacks[m]!==undefined).map(m=>parseFloat(appData.chargebacks[m]||0));
+  const prom = promedio.length ? (promedio.reduce((s,v)=>s+v,0)/promedio.length) : null;
+  const promColor = prom===null?'#99ACC2':prom<UMBRAL_OK?'#00A492':prom<UMBRAL_WARN?'#D4A017':'#E04048';
+
+  document.getElementById('top-chargebacks').innerHTML = `
+    <div class="section" style="margin-bottom:18px;border-left:4px solid #E04048">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#33475B">🔴 % Chargebacks por Mes</div>
+          <div style="font-size:11px;color:#99ACC2;margin-top:2px">Verde &lt;${UMBRAL_OK}% · Amarillo ${UMBRAL_OK}-${UMBRAL_WARN}% · Rojo ≥${UMBRAL_WARN}%</div>
+        </div>
+        ${prom!==null?`<div style="background:#F5F8FA;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:10px;color:#7C98B6;font-weight:600">PROMEDIO 2026</div>
+          <div style="font-size:22px;font-weight:900;color:${promColor}">${prom.toFixed(2)}%</div>
+        </div>`:''}
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Mes</th>
+          <th style="text-align:right">% Chargeback</th>
+          <th style="text-align:center">Nivel</th>
+          <th style="text-align:right">Editar</th>
+        </tr></thead>
+        <tbody>${filas||'<tr><td colspan="4" class="tbl-empty">Sin datos</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+}
+
+function guardarChargeback(mes, valor) {
+  if(!appData.chargebacks) appData.chargebacks = {};
+  const v = parseFloat(valor);
+  if(!isNaN(v) && v >= 0) appData.chargebacks[mes] = v;
+  else delete appData.chargebacks[mes];
+  guardar(); renderTopChargebacks(); showNotif('✅ Chargeback actualizado');
 }
 
 function renderTopConfig() {
@@ -2572,6 +2642,24 @@ migrarAgentes();
   items.forEach(g => {
     appData.gastos.push({ id:++maxId, fecha:g.fecha, tipo:g.tipo, descripcion:g.descripcion, monto:g.monto, mes:MES, notas:'' });
   });
+  appData[MARCA] = true;
+  guardar();
+})();
+
+// ── Chargebacks 2026 ────────────────────────────────────────
+(function migrarChargebacks2026() {
+  const MARCA = 'chargebacks_2026_ok';
+  if(appData[MARCA]) return;
+  if(!appData.chargebacks) appData.chargebacks = {};
+  const datos = {
+    'Enero 2026':   14.95,
+    'Febrero 2026': 11.56,
+    'Marzo 2026':   17.47,
+    'Abril 2026':   16.89,
+    'Mayo 2026':    13.32,
+    'Junio 2026':   18.50, // ~17-20%, usando punto medio
+  };
+  Object.assign(appData.chargebacks, datos);
   appData[MARCA] = true;
   guardar();
 })();
