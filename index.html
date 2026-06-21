@@ -2689,7 +2689,7 @@ migrarAgentes();
 
 // ── Reportes RS&I 2026 (bruto vs neto para calcular CB%) ────
 (function migrarRSIReportes() {
-  const MARCA = 'rsi_reportes_2026_v3';
+  const MARCA = 'rsi_reportes_2026_v4';
   if(appData[MARCA]) return;
   if(!appData.rsiReportes) appData.rsiReportes = {};
   // Enero: Total reporte $21,250.51 → ACH recibido $18,072.57 → CB 14.95%
@@ -2698,6 +2698,8 @@ migrarAgentes();
   appData.rsiReportes['Febrero 2026'] = { bruto: 32713.75, neto: 28931.66 };
   // Marzo: Total reporte $29,639.05 → ACH recibido $24,461.74 → CB 17.47%
   appData.rsiReportes['Marzo 2026']   = { bruto: 29639.05, neto: 24461.74 };
+  // Abril: Total reporte $23,107.12 → ACH recibido $18,744.49 → CB 18.88%
+  appData.rsiReportes['Abril 2026']   = { bruto: 23107.12, neto: 18744.49 };
   appData[MARCA] = true;
   guardar();
 })();
@@ -2722,7 +2724,7 @@ migrarAgentes();
 
 // ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
 (function gastosMaster2026() {
-  const MARCA = 'gastos_master_2026_v6';
+  const MARCA = 'gastos_master_2026_v7';
   if(appData[MARCA]) return;
   // Limpiar gastos e ingresos previos migrados
   appData.gastos = [];
@@ -2734,41 +2736,34 @@ migrarAgentes();
   delete appData['ingresos_mayo2026_ok'];
   delete appData['ingresos_2026_ok'];
 
+  // Totales confirmados por reportes oficiales
   const meses = [
-    { mes:'Enero 2026',   nomina:7206.60, comisiones:0,       gastosVar:2523.00,  gastosFijos:2800.28, jesus:0,       douglas:2925.00 },
-    { mes:'Febrero 2026', nomina:9146.00, comisiones:0,       gastosVar:2320.17,  gastosFijos:4150.13, jesus:0,       douglas:2340.00, otros:2779.45 },
-    { mes:'Marzo 2026',   nomina:8246.73, comisiones:0,       gastosVar:1626.87,  gastosFijos:3749.44, jesus:0,       douglas:2340.00, otros:2779.45 },
-    { mes:'Abril 2026',   nomina:8333.30, comisiones:0,       gastosVar:11389.93, gastosFijos:2835.72, jesus:0,       douglas:2340.00 },
-    { mes:'Mayo 2026',    nomina:5956.51, comisiones:3185.84, gastosVar:6508.44,  gastosFijos:2326.15, jesus:6262.00, douglas:2925.00 },
-    { mes:'Junio 2026',   nomina:2958.60, comisiones:1081.33, gastosVar:996.23,   gastosFijos:2047.06, jesus:6320.00, douglas:1170.00 },
+    { mes:'Enero 2026',  fecha:'2026-01-31', totalGastos:18234.33 },
+    { mes:'Febrero 2026',fecha:'2026-02-28', totalGastos:20735.75 },
+    { mes:'Marzo 2026',  fecha:'2026-03-31', totalGastos:18742.49 },
+    { mes:'Abril 2026',  fecha:'2026-04-30', totalGastos:16550.59 },
+    { mes:'Mayo 2026',   fecha:'2026-05-31', totalGastos:27163.94 },
+    { mes:'Junio 2026',  fecha:'2026-06-20', totalGastos:14573.22 },
   ];
 
   const ingresos = [
-    { mes:'Enero 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',              monto:18072.57, fecha:'2026-01-31' },
-    { mes:'Enero 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Enero 2026',   monto:1596.00, fecha:'2026-01-31' },
-    { mes:'Febrero 2026', fuente:'Salud', descripcion:'Ganancia seguro de salud Febrero 2026', monto:2067.00, fecha:'2026-02-28' },
-    { mes:'Marzo 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Marzo 2026',   monto:3871.00, fecha:'2026-03-31' },
-    { mes:'Febrero 2026', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',            monto:28931.66, fecha:'2026-02-28' },
-    { mes:'Marzo 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',              monto:24461.74, fecha:'2026-03-31' },
-    { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',              monto:20863.62, fecha:'2026-04-30' },
-    { mes:'Mayo 2026',    fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',               monto:36995.54, fecha:'2026-05-31' },
-    { mes:'Mayo 2026',    fuente:'Bravo', descripcion:'Ganancia Bravo Mayo 2026',          monto:1741.03,  fecha:'2026-05-31' },
-    { mes:'Junio 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Junio 2026 (parcial)',    monto:22431.72, fecha:'2026-06-20' },
-    { mes:'Junio 2026',   fuente:'Bravo', descripcion:'Ganancia Bravo Junio 2026 (parcial)', monto:1581.90, fecha:'2026-06-20' },
+    { mes:'Enero 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',                    monto:18072.57, fecha:'2026-01-31' },
+    { mes:'Enero 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Enero 2026',      monto:1596.00,  fecha:'2026-01-31' },
+    { mes:'Febrero 2026', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',                   monto:28931.66, fecha:'2026-02-28' },
+    { mes:'Febrero 2026', fuente:'Salud', descripcion:'Ganancia seguro de salud Febrero 2026',    monto:2067.00,  fecha:'2026-02-28' },
+    { mes:'Marzo 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',                     monto:24461.74, fecha:'2026-03-31' },
+    { mes:'Marzo 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Marzo 2026',      monto:3871.00,  fecha:'2026-03-31' },
+    { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',                     monto:18744.49, fecha:'2026-04-30' },
+    { mes:'Abril 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Abril 2026',      monto:2119.13,  fecha:'2026-04-30' },
+    { mes:'Mayo 2026',    fuente:'RS&I',  descripcion:'Pago RS&I Mayo 2026',                      monto:36995.54, fecha:'2026-05-31' },
+    { mes:'Mayo 2026',    fuente:'Bravo', descripcion:'Ganancia Bravo Mayo 2026',                  monto:1741.03,  fecha:'2026-05-31' },
+    { mes:'Junio 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Junio 2026 (parcial)',            monto:22431.72, fecha:'2026-06-20' },
+    { mes:'Junio 2026',   fuente:'Bravo', descripcion:'Ganancia Bravo Junio 2026 (parcial)',       monto:1581.90,  fecha:'2026-06-20' },
   ];
 
   let gid = 0, iid = 0;
-  meses.forEach(({mes, nomina, comisiones, gastosVar, gastosFijos, jesus, douglas, otros})=>{
-    const fechaFin = mes.startsWith('Enero')?'2026-01-31':mes.startsWith('Febrero')?'2026-02-28':
-      mes.startsWith('Marzo')?'2026-03-31':mes.startsWith('Abril')?'2026-04-30':
-      mes.startsWith('Mayo')?'2026-05-31':'2026-06-20';
-    if(nomina>0)     appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Nómina agentes ${mes}`,              monto:nomina,     mes});
-    if(comisiones>0) appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'otro',    descripcion:`Comisiones agentes ${mes}`,           monto:comisiones, mes});
-    if(gastosVar>0)  appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'variable',descripcion:`Gastos variables ${mes}`,             monto:gastosVar,  mes});
-    if(gastosFijos>0)appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Gastos fijos ${mes}`,                 monto:gastosFijos,mes});
-    if(jesus>0)      appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'otro',    descripcion:`Pagos Jesús (subdealer) ${mes}`,      monto:jesus,      mes});
-    if(douglas>0)    appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Sueldo Douglas ${mes}`,               monto:douglas,    mes});
-    if(otros>0)      appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'variable',descripcion:`Otros gastos ${mes}`,                 monto:otros,      mes});
+  meses.forEach(({mes, fecha, totalGastos})=>{
+    if(totalGastos>0) appData.gastos.push({id:++gid, fecha, tipo:'variable', descripcion:`Total gastos ${mes}`, monto:totalGastos, mes});
   });
 
   ingresos.forEach(i=>{
