@@ -197,15 +197,67 @@ tr:hover td{background:#EAF0FB}
 <!-- ===== PANTALLA DE LOGIN ===== -->
 <div id="login-screen" style="display:flex;min-height:100vh;background:linear-gradient(135deg,#1a0000 0%,#5a0a0a 50%,#8B1A1A 100%);align-items:center;justify-content:center;flex-direction:column;padding:20px">
   <div style="text-align:center;margin-bottom:32px">
-    <svg viewBox="0 0 100 100" width="90" height="90" style="margin:0 auto 14px;display:block;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.4))">
-      <circle cx="50" cy="50" r="48" fill="white" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-      <clipPath id="circ"><circle cx="50" cy="50" r="48"/></clipPath>
-      <polygon points="0,0 100,0 100,40 0,70" fill="#8B1A1A" clip-path="url(#circ)"/>
-      <polygon points="0,70 100,40 100,100 0,100" fill="white" clip-path="url(#circ)"/>
-      <text x="50" y="38" text-anchor="middle" fill="white" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
-      <text x="50" y="78" text-anchor="middle" fill="#8B1A1A" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
-      <line x1="0" y1="70" x2="100" y2="40" stroke="#6B0F0F" stroke-width="2.5" clip-path="url(#circ)"/>
-      <circle cx="50" cy="50" r="48" fill="none" stroke="#8B1A1A" stroke-width="2"/>
+    <svg viewBox="0 0 100 100" width="100" height="100" style="margin:0 auto 14px;display:block;filter:drop-shadow(0 6px 20px rgba(0,0,0,0.5))">
+      <defs>
+        <radialGradient id="lg-shine" cx="35%" cy="25%" r="65%">
+          <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="lg-ring" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#e8829a"/>
+          <stop offset="45%" stop-color="#c45c7a"/>
+          <stop offset="100%" stop-color="#7b3fa0"/>
+        </linearGradient>
+        <clipPath id="lg-clip1"><circle cx="50" cy="50" r="50"/></clipPath>
+      </defs>
+      <!-- Shadow -->
+      <ellipse cx="50" cy="96" rx="34" ry="5" fill="rgba(0,0,0,0.25)"/>
+      <!-- Outer gradient ring -->
+      <circle cx="50" cy="50" r="50" fill="url(#lg-ring)"/>
+      <!-- Tick marks on ring -->
+      <g stroke="rgba(255,255,255,0.35)" stroke-width="0.8">
+        <line x1="50" y1="1" x2="50" y2="5" transform="rotate(0 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(15 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(30 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(45 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(60 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(75 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="5" transform="rotate(90 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(105 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(120 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(135 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(150 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(165 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="5" transform="rotate(180 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(195 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(210 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(225 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(240 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(255 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="5" transform="rotate(270 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(285 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(300 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(315 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(330 50 50)"/>
+        <line x1="50" y1="1" x2="50" y2="4" transform="rotate(345 50 50)"/>
+      </g>
+      <!-- Black border ring -->
+      <circle cx="50" cy="50" r="42" fill="#111"/>
+      <!-- White face -->
+      <circle cx="50" cy="50" r="39" fill="white"/>
+      <!-- Subtle diagonal glare lines on white -->
+      <line x1="30" y1="15" x2="70" y2="85" stroke="rgba(200,200,220,0.15)" stroke-width="6" clip-path="url(#lg-clip1)"/>
+      <!-- UDI shadow text (maroon fill giving 3D effect) -->
+      <text x="51" y="54" text-anchor="middle" fill="#7a0a2a" font-size="30" font-weight="900" font-family="Georgia,serif" letter-spacing="4">UDI</text>
+      <!-- UDI white overlay text (top portion — clipped) -->
+      <clipPath id="lg-top"><rect x="0" y="0" width="100" height="46"/></clipPath>
+      <text x="50" y="53" text-anchor="middle" fill="white" font-size="30" font-weight="900" font-family="Georgia,serif" letter-spacing="4" clip-path="url(#lg-top)">UDI</text>
+      <!-- Decorative line-diamond-line -->
+      <line x1="25" y1="63" x2="41" y2="63" stroke="#7a0a2a" stroke-width="1.2"/>
+      <polygon points="50,60 53,63 50,66 47,63" fill="#7a0a2a"/>
+      <line x1="59" y1="63" x2="75" y2="63" stroke="#7a0a2a" stroke-width="1.2"/>
+      <!-- Gloss shine on ring -->
+      <circle cx="50" cy="50" r="50" fill="url(#lg-shine)"/>
     </svg>
     <h1 style="color:#fff;font-size:24px;font-weight:900;letter-spacing:-0.5px">USA Distributor Inc.</h1>
     <p style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px">AT&T VND · Dealer #594193 · Kissimmee, FL</p>
@@ -240,15 +292,32 @@ tr:hover td{background:#EAF0FB}
 <!-- ===== PANTALLA DE SELECCIÓN DE ÁREA (post-login) ===== -->
 <div id="area-screen" style="display:none;min-height:100vh;background:linear-gradient(135deg,#1a0000 0%,#5a0a0a 50%,#8B1A1A 100%);align-items:center;justify-content:center;flex-direction:column;padding:20px">
   <div style="text-align:center;margin-bottom:32px">
-    <svg viewBox="0 0 100 100" width="80" height="80" style="margin:0 auto 12px;display:block;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.4))">
-      <circle cx="50" cy="50" r="48" fill="white" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-      <clipPath id="circ3"><circle cx="50" cy="50" r="48"/></clipPath>
-      <polygon points="0,0 100,0 100,40 0,70" fill="#8B1A1A" clip-path="url(#circ3)"/>
-      <polygon points="0,70 100,40 100,100 0,100" fill="white" clip-path="url(#circ3)"/>
-      <text x="50" y="38" text-anchor="middle" fill="white" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
-      <text x="50" y="78" text-anchor="middle" fill="#8B1A1A" font-size="26" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="2">UDI</text>
-      <line x1="0" y1="70" x2="100" y2="40" stroke="#6B0F0F" stroke-width="2.5" clip-path="url(#circ3)"/>
-      <circle cx="50" cy="50" r="48" fill="none" stroke="#8B1A1A" stroke-width="2"/>
+    <svg viewBox="0 0 100 100" width="90" height="90" style="margin:0 auto 12px;display:block;filter:drop-shadow(0 6px 20px rgba(0,0,0,0.5))">
+      <defs>
+        <radialGradient id="lg-shine2" cx="35%" cy="25%" r="65%">
+          <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="lg-ring2" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#e8829a"/>
+          <stop offset="45%" stop-color="#c45c7a"/>
+          <stop offset="100%" stop-color="#7b3fa0"/>
+        </linearGradient>
+        <clipPath id="lg-clip2"><circle cx="50" cy="50" r="50"/></clipPath>
+      </defs>
+      <circle cx="50" cy="50" r="50" fill="url(#lg-ring2)"/>
+      <g stroke="rgba(255,255,255,0.35)" stroke-width="0.8">
+        <line x1="50" y1="1" x2="50" y2="5" transform="rotate(0 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(15 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(30 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(45 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(60 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(75 50 50)"/><line x1="50" y1="1" x2="50" y2="5" transform="rotate(90 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(105 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(120 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(135 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(150 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(165 50 50)"/><line x1="50" y1="1" x2="50" y2="5" transform="rotate(180 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(195 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(210 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(225 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(240 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(255 50 50)"/><line x1="50" y1="1" x2="50" y2="5" transform="rotate(270 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(285 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(300 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(315 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(330 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(345 50 50)"/>
+      </g>
+      <circle cx="50" cy="50" r="42" fill="#111"/>
+      <circle cx="50" cy="50" r="39" fill="white"/>
+      <text x="51" y="54" text-anchor="middle" fill="#7a0a2a" font-size="30" font-weight="900" font-family="Georgia,serif" letter-spacing="4">UDI</text>
+      <clipPath id="lg-top2"><rect x="0" y="0" width="100" height="46"/></clipPath>
+      <text x="50" y="53" text-anchor="middle" fill="white" font-size="30" font-weight="900" font-family="Georgia,serif" letter-spacing="4" clip-path="url(#lg-top2)">UDI</text>
+      <line x1="25" y1="63" x2="41" y2="63" stroke="#7a0a2a" stroke-width="1.2"/>
+      <polygon points="50,60 53,63 50,66 47,63" fill="#7a0a2a"/>
+      <line x1="59" y1="63" x2="75" y2="63" stroke="#7a0a2a" stroke-width="1.2"/>
+      <circle cx="50" cy="50" r="50" fill="url(#lg-shine2)"/>
     </svg>
     <h1 style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.5px">USA Distributor Inc.</h1>
     <p style="color:rgba(255,255,255,0.5);font-size:11px;margin-top:3px">AT&T VND · Dealer #594193</p>
@@ -267,15 +336,31 @@ tr:hover td{background:#EAF0FB}
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="sidebar-logo-inner">
-      <svg viewBox="0 0 60 60" width="56" height="56" style="margin:0 auto 8px;display:block">
-        <circle cx="30" cy="30" r="29" fill="white"/>
-        <clipPath id="circ2"><circle cx="30" cy="30" r="29"/></clipPath>
-        <polygon points="0,0 60,0 60,24 0,42" fill="#8B1A1A" clip-path="url(#circ2)"/>
-        <polygon points="0,42 60,24 60,60 0,60" fill="white" clip-path="url(#circ2)"/>
-        <text x="30" y="22" text-anchor="middle" fill="white" font-size="15" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="1">UDI</text>
-        <text x="30" y="47" text-anchor="middle" fill="#8B1A1A" font-size="15" font-weight="900" font-family="Segoe UI,Arial,sans-serif" letter-spacing="1">UDI</text>
-        <line x1="0" y1="42" x2="60" y2="24" stroke="#6B0F0F" stroke-width="1.5" clip-path="url(#circ2)"/>
-        <circle cx="30" cy="30" r="29" fill="none" stroke="#8B1A1A" stroke-width="1.5"/>
+      <svg viewBox="0 0 100 100" width="56" height="56" style="margin:0 auto 8px;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.4))">
+        <defs>
+          <radialGradient id="lg-shine3" cx="35%" cy="25%" r="65%">
+            <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="lg-ring3" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#e8829a"/>
+            <stop offset="45%" stop-color="#c45c7a"/>
+            <stop offset="100%" stop-color="#7b3fa0"/>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="50" fill="url(#lg-ring3)"/>
+        <g stroke="rgba(255,255,255,0.35)" stroke-width="0.8">
+          <line x1="50" y1="1" x2="50" y2="5" transform="rotate(0 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(30 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(60 50 50)"/><line x1="50" y1="1" x2="50" y2="5" transform="rotate(90 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(120 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(150 50 50)"/><line x1="50" y1="1" x2="50" y2="5" transform="rotate(180 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(210 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(240 50 50)"/><line x1="50" y1="1" x2="50" y2="5" transform="rotate(270 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(300 50 50)"/><line x1="50" y1="1" x2="50" y2="4" transform="rotate(330 50 50)"/>
+        </g>
+        <circle cx="50" cy="50" r="42" fill="#111"/>
+        <circle cx="50" cy="50" r="39" fill="white"/>
+        <text x="51" y="54" text-anchor="middle" fill="#7a0a2a" font-size="30" font-weight="900" font-family="Georgia,serif" letter-spacing="4">UDI</text>
+        <clipPath id="lg-top3"><rect x="0" y="0" width="100" height="46"/></clipPath>
+        <text x="50" y="53" text-anchor="middle" fill="white" font-size="30" font-weight="900" font-family="Georgia,serif" letter-spacing="4" clip-path="url(#lg-top3)">UDI</text>
+        <line x1="25" y1="63" x2="41" y2="63" stroke="#7a0a2a" stroke-width="1.2"/>
+        <polygon points="50,60 53,63 50,66 47,63" fill="#7a0a2a"/>
+        <line x1="59" y1="63" x2="75" y2="63" stroke="#7a0a2a" stroke-width="1.2"/>
+        <circle cx="50" cy="50" r="50" fill="url(#lg-shine3)"/>
       </svg>
       <h1>USA Distributor</h1>
       <p>AT&T VND · #594193</p>
