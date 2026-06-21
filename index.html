@@ -2689,7 +2689,7 @@ migrarAgentes();
 
 // ── DATOS FINANCIEROS 2026 — fuente única, limpia desde cero ──
 (function datos2026() {
-  const MARCA = 'datos_2026_final_v1';
+  const MARCA = 'datos_2026_final_v2';
   if(appData[MARCA]) return;
 
   // Borrar TODO lo anterior
@@ -2715,6 +2715,7 @@ migrarAgentes();
     'Marzo 2026':   { bruto: 29639.05, neto: 24461.74 }, // CB 17.47%
     'Abril 2026':   { bruto: 23107.12, neto: 18744.49 }, // CB 18.88%
     'Mayo 2026':    { bruto: 43130.67, neto: 37000.54 }, // CB 14.21%
+    'Junio 2026':   { bruto: 27447.75, neto: 22431.72 }, // CB 18.27%
   };
 
   // ── Ingresos (RS&I neto + Salud + Bravo) ─────────────────────
@@ -2733,6 +2734,7 @@ migrarAgentes();
     { mes:'Mayo 2026',    fecha:'2026-05-31', fuente:'Salud', monto:2214.00,  desc:'Ganancia salud Mayo 2026' },
     { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'RS&I',  monto:22431.72, desc:'Pago RS&I Junio 2026 (parcial)' },
     { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'Bravo', monto:1581.90,  desc:'Ganancia Bravo Junio 2026 (parcial)' },
+    { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'Salud', monto:1794.69,  desc:'Ganancia salud Junio 2026 (parcial)' },
   ].forEach(i => appData.ingresos.push({id:++iid, fecha:i.fecha, fuente:i.fuente, descripcion:i.desc, monto:i.monto, mes:i.mes}));
 
   // ── Gastos totales confirmados por reportes ───────────────────
