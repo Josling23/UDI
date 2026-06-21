@@ -2686,11 +2686,13 @@ migrarAgentes();
 
 // ── Reportes RS&I 2026 (bruto vs neto para calcular CB%) ────
 (function migrarRSIReportes() {
-  const MARCA = 'rsi_reportes_2026_ok';
+  const MARCA = 'rsi_reportes_2026_v2';
   if(appData[MARCA]) return;
   if(!appData.rsiReportes) appData.rsiReportes = {};
   // Enero: Total reporte $21,250.51 → ACH recibido $18,072.57 → CB 14.95%
-  appData.rsiReportes['Enero 2026'] = { bruto: 21250.51, neto: 18072.57 };
+  appData.rsiReportes['Enero 2026']   = { bruto: 21250.51, neto: 18072.57 };
+  // Febrero: Total reporte $32,713.75 → ACH recibido $28,931.66 → CB 11.56%
+  appData.rsiReportes['Febrero 2026'] = { bruto: 32713.75, neto: 28931.66 };
   appData[MARCA] = true;
   guardar();
 })();
@@ -2715,7 +2717,7 @@ migrarAgentes();
 
 // ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
 (function gastosMaster2026() {
-  const MARCA = 'gastos_master_2026_v3';
+  const MARCA = 'gastos_master_2026_v4';
   if(appData[MARCA]) return;
   // Limpiar gastos e ingresos previos migrados
   appData.gastos = [];
@@ -2738,7 +2740,8 @@ migrarAgentes();
 
   const ingresos = [
     { mes:'Enero 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Enero 2026',              monto:18072.57, fecha:'2026-01-31' },
-    { mes:'Enero 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Enero 2026', monto:1596.00, fecha:'2026-01-31' },
+    { mes:'Enero 2026',   fuente:'Salud', descripcion:'Ganancia seguro de salud Enero 2026',   monto:1596.00, fecha:'2026-01-31' },
+    { mes:'Febrero 2026', fuente:'Salud', descripcion:'Ganancia seguro de salud Febrero 2026', monto:2067.00, fecha:'2026-02-28' },
     { mes:'Febrero 2026', fuente:'RS&I',  descripcion:'Pago RS&I Febrero 2026',            monto:28931.66, fecha:'2026-02-28' },
     { mes:'Marzo 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Marzo 2026',              monto:24461.74, fecha:'2026-03-31' },
     { mes:'Abril 2026',   fuente:'RS&I',  descripcion:'Pago RS&I Abril 2026',              monto:20863.62, fecha:'2026-04-30' },
