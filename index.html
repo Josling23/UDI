@@ -762,7 +762,10 @@ function cargar() {
 // ============================================================
 // UTILS
 // ============================================================
-function fmt(n) { return '$' + parseFloat(n||0).toFixed(2); }
+function fmt(n) {
+  const v = parseFloat(n||0);
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
 
 // Devuelve la comisión base del catálogo para un productoId
 function getCatalogCom(productoId) {
@@ -2717,7 +2720,7 @@ migrarAgentes();
 
 // ── Gastos MASTER 2026 — reemplaza todas las migraciones anteriores ──
 (function gastosMaster2026() {
-  const MARCA = 'gastos_master_2026_v4';
+  const MARCA = 'gastos_master_2026_v5';
   if(appData[MARCA]) return;
   // Limpiar gastos e ingresos previos migrados
   appData.gastos = [];
@@ -2731,7 +2734,7 @@ migrarAgentes();
 
   const meses = [
     { mes:'Enero 2026',   nomina:7206.60, comisiones:0,       gastosVar:2523.00,  gastosFijos:2800.28, jesus:0,       douglas:2925.00 },
-    { mes:'Febrero 2026', nomina:9146.00, comisiones:0,       gastosVar:2320.17,  gastosFijos:4150.13, jesus:0,       douglas:2340.00 },
+    { mes:'Febrero 2026', nomina:9146.00, comisiones:0,       gastosVar:2320.17,  gastosFijos:4150.13, jesus:0,       douglas:2340.00, otros:2779.45 },
     { mes:'Marzo 2026',   nomina:8246.73, comisiones:0,       gastosVar:1626.87,  gastosFijos:3749.44, jesus:0,       douglas:2340.00 },
     { mes:'Abril 2026',   nomina:8333.30, comisiones:0,       gastosVar:11389.93, gastosFijos:2835.72, jesus:0,       douglas:2340.00 },
     { mes:'Mayo 2026',    nomina:5956.51, comisiones:3185.84, gastosVar:6508.44,  gastosFijos:2326.15, jesus:6262.00, douglas:2925.00 },
@@ -2752,7 +2755,7 @@ migrarAgentes();
   ];
 
   let gid = 0, iid = 0;
-  meses.forEach(({mes, nomina, comisiones, gastosVar, gastosFijos, jesus, douglas})=>{
+  meses.forEach(({mes, nomina, comisiones, gastosVar, gastosFijos, jesus, douglas, otros})=>{
     const fechaFin = mes.startsWith('Enero')?'2026-01-31':mes.startsWith('Febrero')?'2026-02-28':
       mes.startsWith('Marzo')?'2026-03-31':mes.startsWith('Abril')?'2026-04-30':
       mes.startsWith('Mayo')?'2026-05-31':'2026-06-20';
@@ -2762,6 +2765,7 @@ migrarAgentes();
     if(gastosFijos>0)appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Gastos fijos ${mes}`,                 monto:gastosFijos,mes});
     if(jesus>0)      appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'otro',    descripcion:`Pagos Jesús (subdealer) ${mes}`,      monto:jesus,      mes});
     if(douglas>0)    appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'fijo',    descripcion:`Sueldo Douglas ${mes}`,               monto:douglas,    mes});
+    if(otros>0)      appData.gastos.push({id:++gid,fecha:fechaFin,tipo:'variable',descripcion:`Otros gastos ${mes}`,                 monto:otros,      mes});
   });
 
   ingresos.forEach(i=>{
