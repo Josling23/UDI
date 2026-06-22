@@ -1084,19 +1084,36 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group" style="grid-column:1/-1"><label>Email</label><input type="email" id="a-email" placeholder="correo@email.com"></div>
       </div>
 
-      <!-- Comisiones por producto -->
-      <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2;margin-bottom:6px">
-        💰 Comisión Personal por Producto
-        <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — deja en blanco para usar la tarifa base del catálogo</span>
-      </div>
-      <div id="a-comisiones-productos" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
-
       <!-- Agentes supervisados (gerente/supervisor) -->
-      <div id="a-supervisa-section" style="display:none;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2">
-        <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
+      <div id="a-supervisa-section" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #CBD6E2">
+        <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
           👥 Gana comisión de ventas de estos agentes:
         </div>
         <div id="a-supervisa-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <!-- Comisiones por producto -->
+      <div style="margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2">
+        <div id="a-com-header-simple" style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
+          💰 Comisión Personal por Producto
+          <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — en blanco = tarifa del catálogo</span>
+        </div>
+        <!-- Header especial para supervisores -->
+        <div id="a-com-header-super" style="display:none;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">💰 Comisiones por Producto</div>
+          <div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#F5F8FA;border-radius:7px;padding:7px 10px;border:1px solid #CBD6E2">
+            <div style="font-size:10px;color:#7C98B6;font-weight:700">Producto</div>
+            <div style="text-align:center">
+              <div style="font-size:9px;font-weight:700;color:#FF7A59">👥 De sus agentes</div>
+              <div style="font-size:8px;color:#99ACC2">Comisión pequeña</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:9px;font-weight:700;color:#009FDB">🧑 Venta directa</div>
+              <div style="font-size:8px;color:#99ACC2">Cuando él/ella vende</div>
+            </div>
+          </div>
+        </div>
+        <div id="a-comisiones-productos"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2121,8 +2138,56 @@ function renderAgenteVentas() {
 
 function onRolChange() {
   const rol = document.getElementById('a-rol').value;
-  document.getElementById('a-supervisa-section').style.display =
-    (rol==='gerente'||rol==='supervisor') ? 'block' : 'none';
+  const esSupervisor = (rol==='gerente'||rol==='supervisor');
+  document.getElementById('a-supervisa-section').style.display = esSupervisor ? 'block' : 'none';
+  document.getElementById('a-com-header-simple').style.display = esSupervisor ? 'none' : 'block';
+  document.getElementById('a-com-header-super').style.display  = esSupervisor ? 'block' : 'none';
+  // Re-renderizar tabla de comisiones según rol
+  renderComisionesModal(esSupervisor);
+}
+
+function renderComisionesModal(esSupervisor) {
+  const a = editAgenteId ? appData.agentes.find(x=>x.id===editAgenteId) : null;
+  const comPs  = a?.comisionesPersonales || {};
+  const comDir = a?.comisionesDirectas   || {};
+  const inputStyle = 'width:100%;border:1.5px solid #CBD6E2;border-radius:6px;padding:5px 7px;font-size:12px;font-weight:700;outline:none;text-align:right';
+
+  document.getElementById('a-comisiones-productos').innerHTML = getCatalogoCompleto().map(p=>{
+    const isCustom = p.id.startsWith('oi_');
+    const valPs  = comPs[p.id]  !== undefined ? comPs[p.id]  : '';
+    const valDir = comDir[p.id] !== undefined ? comDir[p.id] : '';
+    if(esSupervisor) {
+      return `<div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#F5F8FA;border-radius:7px;padding:7px 10px;border:1px solid ${isCustom?'#6A78D1':'#CBD6E2'}">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}${p.velocidad?` <span style="font-size:9px;color:#6A78D1">⚡${p.velocidad}</span>`:''}</div>
+          <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
+        </div>
+        <div>
+          <input type="number" min="0" step="0.01" value="${valPs}" placeholder="—"
+            data-prod-id="${p.id}" class="a-prod-com"
+            style="${inputStyle};color:#FF7A59"
+            onfocus="this.style.borderColor='#FF7A59'" onblur="this.style.borderColor='#CBD6E2'">
+        </div>
+        <div>
+          <input type="number" min="0" step="0.01" value="${valDir}" placeholder="—"
+            data-prod-id="${p.id}" class="a-prod-dir"
+            style="${inputStyle};color:#009FDB"
+            onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
+        </div>
+      </div>`;
+    } else {
+      return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid ${isCustom?'#6A78D1':'#CBD6E2'};display:flex;justify-content:space-between;align-items:center;gap:6px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}${p.velocidad?` <span style="font-size:9px;color:#6A78D1">⚡${p.velocidad}</span>`:''}</div>
+          <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
+        </div>
+        <input type="number" min="0" step="0.01" value="${valPs}" placeholder="${p.comision}"
+          data-prod-id="${p.id}" class="a-prod-com"
+          style="width:70px;${inputStyle};color:#009FDB"
+          onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
+      </div>`;
+    }
+  }).join('');
 }
 
 function openAgenteModal(id=null) {
@@ -2135,22 +2200,7 @@ function openAgenteModal(id=null) {
   document.getElementById('a-tel').value     = a?.tel||'';
   document.getElementById('a-email').value   = a?.email||'';
 
-  // Tabla de comisiones por producto
-  const comPs = a?.comisionesPersonales||{};
-  document.getElementById('a-comisiones-productos').innerHTML = getCatalogoCompleto().map(p=>{
-    const val = comPs[p.id]!==undefined ? comPs[p.id] : '';
-    const isCustom = p.id.startsWith('oi_');
-    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid ${isCustom?'#6A78D1':'#CBD6E2'};display:flex;justify-content:space-between;align-items:center;gap:6px">
-      <div>
-        <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}${p.velocidad?` <span style="font-size:9px;color:#6A78D1">⚡${p.velocidad}</span>`:''}</div>
-        <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
-      </div>
-      <input type="number" min="0" step="0.01" value="${val}" placeholder="${p.comision}"
-        data-prod-id="${p.id}" class="a-prod-com"
-        style="width:68px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#009FDB;outline:none;text-align:right"
-        onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
-    </div>`;
-  }).join('');
+  // Tabla de comisiones — se renderiza en onRolChange()
 
   // Checkboxes de agentes supervisados
   const supervisados = a?.agentesSupervisa||[];
@@ -2175,16 +2225,23 @@ function guardarAgente() {
   document.querySelectorAll('.a-prod-com').forEach(inp=>{
     if(inp.value!=='') comPs[inp.dataset.prodId] = parseFloat(inp.value)||0;
   });
+  // Comisiones directas (supervisor/gerente vendiendo directamente)
+  const comDir = {};
+  document.querySelectorAll('.a-prod-dir').forEach(inp=>{
+    if(inp.value!=='') comDir[inp.dataset.prodId] = parseFloat(inp.value)||0;
+  });
   // Agentes supervisados
   const agentesSupervisa = [];
   document.querySelectorAll('#a-supervisa-checkboxes input[type=checkbox]:checked').forEach(cb=>agentesSupervisa.push(cb.value));
+  const esSupervisor = (rol==='gerente'||rol==='supervisor');
   const data = {
     nombre, rol,
     sueldoQuincenal: parseFloat(document.getElementById('a-sueldo').value)||0,
     tel:   document.getElementById('a-tel').value.trim(),
     email: document.getElementById('a-email').value.trim(),
     comisionesPersonales: comPs,
-    agentesSupervisa: (rol==='gerente'||rol==='supervisor') ? agentesSupervisa : [],
+    comisionesDirectas: esSupervisor ? comDir : {},
+    agentesSupervisa: esSupervisor ? agentesSupervisa : [],
     activo: true,
   };
   if(editAgenteId !== null) {
