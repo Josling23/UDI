@@ -3802,23 +3802,6 @@ function renderTopConfig() {
           </div>`).join('')}
       </div>
       <div style="font-size:11px;color:#99ACC2">Los PINs se guardan en Firebase. Comparte el link del dashboard y el PIN del área con cada persona.</div>
-    </div>
-    <div class="section" style="margin-top:20px">
-      <div class="section-header"><h2>🛠️ Herramientas de Administración</h2></div>
-      <div style="background:#FFFBE8;border:1px solid #F5C26B;border-radius:10px;padding:16px;margin-bottom:12px">
-        <div style="font-weight:700;font-size:13px;color:#33475B;margin-bottom:6px">📋 Copiar comisiones de venta directa de Oriana → todos los agentes</div>
-        <div style="font-size:12px;color:#7C98B6;margin-bottom:12px">Copia las comisiones de "Venta directa" que tiene Oriana y las aplica a todos los agentes y supervisores (excepto Sub-Dealers). Los agentes que ya tengan sus propias comisiones directas también se actualizarán.</div>
-        <div style="margin-bottom:10px">
-          <label style="font-size:12px;font-weight:600;color:#33475B">Buscar agente fuente:</label>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <select id="tool-source-agent" style="flex:1;border:1.5px solid #CBD6E2;border-radius:7px;padding:7px 10px;font-size:13px;outline:none;color:#33475B">
-              ${(appData.agentes||[]).filter(a=>a.activo!==false && (a.rol==='gerente'||a.rol==='supervisor')).map(a=>`<option value="${a.id}">${a.nombre} (${a.rol})</option>`).join('')}
-            </select>
-            <button class="btn btn-primary" onclick="copiarComisionesDirectas()">▶ Aplicar a todos</button>
-          </div>
-        </div>
-        <div id="tool-copy-result" style="font-size:12px;min-height:18px"></div>
-      </div>
     </div>`;
   // Cargar PINs actuales (mostrar si existen)
   ['admin','top','hq','salud'].forEach(async a => {
@@ -3848,26 +3831,6 @@ async function guardarPin(area) {
   } catch(e) {
     if(st) { st.style.color='#F2545B'; st.textContent='Error al guardar.'; }
   }
-}
-
-function copiarComisionesDirectas() {
-  const srcId = parseInt(document.getElementById('tool-source-agent').value);
-  const src = appData.agentes.find(a=>a.id===srcId);
-  const resEl = document.getElementById('tool-copy-result');
-  if(!src) { resEl.style.color='#F2545B'; resEl.textContent='⚠️ No se encontró el agente fuente.'; return; }
-  const comDir = src.comisionesDirectas || {};
-  if(!Object.keys(comDir).length) { resEl.style.color='#F2545B'; resEl.textContent='⚠️ '+src.nombre+' no tiene comisiones de venta directa configuradas.'; return; }
-  let count = 0;
-  appData.agentes.forEach(a => {
-    if(a.id === srcId) return; // skip source
-    if(a.rol === 'subdealer' || a.rol === 'subdealер') return; // skip subdealers
-    a.comisionesDirectas = { ...comDir };
-    count++;
-  });
-  guardar();
-  resEl.style.color='#22c55e';
-  resEl.textContent=`✅ Comisiones de "${src.nombre}" copiadas a ${count} agente(s). Guardado.`;
-  showNotif(`✅ Comisiones directas copiadas a ${count} agentes`);
 }
 
 // ============================================================
@@ -5162,6 +5125,34 @@ function ejecutarMigraciones() {
     return yA !== yB ? yA - yB : mA - mB;
   });
     if (changed) guardar();
+  })();
+
+  // ── Migración: copiar comisionesDirectas de Oriana → todos los agentes (no subdealers) ──
+  (() => {
+    const oriana = appData.agentes.find(a =>
+      a.nombre && a.nombre.toLowerCase().includes('oriana') &&
+      (a.rol === 'gerente' || a.rol === 'supervisor')
+    );
+    if (!oriana) return; // Oriana no encontrada, skip
+    const comDir = oriana.comisionesDirectas;
+    if (!comDir || !Object.keys(comDir).length) return; // no tiene comisiones directas configuradas aún
+    const flagKey = 'mig_comDir_oriana_v1';
+    if (appData[flagKey]) return; // ya corrió antes, no repetir
+    let count = 0;
+    appData.agentes.forEach(a => {
+      if (a.id === oriana.id) return;
+      if (a.rol === 'subdealer' || a.rol === 'subdealер') return;
+      // Solo copia si el agente no tiene comisiones directas propias
+      if (!a.comisionesDirectas || !Object.keys(a.comisionesDirectas).length) {
+        a.comisionesDirectas = { ...comDir };
+        count++;
+      }
+    });
+    if (count > 0) {
+      appData[flagKey] = true;
+      guardar();
+      console.log(`[migración] comisionesDirectas de Oriana copiadas a ${count} agente(s)`);
+    }
   })();
 } // fin ejecutarMigraciones()
 
