@@ -506,10 +506,21 @@ tr:hover td{background:#EAF0FB}
 
     <!-- ===== PAGOS AGENTES ===== -->
     <div class="page" id="page-pagos">
+      <div class="filters" style="margin-bottom:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <select id="fp-agente" onchange="renderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none;min-width:200px">
+          <option value="">👥 Todos los agentes</option>
+        </select>
+        <select id="fp-mes" onchange="renderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none;min-width:160px">
+          <option value="">📅 Todos los meses</option>
+        </select>
+        <select id="fp-quincena" onchange="renderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none">
+          <option value="">Q1 + Q2</option>
+          <option value="1">Q1 (días 1–15)</option>
+          <option value="2">Q2 (días 16–31)</option>
+        </select>
+        <button onclick="document.getElementById('fp-agente').value='';document.getElementById('fp-mes').value='';document.getElementById('fp-quincena').value='';renderPagos()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
+      </div>
       <div class="section">
-        <div class="section-header">
-          <h2>💳 Pagos de Quincenas por Agente</h2>
-        </div>
         <div id="pagos-content"></div>
       </div>
     </div>
@@ -2692,16 +2703,43 @@ function pendInput(agente, mes, q) {
 
 function renderPagos() {
   const meses = getMeses();
+  // Populate filter dropdowns
+  const fpAg  = document.getElementById('fp-agente');
+  const fpMes = document.getElementById('fp-mes');
+  if(fpAg) {
+    const curAg = fpAg.value;
+    const todos = [
+      ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+      ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+      ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
+    ];
+    fpAg.innerHTML = '<option value="">👥 Todos los agentes</option>' +
+      todos.map(a=>`<option value="${a.id}" ${a.id==curAg?'selected':''}>${a.nombre}</option>`).join('');
+  }
+  if(fpMes) {
+    const curMes = fpMes.value;
+    fpMes.innerHTML = '<option value="">📅 Todos los meses</option>' +
+      meses.map(m=>`<option value="${m}" ${m===curMes?'selected':''}>${m}</option>`).join('');
+  }
+
+  // Read filters
+  const filtroAgId  = parseInt(document.getElementById('fp-agente')?.value)||0;
+  const filtroMes   = document.getElementById('fp-mes')?.value||'';
+  const filtroQ     = document.getElementById('fp-quincena')?.value||'';
+  const mesesVis    = filtroMes ? [filtroMes] : meses;
+  const qVis        = filtroQ ? [parseInt(filtroQ)] : [1,2];
+
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
-  const ordenados = [
+  const todos = [
     ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
     ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
     ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
   ];
+  const ordenados = filtroAgId ? todos.filter(a=>a.id===filtroAgId) : todos;
   // ── Resumen de pago quincena actual ──
-  const mesAct = meses[meses.length-1] || mesActual();
   const hoy = new Date().getDate();
-  const qAct = hoy <= 15 ? 1 : 2;
+  const mesAct = filtroMes || meses[meses.length-1] || mesActual();
+  const qAct = filtroQ ? parseInt(filtroQ) : (hoy <= 15 ? 1 : 2);
   let totalAPagar = 0;
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
@@ -2758,8 +2796,8 @@ function renderPagos() {
     let totalPagado = 0, totalPend = 0;
 
     // Dos filas por mes — comisiones por quincena según fecha de venta (Q1=días 1-15, Q2=días 16-31)
-    const filas = meses.flatMap(mes=>{
-      return [1,2].map(q=>{
+    const filas = mesesVis.flatMap(mes=>{
+      return qVis.map(q=>{
         const pagado  = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
         const comQ    = getComisionesQuincena(a, mes, q);  // real por fecha, sin dividir
         const basico  = a.sueldoQuincenal||0;
