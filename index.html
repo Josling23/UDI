@@ -2609,6 +2609,9 @@ async function loginConPin() {
     currentUser = null;
     pinMode = true;
     document.getElementById('login-screen').style.display = 'none';
+    // Cargar datos de Firebase antes de abrir el área
+    await cargar();
+    ejecutarMigraciones();
     abrirArea(area);
   } catch(e) {
     errEl.textContent = 'Error al verificar PIN. Intenta de nuevo.';
@@ -4498,11 +4501,12 @@ function migrarAgentes() {
       appData.agentes.push({
         id: ++maxId,
         nombre: ag.nombre,
-        rol: 'agente',
+        rol: ag.rol || 'agente',
         sueldoQuincenal: ag.sueldoQuincenal,
         tel: '', email: '', activo: true,
-        comisionesPersonales: {},
+        comisionesPersonales: ag.comPs || { 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8,'att-seg':1 },
         agentesSupervisa: [],
+        productosExtra: [],
       });
       changed = true;
     }
