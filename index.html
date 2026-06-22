@@ -5211,19 +5211,91 @@ function ejecutarMigraciones() {
   // ── Ventas nuevas ingresadas manualmente ──
   (() => {
     const VENTAS_NUEVAS = [
+      // ── Mayo 2026 ──
       {
-        _key: 'venta_claudia_air_wilmer_20260602',
-        fecha: '2026-06-02',
-        agente: 'Claudia',
-        productoId: 'att-air',
-        categoria: 'internet',
-        cantidad: 1,
-        comision: 45,
-        cliente: 'Wilmer Francisco Santamaria Cabrera',
-        cuenta: '',
-        mes: 'Junio 2026',
-        campana: '',
-        notas: 'AT&T Internet Air. Samsung S26 Ultra - línea nueva. Cruce de líneas: activó la principal en el nuevo equipo y la nueva para uno existente. Protect Advantage 1 device: NO. Fecha activación: 06-12-26.',
+        _key: 'v_claudia_air_carlos_20260528',
+        fecha:'2026-05-28', agente:'Claudia', productoId:'att-air', categoria:'internet',
+        cantidad:1, comision:45, cliente:'Carlos Luis Sepulveda Orozco',
+        cuenta:'', mes:'Mayo 2026', campana:'',
+        notas:'AT&T Internet Air. Activada 06-01-26.',
+      },
+      // ── Junio 2026 ──
+      {
+        _key: 'v_claudia_act_wilmer_samsung_20260602',
+        fecha:'2026-06-02', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
+        cantidad:1, comision:10, cliente:'Wilmer Francisco Santamaria Cabrera',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'Samsung S26 Ultra, línea nueva. Cruce de líneas: activó principal en el nuevo y la nueva para uno existente. Protect ❌. Activada 06-12-26.',
+      },
+      {
+        _key: 'v_claudia_upgrade_freiman_20260604',
+        fecha:'2026-06-04', agente:'Claudia', productoId:'att-upgrade', categoria:'mobility',
+        cantidad:1, comision:3, cliente:'Freiman Torres Zuleta',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'Upgrade. iPhone 17 Pro Max, línea existente. Cruce de línea entre equipos existentes. Protect Advantage 1 device ✅. Activada 06-12-26.',
+      },
+      {
+        _key: 'v_claudia_seg_freiman_20260604',
+        fecha:'2026-06-04', agente:'Claudia', productoId:'att-seg', categoria:'mobility',
+        cantidad:1, comision:1, cliente:'Freiman Torres Zuleta',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'Protect Advantage 1 device — iPhone 17 Pro Max.',
+      },
+      {
+        _key: 'v_claudia_act_esdras_20260608',
+        fecha:'2026-06-08', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
+        cantidad:1, comision:10, cliente:'Esdras Silin',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'iPhone 17 Pro Max, línea nueva. Protect ❌. Activada 06-12-26.',
+      },
+      {
+        _key: 'v_claudia_ipad_wilmer_20260609',
+        fecha:'2026-06-09', agente:'Claudia', productoId:'att-ipad', categoria:'mobility',
+        cantidad:1, comision:3, cliente:'Wilmer Francisco Santamaria Cabrera',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'iPad Pro 11" 2025, línea nueva. Protect ❌. Activada 06-12-26.',
+      },
+      {
+        _key: 'v_claudia_act_yeribel_20260608',
+        fecha:'2026-06-08', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
+        cantidad:1, comision:10, cliente:'Yeribel Cabrera',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'iPhone 17 Pro Max, portabilidad. Protect Advantage 1 device ✅. Activada 06-13-26.',
+      },
+      {
+        _key: 'v_claudia_seg_yeribel_20260608',
+        fecha:'2026-06-08', agente:'Claudia', productoId:'att-seg', categoria:'mobility',
+        cantidad:1, comision:1, cliente:'Yeribel Cabrera',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'Protect Advantage 1 device — iPhone 17 Pro Max.',
+      },
+      {
+        _key: 'v_claudia_air_brian_20260610',
+        fecha:'2026-06-10', agente:'Claudia', productoId:'att-air', categoria:'internet',
+        cantidad:1, comision:45, cliente:'Brian Kenneth Cordova Quevedo',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'AT&T Internet Air. Activada 06-13-26.',
+      },
+      {
+        _key: 'v_claudia_act_brian_iphone1_20260610',
+        fecha:'2026-06-10', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
+        cantidad:1, comision:10, cliente:'Brian Kenneth Cordova Quevedo',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'iPhone 17 Pro Max, línea nueva. Protect Advantage multi device 4 ✅. Activada 06-13-26.',
+      },
+      {
+        _key: 'v_claudia_seg_brian_20260610',
+        fecha:'2026-06-10', agente:'Claudia', productoId:'att-seg', categoria:'mobility',
+        cantidad:1, comision:1, cliente:'Brian Kenneth Cordova Quevedo',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'Protect Advantage multi device 4.',
+      },
+      {
+        _key: 'v_claudia_act_brian_iphone2_20260610',
+        fecha:'2026-06-10', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
+        cantidad:1, comision:10, cliente:'Brian Kenneth Cordova Quevedo',
+        cuenta:'', mes:'Junio 2026', campana:'',
+        notas:'iPhone 17 Pro Max, línea nueva. Protect ❌. Activada 06-13-26.',
       },
     ];
     let changed = false;
