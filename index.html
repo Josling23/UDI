@@ -1064,72 +1064,65 @@ tr:hover td{background:#EAF0FB}
 
 <!-- ===== MODAL VENTA ===== -->
 <div class="modal-overlay" id="modal-venta">
-  <div class="modal">
+  <div class="modal" style="max-width:680px">
     <div class="modal-header">
       <h3 id="modal-venta-title">➕ Registrar Venta</h3>
       <button class="modal-close" onclick="closeModal('modal-venta')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid">
-        <div class="form-group">
+      <!-- Info del cliente + header -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="form-group" style="margin:0">
           <label>Fecha *</label>
-          <input type="date" id="v-fecha">
+          <input type="date" id="v-fecha" onchange="updateVentaTotal()">
         </div>
-        <div class="form-group">
+        <div class="form-group" style="margin:0">
           <label>Agente *</label>
-          <select id="v-agente" onchange="onProductoChange()"></select>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Categoría *</label>
-          <select id="v-categoria" onchange="onCatChange()">
-            <option value="">— Selecciona categoría —</option>
-            <option value="mobility">📱 AT&T Mobility</option>
-            <option value="internet">🌐 Internet Residencial</option>
-            <option value="otros-internet">🌐 Internet Personalizado</option>
-            <option value="prepago">📞 Telefonía Prepago</option>
-            <option value="servicios">🛠️ Servicios Complementarios</option>
-          </select>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Producto *</label>
-          <select id="v-producto" onchange="onProductoChange()"><option value="">— Selecciona primero la categoría —</option></select>
-        </div>
-        <div class="form-group">
-          <label>Cantidad *</label>
-          <input type="number" id="v-cantidad" min="1" value="1" oninput="updateVentaPreview()">
-        </div>
-        <div class="form-group">
-          <label>Comisión por Unidad ($)</label>
-          <input type="number" id="v-comision" step="0.01" min="0" placeholder="0.00" oninput="updateVentaPreview()">
-        </div>
-        <div class="form-group">
-          <label>Cliente</label>
-          <input type="text" id="v-cliente" placeholder="Nombre del cliente">
-        </div>
-        <div class="form-group">
-          <label># Cuenta / Order</label>
-          <input type="text" id="v-cuenta" placeholder="Número de orden o cuenta">
-        </div>
-        <div class="form-group">
-          <label>Mes de Registro</label>
-          <select id="v-mes"></select>
+          <select id="v-agente" onchange="updateVentaTotal()"></select>
         </div>
       </div>
-      <div class="form-group" style="margin-top:12px">
-        <label>📢 Campaña (opcional)</label>
-        <select id="v-campana"><option value="">— Sin campaña / Orgánico —</option></select>
-      </div>
-      <div class="form-group" style="margin-top:8px">
-        <label>Notas</label>
-        <textarea id="v-notas" placeholder="Observaciones..."></textarea>
-      </div>
-      <div id="venta-preview" style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:14px;margin-top:14px;display:none">
-        <div style="font-size:10px;text-transform:uppercase;color:#0057A8;font-weight:700;margin-bottom:8px">Preview Comisión</div>
-        <div style="display:flex;gap:20px">
-          <div><div style="font-size:10px;color:#7C98B6">Por unidad</div><div style="font-size:18px;font-weight:800;color:#009FDB" id="prev-com-u">—</div></div>
-          <div><div style="font-size:10px;color:#7C98B6">Cantidad</div><div style="font-size:18px;font-weight:800;color:#33475B" id="prev-qty">—</div></div>
-          <div><div style="font-size:10px;color:#7C98B6">Total comisión</div><div style="font-size:22px;font-weight:800;color:#00BDA5" id="prev-total-com">—</div></div>
+      <!-- Cliente con autocomplete -->
+      <div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:10px;padding:12px 14px;margin-bottom:14px;position:relative">
+        <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">👤 Datos del Cliente</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group" style="margin:0;position:relative">
+            <label>Nombre del Cliente</label>
+            <input type="text" id="v-cliente" placeholder="Escribe para buscar cliente existente..." autocomplete="off"
+              oninput="clienteAutocomplete(this.value)" onblur="setTimeout(()=>document.getElementById('v-cliente-sugg').style.display='none',200)">
+            <div id="v-cliente-sugg" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #009FDB;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.12);z-index:999;max-height:160px;overflow-y:auto"></div>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label># Cuenta / Order</label>
+            <input type="text" id="v-cuenta" placeholder="Número de cuenta u orden">
+          </div>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+          <div class="form-group" style="margin:0">
+            <label>Mes de Registro</label>
+            <select id="v-mes"></select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>📢 Campaña</label>
+            <select id="v-campana"><option value="">— Sin campaña / Orgánico —</option></select>
+          </div>
+        </div>
+        <div class="form-group" style="margin:10px 0 0">
+          <label>Notas generales</label>
+          <textarea id="v-notas" placeholder="Observaciones del cliente o la venta..." style="min-height:48px"></textarea>
+        </div>
+      </div>
+
+      <!-- Productos múltiples -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">📦 Productos / Servicios</div>
+        <button onclick="agregarLineaVenta()" style="background:#009FDB;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar producto</button>
+      </div>
+      <div id="v-lineas-container"></div>
+
+      <!-- Total -->
+      <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:12px;color:#0057A8;font-weight:600">Total comisiones esta venta</div>
+        <div style="font-size:22px;font-weight:800;color:#00BDA5" id="v-total-preview">$0.00</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2027,127 +2020,218 @@ function renderVentas() {
   </tr>`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
 }
 
+let _lineaCount = 0;
+
+function buildCatOpts(cat) {
+  const prods = getCatalogoCompleto().filter(p=>p.cat===cat);
+  if(cat==='internet') {
+    const empresas = [...new Set(prods.map(p=>p.empresa||'Otros'))];
+    return empresas.map(emp=>`<optgroup label="— ${emp} —">${prods.filter(p=>(p.empresa||'Otros')===emp).map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('')}</optgroup>`).join('');
+  }
+  return prods.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+}
+
+function catOptsAll() {
+  return `<option value="">— Categoría —</option>
+    <option value="mobility">📱 AT&T Mobility</option>
+    <option value="internet">🌐 Internet Residencial</option>
+    <option value="otros-internet">🌐 Internet Personalizado</option>
+    <option value="prepago">📞 Prepago</option>
+    <option value="servicios">🛠️ Servicios</option>`;
+}
+
+function agregarLineaVenta(linea=null) {
+  _lineaCount++;
+  const idx = _lineaCount;
+  const iSty = 'border:1.5px solid #CBD6E2;border-radius:7px;padding:7px 9px;font-size:12px;color:#33475B;outline:none;background:#fff;width:100%;font-family:inherit';
+  const div = document.createElement('div');
+  div.id = 'vlinea-'+idx;
+  div.style.cssText = 'background:#F5F8FA;border:1px solid #CBD6E2;border-radius:10px;padding:12px;margin-bottom:8px;position:relative';
+  div.innerHTML = `
+    <button onclick="document.getElementById('vlinea-${idx}').remove();updateVentaTotal()" title="Quitar" style="position:absolute;top:8px;right:8px;background:#FFF0F0;border:1px solid #F2545B;color:#F2545B;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;font-weight:700;line-height:1">✕</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Categoría *</div>
+        <select id="vl-cat-${idx}" style="${iSty}" onchange="onLineCatChange(${idx})">
+          ${catOptsAll()}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Producto *</div>
+        <select id="vl-prod-${idx}" style="${iSty}" onchange="onLineProdChange(${idx})">
+          <option value="">— Selecciona categoría primero —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:80px 110px 1fr;gap:8px;align-items:end">
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Cantidad</div>
+        <input type="number" id="vl-qty-${idx}" min="1" value="1" style="${iSty}" oninput="updateVentaTotal()">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#009FDB;margin-bottom:4px">Comisión/u ($)</div>
+        <input type="number" id="vl-com-${idx}" step="0.01" min="0" placeholder="0.00" style="${iSty};color:#009FDB;font-weight:700" oninput="updateVentaTotal()">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Notas del producto</div>
+        <input type="text" id="vl-nota-${idx}" placeholder="Ej: iPhone 17 Pro Max, Protect ✅..." style="${iSty}">
+      </div>
+    </div>`;
+  document.getElementById('v-lineas-container').appendChild(div);
+  if(linea) {
+    // Pre-fill when editing
+    document.getElementById('vl-cat-'+idx).value = linea.categoria||'';
+    onLineCatChange(idx);
+    setTimeout(()=>{
+      document.getElementById('vl-prod-'+idx).value = linea.productoId||'';
+      document.getElementById('vl-qty-'+idx).value = linea.cantidad||1;
+      document.getElementById('vl-com-'+idx).value = linea.comision||'';
+      document.getElementById('vl-nota-'+idx).value = linea.notas||'';
+      updateVentaTotal();
+    },10);
+  }
+}
+
+function onLineCatChange(idx) {
+  const cat = document.getElementById('vl-cat-'+idx)?.value||'';
+  const sel = document.getElementById('vl-prod-'+idx);
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Selecciona producto —</option>' + buildCatOpts(cat);
+  document.getElementById('vl-com-'+idx).value = '';
+  updateVentaTotal();
+}
+
+function onLineProdChange(idx) {
+  const pid = document.getElementById('vl-prod-'+idx)?.value||'';
+  const agente = document.getElementById('v-agente')?.value||'';
+  if(pid) {
+    const com = getComisionParaAgente(pid, agente);
+    document.getElementById('vl-com-'+idx).value = com||'';
+  }
+  updateVentaTotal();
+}
+
+function updateVentaTotal() {
+  let total = 0;
+  document.querySelectorAll('[id^="vl-com-"]').forEach(inp=>{
+    const idx = inp.id.replace('vl-com-','');
+    const com = parseFloat(inp.value)||0;
+    const qty = parseInt(document.getElementById('vl-qty-'+idx)?.value)||1;
+    total += com*qty;
+  });
+  const el = document.getElementById('v-total-preview');
+  if(el) el.textContent = fmt(total);
+}
+
+function clienteAutocomplete(q) {
+  const sugg = document.getElementById('v-cliente-sugg');
+  if(!q || q.length<2) { sugg.style.display='none'; return; }
+  const lower = q.toLowerCase();
+  const clientes = [...new Set((appData.ventas||[]).filter(v=>v.cliente&&v.cliente.toLowerCase().includes(lower)).map(v=>v.cliente))].slice(0,8);
+  if(!clientes.length) { sugg.style.display='none'; return; }
+  sugg.style.display='block';
+  sugg.innerHTML = clientes.map(c=>{
+    const lastV = (appData.ventas||[]).filter(v=>v.cliente===c).sort((a,b)=>b.fecha>a.fecha?1:-1)[0];
+    return `<div onclick="seleccionarClienteExistente('${c.replace(/'/g,"\\'")}','${(lastV?.cuenta||'').replace(/'/g,"\\'")}','${(lastV?.agente||'').replace(/'/g,"\\'")}','${(lastV?.campana||'').replace(/'/g,"\\'")}','${(lastV?.mes||'').replace(/'/g,"\\'")}');document.getElementById('v-cliente-sugg').style.display='none'"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #F5F8FA;font-size:12px;font-weight:600;color:#33475B"
+      onmouseenter="this.style.background='#EAF7FB'" onmouseleave="this.style.background='#fff'">
+      👤 ${c} <span style="font-size:10px;color:#7C98B6;font-weight:400">— último pedido: ${lastV?.fecha||'?'}</span>
+    </div>`;
+  }).join('');
+}
+
+function seleccionarClienteExistente(nombre, cuenta, agente, campana, mes) {
+  document.getElementById('v-cliente').value = nombre;
+  if(cuenta) document.getElementById('v-cuenta').value = cuenta;
+  if(agente) document.getElementById('v-agente').value = agente;
+  if(campana) document.getElementById('v-campana').value = campana;
+  if(mes) document.getElementById('v-mes').value = mes;
+}
+
 function openVentaModal(id=null) {
   editVentaId = id;
-  const modal = document.getElementById('modal-venta');
-  document.getElementById('modal-venta-title').textContent = id ? '✏️ Editar Venta' : '➕ Registrar Venta';
+  document.getElementById('modal-venta-title').textContent = id ? '✏️ Editar Venta' : '➕ Nueva Venta';
   populateAgente('v-agente', false);
   populateMes('v-mes', false);
-  // Populate campañas
   document.getElementById('v-campana').innerHTML = '<option value="">— Sin campaña / Orgánico —</option>' +
     (appData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  document.getElementById('v-lineas-container').innerHTML = '';
+  _lineaCount = 0;
 
   if(id) {
     const v = appData.ventas.find(x=>x.id===id);
     if(!v) return;
     document.getElementById('v-fecha').value = v.fecha;
     document.getElementById('v-agente').value = v.agente;
-    document.getElementById('v-categoria').value = v.categoria;
-    onCatChange();
-    document.getElementById('v-producto').value = v.productoId;
-    document.getElementById('v-cantidad').value = v.cantidad;
-    document.getElementById('v-comision').value = v.comision !== undefined ? v.comision : getComision(v);
     document.getElementById('v-cliente').value = v.cliente||'';
     document.getElementById('v-cuenta').value = v.cuenta||'';
     document.getElementById('v-mes').value = v.mes;
     document.getElementById('v-campana').value = v.campana||'';
     document.getElementById('v-notas').value = v.notas||'';
+    agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision });
   } else {
     document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('v-agente').value = appData.agentes[0]?.nombre||'';
-    document.getElementById('v-categoria').value = '';
-    document.getElementById('v-producto').innerHTML = '<option value="">— Selecciona primero la categoría —</option>';
-    document.getElementById('v-cantidad').value = 1;
-    document.getElementById('v-comision').value = '';
+    document.getElementById('v-agente').value = appData.agentes.find(a=>!a.soloHQ&&(!a.rol||a.rol==='agente'))?.nombre||appData.agentes[0]?.nombre||'';
     document.getElementById('v-cliente').value = '';
     document.getElementById('v-cuenta').value = '';
-    const ms = getMeses();
-    document.getElementById('v-mes').value = ms[ms.length-1]||'';
+    const ms = getMeses(); document.getElementById('v-mes').value = ms[ms.length-1]||'';
     document.getElementById('v-campana').value = '';
     document.getElementById('v-notas').value = '';
+    agregarLineaVenta();
   }
-  updateVentaPreview();
-  modal.classList.add('open');
+  updateVentaTotal();
+  document.getElementById('modal-venta').classList.add('open');
 }
 
-function onCatChange() {
-  const cat = document.getElementById('v-categoria').value;
-  const prods = getCatalogoCompleto().filter(p=>p.cat===cat);
-  let opts = '<option value="">— Selecciona producto —</option>';
-  if(cat==='internet') {
-    // Group by empresa
-    const empresas = [...new Set(prods.map(p=>p.empresa||'Otros'))];
-    empresas.forEach(emp=>{
-      opts += `<optgroup label="— ${emp} —">`;
-      prods.filter(p=>(p.empresa||'Otros')===emp).forEach(p=>{
-        opts += `<option value="${p.id}">${p.nombre}</option>`;
-      });
-      opts += `</optgroup>`;
-    });
-  } else {
-    opts += prods.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
-  }
-  document.getElementById('v-producto').innerHTML = opts;
-  document.getElementById('v-comision').value = '';
-  updateVentaPreview();
-}
-
-function onProductoChange() {
-  const pid = document.getElementById('v-producto').value;
-  const agNombre = document.getElementById('v-agente').value;
-  if(pid) document.getElementById('v-comision').value = getComisionParaAgente(pid, agNombre);
-  updateVentaPreview();
-}
-
-function updateVentaPreview() {
-  const com = parseFloat(document.getElementById('v-comision')?.value)||0;
-  const qty = parseInt(document.getElementById('v-cantidad')?.value)||0;
-  const prev = document.getElementById('venta-preview');
-  if(!prev) return;
-  if(!com || !qty) { prev.style.display='none'; return; }
-  prev.style.display = 'block';
-  document.getElementById('prev-com-u').textContent = fmt(com);
-  document.getElementById('prev-qty').textContent = qty;
-  document.getElementById('prev-total-com').textContent = fmt(com*qty);
-}
+// kept for inline table cat change (legacy)
+function onCatChange() {}
+function onProductoChange() {}
+function updateVentaPreview() {}
 
 function guardarVenta() {
-  const agente = document.getElementById('v-agente').value;
-  const categoria = document.getElementById('v-categoria').value;
-  const productoId = document.getElementById('v-producto').value;
-  const cantidad = parseInt(document.getElementById('v-cantidad').value)||0;
-  const comision = parseFloat(document.getElementById('v-comision').value)||0;
+  const agente  = document.getElementById('v-agente').value;
+  const fecha   = document.getElementById('v-fecha').value;
+  const cliente = document.getElementById('v-cliente').value.trim();
+  const cuenta  = document.getElementById('v-cuenta').value.trim();
+  const mes     = document.getElementById('v-mes').value;
+  const campana = document.getElementById('v-campana').value;
+  const notas   = document.getElementById('v-notas').value.trim();
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
-  if(!categoria) { showNotif('⚠️ Selecciona una categoría','error'); return; }
-  if(!productoId) { showNotif('⚠️ Selecciona un producto','error'); return; }
-  if(!cantidad || cantidad<1) { showNotif('⚠️ Ingresa la cantidad','error'); return; }
 
-  const data = {
-    fecha: document.getElementById('v-fecha').value,
-    agente,
-    productoId,
-    categoria,
-    cantidad,
-    comision,
-    cliente: document.getElementById('v-cliente').value.trim(),
-    cuenta: document.getElementById('v-cuenta').value.trim(),
-    mes: document.getElementById('v-mes').value,
-    campana: document.getElementById('v-campana').value,
-    notas: document.getElementById('v-notas').value.trim(),
-  };
+  // Recoger todas las líneas
+  const lineas = [];
+  document.querySelectorAll('[id^="vlinea-"]').forEach(div=>{
+    const idx = div.id.replace('vlinea-','');
+    const cat  = document.getElementById('vl-cat-'+idx)?.value||'';
+    const prod = document.getElementById('vl-prod-'+idx)?.value||'';
+    const qty  = parseInt(document.getElementById('vl-qty-'+idx)?.value)||1;
+    const com  = parseFloat(document.getElementById('vl-com-'+idx)?.value)||0;
+    const nota = document.getElementById('vl-nota-'+idx)?.value?.trim()||'';
+    if(!cat || !prod) return;
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota });
+  });
+
+  if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
 
   if(editVentaId !== null) {
+    // Edit: update solo la primera línea (una venta = un producto al editar)
     const v = appData.ventas.find(x=>x.id===editVentaId);
-    Object.assign(v, data);
+    const l = lineas[0];
+    Object.assign(v, { fecha, agente, cliente, cuenta, mes, campana,
+      notas: l.notaLinea || notas,
+      productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
     showNotif('✅ Venta actualizada');
   } else {
-    appData.ventas.push({ id: appData.nextId++, ...data });
-    showNotif('✅ Venta registrada');
+    // Nueva: crear un registro por cada línea
+    lineas.forEach(l=>{
+      const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+      appData.ventas.push({ id:maxId+1, fecha, agente, cliente, cuenta, mes, campana,
+        notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
+        productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
+    });
+    showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
   }
-  guardar();
-  closeModal('modal-venta');
-  renderVentas();
-  renderDashboard();
+  guardar(); closeModal('modal-venta'); renderVentas(); renderDashboard();
 }
 
 function ventaInlineEdit(id, field, value, prodSelect) {
