@@ -345,6 +345,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section">Reportes</div>
     <div class="nav-item" onclick="showPage('resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
     <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
+    <div class="nav-item" onclick="showPage('campanas',this)"><span class="icon">📢</span><span>Campañas & ROI</span></div>
     <div class="nav-section">Config</div>
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
     <div class="nav-section">Finanzas</div>
@@ -521,6 +522,22 @@ tr:hover td{background:#EAF0FB}
           <div style="font-size:12px;color:#7C98B6">Edita la comisión por unidad de cada producto</div>
         </div>
         <div id="productos-content"></div>
+      </div>
+    </div>
+
+    <!-- ===== CAMPAÑAS AT&T ===== -->
+    <div class="page" id="page-campanas">
+      <div class="section">
+        <div class="section-header">
+          <h2>📢 Campañas & ROI</h2>
+          <button class="btn btn-primary" onclick="attOpenCampanaModal()">➕ Nueva Campaña</button>
+        </div>
+        <div style="font-size:12px;color:#7C98B6;margin-bottom:16px">Trackea el retorno de inversión de cada campaña de publicidad. Las ventas se asocian a una campaña al registrarlas.</div>
+        <div id="att-campanas-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:20px"></div>
+      </div>
+      <div class="section">
+        <div class="section-header"><h2>📊 Análisis de Conversión por Origen</h2></div>
+        <div id="att-conversion-analysis"></div>
       </div>
     </div>
 
@@ -851,6 +868,53 @@ tr:hover td{background:#EAF0FB}
 </div>
 
 <!-- MODAL SALUD CAMPAÑA -->
+<!-- MODAL ATT CAMPAÑA -->
+<div class="modal-overlay" id="modal-att-campana">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="modal-att-campana-title">📢 Nueva Campaña</h3>
+      <button class="modal-close" onclick="closeModal('modal-att-campana')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid cols1">
+        <div class="form-group"><label>Nombre de Campaña *</label><input type="text" id="ac-camp-nombre" placeholder="Ej: ATT PROMO MAYO | LEADS INTERNET"></div>
+        <div class="form-group"><label>Tipo de Campaña</label>
+          <select id="ac-camp-tipo">
+            <option value="Telefonía">📱 Telefonía / Mobility</option>
+            <option value="Internet">🌐 Internet Residencial</option>
+            <option value="Ambos">📡 Telefonía + Internet</option>
+            <option value="Otro">📎 Otro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Plataforma</label>
+          <select id="ac-camp-plat">
+            <option value="Meta Ads">Meta Ads (Facebook/Instagram)</option>
+            <option value="Google Ads">Google Ads</option>
+            <option value="TikTok">TikTok Ads</option>
+            <option value="Orgánico">Orgánico / Referidos</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Gasto Total ($)</label><input type="number" id="ac-camp-gasto" placeholder="0.00" step="0.01" min="0"></div>
+        <div class="form-group"><label>Leads Generados</label><input type="number" id="ac-camp-leads" placeholder="0" min="0"></div>
+        <div class="form-group"><label>Fecha Inicio</label><input type="date" id="ac-camp-inicio"></div>
+        <div class="form-group"><label>Estado</label>
+          <select id="ac-camp-estado">
+            <option value="activa">✅ Activa</option>
+            <option value="pausada">⏸️ Pausada</option>
+            <option value="finalizada">🏁 Finalizada</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Notas</label><textarea id="ac-camp-notas" placeholder="Observaciones, objetivo, target..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-att-campana')">Cancelar</button>
+      <button class="btn btn-primary" onclick="attGuardarCampana()">💾 Guardar Campaña</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-salud-campana">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
@@ -1036,6 +1100,10 @@ tr:hover td{background:#EAF0FB}
         </div>
       </div>
       <div class="form-group" style="margin-top:12px">
+        <label>📢 Campaña (opcional)</label>
+        <select id="v-campana"><option value="">— Sin campaña / Orgánico —</option></select>
+      </div>
+      <div class="form-group" style="margin-top:8px">
         <label>Notas</label>
         <textarea id="v-notas" placeholder="Observaciones..."></textarea>
       </div>
@@ -1359,6 +1427,8 @@ function normalizarAppData() {
   if(!appData.nextExtraId) appData.nextExtraId = 1;
   if(!appData.otrosInternet) appData.otrosInternet = [];
   if(!appData.nextOIId)    appData.nextOIId = 1;
+  if(!appData.campanas)    appData.campanas = [];
+  if(!appData.nextCampId)  appData.nextCampId = 1;
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
   // Eliminar campo pins (ya no se usa)
@@ -1403,6 +1473,7 @@ function activarListenerAppData() {
           'top':        renderTop,
           'hq':         renderHQ,
           'usuarios':   renderUsuarios,
+          'campanas':   attRenderCampanas,
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -1690,7 +1761,8 @@ function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.g
 // ============================================================
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
-  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', productos:'📦 Productos & Comisiones',
+  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', campanas:'📢 Campañas & ROI',
+  productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-clientes':'💚 Salud — Clientes',
@@ -1720,6 +1792,7 @@ function renderPage(name) {
   if(name==='hq')    renderHQ();
   if(name==='admin') renderAdmin();
   if(name==='usuarios') renderUsuarios();
+  if(name==='campanas') attRenderCampanas();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-clientes') saludRenderClientes();
   if(name==='salud-agentes') saludRenderAgentes();
@@ -1914,6 +1987,9 @@ function openVentaModal(id=null) {
   document.getElementById('modal-venta-title').textContent = id ? '✏️ Editar Venta' : '➕ Registrar Venta';
   populateAgente('v-agente', false);
   populateMes('v-mes', false);
+  // Populate campañas
+  document.getElementById('v-campana').innerHTML = '<option value="">— Sin campaña / Orgánico —</option>' +
+    (appData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
 
   if(id) {
     const v = appData.ventas.find(x=>x.id===id);
@@ -1928,6 +2004,7 @@ function openVentaModal(id=null) {
     document.getElementById('v-cliente').value = v.cliente||'';
     document.getElementById('v-cuenta').value = v.cuenta||'';
     document.getElementById('v-mes').value = v.mes;
+    document.getElementById('v-campana').value = v.campana||'';
     document.getElementById('v-notas').value = v.notas||'';
   } else {
     document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
@@ -1940,6 +2017,7 @@ function openVentaModal(id=null) {
     document.getElementById('v-cuenta').value = '';
     const ms = getMeses();
     document.getElementById('v-mes').value = ms[ms.length-1]||'';
+    document.getElementById('v-campana').value = '';
     document.getElementById('v-notas').value = '';
   }
   updateVentaPreview();
@@ -2008,6 +2086,7 @@ function guardarVenta() {
     cliente: document.getElementById('v-cliente').value.trim(),
     cuenta: document.getElementById('v-cuenta').value.trim(),
     mes: document.getElementById('v-mes').value,
+    campana: document.getElementById('v-campana').value,
     notas: document.getElementById('v-notas').value.trim(),
   };
 
@@ -4397,6 +4476,136 @@ function saludEliminarSueldo(id) {
   if(!confirm('¿Eliminar este registro de pago?')) return;
   saludData.sueldos = saludData.sueldos.filter(s=>s.id!==id);
   guardarSalud(); saludRenderComisiones(); showNotif('🗑️ Eliminado');
+}
+
+// ─── AT&T Campañas ────────────────────────────────────────────
+let attEditCampId = null;
+function attRenderCampanas() {
+  const grid = document.getElementById('att-campanas-grid');
+  if(!grid) return;
+  const campanas = appData.campanas || [];
+  const ventas = appData.ventas || [];
+
+  grid.innerHTML = campanas.map(c=>{
+    const cvs = ventas.filter(v=>v.campana===c.nombre);
+    const ingresos = cvs.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseInt(v.cantidad)||0),0);
+    const roi = c.gasto ? ((ingresos-c.gasto)/c.gasto*100) : 0;
+    const cpl = c.leads ? (c.gasto/c.leads) : 0;
+    const conv = c.leads ? (cvs.length/c.leads*100) : 0;
+    const tipoColor = {Telefonía:'#009FDB',Internet:'#00BDA5',Ambos:'#6A78D1',Otro:'#FF7A59'};
+    const col = tipoColor[c.tipo]||'#009FDB';
+    return `<div style="background:#F5F8FA;border-radius:12px;padding:20px;border:1px solid #CBD6E2">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#33475B">${c.nombre}</div>
+          <div style="font-size:11px;color:#7C98B6;margin-top:3px">
+            <span style="background:${col}22;color:${col};border-radius:4px;padding:1px 7px;font-weight:600">${c.tipo||'Telefonía'}</span>
+            &nbsp;${c.plataforma} &nbsp;·&nbsp; <span style="color:${c.estado==='activa'?'#22c55e':'#64748b'}">${c.estado.toUpperCase()}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:flex-start">
+          <button onclick="attOpenCampanaModal(${c.id})" style="background:none;border:1px solid #CBD6E2;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">✏️</button>
+          <button onclick="attEliminarCampana(${c.id})" style="background:#FFF0F0;border:1px solid #F2545B;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;color:#F2545B;font-weight:700">✕</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:#EAF0FB;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Gasto</div><div style="font-weight:700;color:#F2545B">${fmt(c.gasto)}</div></div>
+        <div style="background:#EAF0FB;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Leads</div><div style="font-weight:700;color:#0091AE">${c.leads||0}</div></div>
+        <div style="background:#EAF0FB;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Costo/Lead</div><div style="font-weight:700;color:#FF7A59">${c.leads?fmt(cpl):'—'}</div></div>
+        <div style="background:#EAF0FB;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Ventas</div><div style="font-weight:700;color:#00BDA5">${cvs.length}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:${roi>=0?'#F0FDF4':'#FFF0F0'};border-radius:8px">
+        <div>
+          <div style="font-size:10px;color:#7C98B6">ROI · Conv. ${conv.toFixed(1)}% · Ingresos ${fmt(ingresos)}</div>
+        </div>
+        <div style="font-weight:800;font-size:20px;color:${roi>=0?'#22c55e':'#ef4444'}">${c.gasto?((roi>=0?'+':'')+roi.toFixed(1)+'%'):'—'}</div>
+      </div>
+      ${c.notas?`<div style="font-size:11px;color:#7C98B6;margin-top:10px;font-style:italic">${c.notas}</div>`:''}
+    </div>`;
+  }).join('') || '<div style="color:#7C98B6;padding:20px;font-size:13px">Sin campañas. Agrega una para empezar a trackear el ROI. 📢</div>';
+
+  // Análisis conversión
+  const totalGasto = campanas.reduce((s,c)=>s+(parseFloat(c.gasto)||0),0);
+  const ventasCamp = ventas.filter(v=>v.campana);
+  const ventasOrg  = ventas.filter(v=>!v.campana);
+  const ingCamp = ventasCamp.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseInt(v.cantidad)||0),0);
+  const ingOrg  = ventasOrg.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseInt(v.cantidad)||0),0);
+  document.getElementById('att-conversion-analysis').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+      <div style="background:#F5F8FA;border-radius:10px;padding:16px;border:1px solid #CBD6E2">
+        <div style="font-size:11px;color:#7C98B6;margin-bottom:8px">📢 VENTAS POR CAMPAÑAS</div>
+        <div style="font-size:28px;font-weight:800;color:#009FDB">${ventasCamp.length}</div>
+        <div style="font-size:11px;color:#7C98B6">Comisiones generadas: ${fmt(ingCamp)}</div>
+        <div style="font-size:11px;color:#7C98B6">Gasto invertido: ${fmt(totalGasto)}</div>
+        <div style="font-size:12px;font-weight:700;color:${ingCamp-totalGasto>=0?'#22c55e':'#ef4444'};margin-top:6px">Neto: ${fmt(ingCamp-totalGasto)}</div>
+      </div>
+      <div style="background:#F5F8FA;border-radius:10px;padding:16px;border:1px solid #CBD6E2">
+        <div style="font-size:11px;color:#7C98B6;margin-bottom:8px">🤝 VENTAS ORGÁNICAS / REFERIDOS</div>
+        <div style="font-size:28px;font-weight:800;color:#00BDA5">${ventasOrg.length}</div>
+        <div style="font-size:11px;color:#7C98B6">Comisiones generadas: ${fmt(ingOrg)}</div>
+        <div style="font-size:12px;font-weight:700;color:#00BDA5;margin-top:6px">Neto: ${fmt(ingOrg)}</div>
+      </div>
+      ${campanas.length>0?`<div style="background:#F5F8FA;border-radius:10px;padding:16px;border:1px solid #CBD6E2">
+        <div style="font-size:11px;color:#7C98B6;margin-bottom:8px">📊 TOTAL GENERAL</div>
+        <div style="font-size:28px;font-weight:800;color:#33475B">${ventas.length}</div>
+        <div style="font-size:11px;color:#7C98B6">Comisiones totales: ${fmt(ingCamp+ingOrg)}</div>
+        <div style="font-size:12px;font-weight:700;color:${ingCamp+ingOrg-totalGasto>=0?'#22c55e':'#ef4444'};margin-top:6px">Neto (com - gasto camp): ${fmt(ingCamp+ingOrg-totalGasto)}</div>
+      </div>`:''}
+    </div>`;
+}
+function attOpenCampanaModal(id=null) {
+  attEditCampId = id;
+  document.getElementById('modal-att-campana-title').textContent = id ? '✏️ Editar Campaña' : '📢 Nueva Campaña';
+  if(id) {
+    const c = (appData.campanas||[]).find(x=>x.id===id);
+    if(!c) return;
+    document.getElementById('ac-camp-nombre').value  = c.nombre;
+    document.getElementById('ac-camp-tipo').value    = c.tipo||'Telefonía';
+    document.getElementById('ac-camp-plat').value    = c.plataforma;
+    document.getElementById('ac-camp-gasto').value   = c.gasto;
+    document.getElementById('ac-camp-leads').value   = c.leads;
+    document.getElementById('ac-camp-inicio').value  = c.inicio||'';
+    document.getElementById('ac-camp-estado').value  = c.estado;
+    document.getElementById('ac-camp-notas').value   = c.notas||'';
+  } else {
+    document.getElementById('ac-camp-nombre').value  = '';
+    document.getElementById('ac-camp-tipo').value    = 'Telefonía';
+    document.getElementById('ac-camp-plat').value    = 'Meta Ads';
+    document.getElementById('ac-camp-gasto').value   = '';
+    document.getElementById('ac-camp-leads').value   = '';
+    document.getElementById('ac-camp-inicio').value  = new Date().toISOString().split('T')[0];
+    document.getElementById('ac-camp-estado').value  = 'activa';
+    document.getElementById('ac-camp-notas').value   = '';
+  }
+  document.getElementById('modal-att-campana').classList.add('open');
+}
+function attGuardarCampana() {
+  const nombre = document.getElementById('ac-camp-nombre').value.trim();
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre de la campaña','error'); return; }
+  const data = {
+    nombre,
+    tipo:       document.getElementById('ac-camp-tipo').value,
+    plataforma: document.getElementById('ac-camp-plat').value,
+    gasto:      parseFloat(document.getElementById('ac-camp-gasto').value)||0,
+    leads:      parseInt(document.getElementById('ac-camp-leads').value)||0,
+    inicio:     document.getElementById('ac-camp-inicio').value,
+    estado:     document.getElementById('ac-camp-estado').value,
+    notas:      document.getElementById('ac-camp-notas').value.trim(),
+  };
+  if(!appData.campanas) appData.campanas = [];
+  if(attEditCampId) {
+    Object.assign(appData.campanas.find(x=>x.id===attEditCampId), data);
+    showNotif('✅ Campaña actualizada');
+  } else {
+    appData.campanas.push({ id: appData.nextCampId++, ...data });
+    showNotif('✅ Campaña agregada');
+  }
+  guardar(); closeModal('modal-att-campana'); attRenderCampanas();
+}
+function attEliminarCampana(id) {
+  if(!confirm('¿Eliminar esta campaña? Las ventas asociadas quedarán sin campaña.')) return;
+  appData.campanas = appData.campanas.filter(x=>x.id!==id);
+  guardar(); attRenderCampanas(); showNotif('🗑️ Campaña eliminada');
 }
 
 // ─── Salud Campañas ───────────────────────────────────────────
