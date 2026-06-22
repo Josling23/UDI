@@ -130,6 +130,7 @@ tr:hover td{background:#EAF0FB}
 .notif.show{transform:translateX(0)}
 .notif.success{background:#E8F9F7;color:#00A492;border:1px solid #00BDA5}
 .notif.error{background:#FFF0F0;color:#E04048;border:1px solid #F2545B}
+.notif.info{background:#EAF0FB;color:#0057A8;border:1px solid #6A78D1}
 
 /* BAR */
 .bar-wrap{background:#EAF0FB;border-radius:6px;height:7px;overflow:hidden;margin-top:4px}
@@ -1298,16 +1299,20 @@ function normalizarAppData() {
 function guardar() {
   normalizarAppData();
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
-  fbDB.ref('appData').set(appData).catch(e => console.warn('Firebase write error:', e));
+  _syncIgnoreNext = true; // no re-renderizar por mi propio guardado
+  fbDB.ref('appData').set(appData).catch(e => { _syncIgnoreNext = false; console.warn('Firebase write error:', e); });
 }
 
 // Listener en tiempo real — se activa automáticamente cada vez que otro usuario guarda
 let _appDataListenerOn = false;
+let _syncIgnoreNext = false; // evita re-render cuando YO mismo guardo
 function activarListenerAppData() {
   if (_appDataListenerOn) return;
   _appDataListenerOn = true;
   fbDB.ref('appData').on('value', snap => {
     if (!snap.exists()) return;
+    // Si este disparo es consecuencia de mi propio guardar(), omitir re-render
+    if (_syncIgnoreNext) { _syncIgnoreNext = false; return; }
     const raw = snap.val();
     appData = { ...appData, ...raw };
     normalizarAppData();
@@ -1318,13 +1323,21 @@ function activarListenerAppData() {
       if (activePage) {
         const pageId = activePage.id.replace('page-', '');
         const renderMap = {
-          dashboard: renderDashboard, ventas: renderVentas,
-          agentes: renderAgentes, resumen: renderResumen,
-          pagos: renderPagos, productos: renderProductos,
-          admin: renderAdmin, top: renderTop, hq: renderHQ,
-          usuarios: renderUsuarios,
+          'dashboard':  renderDashboard,
+          'ventas':     renderVentas,
+          'agentes':    renderAgentes,
+          'resumen':    renderResumen,
+          'pagos':      renderPagos,
+          'productos':  renderProductos,
+          'admin':      renderAdmin,
+          'top':        renderTop,
+          'hq':         renderHQ,
+          'usuarios':   renderUsuarios,
         };
-        if (renderMap[pageId]) renderMap[pageId]();
+        if (renderMap[pageId]) {
+          renderMap[pageId]();
+          showNotif('🔄 Datos sincronizados', 'info');
+        }
       }
     }
   }, e => console.warn('Firebase listener error:', e));
@@ -1437,15 +1450,18 @@ function normalizarSaludData() {
 function guardarSalud() {
   normalizarSaludData();
   localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
-  fbDB.ref('saludData').set(saludData).catch(e => console.warn('Firebase salud write error:', e));
+  _syncIgnoreSalud = true;
+  fbDB.ref('saludData').set(saludData).catch(e => { _syncIgnoreSalud = false; console.warn('Firebase salud write error:', e); });
 }
 
 let _saludListenerOn = false;
+let _syncIgnoreSalud = false;
 function activarListenerSalud() {
   if (_saludListenerOn) return;
   _saludListenerOn = true;
   fbDB.ref('saludData').on('value', snap => {
     if (!snap.exists()) return;
+    if (_syncIgnoreSalud) { _syncIgnoreSalud = false; return; }
     saludData = { ...saludData, ...snap.val() };
     normalizarSaludData();
     localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
@@ -1455,16 +1471,19 @@ function activarListenerSalud() {
       if (activePage) {
         const pageId = activePage.id.replace('page-', '');
         const renderMapSalud = {
-          'salud-dashboard': renderSaludDashboard,
-          'salud-clientes':  renderSaludClientes,
-          'salud-agentes':   renderSaludAgentes,
-          'salud-comisiones':renderSaludComisiones,
-          'salud-campanas':  renderSaludCampanas,
-          'salud-resumen':   renderSaludResumen,
-          'salud-pagos':     renderSaludPagos,
-          'salud-chargebacks':renderSaludChargebacks,
+          'salud-dashboard':   saludRenderDashboard,
+          'salud-clientes':    saludRenderClientes,
+          'salud-agentes':     saludRenderAgentes,
+          'salud-comisiones':  saludRenderComisiones,
+          'salud-campanas':    saludRenderCampanas,
+          'salud-resumen':     saludRenderResumen,
+          'salud-pagos':       saludRenderPagos,
+          'salud-chargebacks': saludRenderChargebacks,
         };
-        if (renderMapSalud[pageId]) renderMapSalud[pageId]();
+        if (renderMapSalud[pageId]) {
+          renderMapSalud[pageId]();
+          showNotif('🔄 Datos sincronizados', 'info');
+        }
       }
     }
   }, e => console.warn('Firebase salud listener error:', e));
