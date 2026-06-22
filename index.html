@@ -1160,8 +1160,20 @@ tr:hover td{background:#EAF0FB}
         <div id="a-supervisa-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
 
-      <!-- Comisiones por producto -->
+      <!-- Copiar comisiones de otro agente -->
       <div style="margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2">
+        <div style="background:#FFFBE8;border:1px solid #F5C26B;border-radius:9px;padding:11px 14px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">📋 Copiar comisiones de otro agente</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="a-copy-source" style="flex:1;border:1.5px solid #CBD6E2;border-radius:7px;padding:6px 10px;font-size:12px;color:#33475B;outline:none;background:#fff">
+              <option value="">— Selecciona un agente —</option>
+            </select>
+            <button onclick="copiarComisionesDeAgente()" style="background:#F5C26B;color:#33475B;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Copiar</button>
+          </div>
+        </div>
+      </div>
+      <!-- Comisiones por producto -->
+      <div style="padding-top:0;border-top:none">
         <div id="a-com-header-simple" style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
           💰 Comisión Personal por Producto
           <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — en blanco = tarifa del catálogo</span>
@@ -2313,6 +2325,12 @@ function openAgenteModal(id=null) {
 
   // Tabla de comisiones — se renderiza en onRolChange()
 
+  // Dropdown copiar comisiones
+  const otrosAgentes = appData.agentes.filter(x=>x.id!==id);
+  document.getElementById('a-copy-source').innerHTML =
+    '<option value="">— Selecciona un agente —</option>' +
+    otrosAgentes.map(ag=>`<option value="${ag.id}">${ag.nombre} (${ROL_LABELS[ag.rol||'agente']||ag.rol})</option>`).join('');
+
   // Checkboxes de agentes supervisados
   const supervisados = a?.agentesSupervisa||[];
   const otros = appData.agentes.filter(x=>x.id!==id);
@@ -2325,6 +2343,26 @@ function openAgenteModal(id=null) {
 
   onRolChange();
   document.getElementById('modal-agente').classList.add('open');
+}
+
+function copiarComisionesDeAgente() {
+  const srcId = parseInt(document.getElementById('a-copy-source').value);
+  if(!srcId) { showNotif('⚠️ Selecciona un agente primero','error'); return; }
+  const src = appData.agentes.find(x=>x.id===srcId);
+  if(!src) return;
+  // Copiar comisionesPersonales a los inputs .a-prod-com
+  const comPs = src.comisionesPersonales||{};
+  document.querySelectorAll('.a-prod-com').forEach(inp=>{
+    const v = comPs[inp.dataset.prodId];
+    inp.value = v !== undefined ? v : '';
+  });
+  // Copiar comisionesDirectas a los inputs .a-prod-dir
+  const comDir = src.comisionesDirectas||{};
+  document.querySelectorAll('.a-prod-dir').forEach(inp=>{
+    const v = comDir[inp.dataset.prodId];
+    inp.value = v !== undefined ? v : '';
+  });
+  showNotif(`✅ Comisiones copiadas de ${src.nombre}`);
 }
 
 function guardarAgente() {
