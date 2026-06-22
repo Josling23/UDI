@@ -452,7 +452,12 @@ tr:hover td{background:#EAF0FB}
           </select>
           <select id="fv-agente" onchange="renderVentas()"><option value="">Todos los Agentes</option></select>
           <select id="fv-mes" onchange="renderVentas()"><option value="">Todos los Meses</option></select>
-          <input type="date" id="fv-fecha" onchange="renderVentas()" title="Filtrar por fecha">
+          <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:5px 10px">
+            <input type="date" id="fv-fecha-desde" onchange="renderVentas()" title="Desde" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
+            <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
+            <input type="date" id="fv-fecha-hasta" onchange="renderVentas()" title="Hasta" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
+            <button onclick="document.getElementById('fv-fecha-desde').value='';document.getElementById('fv-fecha-hasta').value='';renderVentas()" title="Limpiar fechas" style="border:none;background:none;cursor:pointer;color:#99ACC2;font-size:13px;padding:0;line-height:1">✕</button>
+          </div>
         </div>
         <div style="font-size:12px;color:#7C98B6;margin-bottom:10px" id="ventas-stats"></div>
         <div class="tbl-wrap">
@@ -1973,13 +1978,15 @@ function renderVentas() {
   const fCat = document.getElementById('fv-cat')?.value||'';
   const fAg  = document.getElementById('fv-agente')?.value||'';
   const fMes = document.getElementById('fv-mes')?.value||'';
-  const fFecha = document.getElementById('fv-fecha')?.value||'';
+  const fDesde = document.getElementById('fv-fecha-desde')?.value||'';
+  const fHasta = document.getElementById('fv-fecha-hasta')?.value||'';
 
   let list = appData.ventas.filter(v=>{
     if(fCat && v.categoria!==fCat) return false;
     if(fAg && v.agente!==fAg) return false;
     if(fMes && v.mes!==fMes) return false;
-    if(fFecha && v.fecha!==fFecha) return false;
+    if(fDesde && v.fecha < fDesde) return false;
+    if(fHasta && v.fecha > fHasta) return false;
     if(search && !(v.cliente||'').toLowerCase().includes(search) && !(v.agente||'').toLowerCase().includes(search) && !getProdNombre(v.productoId).toLowerCase().includes(search)) return false;
     return true;
   }).sort((a,b)=>b.id-a.id);
