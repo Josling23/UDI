@@ -1071,6 +1071,7 @@ tr:hover td{background:#EAF0FB}
           <label>Rol / Posición *</label>
           <select id="a-rol" onchange="onRolChange()">
             <option value="agente">👤 Agente</option>
+            <option value="subdealer">🤝 Sub-Dealer</option>
             <option value="supervisor">🔷 Supervisor</option>
             <option value="gerente">⭐ Gerente General</option>
           </select>
@@ -1261,9 +1262,9 @@ const CAT_LABELS = {
 };
 
 // ROLES
-const ROL_LABELS  = { gerente:'⭐ Gerente General', supervisor:'🔷 Supervisor', agente:'👤 Agente' };
-const ROL_COLORS  = { gerente:'#FF7A59', supervisor:'#6A78D1', agente:'#009FDB' };
-const ROL_BG      = { gerente:'#FFF3EE', supervisor:'#F0EDFF', agente:'#EAF7FB' };
+const ROL_LABELS  = { gerente:'⭐ Gerente General', supervisor:'🔷 Supervisor', agente:'👤 Agente', subdealер:'🤝 Sub-Dealer', subdealer:'🤝 Sub-Dealer' };
+const ROL_COLORS  = { gerente:'#FF7A59', supervisor:'#6A78D1', agente:'#009FDB', subdealер:'#00BDA5', subdealer:'#00BDA5' };
+const ROL_BG      = { gerente:'#FFF3EE', supervisor:'#F0EDFF', agente:'#EAF7FB', subdealер:'#E8F9F7', subdealer:'#E8F9F7' };
 
 const CAT_COLOR = {
   'mobility':       '#009FDB',
@@ -2001,6 +2002,7 @@ function renderAgentes() {
   const visibles    = appData.agentes.filter(a=>!a.soloHQ);
   const gerentes    = visibles.filter(a=>a.rol==='gerente');
   const supervisors = visibles.filter(a=>a.rol==='supervisor');
+  const subdealers  = visibles.filter(a=>a.rol==='subdealer'||a.rol==='subdealер');
   const agentes     = visibles.filter(a=>!a.rol||a.rol==='agente');
 
   function agenteCard(a) {
@@ -2090,6 +2092,7 @@ function renderAgentes() {
   document.getElementById('agent-cards').innerHTML =
     renderGrupo('⭐ Gerentes Generales', '#FF7A59', gerentes) +
     renderGrupo('🔷 Supervisores', '#6A78D1', supervisors) +
+    renderGrupo('🤝 Sub-Dealers', '#00BDA5', subdealers) +
     renderGrupo('👤 Agentes', '#009FDB', agentes) ||
     '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
 
