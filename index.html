@@ -1301,7 +1301,36 @@ function guardar() {
   fbDB.ref('appData').set(appData).catch(e => console.warn('Firebase write error:', e));
 }
 
-// Cargar desde Firebase (async); fallback a localStorage
+// Listener en tiempo real — se activa automáticamente cada vez que otro usuario guarda
+let _appDataListenerOn = false;
+function activarListenerAppData() {
+  if (_appDataListenerOn) return;
+  _appDataListenerOn = true;
+  fbDB.ref('appData').on('value', snap => {
+    if (!snap.exists()) return;
+    const raw = snap.val();
+    appData = { ...appData, ...raw };
+    normalizarAppData();
+    localStorage.setItem('attVND_v1', JSON.stringify(appData));
+    // Re-renderizar la página activa si ya estamos dentro de un área
+    if (document.getElementById('app-wrap').style.display !== 'none') {
+      const activePage = document.querySelector('.page.active');
+      if (activePage) {
+        const pageId = activePage.id.replace('page-', '');
+        const renderMap = {
+          dashboard: renderDashboard, ventas: renderVentas,
+          agentes: renderAgentes, resumen: renderResumen,
+          pagos: renderPagos, productos: renderProductos,
+          admin: renderAdmin, top: renderTop, hq: renderHQ,
+          usuarios: renderUsuarios,
+        };
+        if (renderMap[pageId]) renderMap[pageId]();
+      }
+    }
+  }, e => console.warn('Firebase listener error:', e));
+}
+
+// Cargar desde Firebase (primera carga); fallback a localStorage
 async function cargar() {
   try {
     const snap = await fbDB.ref('appData').get();
@@ -1310,6 +1339,7 @@ async function cargar() {
       appData = { ...appData, ...raw };
       normalizarAppData();
       localStorage.setItem('attVND_v1', JSON.stringify(appData));
+      activarListenerAppData();
       return;
     }
   } catch(e) {
@@ -1321,8 +1351,8 @@ async function cargar() {
     const parsed = JSON.parse(s);
     appData = { ...appData, ...parsed };
     normalizarAppData();
-    return;
   }
+  activarListenerAppData();
   // Sin datos previos → cargar datos de ejemplo
   {
     // Datos de ejemplo
@@ -1410,6 +1440,36 @@ function guardarSalud() {
   fbDB.ref('saludData').set(saludData).catch(e => console.warn('Firebase salud write error:', e));
 }
 
+let _saludListenerOn = false;
+function activarListenerSalud() {
+  if (_saludListenerOn) return;
+  _saludListenerOn = true;
+  fbDB.ref('saludData').on('value', snap => {
+    if (!snap.exists()) return;
+    saludData = { ...saludData, ...snap.val() };
+    normalizarSaludData();
+    localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
+    // Re-renderizar si estamos en un área de salud
+    if (document.getElementById('app-wrap').style.display !== 'none') {
+      const activePage = document.querySelector('.page.active');
+      if (activePage) {
+        const pageId = activePage.id.replace('page-', '');
+        const renderMapSalud = {
+          'salud-dashboard': renderSaludDashboard,
+          'salud-clientes':  renderSaludClientes,
+          'salud-agentes':   renderSaludAgentes,
+          'salud-comisiones':renderSaludComisiones,
+          'salud-campanas':  renderSaludCampanas,
+          'salud-resumen':   renderSaludResumen,
+          'salud-pagos':     renderSaludPagos,
+          'salud-chargebacks':renderSaludChargebacks,
+        };
+        if (renderMapSalud[pageId]) renderMapSalud[pageId]();
+      }
+    }
+  }, e => console.warn('Firebase salud listener error:', e));
+}
+
 async function cargarSalud() {
   if(_saludLoaded) return;
   try {
@@ -1419,6 +1479,7 @@ async function cargarSalud() {
       normalizarSaludData();
       localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
       _saludLoaded = true;
+      activarListenerSalud();
       return;
     }
   } catch(e) {
@@ -1430,6 +1491,7 @@ async function cargarSalud() {
     normalizarSaludData();
   }
   _saludLoaded = true;
+  activarListenerSalud();
 }
 
 // ============================================================
