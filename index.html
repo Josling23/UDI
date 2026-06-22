@@ -2326,10 +2326,14 @@ function openAgenteModal(id=null) {
   // Tabla de comisiones — se renderiza en onRolChange()
 
   // Dropdown copiar comisiones
-  const otrosAgentes = appData.agentes.filter(x=>x.id!==id);
+  const otrosAgentes = appData.agentes.filter(x=>
+    x.id !== id &&
+    (x.rol === 'agente' || !x.rol) &&
+    !(x.nombre||'').toLowerCase().includes('jose pina')
+  );
   document.getElementById('a-copy-source').innerHTML =
     '<option value="">— Selecciona un agente —</option>' +
-    otrosAgentes.map(ag=>`<option value="${ag.id}">${ag.nombre} (${ROL_LABELS[ag.rol||'agente']||ag.rol})</option>`).join('');
+    otrosAgentes.map(ag=>`<option value="${ag.id}">${ag.nombre}</option>`).join('');
 
   // Checkboxes de agentes supervisados
   const supervisados = a?.agentesSupervisa||[];
