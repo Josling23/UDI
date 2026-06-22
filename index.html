@@ -1332,22 +1332,26 @@ const PRODUCTOS_CATALOG = [
   // INTERNET — AT&T
   { id:'att-int-300', cat:'internet', nombre:'AT&T Internet 300 Mbps', comision:0,  empresa:'AT&T',       excelCol:'ATT INT 300'  },
   { id:'att-int-500', cat:'internet', nombre:'AT&T Internet 500 Mbps', comision:0,  empresa:'AT&T',       excelCol:'ATT INT 500'  },
-  { id:'att-int-1g',  cat:'internet', nombre:'AT&T Internet 1 Gig',    comision:0,  empresa:'AT&T',       excelCol:'ATT INT 1G'   },
+  { id:'att-int-1g',  cat:'internet', nombre:'AT&T Internet 1 Gig+',   comision:0,  empresa:'AT&T',       excelCol:'ATT INT 1G'   },
   { id:'att-air',     cat:'internet', nombre:'AT&T Internet Air',       comision:0,  empresa:'AT&T',       excelCol:'AIR'          },
   // INTERNET — EarthLink
-  { id:'el-fiber',    cat:'internet', nombre:'EarthLink Fiber',         comision:0,  empresa:'EarthLink',  excelCol:'EL FIBER'     },
-  { id:'el-wireless', cat:'internet', nombre:'EarthLink Wireless',      comision:0,  empresa:'EarthLink',  excelCol:'EL WIRELESS'  },
+  { id:'el-u100',     cat:'internet', nombre:'EarthLink <100 Mbps',     comision:0,  empresa:'EarthLink',  excelCol:'EL <100'      },
+  { id:'el-o100',     cat:'internet', nombre:'EarthLink >100 Mbps',     comision:0,  empresa:'EarthLink',  excelCol:'EL >100'      },
   // INTERNET — Spectrum
-  { id:'spec-300',    cat:'internet', nombre:'Spectrum 300 Mbps',       comision:0,  empresa:'Spectrum',   excelCol:'SPEC 300'     },
-  { id:'spec-500',    cat:'internet', nombre:'Spectrum 500 Mbps',       comision:0,  empresa:'Spectrum',   excelCol:'SPEC 500'     },
-  { id:'spec-1g',     cat:'internet', nombre:'Spectrum 1 Gig',          comision:0,  empresa:'Spectrum',   excelCol:'SPEC 1G'      },
+  { id:'spec-u100',   cat:'internet', nombre:'Spectrum <100 Mbps',      comision:0,  empresa:'Spectrum',   excelCol:'SPEC <100'    },
+  { id:'spec-100',    cat:'internet', nombre:'Spectrum 100 Mbps',       comision:0,  empresa:'Spectrum',   excelCol:'SPEC 100'     },
+  { id:'spec-300',    cat:'internet', nombre:'Spectrum 300/500 Mbps',   comision:0,  empresa:'Spectrum',   excelCol:'SPEC 300/500' },
+  { id:'spec-1g',     cat:'internet', nombre:'Spectrum >1 Gig',         comision:0,  empresa:'Spectrum',   excelCol:'SPEC 1G+'     },
   // INTERNET — Optimum
-  { id:'opt-300',     cat:'internet', nombre:'Optimum 300 Mbps',        comision:0,  empresa:'Optimum',    excelCol:'OPT 300'      },
-  { id:'opt-500',     cat:'internet', nombre:'Optimum 500 Mbps',        comision:0,  empresa:'Optimum',    excelCol:'OPT 500'      },
-  { id:'opt-1g',      cat:'internet', nombre:'Optimum 1 Gig',           comision:0,  empresa:'Optimum',    excelCol:'OPT 1G'       },
+  { id:'opt-u100',    cat:'internet', nombre:'Optimum <100 Mbps',       comision:0,  empresa:'Optimum',    excelCol:'OPT <100'     },
+  { id:'opt-100',     cat:'internet', nombre:'Optimum 100 Mbps',        comision:0,  empresa:'Optimum',    excelCol:'OPT 100'      },
+  { id:'opt-300',     cat:'internet', nombre:'Optimum 300/500 Mbps',    comision:0,  empresa:'Optimum',    excelCol:'OPT 300/500'  },
+  { id:'opt-1g',      cat:'internet', nombre:'Optimum >1 Gig',          comision:0,  empresa:'Optimum',    excelCol:'OPT 1G+'      },
   // INTERNET — Windstream
-  { id:'wind-400',    cat:'internet', nombre:'Windstream 400 Mbps',     comision:0,  empresa:'Windstream', excelCol:'WIND 400'     },
-  { id:'wind-1g',     cat:'internet', nombre:'Windstream 1 Gig',        comision:0,  empresa:'Windstream', excelCol:'WIND 1G'      },
+  { id:'wind-u100',   cat:'internet', nombre:'Windstream <100 Mbps',    comision:0,  empresa:'Windstream', excelCol:'WIND <100'    },
+  { id:'wind-100',    cat:'internet', nombre:'Windstream 100 Mbps',     comision:0,  empresa:'Windstream', excelCol:'WIND 100'     },
+  { id:'wind-300',    cat:'internet', nombre:'Windstream 300/500 Mbps', comision:0,  empresa:'Windstream', excelCol:'WIND 300/500' },
+  { id:'wind-1g',     cat:'internet', nombre:'Windstream >1 Gig',       comision:0,  empresa:'Windstream', excelCol:'WIND 1G+'     },
   // PREPAGO
   { id:'lyca',        cat:'prepago',  nombre:'Lyca Mobile',             comision:6,  excelCol:'LYCA'         },
 ];
@@ -1878,7 +1882,7 @@ function renderDashboard() {
   }).join('') || '<div style="color:#99ACC2;font-size:12px;padding:10px">Sin ventas de Mobility este mes</div>';
 
   // Internet breakdown
-  const intProds = ['att-int-300','att-int-500','att-int-1g','att-air','el-fiber','el-wireless','spec-300','spec-500','spec-1g','opt-300','opt-500','opt-1g','wind-400','wind-1g'];
+  const intProds = ['att-int-300','att-int-500','att-int-1g','att-air','el-u100','el-o100','spec-u100','spec-100','spec-300','spec-1g','opt-u100','opt-100','opt-300','opt-1g','wind-u100','wind-100','wind-300','wind-1g'];
   document.getElementById('dash-internet').innerHTML = intProds.map(pid=>{
     const vs = ventasMes.filter(v=>v.productoId===pid);
     const qty = vs.reduce((s,v)=>s+v.cantidad,0);
