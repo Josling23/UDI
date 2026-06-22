@@ -1977,15 +1977,27 @@ function renderVentas() {
   const totalUnits = list.reduce((s,v)=>s+v.cantidad,0);
   document.getElementById('ventas-stats').innerHTML = `<b>${list.length}</b> registros · <b>${totalUnits}</b> unidades · Comisión total: <b style="color:#00BDA5">${fmt(totalCom)}</b>`;
 
-  document.getElementById('ventas-body').innerHTML = list.length ? list.map((v,i)=>`<tr>
+  const iSty = 'border:1.5px solid #CBD6E2;border-radius:6px;padding:3px 6px;font-size:12px;color:#33475B;outline:none;background:#fff;font-family:inherit';
+  document.getElementById('ventas-body').innerHTML = list.length ? list.map((v,i)=>{
+    const com = getComision(v);
+    // Product dropdown options for this category
+    const catProds = getCatalogoCompleto().filter(p=>p.cat===v.categoria);
+    const prodOpts = catProds.map(p=>`<option value="${p.id}" ${p.id===v.productoId?'selected':''}>${p.nombre}</option>`).join('');
+    return `<tr>
     <td style="color:#99ACC2">${i+1}</td>
     <td>${v.fecha}</td>
     <td>${v.agente}</td>
-    <td style="font-weight:600">${getProdNombre(v.productoId)}</td>
+    <td style="min-width:160px">
+      <select style="${iSty};width:100%" onchange="ventaInlineEdit(${v.id},'productoId',this.value);ventaInlineEdit(${v.id},'comision',null,this)">${prodOpts}</select>
+    </td>
     <td><span class="badge badge-${v.categoria}">${CAT_LABELS[v.categoria]||v.categoria}</span></td>
     <td style="font-weight:700;color:#009FDB">${v.cantidad}</td>
-    <td style="color:#7C98B6">${fmt(getComision(v))}</td>
-    <td style="font-weight:700;color:#00BDA5">${fmt(getComision(v)*v.cantidad)}</td>
+    <td style="min-width:80px">
+      <input type="number" step="0.01" min="0" value="${com}" style="${iSty};width:70px;color:#FF7A59;font-weight:700;text-align:right"
+        onchange="ventaInlineEdit(${v.id},'comision',parseFloat(this.value)||0)"
+        onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
+    </td>
+    <td style="font-weight:700;color:#00BDA5" id="vrow-total-${v.id}">${fmt(com*v.cantidad)}</td>
     <td>${v.cliente||'—'}</td>
     <td style="color:#7C98B6">${v.cuenta||'—'}</td>
     <td>${v.mes}</td>
@@ -1994,7 +2006,7 @@ function renderVentas() {
       <button class="btn btn-ghost btn-xs" onclick="openVentaModal(${v.id})">✏️</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
     </td>
-  </tr>`).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
+  </tr>`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
 }
 
 function openVentaModal(id=null) {
@@ -2118,6 +2130,31 @@ function guardarVenta() {
   closeModal('modal-venta');
   renderVentas();
   renderDashboard();
+}
+
+function ventaInlineEdit(id, field, value, prodSelect) {
+  const v = appData.ventas.find(x=>x.id===id);
+  if(!v) return;
+  if(field==='productoId') {
+    v.productoId = value;
+    // Auto-update comision to catalog default for this agent
+    const newCom = getComisionParaAgente(value, v.agente);
+    v.comision = newCom;
+    // Update the comision input in the same row
+    const row = prodSelect?.closest('tr');
+    if(row) {
+      const comInput = row.querySelector('input[type=number]');
+      if(comInput) comInput.value = newCom;
+      const totalEl = row.querySelector('[id^="vrow-total-"]');
+      if(totalEl) totalEl.textContent = fmt(newCom * v.cantidad);
+    }
+  } else if(field==='comision') {
+    v.comision = value;
+    const totalEl = document.getElementById('vrow-total-'+id);
+    if(totalEl) totalEl.textContent = fmt(value * v.cantidad);
+  }
+  guardar();
+  showNotif('✅ Venta actualizada');
 }
 
 function eliminarVenta(id) {
@@ -5222,8 +5259,8 @@ function ejecutarMigraciones() {
       // ── Junio 2026 ──
       {
         _key: 'v_claudia_act_wilmer_samsung_20260602',
-        fecha:'2026-06-02', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
-        cantidad:1, comision:10, cliente:'Wilmer Francisco Santamaria Cabrera',
+        fecha:'2026-06-02', agente:'Claudia', productoId:'att-act8', categoria:'mobility',
+        cantidad:1, comision:8, cliente:'Wilmer Francisco Santamaria Cabrera',
         cuenta:'', mes:'Junio 2026', campana:'',
         notas:'Samsung S26 Ultra, línea nueva. Cruce de líneas: activó principal en el nuevo y la nueva para uno existente. Protect ❌. Activada 06-12-26.',
       },
@@ -5243,8 +5280,8 @@ function ejecutarMigraciones() {
       },
       {
         _key: 'v_claudia_act_esdras_20260608',
-        fecha:'2026-06-08', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
-        cantidad:1, comision:10, cliente:'Esdras Silin',
+        fecha:'2026-06-08', agente:'Claudia', productoId:'att-act8', categoria:'mobility',
+        cantidad:1, comision:8, cliente:'Esdras Silin',
         cuenta:'', mes:'Junio 2026', campana:'',
         notas:'iPhone 17 Pro Max, línea nueva. Protect ❌. Activada 06-12-26.',
       },
@@ -5257,8 +5294,8 @@ function ejecutarMigraciones() {
       },
       {
         _key: 'v_claudia_act_yeribel_20260608',
-        fecha:'2026-06-08', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
-        cantidad:1, comision:10, cliente:'Yeribel Cabrera',
+        fecha:'2026-06-08', agente:'Claudia', productoId:'att-act8', categoria:'mobility',
+        cantidad:1, comision:8, cliente:'Yeribel Cabrera',
         cuenta:'', mes:'Junio 2026', campana:'',
         notas:'iPhone 17 Pro Max, portabilidad. Protect Advantage 1 device ✅. Activada 06-13-26.',
       },
@@ -5278,8 +5315,8 @@ function ejecutarMigraciones() {
       },
       {
         _key: 'v_claudia_act_brian_iphone1_20260610',
-        fecha:'2026-06-10', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
-        cantidad:1, comision:10, cliente:'Brian Kenneth Cordova Quevedo',
+        fecha:'2026-06-10', agente:'Claudia', productoId:'att-act8', categoria:'mobility',
+        cantidad:1, comision:8, cliente:'Brian Kenneth Cordova Quevedo',
         cuenta:'', mes:'Junio 2026', campana:'',
         notas:'iPhone 17 Pro Max, línea nueva. Protect Advantage multi device 4 ✅. Activada 06-13-26.',
       },
@@ -5292,8 +5329,8 @@ function ejecutarMigraciones() {
       },
       {
         _key: 'v_claudia_act_brian_iphone2_20260610',
-        fecha:'2026-06-10', agente:'Claudia', productoId:'att-act10', categoria:'mobility',
-        cantidad:1, comision:10, cliente:'Brian Kenneth Cordova Quevedo',
+        fecha:'2026-06-10', agente:'Claudia', productoId:'att-act8', categoria:'mobility',
+        cantidad:1, comision:8, cliente:'Brian Kenneth Cordova Quevedo',
         cuenta:'', mes:'Junio 2026', campana:'',
         notas:'iPhone 17 Pro Max, línea nueva. Protect ❌. Activada 06-13-26.',
       },
