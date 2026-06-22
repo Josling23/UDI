@@ -5207,6 +5207,37 @@ function ejecutarMigraciones() {
     });
     if (count > 0) { guardar(); console.log(`[sync] comisionesDirectas base → ${count} agente(s)`); }
   })();
+
+  // ── Ventas nuevas ingresadas manualmente ──
+  (() => {
+    const VENTAS_NUEVAS = [
+      {
+        _key: 'venta_claudia_air_wilmer_20260602',
+        fecha: '2026-06-02',
+        agente: 'Claudia',
+        productoId: 'att-air',
+        categoria: 'internet',
+        cantidad: 1,
+        comision: 45,
+        cliente: 'Wilmer Francisco Santamaria Cabrera',
+        cuenta: '',
+        mes: 'Junio 2026',
+        campana: '',
+        notas: 'AT&T Internet Air. Samsung S26 Ultra - línea nueva. Cruce de líneas: activó la principal en el nuevo equipo y la nueva para uno existente. Protect Advantage 1 device: NO. Fecha activación: 06-12-26.',
+      },
+    ];
+    let changed = false;
+    if(!appData._ventasRegistradas) appData._ventasRegistradas = {};
+    VENTAS_NUEVAS.forEach(v => {
+      if(appData._ventasRegistradas[v._key]) return; // ya existe
+      const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+      const { _key, ...ventaData } = v;
+      appData.ventas.push({ id: maxId+1, ...ventaData });
+      appData._ventasRegistradas[_key] = true;
+      changed = true;
+    });
+    if(changed) guardar();
+  })();
 } // fin ejecutarMigraciones()
 
 // ── Migración de datos reales de Salud (borra placeholders si existen) ──
