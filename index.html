@@ -2880,7 +2880,9 @@ function renderPagos() {
       <div style="display:flex;flex-wrap:wrap;gap:12px">${resumenCards}</div>
     </div>
     <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 18px;margin-bottom:18px;font-size:12px;color:#0057A8">
-      <b>Detalle completo por quincena ↓</b> &nbsp;·&nbsp; Fórmula: Comisiones + Básico + Bonos + De Q.Ant. − Descuento = TOTAL
+      <b>Detalle completo por quincena ↓</b> &nbsp;·&nbsp;
+      💼 Comisiones (ventas del período) &nbsp;+&nbsp; 🏠 Sueldo Base &nbsp;+&nbsp; 🎁 Bonos &nbsp;+&nbsp; 💵 Préstamos &nbsp;+&nbsp; 🔄 De Q.Ant. &nbsp;−&nbsp; ➖ Descuentos &nbsp;=&nbsp; <b>💰 TOTAL A PAGAR</b>
+      &nbsp;·&nbsp; <span style="opacity:0.7">Pasa el cursor sobre el total para ver el desglose</span>
     </div>` +
   (ordenados.map(a=>{
     const rol = a.rol||'agente';
@@ -2900,11 +2902,14 @@ function renderPagos() {
         const subTotal= comQ + basico + bonos + prestamo + deAnt;
         const total   = subTotal - desc;
 
-        if(pagado) totalPagado += basico; else totalPend += basico;
+        if(pagado) totalPagado += total; else totalPend += total;
 
         const deAntCell = deAnt>0
           ? `<span style="font-weight:700;color:#D4A017;background:#FFFBE8;border-radius:5px;padding:2px 6px;font-size:11px">+${fmt(deAnt)}</span>`
           : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
+
+        // Breakdown tooltip
+        const breakStr = `Comisiones: ${fmt(comQ)}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
         return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
           <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–15)':'(días 16–31)'}</span></td>
@@ -2914,13 +2919,12 @@ function renderPagos() {
             </button>
           </td>
           <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(comQ)}</td>
-          <td style="color:#33475B;text-align:right">${basico>0?fmt(basico):'—'}</td>
+          <td style="color:#33475B;text-align:right;font-weight:600">${basico>0?`<span style="background:#EAF7FB;border-radius:5px;padding:2px 7px;color:#0057A8">${fmt(basico)}</span>`:'<span style="color:#CBD6E2">—</span>'}</td>
           <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00')}</td>
           <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00')}</td>
           <td style="text-align:right">${deAntCell}</td>
-          <td style="font-weight:700;text-align:right;color:#33475B">${fmt(subTotal)}</td>
           <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00')}</td>
-          <td style="font-weight:800;font-size:13px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
+          <td title="${breakStr}" style="font-weight:800;font-size:14px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'};background:${total>=0?'#F0FDF4':'#FEF2F2'};border-radius:6px;padding:4px 8px;cursor:help">${fmt(total)}</td>
           <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
         </tr>`;
       });
@@ -2935,22 +2939,23 @@ function renderPagos() {
           <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${ROL_BG[rol]};color:${ROL_COLORS[rol]};margin-left:6px">${ROL_LABELS[rol]}</span>
           <span style="font-size:11px;color:#99ACC2;font-weight:400">${supeInfo}</span>
         </h3>
-        <div style="display:flex;gap:16px;font-size:12px">
-          ${a.sueldoQuincenal>0?`<span>Básico pagado: <b style="color:#00BDA5">${fmt(totalPagado)}</b></span><span>Pend.: <b style="color:#F2545B">${fmt(totalPend)}</b></span>`:'<span style="color:#99ACC2;font-size:11px">Solo comisión</span>'}
+        <div style="display:flex;gap:16px;font-size:12px;flex-wrap:wrap">
+          ${totalPagado>0?`<span style="background:#D1FAE5;border-radius:6px;padding:3px 10px">✅ Pagado: <b style="color:#059669">${fmt(totalPagado)}</b></span>`:''}
+          ${totalPend>0?`<span style="background:#FEE2E2;border-radius:6px;padding:3px 10px">⏳ Por pagar: <b style="color:#DC2626">${fmt(totalPend)}</b></span>`:''}
+          ${totalPagado===0&&totalPend===0?'<span style="color:#99ACC2;font-size:11px">Sin movimientos en este período</span>':''}
         </div>
       </div>
       <div class="tbl-wrap"><table>
         <thead><tr>
-          <th>Mes</th>
-          <th>Básico — Quincenas</th>
-          <th style="text-align:right">Comisiones</th>
-          <th style="text-align:right">Básico Pagado</th>
-          <th style="text-align:right">Bonos</th>
-          <th style="text-align:right">Préstamos</th>
+          <th>Período</th>
+          <th style="text-align:center">Estado</th>
+          <th style="text-align:right">💼 Comisiones</th>
+          <th style="text-align:right">🏠 Sueldo Base</th>
+          <th style="text-align:right">🎁 Bonos</th>
+          <th style="text-align:right">💵 Préstamos</th>
           <th style="text-align:right">🔄 De Q.Ant.</th>
-          <th style="text-align:right">Sub-Total</th>
-          <th style="text-align:right">Descuento</th>
-          <th style="text-align:right">TOTAL</th>
+          <th style="text-align:right">➖ Descuento</th>
+          <th style="text-align:right">💰 TOTAL A PAGAR</th>
           <th style="text-align:right">⏩ Pend.→Sig.</th>
         </tr></thead>
         <tbody>${filas}</tbody>
