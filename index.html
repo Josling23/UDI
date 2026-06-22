@@ -445,7 +445,7 @@ tr:hover td{background:#EAF0FB}
             <option value="">Todas las categorías</option>
             <option value="mobility">📱 Mobility</option>
             <option value="internet">🌐 Internet Residencial</option>
-            <option value="otros-internet">🌐 Otros Internet</option>
+            <option value="otros-internet">🌐 Internet Personalizado</option>
             <option value="prepago">📞 Prepago</option>
             <option value="servicios">🛠️ Servicios</option>
           </select>
@@ -1005,7 +1005,7 @@ tr:hover td{background:#EAF0FB}
             <option value="">— Selecciona categoría —</option>
             <option value="mobility">📱 AT&T Mobility</option>
             <option value="internet">🌐 Internet Residencial</option>
-            <option value="otros-internet">🌐 Otros Internet</option>
+            <option value="otros-internet">🌐 Internet Personalizado</option>
             <option value="prepago">📞 Telefonía Prepago</option>
             <option value="servicios">🛠️ Servicios Complementarios</option>
           </select>
@@ -1247,27 +1247,41 @@ const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 // ============================================================
 // Catálogo basado en columnas exactas del reporte Excel VND
 const PRODUCTOS_CATALOG = [
-  // MOBILITY
+  // MOBILITY — AT&T
   { id:'att-act8',    cat:'mobility', nombre:'Activación $8',          comision:8,   excelCol:'ACTIVACION $8'  },
   { id:'att-act10',   cat:'mobility', nombre:'Activación $10',         comision:10,  excelCol:'ACTIVACION $10' },
-  { id:'att-upgrade', cat:'mobility', nombre:'UPG / Release / iPad',   comision:3,   excelCol:'UPG/REL/IPAD'   },
+  { id:'att-starter', cat:'mobility', nombre:'Starter',                comision:0,   excelCol:'STARTER'        },
+  { id:'att-extra',   cat:'mobility', nombre:'Unlimited Extra',        comision:0,   excelCol:'UNL EXTRA'      },
+  { id:'att-premium', cat:'mobility', nombre:'Unlimited Premium',      comision:0,   excelCol:'UNL PREMIUM'    },
+  { id:'att-upgrade', cat:'mobility', nombre:'Upgrade',                comision:3,   excelCol:'UPGRADE'        },
+  { id:'att-reloj',   cat:'mobility', nombre:'Reloj',                  comision:0,   excelCol:'RELOJ'          },
+  { id:'att-ipad',    cat:'mobility', nombre:'iPads',                  comision:0,   excelCol:'IPAD'           },
+  { id:'att-nextup',  cat:'mobility', nombre:'Next Up',                comision:0,   excelCol:'NEXT UP'        },
   { id:'att-value',   cat:'mobility', nombre:'Value',                  comision:0,   excelCol:'Value'          },
   { id:'att-biz',     cat:'mobility', nombre:'Business',               comision:0,   excelCol:'BUSINESS'       },
   { id:'att-seg',     cat:'mobility', nombre:'SEG (AT&T Protect)',     comision:1,   excelCol:'SEG'            },
   { id:'att-combo',   cat:'mobility', nombre:'Combo AT&T',             comision:8,   excelCol:'COMBOS'         },
-  // INTERNET
-  { id:'int-300',     cat:'internet', nombre:'Internet 300 MB',        comision:0,   excelCol:'INT 300'        },
-  { id:'int-500',     cat:'internet', nombre:'Internet 500 MB',        comision:0,   excelCol:'500 MB'         },
-  { id:'int-1g',      cat:'internet', nombre:'Internet >= 1 GB',       comision:0,   excelCol:'>=1GB'          },
-  { id:'air',         cat:'internet', nombre:'AT&T Internet Air',      comision:45,  excelCol:'AIR'            },
-  // OTROS INTERNET
-  { id:'el-fiber',    cat:'otros-internet', nombre:'EarthLink Fiber',      comision:80 },
-  { id:'el-wireless', cat:'otros-internet', nombre:'EarthLink Wireless',   comision:60 },
-  { id:'spectrum',    cat:'otros-internet', nombre:'Spectrum Internet',    comision:80 },
-  { id:'optimum',     cat:'otros-internet', nombre:'Optimum Internet',     comision:80 },
-  { id:'windstream',  cat:'otros-internet', nombre:'Windstream Internet',  comision:60 },
+  // INTERNET — AT&T
+  { id:'att-int-300', cat:'internet', nombre:'AT&T Internet 300 Mbps', comision:0,  empresa:'AT&T',       excelCol:'ATT INT 300'  },
+  { id:'att-int-500', cat:'internet', nombre:'AT&T Internet 500 Mbps', comision:0,  empresa:'AT&T',       excelCol:'ATT INT 500'  },
+  { id:'att-int-1g',  cat:'internet', nombre:'AT&T Internet 1 Gig',    comision:0,  empresa:'AT&T',       excelCol:'ATT INT 1G'   },
+  { id:'att-air',     cat:'internet', nombre:'AT&T Internet Air',       comision:0,  empresa:'AT&T',       excelCol:'AIR'          },
+  // INTERNET — EarthLink
+  { id:'el-fiber',    cat:'internet', nombre:'EarthLink Fiber',         comision:0,  empresa:'EarthLink',  excelCol:'EL FIBER'     },
+  { id:'el-wireless', cat:'internet', nombre:'EarthLink Wireless',      comision:0,  empresa:'EarthLink',  excelCol:'EL WIRELESS'  },
+  // INTERNET — Spectrum
+  { id:'spec-300',    cat:'internet', nombre:'Spectrum 300 Mbps',       comision:0,  empresa:'Spectrum',   excelCol:'SPEC 300'     },
+  { id:'spec-500',    cat:'internet', nombre:'Spectrum 500 Mbps',       comision:0,  empresa:'Spectrum',   excelCol:'SPEC 500'     },
+  { id:'spec-1g',     cat:'internet', nombre:'Spectrum 1 Gig',          comision:0,  empresa:'Spectrum',   excelCol:'SPEC 1G'      },
+  // INTERNET — Optimum
+  { id:'opt-300',     cat:'internet', nombre:'Optimum 300 Mbps',        comision:0,  empresa:'Optimum',    excelCol:'OPT 300'      },
+  { id:'opt-500',     cat:'internet', nombre:'Optimum 500 Mbps',        comision:0,  empresa:'Optimum',    excelCol:'OPT 500'      },
+  { id:'opt-1g',      cat:'internet', nombre:'Optimum 1 Gig',           comision:0,  empresa:'Optimum',    excelCol:'OPT 1G'       },
+  // INTERNET — Windstream
+  { id:'wind-400',    cat:'internet', nombre:'Windstream 400 Mbps',     comision:0,  empresa:'Windstream', excelCol:'WIND 400'     },
+  { id:'wind-1g',     cat:'internet', nombre:'Windstream 1 Gig',        comision:0,  empresa:'Windstream', excelCol:'WIND 1G'      },
   // PREPAGO
-  { id:'lyca',        cat:'prepago',  nombre:'Lyca Mobile',            comision:6,   excelCol:'LYCA'           },
+  { id:'lyca',        cat:'prepago',  nombre:'Lyca Mobile',             comision:6,  excelCol:'LYCA'         },
 ];
 
 const CAT_LABELS = {
@@ -1778,7 +1792,7 @@ function renderDashboard() {
   `;
 
   // Mobility breakdown
-  const mobProds = ['att-new','att-port','att-upgrade','att-tablet','att-watch','att-protect','att-extra','att-premium','att-nextup'];
+  const mobProds = ['att-act8','att-act10','att-starter','att-extra','att-premium','att-upgrade','att-reloj','att-ipad','att-nextup','att-seg','att-combo'];
   document.getElementById('dash-mobility').innerHTML = mobProds.map(pid=>{
     const vs = ventasMes.filter(v=>v.productoId===pid);
     const qty = vs.reduce((s,v)=>s+v.cantidad,0);
@@ -1791,7 +1805,7 @@ function renderDashboard() {
   }).join('') || '<div style="color:#99ACC2;font-size:12px;padding:10px">Sin ventas de Mobility este mes</div>';
 
   // Internet breakdown
-  const intProds = ['fiber-100','fiber-300','fiber-500','fiber-1g','fiber-5g','air','el-fiber','el-wireless','spectrum','optimum','windstream'];
+  const intProds = ['att-int-300','att-int-500','att-int-1g','att-air','el-fiber','el-wireless','spec-300','spec-500','spec-1g','opt-300','opt-500','opt-1g','wind-400','wind-1g'];
   document.getElementById('dash-internet').innerHTML = intProds.map(pid=>{
     const vs = ventasMes.filter(v=>v.productoId===pid);
     const qty = vs.reduce((s,v)=>s+v.cantidad,0);
@@ -1935,8 +1949,21 @@ function openVentaModal(id=null) {
 function onCatChange() {
   const cat = document.getElementById('v-categoria').value;
   const prods = getCatalogoCompleto().filter(p=>p.cat===cat);
-  document.getElementById('v-producto').innerHTML = '<option value="">— Selecciona producto —</option>' +
-    prods.map(p=>`<option value="${p.id}">${p.nombre}${p.velocidad?' · '+p.velocidad:''} (${fmt(p.comision)} def.)</option>`).join('');
+  let opts = '<option value="">— Selecciona producto —</option>';
+  if(cat==='internet') {
+    // Group by empresa
+    const empresas = [...new Set(prods.map(p=>p.empresa||'Otros'))];
+    empresas.forEach(emp=>{
+      opts += `<optgroup label="— ${emp} —">`;
+      prods.filter(p=>(p.empresa||'Otros')===emp).forEach(p=>{
+        opts += `<option value="${p.id}">${p.nombre}</option>`;
+      });
+      opts += `</optgroup>`;
+    });
+  } else {
+    opts += prods.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('');
+  }
+  document.getElementById('v-producto').innerHTML = opts;
   document.getElementById('v-comision').value = '';
   updateVentaPreview();
 }
@@ -2580,64 +2607,86 @@ function renderPagos() {
 // PRODUCTOS (EDICIÓN DE COMISIONES)
 // ============================================================
 function renderProductos() {
-  const cats = ['mobility','internet','prepago','servicios'];
-  const catTitles = {
-    'mobility': '📱 AT&T Mobility',
-    'internet': '🌐 Internet Residencial (AT&T)',
-    'prepago':  '📞 Telefonía Prepago',
-    'servicios':'🛠️ Servicios Complementarios',
-  };
-  const catBG = { mobility:'#EAF7FB', internet:'#E8F9F7', prepago:'#FFF3EE', servicios:'#FFFBE8' };
-
-  const staticSection = cats.map(cat=>{
-    const prods = PRODUCTOS_CATALOG.filter(p=>p.cat===cat);
-    if(!prods.length) return '';
-    return `<div style="margin-bottom:20px">
-      <div style="font-size:12px;font-weight:700;color:${CAT_COLOR[cat]};background:${catBG[cat]||'#F5F8FA'};padding:8px 14px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${CAT_COLOR[cat]}">${catTitles[cat]}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
-      ${prods.map(p=>{
-        const val = appData.comisiones[p.id] !== undefined ? appData.comisiones[p.id] : p.comision;
-        return `<div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-size:12px;font-weight:600;color:#33475B">${p.nombre}</div>
-            <div style="font-size:10px;color:#7C98B6;margin-top:2px">Default: ${fmt(p.comision)}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;color:#7C98B6">$</span>
-            <input type="number" step="0.01" min="0" value="${val}" style="width:75px;background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:5px 8px;border-radius:6px;font-size:13px;font-weight:700;outline:none" onchange="updateComision('${p.id}',parseFloat(this.value)||0)" onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
-          </div>
-        </div>`;
-      }).join('')}
+  function prodCard(p) {
+    const val = appData.comisiones && appData.comisiones[p.id] !== undefined ? appData.comisiones[p.id] : p.comision;
+    return `<div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#33475B">${p.nombre}</div>
+        <div style="font-size:10px;color:#7C98B6;margin-top:2px">Base: ${p.comision>0?fmt(p.comision):'por agente'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:#7C98B6">$</span>
+        <input type="number" step="0.01" min="0" value="${val||''}" placeholder="0" style="width:75px;background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:5px 8px;border-radius:6px;font-size:13px;font-weight:700;outline:none" onchange="updateComision('${p.id}',parseFloat(this.value)||0)" onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
       </div>
     </div>`;
-  }).join('');
+  }
 
-  // Sección "Otros Internet" — editable con nombre, velocidad y comisión
+  // 1 — Mobility
+  const mobProds = PRODUCTOS_CATALOG.filter(p=>p.cat==='mobility');
+  const mobSection = `<div style="margin-bottom:24px">
+    <div style="font-size:13px;font-weight:700;color:#009FDB;background:#EAF7FB;padding:10px 14px;border-radius:8px;margin-bottom:12px;border-left:4px solid #009FDB">📱 AT&T Mobility</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+      ${mobProds.map(p=>prodCard(p)).join('')}
+    </div>
+  </div>`;
+
+  // 2 — Internet por empresa
+  const intEmpresas = ['AT&T','EarthLink','Spectrum','Optimum','Windstream'];
+  const empresaColors = { 'AT&T':'#00BDA5','EarthLink':'#6A78D1','Spectrum':'#FF7A59','Optimum':'#F5C26B','Windstream':'#009FDB' };
+  const empresaBG     = { 'AT&T':'#E8F9F7','EarthLink':'#F0EDFF','Spectrum':'#FFF3EE','Optimum':'#FFFBE8','Windstream':'#EAF7FB' };
+
+  const intSection = `<div style="margin-bottom:24px">
+    <div style="font-size:13px;font-weight:700;color:#00BDA5;background:#E8F9F7;padding:10px 14px;border-radius:8px;margin-bottom:14px;border-left:4px solid #00BDA5">🌐 Internet Residencial — por empresa y velocidad</div>
+    <div style="font-size:11px;color:#7C98B6;margin-bottom:12px;padding:0 2px">💡 Las comisiones varían por agente. Configura el monto base aquí o déjalo en 0 y ajústalo en el perfil de cada agente.</div>
+    ${intEmpresas.map(emp=>{
+      const prods = PRODUCTOS_CATALOG.filter(p=>p.cat==='internet' && p.empresa===emp);
+      if(!prods.length) return '';
+      const col = empresaColors[emp]||'#009FDB';
+      const bg  = empresaBG[emp]||'#EAF7FB';
+      return `<div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:${col};background:${bg};padding:6px 12px;border-radius:6px;margin-bottom:8px;border-left:3px solid ${col}">${emp}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">
+          ${prods.map(p=>prodCard(p)).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // 3 — Otros Internet (custom)
   const oiList = appData.otrosInternet || [];
-  const oiSection = `<div style="margin-bottom:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;background:#F0EDFF;padding:8px 14px;border-radius:8px;margin-bottom:10px;border-left:4px solid #6A78D1">
-      <span style="font-size:12px;font-weight:700;color:#6A78D1">🌐 Otros Internet (Personalizados)</span>
-      <button class="btn btn-sm" onclick="abrirModalOI(null)" style="background:#6A78D1;color:#fff;font-size:11px;padding:4px 12px;border-radius:6px;border:none;cursor:pointer">+ Agregar</button>
+  const oiSection = `<div style="margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#F0EDFF;padding:10px 14px;border-radius:8px;margin-bottom:12px;border-left:4px solid #6A78D1">
+      <span style="font-size:13px;font-weight:700;color:#6A78D1">🌐 Otros Internet (Personalizados)</span>
+      <button onclick="abrirModalOI(null)" style="background:#6A78D1;color:#fff;font-size:11px;padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-weight:600">+ Agregar</button>
     </div>
     ${oiList.length === 0
-      ? `<div style="color:#CBD6E2;font-size:12px;font-style:italic;padding:10px">No hay productos de internet personalizados. Agrega proveedores como Spectrum, Xfinity, etc.</div>`
+      ? `<div style="color:#CBD6E2;font-size:12px;font-style:italic;padding:10px">Sin productos personalizados. Agrega planes especiales que no estén en el catálogo.</div>`
       : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
         ${oiList.map(p=>`
           <div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;border:1.5px solid #6A78D1;display:flex;justify-content:space-between;align-items:center;gap:8px">
             <div style="flex:1;min-width:0">
               <div style="font-size:12px;font-weight:700;color:#33475B">${p.nombre}</div>
-              <div style="font-size:10px;color:#7C98B6;margin-top:2px">⚡ ${p.velocidad||'—'} &nbsp;·&nbsp; Comisión: <b style="color:#6A78D1">${fmt(p.comision)}</b></div>
+              <div style="font-size:10px;color:#7C98B6;margin-top:2px">⚡ ${p.velocidad||'—'} &nbsp;·&nbsp; Com: <b style="color:#6A78D1">${fmt(p.comision)}</b></div>
             </div>
             <div style="display:flex;gap:5px;flex-shrink:0">
-              <button class="btn btn-ghost btn-xs" onclick="abrirModalOI('${p.id}')">✏️</button>
-              <button class="btn btn-danger btn-xs" onclick="eliminarOI('${p.id}')">✕</button>
+              <button onclick="abrirModalOI('${p.id}')" style="background:none;border:1px solid #CBD6E2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:13px">✏️</button>
+              <button onclick="eliminarOI('${p.id}')" style="background:#FFF0F0;border:1px solid #F2545B;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:12px;color:#F2545B;font-weight:700">✕</button>
             </div>
           </div>`).join('')}
       </div>`
     }
   </div>`;
 
-  document.getElementById('productos-content').innerHTML = oiSection + staticSection;
+  // 4 — Prepago
+  const preProds = PRODUCTOS_CATALOG.filter(p=>p.cat==='prepago');
+  const preSection = preProds.length ? `<div style="margin-bottom:24px">
+    <div style="font-size:13px;font-weight:700;color:#FF7A59;background:#FFF3EE;padding:10px 14px;border-radius:8px;margin-bottom:12px;border-left:4px solid #FF7A59">📞 Telefonía Prepago</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+      ${preProds.map(p=>prodCard(p)).join('')}
+    </div>
+  </div>` : '';
+
+  document.getElementById('productos-content').innerHTML = mobSection + intSection + oiSection + preSection;
 }
 
 function updateComision(prodId, valor) {
