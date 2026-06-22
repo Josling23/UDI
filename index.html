@@ -5127,22 +5127,27 @@ function ejecutarMigraciones() {
     if (changed) guardar();
   })();
 
-  // ── Sincronizar comisionesDirectas de Oriana → todos los agentes (no subdealers) ──
+  // ── Aplicar comisionesDirectas estándar a todos los agentes (no subdealers) ──
   (() => {
-    const oriana = appData.agentes.find(a =>
-      a.nombre && a.nombre.toLowerCase().includes('oriana')
-    );
-    if (!oriana) { console.log('[sync] Oriana no encontrada en agentes'); return; }
-    const comDir = oriana.comisionesDirectas;
-    if (!comDir || !Object.keys(comDir).length) { console.log('[sync] Oriana no tiene comisionesDirectas aún'); return; }
+    const COMISIONES_DIRECTAS_BASE = {
+      'att-act8':   8,  'att-act10': 10, 'att-starter': 0,  'att-extra':  0,
+      'att-premium':0,  'att-upgrade':3, 'att-reloj':   3,  'att-ipad':   3,
+      'att-nextup': 0,  'att-value':  0, 'att-biz':    40,  'att-seg':    1,
+      'att-combo':  4,
+      'att-int-300':80, 'att-int-500':90,'att-int-1g': 90,  'att-air':   45,
+      'el-u100':   26,  'el-o100':   54,
+      'spec-u100': 14,  'spec-100':  40, 'spec-300':   60,  'spec-1g':   70,
+      'opt-u100':  10,  'opt-100':   10, 'opt-300':    20,  'opt-1g':    56,
+      'wind-u100':  0,  'wind-100':   0, 'wind-300':   54,  'wind-1g':   66,
+      'lyca':       6,
+    };
     let count = 0;
     appData.agentes.forEach(a => {
-      if (a.id === oriana.id) return;
       if (a.rol === 'subdealer' || a.rol === 'subdealер') return;
-      a.comisionesDirectas = { ...comDir };
+      a.comisionesDirectas = { ...COMISIONES_DIRECTAS_BASE };
       count++;
     });
-    if (count > 0) { guardar(); console.log(`[sync] comisionesDirectas de Oriana → ${count} agente(s)`); }
+    if (count > 0) { guardar(); console.log(`[sync] comisionesDirectas base → ${count} agente(s)`); }
   })();
 } // fin ejecutarMigraciones()
 
