@@ -1184,6 +1184,36 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL PRODUCTO EXTRA ===== -->
+<div class="modal-overlay" id="modal-extra-prod">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#d4a017,#FF7A59)"></div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <h3 style="font-size:15px;font-weight:800">📦 Agregar Producto Extra</h3>
+        <button class="modal-close" onclick="closeModal('modal-extra-prod')">✕</button>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:#7C98B6;display:block;margin-bottom:4px">NOMBRE DEL PRODUCTO</label>
+        <input type="text" id="ep-nombre" placeholder="Ej: Audífonos, Cargador, Funda..."
+          style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:9px 12px;font-size:13px;outline:none"
+          onfocus="this.style.borderColor='#FF7A59'" onblur="this.style.borderColor='#CBD6E2'">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:11px;font-weight:700;color:#7C98B6;display:block;margin-bottom:4px">COMISIÓN POR UNIDAD ($)</label>
+        <input type="number" id="ep-comision" min="0" step="0.01" placeholder="0.00"
+          style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:9px 12px;font-size:13px;outline:none"
+          onfocus="this.style.borderColor='#FF7A59'" onblur="this.style.borderColor='#CBD6E2'"
+          onkeydown="if(event.key==='Enter')guardarExtraProd()">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('modal-extra-prod')">Cancelar</button>
+        <button class="btn btn-orange" onclick="guardarExtraProd()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL HQ CONFIG ===== -->
 <div class="modal-overlay" id="modal-hq-config">
   <div class="modal" style="max-width:740px">
@@ -1336,6 +1366,10 @@ function normalizarAppData() {
   if(!appData.meses)    appData.meses = [];
   if(!appData.gastos)   appData.gastos = [];
   if(!appData.nextId)   appData.nextId = 1;
+  if(!appData.ventasExtra) appData.ventasExtra = [];
+  if(!appData.nextExtraId) appData.nextExtraId = 1;
+  // Normalizar productosExtra en cada agente
+  appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
   // Eliminar campo pins (ya no se usa)
   delete appData.pins;
 }
@@ -1516,12 +1550,19 @@ function getComision(v) {
 }
 
 // Total de comisiones que un agente (o gerente/supervisor) gana en un mes
+function getExtrasComMes(agenteId, mes) {
+  return (appData.ventasExtra||[])
+    .filter(e=>e.agenteId===agenteId && e.mes===mes)
+    .reduce((s,e)=>s + (e.comisionUnit||0)*(e.cantidad||0), 0);
+}
 function getComisionesMes(a, mes) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
   // Ventas directas propias → usa tarifa DIRECTA (la más alta)
   const propias = appData.ventas
     .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow)
     .reduce((s,v)=>s + getComisionDirectaAgente(v.productoId, a.nombre)*v.cantidad, 0);
+  // Productos extra custom
+  const extras = getExtrasComMes(a.id, mes);
   // Gerentes/supervisores: también gana de agentes supervisados → usa tarifa DE SUPERVISIÓN (la pequeña)
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
@@ -1530,9 +1571,9 @@ function getComisionesMes(a, mes) {
           .filter(v=>v.mes===mes && supervisados.includes((v.agente||'').trim().toLowerCase()))
           .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
-    return propias + deAgentes;
+    return propias + deAgentes + extras;
   }
-  return propias;
+  return propias + extras;
 }
 function getProdNombre(productoId) {
   const p = PRODUCTOS_CATALOG.find(x=>x.id===productoId);
@@ -1942,7 +1983,7 @@ function renderAgentes() {
           <button class="btn btn-danger btn-xs" onclick="eliminarAgente(${a.id})">✕</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:${prodsConOverride.length?'12px':'0'}">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
           <div style="font-size:9px;color:#7C98B6;text-transform:uppercase">Com. Este Mes</div>
           <div style="font-size:17px;font-weight:800;color:#00BDA5">${fmt(comMes)}</div>
@@ -1956,12 +1997,39 @@ function renderAgentes() {
           <div style="font-size:17px;font-weight:800;color:#6A78D1">${fmt(comTotal)}</div>
         </div>
       </div>
-      ${prodsConOverride.length ? `<div style="border-top:1px solid #F5F8FA;padding-top:10px">
+      ${prodsConOverride.length ? `<div style="border-top:1px solid #F5F8FA;padding-top:10px;margin-bottom:10px">
         <div style="font-size:9px;color:#7C98B6;text-transform:uppercase;margin-bottom:6px">Comisiones personales configuradas:</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">
           ${prodsConOverride.map(p=>`<span style="font-size:10px;background:#EAF7FB;color:#0057A8;border:1px solid #009FDB;border-radius:5px;padding:2px 7px;white-space:nowrap">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
         </div>
       </div>` : ''}
+      <!-- PRODUCTOS EXTRA -->
+      <div style="border-top:1px solid #F5F8FA;padding-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+          <div style="font-size:9px;color:#7C98B6;text-transform:uppercase;letter-spacing:0.5px">📦 Productos Extra</div>
+          <button class="btn btn-ghost btn-xs" onclick="abrirModalExtraProd(${a.id})" style="font-size:9px;padding:2px 7px">+ Agregar</button>
+        </div>
+        ${(a.productosExtra||[]).length === 0
+          ? `<div style="font-size:10px;color:#CBD6E2;font-style:italic">Sin productos extra configurados</div>`
+          : (a.productosExtra||[]).map(ep => {
+              const veExtra = (appData.ventasExtra||[]).find(e=>e.agenteId===a.id && e.prodId===ep.id && e.mes===mes);
+              const qty = veExtra ? veExtra.cantidad : 0;
+              const total = qty * ep.comisionUnit;
+              return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;background:#FFFBE8;border:1px solid #F5C26B;border-radius:7px;padding:6px 8px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:11px;font-weight:700;color:#33475B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ep.nombre}</div>
+                  <div style="font-size:9px;color:#7C98B6">${fmt(ep.comisionUnit)}/u · Total: <b style="color:#FF7A59">${fmt(total)}</b></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <button onclick="ajustarVentaExtra(${a.id},'${ep.id}','${mes}',-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid #CBD6E2;background:#fff;cursor:pointer;font-size:13px;line-height:1;color:#7C98B6;font-weight:700">−</button>
+                  <span style="font-size:13px;font-weight:800;color:#33475B;min-width:18px;text-align:center">${qty}</span>
+                  <button onclick="ajustarVentaExtra(${a.id},'${ep.id}','${mes}',1)" style="width:22px;height:22px;border-radius:50%;border:1px solid #CBD6E2;background:#fff;cursor:pointer;font-size:13px;line-height:1;color:#00BDA5;font-weight:700">+</button>
+                </div>
+                <button onclick="eliminarExtraProd(${a.id},'${ep.id}')" style="background:none;border:none;cursor:pointer;color:#F2545B;font-size:14px;padding:0 2px" title="Eliminar producto">✕</button>
+              </div>`;
+            }).join('')
+        }
+      </div>
     </div>`;
   }
 
@@ -1969,7 +2037,7 @@ function renderAgentes() {
     if(!lista.length) return '';
     return `<div style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">${titulo}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">${lista.map(agenteCard).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${lista.map(agenteCard).join('')}</div>
     </div>`;
   }
 
@@ -2086,9 +2154,64 @@ function guardarAgente() {
 function eliminarAgente(id) {
   if(!confirm('¿Eliminar agente?')) return;
   appData.agentes = appData.agentes.filter(a=>a.id!==id);
+  appData.ventasExtra = (appData.ventasExtra||[]).filter(e=>e.agenteId!==id);
   guardar();
   renderAgentes();
   showNotif('🗑️ Agente eliminado');
+}
+
+// ── Productos Extra ─────────────────────────────────────────
+let _extraProdAgenteId = null;
+
+function abrirModalExtraProd(agenteId) {
+  _extraProdAgenteId = agenteId;
+  document.getElementById('ep-nombre').value = '';
+  document.getElementById('ep-comision').value = '';
+  document.getElementById('modal-extra-prod').classList.add('open');
+  setTimeout(()=>document.getElementById('ep-nombre').focus(),100);
+}
+
+function guardarExtraProd() {
+  const nombre = document.getElementById('ep-nombre').value.trim();
+  const com    = parseFloat(document.getElementById('ep-comision').value)||0;
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre del producto','error'); return; }
+  const a = appData.agentes.find(x=>x.id===_extraProdAgenteId);
+  if(!a) return;
+  if(!a.productosExtra) a.productosExtra = [];
+  const newId = 'ep_' + Date.now();
+  a.productosExtra.push({ id: newId, nombre, comisionUnit: com });
+  guardar();
+  closeModal('modal-extra-prod');
+  renderAgentes();
+  showNotif('✅ Producto extra agregado');
+}
+
+function eliminarExtraProd(agenteId, prodId) {
+  if(!confirm('¿Eliminar este producto extra?')) return;
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+  a.productosExtra = (a.productosExtra||[]).filter(p=>p.id!==prodId);
+  appData.ventasExtra = (appData.ventasExtra||[]).filter(e=>!(e.agenteId===agenteId && e.prodId===prodId));
+  guardar();
+  renderAgentes();
+  showNotif('🗑️ Producto extra eliminado');
+}
+
+function ajustarVentaExtra(agenteId, prodId, mes, delta) {
+  if(!appData.ventasExtra) appData.ventasExtra = [];
+  let e = appData.ventasExtra.find(x=>x.agenteId===agenteId && x.prodId===prodId && x.mes===mes);
+  if(!e) {
+    const a = appData.agentes.find(x=>x.id===agenteId);
+    const ep = (a?.productosExtra||[]).find(p=>p.id===prodId);
+    if(!ep) return;
+    e = { id: appData.nextExtraId++, agenteId, prodId, comisionUnit: ep.comisionUnit, cantidad: 0, mes };
+    appData.ventasExtra.push(e);
+  }
+  e.cantidad = Math.max(0, (e.cantidad||0) + delta);
+  // limpiar entradas en cero
+  if(e.cantidad === 0) appData.ventasExtra = appData.ventasExtra.filter(x=>x!==e);
+  guardar();
+  renderAgentes();
 }
 
 // ============================================================
