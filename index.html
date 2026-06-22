@@ -1105,6 +1105,42 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL OTROS INTERNET ===== -->
+<div class="modal-overlay" id="modal-oi">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header" style="background:linear-gradient(135deg,#4a3dab,#6A78D1)"></div>
+    <div class="modal-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <h3 id="modal-oi-title" style="font-size:15px;font-weight:800">🌐 Producto de Internet</h3>
+        <button class="modal-close" onclick="closeModal('modal-oi')">✕</button>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:#7C98B6;display:block;margin-bottom:4px">NOMBRE DEL PROVEEDOR / PRODUCTO</label>
+        <input type="text" id="oi-nombre" placeholder="Ej: Spectrum, Xfinity, T-Mobile Home..."
+          style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='#CBD6E2'">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:#7C98B6;display:block;margin-bottom:4px">VELOCIDAD</label>
+        <input type="text" id="oi-velocidad" placeholder="Ej: 300 Mbps, 1 Gbps, 500 Mbps..."
+          style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='#CBD6E2'">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:11px;font-weight:700;color:#7C98B6;display:block;margin-bottom:4px">COMISIÓN POR VENTA ($)</label>
+        <input type="number" id="oi-comision" min="0" step="0.01" placeholder="0.00"
+          style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;font-family:inherit"
+          onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='#CBD6E2'"
+          onkeydown="if(event.key==='Enter')guardarOI()">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('modal-oi')">Cancelar</button>
+        <button class="btn" onclick="guardarOI()" style="background:#6A78D1;color:#fff">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL PRODUCTO EXTRA ===== -->
 <div class="modal-overlay" id="modal-extra-prod">
   <div class="modal" style="max-width:380px">
@@ -1286,9 +1322,11 @@ function normalizarAppData() {
   if(!appData.quincenas) appData.quincenas = {};
   if(!appData.meses)    appData.meses = [];
   if(!appData.gastos)   appData.gastos = [];
-  if(!appData.nextId)   appData.nextId = 1;
+  if(!appData.nextId)      appData.nextId = 1;
   if(!appData.ventasExtra) appData.ventasExtra = [];
   if(!appData.nextExtraId) appData.nextExtraId = 1;
+  if(!appData.otrosInternet) appData.otrosInternet = [];
+  if(!appData.nextOIId)    appData.nextOIId = 1;
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
   // Eliminar campo pins (ya no se usa)
@@ -1522,9 +1560,20 @@ function fmt(n) {
 }
 
 // Devuelve la comisión base del catálogo para un productoId
+// Catálogo completo = estático + otros internet custom
+function getCatalogoCompleto() {
+  const custom = (appData.otrosInternet||[]).map(p=>({
+    id:p.id, cat:'otros-internet', nombre:p.nombre, velocidad:p.velocidad||'', comision:p.comision||0
+  }));
+  return PRODUCTOS_CATALOG.concat(custom);
+}
 function getCatalogCom(productoId) {
-  const prod = PRODUCTOS_CATALOG.find(p=>p.id===productoId);
+  const prod = getCatalogoCompleto().find(p=>p.id===productoId);
   return prod ? (prod.comision||0) : 0;
+}
+function getProdNombre(productoId) {
+  const p = getCatalogoCompleto().find(x=>x.id===productoId);
+  return p ? p.nombre : productoId;
 }
 
 // Devuelve la comisión de supervisión (lo que gana de ventas de agentes supervisados)
@@ -1575,10 +1624,6 @@ function getComisionesMes(a, mes) {
     return propias + deAgentes + extras;
   }
   return propias + extras;
-}
-function getProdNombre(productoId) {
-  const p = PRODUCTOS_CATALOG.find(x=>x.id===productoId);
-  return p ? p.nombre : productoId;
 }
 function getMeses() { return appData.meses || []; }
 
@@ -1871,9 +1916,9 @@ function openVentaModal(id=null) {
 
 function onCatChange() {
   const cat = document.getElementById('v-categoria').value;
-  const prods = PRODUCTOS_CATALOG.filter(p=>p.cat===cat);
+  const prods = getCatalogoCompleto().filter(p=>p.cat===cat);
   document.getElementById('v-producto').innerHTML = '<option value="">— Selecciona producto —</option>' +
-    prods.map(p=>`<option value="${p.id}">${p.nombre} (${fmt(p.comision)} def.)</option>`).join('');
+    prods.map(p=>`<option value="${p.id}">${p.nombre}${p.velocidad?' · '+p.velocidad:''} (${fmt(p.comision)} def.)</option>`).join('');
   document.getElementById('v-comision').value = '';
   updateVentaPreview();
 }
@@ -1967,7 +2012,7 @@ function renderAgentes() {
     const unitsMes = ventasMesRaw.reduce((s,v)=>s+v.cantidad,0);
     // Tabla de comisiones personales
     const comPs = a.comisionesPersonales||{};
-    const prodsConOverride = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
+    const prodsConOverride = getCatalogoCompleto().filter(p=>comPs[p.id]!==undefined);
     const supervisa = (a.agentesSupervisa||[]).join(', ');
     return `<div style="background:#fff;border-radius:12px;padding:18px;border:1.5px solid ${ROL_COLORS[rol]||'#CBD6E2'};box-shadow:0 2px 8px rgba(0,0,0,0.06)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -2089,11 +2134,12 @@ function openAgenteModal(id=null) {
 
   // Tabla de comisiones por producto
   const comPs = a?.comisionesPersonales||{};
-  document.getElementById('a-comisiones-productos').innerHTML = PRODUCTOS_CATALOG.map(p=>{
+  document.getElementById('a-comisiones-productos').innerHTML = getCatalogoCompleto().map(p=>{
     const val = comPs[p.id]!==undefined ? comPs[p.id] : '';
-    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center;gap:6px">
+    const isCustom = p.id.startsWith('oi_');
+    return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid ${isCustom?'#6A78D1':'#CBD6E2'};display:flex;justify-content:space-between;align-items:center;gap:6px">
       <div>
-        <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}</div>
+        <div style="font-size:11px;font-weight:600;color:#33475B">${p.nombre}${p.velocidad?` <span style="font-size:9px;color:#6A78D1">⚡${p.velocidad}</span>`:''}</div>
         <div style="font-size:9px;color:#99ACC2">Catálogo: ${fmt(p.comision)}</div>
       </div>
       <input type="number" min="0" step="0.01" value="${val}" placeholder="${p.comision}"
@@ -2474,23 +2520,23 @@ function renderPagos() {
 // PRODUCTOS (EDICIÓN DE COMISIONES)
 // ============================================================
 function renderProductos() {
-  const cats = ['mobility','internet','otros-internet','prepago','servicios'];
+  const cats = ['mobility','internet','prepago','servicios'];
   const catTitles = {
-    'mobility':       '📱 AT&T Mobility',
-    'internet':       '🌐 Internet Residencial',
-    'otros-internet': '🌐 Otros Internet',
-    'prepago':        '📞 Telefonía Prepago',
-    'servicios':      '🛠️ Servicios Complementarios',
+    'mobility': '📱 AT&T Mobility',
+    'internet': '🌐 Internet Residencial (AT&T)',
+    'prepago':  '📞 Telefonía Prepago',
+    'servicios':'🛠️ Servicios Complementarios',
   };
+  const catBG = { mobility:'#EAF7FB', internet:'#E8F9F7', prepago:'#FFF3EE', servicios:'#FFFBE8' };
 
-  document.getElementById('productos-content').innerHTML = cats.map(cat=>{
+  const staticSection = cats.map(cat=>{
     const prods = PRODUCTOS_CATALOG.filter(p=>p.cat===cat);
+    if(!prods.length) return '';
     return `<div style="margin-bottom:20px">
-      <div style="font-size:12px;font-weight:700;color:${CAT_COLOR[cat]};background:${cat==='mobility'?'#EAF7FB':cat==='internet'?'#E8F9F7':cat==='otros-internet'?'#F0EDFF':cat==='prepago'?'#FFF3EE':'#FFFBE8'};padding:8px 14px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${CAT_COLOR[cat]}">${catTitles[cat]}</div>
+      <div style="font-size:12px;font-weight:700;color:${CAT_COLOR[cat]};background:${catBG[cat]||'#F5F8FA'};padding:8px 14px;border-radius:8px;margin-bottom:10px;border-left:4px solid ${CAT_COLOR[cat]}">${catTitles[cat]}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
       ${prods.map(p=>{
-        const override = appData.comisiones[p.id];
-        const val = override !== undefined ? override : p.comision;
+        const val = appData.comisiones[p.id] !== undefined ? appData.comisiones[p.id] : p.comision;
         return `<div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:12px;font-weight:600;color:#33475B">${p.nombre}</div>
@@ -2505,12 +2551,78 @@ function renderProductos() {
       </div>
     </div>`;
   }).join('');
+
+  // Sección "Otros Internet" — editable con nombre, velocidad y comisión
+  const oiList = appData.otrosInternet || [];
+  const oiSection = `<div style="margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#F0EDFF;padding:8px 14px;border-radius:8px;margin-bottom:10px;border-left:4px solid #6A78D1">
+      <span style="font-size:12px;font-weight:700;color:#6A78D1">🌐 Otros Internet (Personalizados)</span>
+      <button class="btn btn-sm" onclick="abrirModalOI(null)" style="background:#6A78D1;color:#fff;font-size:11px;padding:4px 12px;border-radius:6px;border:none;cursor:pointer">+ Agregar</button>
+    </div>
+    ${oiList.length === 0
+      ? `<div style="color:#CBD6E2;font-size:12px;font-style:italic;padding:10px">No hay productos de internet personalizados. Agrega proveedores como Spectrum, Xfinity, etc.</div>`
+      : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
+        ${oiList.map(p=>`
+          <div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;border:1.5px solid #6A78D1;display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:#33475B">${p.nombre}</div>
+              <div style="font-size:10px;color:#7C98B6;margin-top:2px">⚡ ${p.velocidad||'—'} &nbsp;·&nbsp; Comisión: <b style="color:#6A78D1">${fmt(p.comision)}</b></div>
+            </div>
+            <div style="display:flex;gap:5px;flex-shrink:0">
+              <button class="btn btn-ghost btn-xs" onclick="abrirModalOI('${p.id}')">✏️</button>
+              <button class="btn btn-danger btn-xs" onclick="eliminarOI('${p.id}')">✕</button>
+            </div>
+          </div>`).join('')}
+      </div>`
+    }
+  </div>`;
+
+  document.getElementById('productos-content').innerHTML = oiSection + staticSection;
 }
 
 function updateComision(prodId, valor) {
   appData.comisiones[prodId] = valor;
   guardar();
   showNotif(`✅ Comisión actualizada: ${fmt(valor)}`);
+}
+
+// ── Otros Internet (productos custom) ───────────────────────
+let _editOIId = null;
+function abrirModalOI(id) {
+  _editOIId = id;
+  const p = id ? (appData.otrosInternet||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-oi-title').textContent = id ? '✏️ Editar Producto Internet' : '🌐 Nuevo Producto Internet';
+  document.getElementById('oi-nombre').value    = p?.nombre    || '';
+  document.getElementById('oi-velocidad').value  = p?.velocidad  || '';
+  document.getElementById('oi-comision').value   = p?.comision   || '';
+  document.getElementById('modal-oi').classList.add('open');
+  setTimeout(()=>document.getElementById('oi-nombre').focus(), 100);
+}
+function guardarOI() {
+  const nombre   = document.getElementById('oi-nombre').value.trim();
+  const velocidad= document.getElementById('oi-velocidad').value.trim();
+  const comision = parseFloat(document.getElementById('oi-comision').value)||0;
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre del producto','error'); return; }
+  if(!appData.otrosInternet) appData.otrosInternet = [];
+  if(_editOIId) {
+    const p = appData.otrosInternet.find(x=>x.id===_editOIId);
+    if(p) { p.nombre=nombre; p.velocidad=velocidad; p.comision=comision; }
+  } else {
+    appData.otrosInternet.push({ id:'oi_'+Date.now(), nombre, velocidad, comision });
+  }
+  guardar();
+  closeModal('modal-oi');
+  renderProductos();
+  showNotif('✅ Producto de internet guardado');
+}
+function eliminarOI(id) {
+  if(!confirm('¿Eliminar este producto de internet?')) return;
+  appData.otrosInternet = (appData.otrosInternet||[]).filter(p=>p.id!==id);
+  // Limpiar comisiones personales de agentes que tengan este producto
+  appData.agentes.forEach(a=>{ if(a.comisionesPersonales) delete a.comisionesPersonales[id]; });
+  guardar();
+  renderProductos();
+  showNotif('🗑️ Producto eliminado');
 }
 
 // ============================================================
