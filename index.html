@@ -1845,7 +1845,13 @@ function getComisionesQuincena(a, mes, q) {
       const pp = getPeríodoPago(v);
       return pp.mes === mes && pp.q === q;
     })
-    .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+    .reduce((s,v)=>{
+      const qty = parseFloat(v.cantidad)||1;
+      // Usa v.comision si está guardado y es > 0; si no, recalcula desde el perfil del agente
+      const stored = parseFloat(v.comision);
+      const rate = (stored > 0) ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
+      return s + rate * qty;
+    }, 0);
   // Gerentes/supervisores: comisión de supervisión sobre ventas de agentes a cargo
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
@@ -5758,6 +5764,22 @@ function ejecutarMigraciones() {
     });
     if(changed) guardar();
   })();
+
+  // ── Corregir v.comision = 0 en ventas (usa tarifa directa del agente) ──
+  if(!appData._mig_fixComisionCero_v1) {
+    let fixed = 0;
+    (appData.ventas||[]).forEach(v => {
+      if(!v.comision || parseFloat(v.comision) === 0) {
+        const agente = appData.agentes.find(a=>(a.nombre||'').trim().toLowerCase()===(v.agente||'').trim().toLowerCase());
+        if(agente) {
+          const rate = getComisionDirectaAgente(v.productoId, agente.nombre);
+          if(rate > 0) { v.comision = rate; fixed++; }
+        }
+      }
+    });
+    appData._mig_fixComisionCero_v1 = true;
+    if(fixed > 0) { guardar(); showNotif(`🔧 ${fixed} ventas con comisión $0 corregidas automáticamente`); }
+  }
 
   // ── Limpiar quincenaPago mal guardados (migración única) ──
   // Borra valores '1'/'2' guardados con la lógica antigua para que el
