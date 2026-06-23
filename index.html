@@ -1885,7 +1885,7 @@ function getComisionesQuincena(a, mes, q) {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
     const deAgentes = sups.length
       ? appData.ventas.filter(v=>{
-          if(v._esGrabacion) return false; // No supervisar grabaciones
+          if(v.esGrabacion) return false; // No supervisar grabaciones
           if(!sups.includes((v.agente||'').trim().toLowerCase())) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
@@ -2414,38 +2414,38 @@ function guardarVenta() {
       llamadaGrabada, agenteGrabacion, comisionGrabacion,
       notas: l.notaLinea || notas,
       productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
-    // Actualizar el registro de grabación vinculado si existe
-    if(llamadaGrabada && agenteGrabacion && comisionGrabacion > 0) {
-      const existing = appData.ventas.find(x=>x._refVentaId===editVentaId && x._esGrabacion);
+    // Actualizar o crear el registro de grabación vinculado
+    const existing = appData.ventas.find(x=>x.esGrabacion===true && x.refVentaId===editVentaId);
+    if(llamadaGrabada && agenteGrabacion) {
       if(existing) {
         Object.assign(existing, { agente:agenteGrabacion, cliente, fecha, mes, quincenaPago, comision:comisionGrabacion });
       } else {
         const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
         appData.ventas.push({ id:maxId+1, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
           productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comisionGrabacion,
-          notas:'Grabación: '+cliente, _esGrabacion:true, _refVentaId:editVentaId });
+          notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:editVentaId });
       }
-    } else {
+    } else if(existing) {
       // Si quitaron la grabación, eliminar el registro vinculado
-      const idx = appData.ventas.findIndex(x=>x._refVentaId===editVentaId && x._esGrabacion);
+      const idx = appData.ventas.findIndex(x=>x.esGrabacion===true && x.refVentaId===editVentaId);
       if(idx !== -1) appData.ventas.splice(idx, 1);
     }
     showNotif('✅ Venta actualizada');
   } else {
-    // Nueva: crear un registro por cada línea
+    // Nueva: crear un registro por cada línea + registro de grabación si aplica
     lineas.forEach(l=>{
-      const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
-      const newId = maxId + 1;
+      const newId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
       appData.ventas.push({ id:newId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
         llamadaGrabada, agenteGrabacion, comisionGrabacion,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
       // Auto-crear registro de grabación para el agente grabador
-      if(llamadaGrabada && agenteGrabacion && comisionGrabacion > 0) {
+      if(llamadaGrabada && agenteGrabacion) {
         const grabId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
         appData.ventas.push({ id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
           productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comisionGrabacion,
-          notas:'Grabación: '+cliente, _esGrabacion:true, _refVentaId:newId });
+          notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:newId });
+        showNotif('📞 Registro de grabación creado para '+agenteGrabacion);
       }
     });
     showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
@@ -3227,7 +3227,7 @@ function renderPagos() {
         const deAnt   = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
         // Grabaciones: registros de tipo 'grabada' de este agente en este período
         const grabRows = appData.ventas.filter(v=>{
-          if(!v._esGrabacion) return false;
+          if(!v.esGrabacion) return false;
           if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
           const pp = getPeríodoPago(v);
           return pp.mes===mes && pp.q===q;
