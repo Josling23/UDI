@@ -1865,10 +1865,18 @@ function getPeríodoPagoAuto(v) {
 }
 
 function getComisionesQuincena(a, mes, q) {
+  const result = getComisionesQuincenaDesglose(a, mes, q);
+  return result.ventas + result.grabaciones + result.supervision;
+}
+
+// Nueva función: devuelve desglose de comisiones (ventas, grabaciones, supervisión)
+function getComisionesQuincenaDesglose(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
-  // Incluye ventas + grabaciones (categoria:'grabada') cuyo período de pago coincide
-  const propias = appData.ventas
+
+  // Comisiones de ventas (sin grabaciones)
+  const ventas = appData.ventas
     .filter(v=>{
+      if(v.esGrabacion) return false; // Excluir grabaciones de ventas
       if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
       const pp = getPeríodoPago(v);
       return pp.mes === mes && pp.q === q;
@@ -1876,29 +1884,42 @@ function getComisionesQuincena(a, mes, q) {
     .reduce((s,v)=>{
       const qty = parseFloat(v.cantidad)||1;
       const stored = parseFloat(v.comision);
-      // Para grabaciones y otros productos especiales, SIEMPRE usar v.comision
-      // Si es grabacion o no hay comisión almacenada, fallback a tasa del catálogo
       let rate = stored;
-      if(rate <= 0 && v.productoId !== 'grabacion') {
+      if(rate <= 0) {
         rate = getComisionDirectaAgente(v.productoId, a.nombre);
       }
       return s + Math.max(rate, 0) * qty;
     }, 0);
 
-  // Gerentes/supervisores: comisión de supervisión sobre ventas (NO grabaciones) de agentes a cargo
+  // Comisiones de grabaciones
+  const grabaciones = appData.ventas
+    .filter(v=>{
+      if(!v.esGrabacion) return false;
+      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+      const pp = getPeríodoPago(v);
+      return pp.mes === mes && pp.q === q;
+    })
+    .reduce((s,v)=>{
+      const qty = parseFloat(v.cantidad)||1;
+      const stored = parseFloat(v.comision);
+      return s + Math.max(stored, 0) * qty;
+    }, 0);
+
+  // Comisión de supervisión (solo para gerentes/supervisores)
+  let supervision = 0;
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
-    const deAgentes = sups.length
+    supervision = sups.length
       ? appData.ventas.filter(v=>{
-          if(v.esGrabacion) return false; // No supervisar grabaciones
+          if(v.esGrabacion) return false;
           if(!sups.includes((v.agente||'').trim().toLowerCase())) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
         }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
-    return propias + deAgentes;
   }
-  return propias;
+
+  return { ventas, grabaciones, supervision };
 }
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
@@ -3166,14 +3187,17 @@ function renderPagos() {
   let totalAPagar = 0;
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
-    const comQ   = getComisionesQuincena(a, mesAct, qAct);
+    const desglose = getComisionesQuincenaDesglose(a, mesAct, qAct);
+    const comVentas = desglose.ventas;
+    const comGrab   = desglose.grabaciones;
+    const comSupe   = desglose.supervision;
     const basico = a.sueldoQuincenal||0;
     const bonos  = getExtra('bono',  a.nombre, mesAct+'Q'+qAct);
     const prest  = getExtra('prest', a.nombre, mesAct+'Q'+qAct);
     const desc   = getExtra('desc',  a.nombre, mesAct+'Q'+qAct);
     const prev   = getPrevQuincena(meses, mesAct, qAct);
     const deAnt  = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
-    const total  = comQ + basico + bonos + prest + deAnt - desc;
+    const total  = comVentas + comGrab + comSupe + basico + bonos + prest + deAnt - desc;
     const pagado = appData.quincenas[getQuincenaKey(a.nombre, mesAct, qAct)];
     totalAPagar += pagado ? 0 : total;
     return `<div style="background:#fff;border-radius:10px;padding:14px 16px;border:2px solid ${pagado?'#86EFAC':ROL_COLORS[rol]||'#CBD6E2'};min-width:190px;flex:1">
@@ -3185,7 +3209,9 @@ function renderPagos() {
         <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${pagado?'#D1FAE5':'#FFF3EE'};color:${pagado?'#059669':'#FF7A59'}">${pagado?'✅ Pagado':'⏳ Pendiente'}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;font-size:11px">
-        <div style="color:#7C98B6">Comisiones ventas</div><div style="text-align:right;font-weight:600;color:#009FDB">${fmt(comQ)}</div>
+        <div style="color:#7C98B6">Comisiones ventas</div><div style="text-align:right;font-weight:600;color:#009FDB">${fmt(comVentas)}</div>
+        ${comGrab>0?`<div style="color:#6A78D1">📞 Grabaciones</div><div style="text-align:right;font-weight:600;color:#6A78D1">${fmt(comGrab)}</div>`:''}
+        ${comSupe>0?`<div style="color:#FF7A59">Supervisión</div><div style="text-align:right;font-weight:600;color:#FF7A59">${fmt(comSupe)}</div>`:''}
         ${(()=>{ if(!basico) return ''; if(esJosePina(a.nombre)){const t=getExtra('tasa',a.nombre,mesAct+'Q'+qAct);const cop=t>0?'<div style="color:#059669;font-weight:700">'+fmtCOP(basico*t)+'</div>':'';return '<div style="color:#7C98B6">Básico USD</div><div style="text-align:right;font-weight:600;color:#0057A8">'+fmt(basico)+'</div>'+cop;} return '<div style="color:#7C98B6">Básico</div><div style="text-align:right;font-weight:600;color:#33475B">'+fmt(basico)+'</div>'; })()}
         ${deAnt>0?`<div style="color:#D4A017">De Q.Ant.</div><div style="text-align:right;font-weight:600;color:#D4A017">+${fmt(deAnt)}</div>`:''}
         ${bonos>0?`<div style="color:#6A78D1">Bonos</div><div style="text-align:right;font-weight:600;color:#6A78D1">+${fmt(bonos)}</div>`:''}
@@ -3225,24 +3251,27 @@ function renderPagos() {
     const filas = mesesVis.flatMap(mes=>{
       return qVis.map(q=>{
         const pagado  = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
-        const comQ    = getComisionesQuincena(a, mes, q);  // real por fecha, sin dividir
+        const desglose= getComisionesQuincenaDesglose(a, mes, q);
+        const comVentas = desglose.ventas;
+        const comGrab   = desglose.grabaciones;
+        const comSupe   = desglose.supervision;
+        const comQ      = comVentas + comGrab + comSupe;
         const basico  = a.sueldoQuincenal||0;
         const bonos   = getExtra('bono',  a.nombre, mes+'Q'+q);
         const prestamo= getExtra('prest', a.nombre, mes+'Q'+q);
         const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
         const prev    = getPrevQuincena(meses, mes, q);
         const deAnt   = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
-        // Grabaciones: registros de tipo 'grabada' de este agente en este período
+        // Grabaciones: registros para esta celda
         const grabRows = appData.ventas.filter(v=>{
           if(!v.esGrabacion) return false;
           if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
           const pp = getPeríodoPago(v);
           return pp.mes===mes && pp.q===q;
         });
-        const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
 
-        const subTotal= comQ + basico + bonos + prestamo + deAnt;
-        const total   = subTotal - desc;
+        const subTotal= comVentas + basico + bonos + prestamo + deAnt + comSupe;
+        const total   = subTotal + comGrab - desc;
 
         if(pagado) totalPagado += total; else totalPend += total;
 
@@ -3257,8 +3286,8 @@ function renderPagos() {
              </div>`
           : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
 
-        // Breakdown tooltip (grabaciones ya incluidas en comQ, mostramos aparte para info)
-        const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' (incl. Grab. '+fmt(comGrab)+')':''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
+        // Breakdown tooltip
+        const breakStr = `Comisiones Ventas: ${fmt(comVentas)}${comSupe>0?' | Supervisión: '+fmt(comSupe):''}${comGrab>0?' | Grabaciones: '+fmt(comGrab):''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
         return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
           <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–14)':'(días 15–penúlt.)'}</span></td>
@@ -3267,7 +3296,7 @@ function renderPagos() {
               ${pagado?'✅':'⏳'} Q${q}
             </button>
           </td>
-          <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(comQ)}</td>
+          <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(comVentas)}</td>
           <td style="color:#33475B;text-align:right;font-weight:600">${basicoCOPCell(a, mes+'Q'+q, basico)}</td>
           <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00')}</td>
           <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00')}</td>
