@@ -81,6 +81,7 @@ tr:hover td{background:#EAF0FB}
 .badge-otros{background:#F0EDFF;color:#6A78D1;border:1px solid #6A78D1}
 .badge-prepago{background:#FFF3EE;color:#E66E50;border:1px solid #FF7A59}
 .badge-servicios{background:#FFFBE8;color:#D4A017;border:1px solid #F5C26B}
+.badge-grabada{background:#F4F5FF;color:#6A78D1;border:1px solid #6A78D1}
 
 /* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
@@ -450,6 +451,7 @@ tr:hover td{background:#EAF0FB}
             <option value="otros-internet">🌐 Internet Personalizado</option>
             <option value="prepago">📞 Prepago</option>
             <option value="servicios">🛠️ Servicios</option>
+            <option value="grabada">📞 Llamadas Grabadas</option>
           </select>
           <select id="fv-agente" onchange="renderVentas()"><option value="">Todos los Agentes</option></select>
           <select id="fv-mes" onchange="renderVentas()"><option value="">Todos los Meses</option></select>
@@ -1431,6 +1433,7 @@ const CAT_LABELS = {
   'otros-internet': '🌐 Otros Internet',
   'prepago':        '📞 Prepago',
   'servicios':      '🛠️ Servicios',
+  'grabada':        '📞 Llamada Grabada',
 };
 
 // ROLES
@@ -1748,6 +1751,7 @@ function getCatalogCom(productoId) {
   return prod ? (prod.comision||0) : 0;
 }
 function getProdNombre(productoId) {
+  if(productoId === 'grabacion') return '📞 Grabación de Llamada';
   const p = getCatalogoCompleto().find(x=>x.id===productoId);
   return p ? p.nombre : productoId;
 }
@@ -1862,7 +1866,7 @@ function getPeríodoPagoAuto(v) {
 
 function getComisionesQuincena(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
-  // Incluye ventas cuyo período de PAGO calculado coincide con (mes, q)
+  // Incluye ventas + grabaciones (categoria:'grabada') cuyo período de pago coincide
   const propias = appData.ventas
     .filter(v=>{
       if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
@@ -1871,34 +1875,25 @@ function getComisionesQuincena(a, mes, q) {
     })
     .reduce((s,v)=>{
       const qty = parseFloat(v.cantidad)||1;
-      // Usa v.comision si está guardado y es > 0; si no, recalcula desde el perfil del agente
       const stored = parseFloat(v.comision);
       const rate = (stored > 0) ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
       return s + rate * qty;
     }, 0);
-  // Comisiones por grabación de llamadas (cualquier agente puede tenerlas)
-  const grabaciones = appData.ventas
-    .filter(v=>{
-      if(!v.llamadaGrabada || !v.agenteGrabacion) return false;
-      if((v.agenteGrabacion||'').trim().toLowerCase() !== nombreLow) return false;
-      const pp = getPeríodoPago(v);
-      return pp.mes === mes && pp.q === q;
-    })
-    .reduce((s,v)=>s + (parseFloat(v.comisionGrabacion)||0), 0);
 
-  // Gerentes/supervisores: comisión de supervisión sobre ventas de agentes a cargo
+  // Gerentes/supervisores: comisión de supervisión sobre ventas (NO grabaciones) de agentes a cargo
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
     const deAgentes = sups.length
       ? appData.ventas.filter(v=>{
+          if(v._esGrabacion) return false; // No supervisar grabaciones
           if(!sups.includes((v.agente||'').trim().toLowerCase())) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
         }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
-    return propias + deAgentes + grabaciones;
+    return propias + deAgentes;
   }
-  return propias + grabaciones;
+  return propias;
 }
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
@@ -2412,22 +2407,46 @@ function guardarVenta() {
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
 
   if(editVentaId !== null) {
-    // Edit: update solo la primera línea (una venta = un producto al editar)
+    // Edit: update solo la primera línea
     const v = appData.ventas.find(x=>x.id===editVentaId);
     const l = lineas[0];
     Object.assign(v, { fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
       llamadaGrabada, agenteGrabacion, comisionGrabacion,
       notas: l.notaLinea || notas,
       productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
+    // Actualizar el registro de grabación vinculado si existe
+    if(llamadaGrabada && agenteGrabacion && comisionGrabacion > 0) {
+      const existing = appData.ventas.find(x=>x._refVentaId===editVentaId && x._esGrabacion);
+      if(existing) {
+        Object.assign(existing, { agente:agenteGrabacion, cliente, fecha, mes, quincenaPago, comision:comisionGrabacion });
+      } else {
+        const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+        appData.ventas.push({ id:maxId+1, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
+          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comisionGrabacion,
+          notas:'Grabación: '+cliente, _esGrabacion:true, _refVentaId:editVentaId });
+      }
+    } else {
+      // Si quitaron la grabación, eliminar el registro vinculado
+      const idx = appData.ventas.findIndex(x=>x._refVentaId===editVentaId && x._esGrabacion);
+      if(idx !== -1) appData.ventas.splice(idx, 1);
+    }
     showNotif('✅ Venta actualizada');
   } else {
     // Nueva: crear un registro por cada línea
     lineas.forEach(l=>{
       const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
-      appData.ventas.push({ id:maxId+1, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
+      const newId = maxId + 1;
+      appData.ventas.push({ id:newId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
         llamadaGrabada, agenteGrabacion, comisionGrabacion,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
+      // Auto-crear registro de grabación para el agente grabador
+      if(llamadaGrabada && agenteGrabacion && comisionGrabacion > 0) {
+        const grabId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
+        appData.ventas.push({ id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
+          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comisionGrabacion,
+          notas:'Grabación: '+cliente, _esGrabacion:true, _refVentaId:newId });
+      }
     });
     showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
   }
@@ -3206,14 +3225,14 @@ function renderPagos() {
         const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
         const prev    = getPrevQuincena(meses, mes, q);
         const deAnt   = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
-        // Grabaciones: ventas donde este agente grabó la llamada en este período
+        // Grabaciones: registros de tipo 'grabada' de este agente en este período
         const grabRows = appData.ventas.filter(v=>{
-          if(!v.llamadaGrabada || !v.agenteGrabacion) return false;
-          if((v.agenteGrabacion||'').trim().toLowerCase() !== nombreLow) return false;
+          if(!v._esGrabacion) return false;
+          if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
           const pp = getPeríodoPago(v);
           return pp.mes===mes && pp.q===q;
         });
-        const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comisionGrabacion)||0),0);
+        const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
 
         const subTotal= comQ + basico + bonos + prestamo + deAnt;
         const total   = subTotal - desc;
@@ -3231,8 +3250,8 @@ function renderPagos() {
              </div>`
           : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
 
-        // Breakdown tooltip
-        const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' | Grabaciones: '+fmt(comGrab):''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
+        // Breakdown tooltip (grabaciones ya incluidas en comQ, mostramos aparte para info)
+        const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' (incl. Grab. '+fmt(comGrab)+')':''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
         return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
           <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–14)':'(días 15–penúlt.)'}</span></td>
