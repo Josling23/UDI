@@ -3755,31 +3755,64 @@ function renderHQ() {
   }
 
   const selMes = document.getElementById('hq-mes-sel')?.value ?? (meses[meses.length-1]||'');
+  const selQ   = document.getElementById('hq-q-sel')?.value ?? '';
+  const selAg  = document.getElementById('hq-ag-sel')?.value ?? '';
+
+  const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
 
   let html = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div>
         <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">🏛️ HEADQUARTERS</h2>
         <div style="font-size:11px;color:#99ACC2">Pagos & Comisiones — Gerente General</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="hq-mes-sel" onchange="renderHQ()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
-          <option value="">📊 Todos los meses</option>
-          ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
-        </select>
         <button class="btn btn-success btn-sm" onclick="openHQConfig(${hqAgentes[0]?.id||''})">✏️ Editar Perfil</button>
         <button class="btn btn-primary btn-sm" onclick="openHQConfig()">➕ Agregar</button>
       </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+      <select id="hq-ag-sel" onchange="renderHQ()" style="${sFiltro};min-width:160px">
+        <option value="">👥 Todos los perfiles HQ</option>
+        ${hqAgentes.map(a=>`<option value="${a.id}" ${String(a.id)===selAg?'selected':''}>${a.nombre}</option>`).join('')}
+      </select>
+      <select id="hq-mes-sel" onchange="renderHQ()" style="${sFiltro};min-width:150px">
+        <option value="">📅 Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <select id="hq-q-sel" onchange="renderHQ()" style="${sFiltro}">
+        <option value="">Q1 + Q2</option>
+        <option value="1" ${selQ==='1'?'selected':''}>Q1 — Días 1–14</option>
+        <option value="2" ${selQ==='2'?'selected':''}>Q2 — Días 15–penúlt.</option>
+      </select>
+      <button onclick="document.getElementById('hq-ag-sel').value='';document.getElementById('hq-mes-sel').value='';document.getElementById('hq-q-sel').value='';renderHQ()"
+        style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
     </div>`;
 
-  hqAgentes.forEach(a=>{
+  const hqFiltrados = selAg ? hqAgentes.filter(a=>String(a.id)===selAg) : hqAgentes;
+  hqFiltrados.forEach(a=>{
     const msFiltro = selMes ? [selMes] : meses;
-    const comTotal  = msFiltro.reduce((s,m)=>s+getComisionesMes(a,m),0);
-    const basicoTot = (a.sueldoQuincenal||0)*2*msFiltro.length;
-    const bonosTot  = msFiltro.reduce((s,m)=>s+getExtra('bono',a.nombre,m),0);
-    const prestTot  = msFiltro.reduce((s,m)=>s+getExtra('prest',a.nombre,m),0);
-    const descTot   = msFiltro.reduce((s,m)=>s+getExtra('desc',a.nombre,m),0);
-    const netTotal  = comTotal+basicoTot+bonosTot+prestTot-descTot;
+    const qFiltro  = selQ ? [parseInt(selQ)] : [1,2];
+
+    // Comisiones según filtro de quincena
+    const comTotal = msFiltro.reduce((s,m)=>
+      s + qFiltro.reduce((sq,q)=>sq+getComisionesQuincena(a,m,q),0), 0);
+
+    // Básico: contar quincenas del filtro
+    const basicoTot = msFiltro.reduce((s,m)=>
+      s + qFiltro.reduce((sq,q)=>{
+        const key = getQuincenaKey(a.nombre,m,q);
+        return sq + (a.sueldoQuincenal||0);
+      },0), 0);
+
+    // Bonos/prest/desc: por quincena específica o suma del mes
+    const bonosTot = msFiltro.reduce((s,m)=>
+      s + qFiltro.reduce((sq,q)=>sq+getExtra('bono',a.nombre,m+'Q'+q),0), 0);
+    const prestTot = msFiltro.reduce((s,m)=>
+      s + qFiltro.reduce((sq,q)=>sq+getExtra('prest',a.nombre,m+'Q'+q),0), 0);
+    const descTot  = msFiltro.reduce((s,m)=>
+      s + qFiltro.reduce((sq,q)=>sq+getExtra('desc',a.nombre,m+'Q'+q),0), 0);
+    const netTotal = comTotal+basicoTot+bonosTot+prestTot-descTot;
 
     const comPs    = a.comisionesPersonales||{};
     const comDirs  = a.comisionesDirectas||{};
@@ -3824,14 +3857,20 @@ function renderHQ() {
       </div>`;
 
     // ── DESGLOSE COMISIONES POR AGENTE Y PRODUCTO ─────────────
-    const mesPara = selMes || (meses[meses.length-1]||'');
+    const mesPara  = selMes || (meses[meses.length-1]||'');
+    const qFiltroD = selQ ? [parseInt(selQ)] : [1,2];
     if(mesPara) {
       const nombreLow = a.nombre.trim().toLowerCase();
-      // Ventas de agentes supervisados
       const supervisadosLow = supervisa.map(n=>n.trim().toLowerCase());
-      const ventasSup = appData.ventas.filter(v=>v.mes===mesPara && supervisadosLow.includes((v.agente||'').trim().toLowerCase()));
-      // Ventas directas del propio gerente
-      const ventasPropias = appData.ventas.filter(v=>v.mes===mesPara && (v.agente||'').trim().toLowerCase()===nombreLow);
+      // Filtra ventas por período de pago (quincena calculada)
+      function enPeriodoHQ(v) {
+        return qFiltroD.some(q=>{
+          const pp = getPeríodoPago(v);
+          return pp.mes===mesPara && pp.q===q;
+        });
+      }
+      const ventasSup    = appData.ventas.filter(v=>supervisadosLow.includes((v.agente||'').trim().toLowerCase()) && enPeriodoHQ(v));
+      const ventasPropias= appData.ventas.filter(v=>(v.agente||'').trim().toLowerCase()===nombreLow && enPeriodoHQ(v));
 
       // Agrupar por agente → por producto
       let desglose = '';
