@@ -1799,23 +1799,31 @@ function mesStrDesdeNum(yyyy, mm) {
 //   Días 15 hasta penúltimo del mes          → Q1 del mes siguiente
 // Override manual ('1' o '2'): usa v.mes como mes de pago
 function getPeríodoPago(v) {
-  if(v.quincenaPago === '1') return { mes: v.mes, q: 1 };
-  if(v.quincenaPago === '2') return { mes: v.mes, q: 2 };
+  // Override manual: usa la fecha para calcular el mes de pago correcto,
+  // pero fuerza la quincena indicada (Q1 o Q2) dentro de ese mes de pago auto
+  if(v.quincenaPago === '1' || v.quincenaPago === '2') {
+    const autoP = getPeríodoPagoAuto(v);
+    return { mes: autoP.mes, q: parseInt(v.quincenaPago) };
+  }
 
+  return getPeríodoPagoAuto(v);
+}
+
+function getPeríodoPagoAuto(v) {
   const parts = (v.fecha||'').split('-');
   if(parts.length < 3) return { mes: v.mes, q: 2 };
   const yyyy = parseInt(parts[0]);
   const mm   = parseInt(parts[1]); // 1-12
   const dia  = parseInt(parts[2]);
 
-  const ultimoDelMes = new Date(yyyy, mm, 0).getDate(); // último día del mes de la fecha
+  const ultimoDelMes = new Date(yyyy, mm, 0).getDate();
 
   if(dia === ultimoDelMes) {
     // Último día del mes → Q2 del mes siguiente
-    const sig = new Date(yyyy, mm, 1); // 1ro del mes siguiente
+    const sig = new Date(yyyy, mm, 1);
     return { mes: mesStrDesdeNum(sig.getFullYear(), sig.getMonth()+1), q: 2 };
   } else if(dia <= 14) {
-    // Días 1–14 → Q2 del mismo mes calendario
+    // Días 1–14 → Q2 del mismo mes
     return { mes: mesStrDesdeNum(yyyy, mm), q: 2 };
   } else {
     // Días 15 al penúltimo → Q1 del mes siguiente
@@ -5726,6 +5734,21 @@ function ejecutarMigraciones() {
     });
     if(changed) guardar();
   })();
+
+  // ── Limpiar quincenaPago mal guardados (migración única) ──
+  // Borra valores '1'/'2' guardados con la lógica antigua para que el
+  // auto-cálculo por fecha tome el control correctamente en todos los registros.
+  if(!appData._mig_clearQuincenaPago_v1) {
+    let cleared = 0;
+    (appData.ventas||[]).forEach(v => {
+      if(v.quincenaPago === '1' || v.quincenaPago === '2') {
+        delete v.quincenaPago;
+        cleared++;
+      }
+    });
+    appData._mig_clearQuincenaPago_v1 = true;
+    if(cleared > 0) { guardar(); showNotif(`🔄 ${cleared} ventas ajustadas al ciclo automático de quincena`); }
+  }
 } // fin ejecutarMigraciones()
 
 // ── Migración de datos reales de Salud (borra placeholders si existen) ──
