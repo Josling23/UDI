@@ -843,7 +843,7 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group">
           <label>💳 Quincena de Pago</label>
           <select id="sc-quincena" style="border:1.5px solid #0091AE;border-radius:8px;padding:8px 10px;font-size:13px;background:#E6F7F8;font-weight:600;color:#006372">
-            <option value="">⚡ Auto: últ.día anterior + días 1-14 → Q2 · días 15-penúlt. → Q1 sig.</option>
+            <option value="">⚡ Auto: días 1-14 → Q1 · días 15-penúlt. → Q2 · últ.día → Q1 sig. mes</option>
             <option value="1">Manual: forzar Q1 de este mes</option>
             <option value="2">Manual: forzar Q2 de este mes</option>
           </select>
@@ -1099,7 +1099,7 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group" style="margin:0">
           <label>💳 Quincena de Pago</label>
           <select id="v-quincena" style="border:1.5px solid #009FDB;border-radius:8px;padding:8px 10px;font-size:13px;background:#EAF7FB;font-weight:600;color:#0057A8">
-            <option value="">⚡ Auto: últ.día anterior + días 1-14 → Q2 · días 15-penúlt. → Q1 sig.</option>
+            <option value="">⚡ Auto: días 1-14 → Q1 · días 15-penúlt. → Q2 · últ.día → Q1 sig. mes</option>
             <option value="1">Manual: forzar Q1 de este mes</option>
             <option value="2">Manual: forzar Q2 de este mes</option>
           </select>
@@ -1811,22 +1811,21 @@ function getPeríodoPago(v) {
 
 function getPeríodoPagoAuto(v) {
   const parts = (v.fecha||'').split('-');
-  if(parts.length < 3) return { mes: v.mes, q: 2 };
+  if(parts.length < 3) return { mes: v.mes, q: 1 };
   const yyyy = parseInt(parts[0]);
   const mm   = parseInt(parts[1]); // 1-12
   const dia  = parseInt(parts[2]);
 
   const ultimoDelMes = new Date(yyyy, mm, 0).getDate();
 
-  if(dia === ultimoDelMes) {
-    // Último día del mes → Q2 del mes siguiente
-    const sig = new Date(yyyy, mm, 1);
-    return { mes: mesStrDesdeNum(sig.getFullYear(), sig.getMonth()+1), q: 2 };
-  } else if(dia <= 14) {
-    // Días 1–14 → Q2 del mismo mes
+  if(dia <= 14) {
+    // Días 1–14 → Q1 del mismo mes
+    return { mes: mesStrDesdeNum(yyyy, mm), q: 1 };
+  } else if(dia < ultimoDelMes) {
+    // Días 15 al penúltimo → Q2 del mismo mes
     return { mes: mesStrDesdeNum(yyyy, mm), q: 2 };
   } else {
-    // Días 15 al penúltimo → Q1 del mes siguiente
+    // Último día del mes → Q1 del mes siguiente
     const sig = new Date(yyyy, mm, 1);
     return { mes: mesStrDesdeNum(sig.getFullYear(), sig.getMonth()+1), q: 1 };
   }
