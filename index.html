@@ -2535,10 +2535,10 @@ function guardarVenta() {
   guardar();
   console.log('Cerrando modal...');
   closeModal('modal-venta');
-  console.log('Renderizando ventas...');
-  renderVentas();
-  console.log('Renderizando dashboard...');
-  renderDashboard();
+  console.log('Re-renderizando todas las páginas...');
+  try { renderVentas(); } catch(e) { console.error('Error en renderVentas:', e); }
+  try { renderDashboard(); } catch(e) { console.error('Error en renderDashboard:', e); }
+  try { renderPagos(); } catch(e) { console.error('Error en renderPagos:', e); }
   console.log('✅ Guardado completado');
 }
 
