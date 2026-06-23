@@ -2457,10 +2457,14 @@ function guardarVenta() {
     const qty  = parseInt(document.getElementById('vl-qty-'+idx)?.value)||1;
     const com  = parseFloat(document.getElementById('vl-com-'+idx)?.value)||0;
     const nota = document.getElementById('vl-nota-'+idx)?.value?.trim()||'';
-    if(!cat || !prod) return;
+    if(!cat || !prod) {
+      console.warn(`Línea ${idx} incompleta: cat=${cat}, prod=${prod}`);
+      return;
+    }
     lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota });
   });
 
+  console.log(`Líneas a guardar: ${lineas.length}`, lineas);
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
 
   if(editVentaId !== null) {
@@ -2512,7 +2516,14 @@ function guardarVenta() {
     });
     showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
   }
-  guardar(); closeModal('modal-venta'); renderVentas(); renderDashboard();
+  console.log('Guardando ventas...');
+  guardar();
+  console.log('Cerrando modal...');
+  closeModal('modal-venta');
+  console.log('Renderizando...');
+  renderVentas();
+  renderDashboard();
+  console.log('✅ Guardado completado');
 }
 
 function ventaInlineEdit(id, field, value, prodSelect) {
