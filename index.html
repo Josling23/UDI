@@ -459,7 +459,15 @@ tr:hover td{background:#EAF0FB}
             <button onclick="document.getElementById('fv-fecha-desde').value='';document.getElementById('fv-fecha-hasta').value='';renderVentas()" title="Limpiar fechas" style="border:none;background:none;cursor:pointer;color:#99ACC2;font-size:13px;padding:0;line-height:1">✕</button>
           </div>
         </div>
-        <div style="font-size:12px;color:#7C98B6;margin-bottom:10px" id="ventas-stats"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <div style="font-size:12px;color:#7C98B6;flex:1" id="ventas-stats"></div>
+          <div style="display:flex;align-items:center;gap:6px;background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:5px 10px">
+            <span style="font-size:11px;color:#0057A8;font-weight:600">💳 Asignar quincena a filtradas:</span>
+            <button onclick="asignarQuincenaFiltradas(1)" style="background:#009FDB;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer">Q1</button>
+            <button onclick="asignarQuincenaFiltradas(2)" style="background:#00BDA5;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer">Q2</button>
+            <button onclick="asignarQuincenaFiltradas('')" style="background:#F5F8FA;color:#7C98B6;border:1px solid #CBD6E2;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" title="Volver a automático por fecha">⚡ Auto</button>
+          </div>
+        </div>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th>Notas</th><th>Acc.</th></tr></thead>
@@ -1982,6 +1990,32 @@ function renderDashboard() {
 // VENTAS
 // ============================================================
 let editVentaId = null;
+
+// Asigna quincenaPago a todas las ventas que coincidan con los filtros activos
+function asignarQuincenaFiltradas(q) {
+  const fCat   = document.getElementById('fv-cat')?.value||'';
+  const fAg    = document.getElementById('fv-agente')?.value||'';
+  const fMes   = document.getElementById('fv-mes')?.value||'';
+  const fSearch= (document.getElementById('fv-search')?.value||'').toLowerCase();
+  const fDesde = document.getElementById('fv-fecha-desde')?.value||'';
+  const fHasta = document.getElementById('fv-fecha-hasta')?.value||'';
+  const qStr   = q===''?'':String(q);
+  let count = 0;
+  appData.ventas.forEach(v=>{
+    if(fCat && v.categoria!==fCat) return;
+    if(fAg && v.agente!==fAg) return;
+    if(fMes && v.mes!==fMes) return;
+    if(fDesde && v.fecha<fDesde) return;
+    if(fHasta && v.fecha>fHasta) return;
+    if(fSearch && !`${v.cliente} ${v.agente} ${v.productoId}`.toLowerCase().includes(fSearch)) return;
+    v.quincenaPago = qStr;
+    count++;
+  });
+  if(count===0) { showNotif('⚠️ Ninguna venta coincide con los filtros','error'); return; }
+  guardar();
+  renderVentas();
+  showNotif(`✅ ${count} venta${count>1?'s':''} asignada${count>1?'s':''} a ${qStr?'Q'+qStr:'Auto (por fecha)'}`);
+}
 
 function renderVentas() {
   populateAgente('fv-agente');
