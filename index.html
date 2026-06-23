@@ -2494,33 +2494,40 @@ function guardarVenta() {
     }
     showNotif('✅ Venta actualizada');
   } else {
-    // Nueva: crear un registro por cada línea + registro de grabación si aplica
+    // Nueva: crear un registro por cada línea + UN SOLO registro de grabación para la primera línea
     let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
     console.log('MaxId inicial:', maxId);
+    let firstVentaId = null;
     lineas.forEach((l, idx)=>{
       maxId++;
       const newId = maxId;
+      // Solo la primera venta (idx=0) lleva los datos de grabación
       const ventaObj = { id:newId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
-        llamadaGrabada, agenteGrabacion, comisionGrabacion,
+        llamadaGrabada: idx === 0 ? llamadaGrabada : false,
+        agenteGrabacion: idx === 0 ? agenteGrabacion : '',
+        comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision };
       console.log(`Agregando venta ${idx+1}:`, ventaObj);
       appData.ventas.push(ventaObj);
       console.log(`Total ventas ahora: ${appData.ventas.length}`);
 
-      // Auto-crear registro de grabación para el agente grabador
-      if(llamadaGrabada && agenteGrabacion) {
-        maxId++;
-        const grabId = maxId;
-        const comGrab = parseFloat(comisionGrabacion)||0;
-        const grabObj = { id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
-          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
-          notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:newId };
-        console.log('Agregando grabación:', grabObj);
-        appData.ventas.push(grabObj);
-        showNotif(`📞 Grabación registrada para ${agenteGrabacion} — Comisión: $${fmt(comGrab)}`);
-      }
+      // Recordar el ID de la primera venta para la grabación
+      if(idx === 0) firstVentaId = newId;
     });
+
+    // Auto-crear registro de grabación SOLO SI hay grabación Y es la primera línea
+    if(llamadaGrabada && agenteGrabacion && firstVentaId) {
+      maxId++;
+      const grabId = maxId;
+      const comGrab = parseFloat(comisionGrabacion)||0;
+      const grabObj = { id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
+        productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
+        notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:firstVentaId };
+      console.log('Agregando grabación:', grabObj);
+      appData.ventas.push(grabObj);
+      showNotif(`📞 Grabación registrada para ${agenteGrabacion} — Comisión: $${fmt(comGrab)}`);
+    }
     showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
   }
   console.log('Estado final de appData.ventas:', appData.ventas.length, 'registros');
