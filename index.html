@@ -2909,6 +2909,26 @@ function pendInput(agente, mes, q) {
     onfocus="this.style.borderColor='#D4A017'" onblur="this.style.borderColor='#F5C26B'">`;
 }
 
+// DEBUG temporal — llámala desde la consola del navegador:
+// debugQuincena('Claudia', 'Junio 2026', 2)
+window.debugQuincena = function(nombreAgente, mes, q) {
+  const nombreLow = nombreAgente.trim().toLowerCase();
+  const todas = appData.ventas.filter(v=>(v.agente||'').trim().toLowerCase()===nombreLow);
+  console.group(`🔍 Debug quincena: ${nombreAgente} | ${mes} Q${q}`);
+  console.log(`Total ventas del agente: ${todas.length}`);
+  let suma = 0;
+  todas.forEach(v => {
+    const pp = getPeríodoPago(v);
+    const match = pp.mes===mes && pp.q===q;
+    const com = (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1);
+    if(match) suma += com;
+    console.log(`${match?'✅':'❌'} fecha:${v.fecha} mes:${v.mes} prod:${v.productoId} com:${v.comision} qty:${v.cantidad} → pago:[${pp.mes} Q${pp.q}] total:$${com} qPago:${v.quincenaPago||'auto'}`);
+  });
+  console.log(`SUMA TOTAL para ${mes} Q${q}: $${suma}`);
+  console.groupEnd();
+  return suma;
+};
+
 function renderPagos() {
   const meses = getMeses();
   // Populate filter dropdowns
