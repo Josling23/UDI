@@ -2491,15 +2491,18 @@ function guardarVenta() {
     showNotif('✅ Venta actualizada');
   } else {
     // Nueva: crear un registro por cada línea + registro de grabación si aplica
+    let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
     lineas.forEach(l=>{
-      const newId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
+      maxId++;
+      const newId = maxId;
       appData.ventas.push({ id:newId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
         llamadaGrabada, agenteGrabacion, comisionGrabacion,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
       // Auto-crear registro de grabación para el agente grabador
       if(llamadaGrabada && agenteGrabacion) {
-        const grabId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
+        maxId++;
+        const grabId = maxId;
         const comGrab = parseFloat(comisionGrabacion)||0;
         appData.ventas.push({ id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
           productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
