@@ -1876,8 +1876,13 @@ function getComisionesQuincena(a, mes, q) {
     .reduce((s,v)=>{
       const qty = parseFloat(v.cantidad)||1;
       const stored = parseFloat(v.comision);
-      const rate = (stored > 0) ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
-      return s + rate * qty;
+      // Para grabaciones y otros productos especiales, SIEMPRE usar v.comision
+      // Si es grabacion o no hay comisión almacenada, fallback a tasa del catálogo
+      let rate = stored;
+      if(rate <= 0 && v.productoId !== 'grabacion') {
+        rate = getComisionDirectaAgente(v.productoId, a.nombre);
+      }
+      return s + Math.max(rate, 0) * qty;
     }, 0);
 
   // Gerentes/supervisores: comisión de supervisión sobre ventas (NO grabaciones) de agentes a cargo
