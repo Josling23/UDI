@@ -462,7 +462,7 @@ tr:hover td{background:#EAF0FB}
         <div style="font-size:12px;color:#7C98B6;margin-bottom:10px" id="ventas-stats"></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>Notas</th><th>Acc.</th></tr></thead>
+            <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th>Notas</th><th>Acc.</th></tr></thead>
             <tbody id="ventas-body"></tbody>
           </table>
         </div>
@@ -832,6 +832,14 @@ tr:hover td{background:#EAF0FB}
           </select>
         </div>
         <div class="form-group"><label>Mes de Registro</label><select id="sc-mes"></select></div>
+        <div class="form-group">
+          <label>💳 Quincena de Pago</label>
+          <select id="sc-quincena" style="border:1.5px solid #0091AE;border-radius:8px;padding:8px 10px;font-size:13px;background:#E6F7F8;font-weight:600;color:#006372">
+            <option value="">⚡ Auto (por fecha)</option>
+            <option value="1">Q1 — Días 1 al 15</option>
+            <option value="2">Q2 — Días 16 al 31</option>
+          </select>
+        </div>
         <div class="form-group"><label>Campaña Origen</label><select id="sc-campana"><option value="">Ninguna / Orgánico</option></select></div>
         <div class="form-group"><label>Com. Agente ($)</label><input type="number" id="sc-com-agente" placeholder="8.00" step="0.01" min="0" value="8" oninput="saludUpdateComPreview()"></div>
       </div>
@@ -1071,7 +1079,7 @@ tr:hover td{background:#EAF0FB}
     </div>
     <div class="modal-body">
       <!-- Info del cliente + header -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
         <div class="form-group" style="margin:0">
           <label>Fecha *</label>
           <input type="date" id="v-fecha" onchange="updateVentaTotal()">
@@ -1079,6 +1087,14 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group" style="margin:0">
           <label>Agente *</label>
           <select id="v-agente" onchange="updateVentaTotal()"></select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>💳 Quincena de Pago</label>
+          <select id="v-quincena" style="border:1.5px solid #009FDB;border-radius:8px;padding:8px 10px;font-size:13px;background:#EAF7FB;font-weight:600;color:#0057A8">
+            <option value="">⚡ Auto (por fecha)</option>
+            <option value="1">Q1 — Días 1 al 15</option>
+            <option value="2">Q2 — Días 16 al 31</option>
+          </select>
         </div>
       </div>
       <!-- Cliente con autocomplete -->
@@ -1758,20 +1774,23 @@ function getMeses() { return appData.meses || []; }
 // Comisiones de una quincena específica según fecha de las ventas (Q1=días 1-15, Q2=días 16-31)
 function getComisionesQuincena(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
-  function enQ(fecha) {
-    const dia = parseInt((fecha||'').split('-')[2]||'0');
+  // Determina si una venta pertenece a esta quincena:
+  // Si tiene quincenaPago explícito lo usa; si no, lo determina por la fecha
+  function enPeriodo(v) {
+    if(v.quincenaPago) return parseInt(v.quincenaPago) === q;
+    const dia = parseInt((v.fecha||'').split('-')[2]||'0');
     return q===1 ? (dia>=1 && dia<=15) : dia>=16;
   }
   // Usa v.comision directamente (ya fue calculada y guardada al registrar la venta)
   const propias = appData.ventas
-    .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow && enQ(v.fecha))
+    .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow && enPeriodo(v))
     .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
   // Gerentes/supervisores: comisión de supervisión sobre ventas de agentes a cargo
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
     const deAgentes = sups.length
       ? appData.ventas
-          .filter(v=>v.mes===mes && sups.includes((v.agente||'').trim().toLowerCase()) && enQ(v.fecha))
+          .filter(v=>v.mes===mes && sups.includes((v.agente||'').trim().toLowerCase()) && enPeriodo(v))
           .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
     return propias + deAgentes;
@@ -2012,6 +2031,14 @@ function renderVentas() {
     <td>${v.cliente||'—'}</td>
     <td style="color:#7C98B6">${v.cuenta||'—'}</td>
     <td>${v.mes}</td>
+    <td style="min-width:90px">
+      <select style="${iSty};width:88px;background:${v.quincenaPago?'#EAF7FB':'#fff'};font-weight:600;color:#0057A8"
+        onchange="ventaInlineEdit(${v.id},'quincenaPago',this.value)">
+        <option value="" ${!v.quincenaPago?'selected':''}>⚡ Auto</option>
+        <option value="1" ${v.quincenaPago==='1'?'selected':''}>Q1</option>
+        <option value="2" ${v.quincenaPago==='2'?'selected':''}>Q2</option>
+      </select>
+    </td>
     <td style="color:#7C98B6;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${v.notas||''}">${v.notas||'—'}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-xs" onclick="openVentaModal(${v.id})">✏️</button>
@@ -2168,6 +2195,7 @@ function openVentaModal(id=null) {
     document.getElementById('v-mes').value = v.mes;
     document.getElementById('v-campana').value = v.campana||'';
     document.getElementById('v-notas').value = v.notas||'';
+    document.getElementById('v-quincena').value = v.quincenaPago||'';
     agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision });
   } else {
     document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
@@ -2177,6 +2205,7 @@ function openVentaModal(id=null) {
     const ms = getMeses(); document.getElementById('v-mes').value = ms[ms.length-1]||'';
     document.getElementById('v-campana').value = '';
     document.getElementById('v-notas').value = '';
+    document.getElementById('v-quincena').value = '';
     agregarLineaVenta();
   }
   updateVentaTotal();
@@ -2189,13 +2218,14 @@ function onProductoChange() {}
 function updateVentaPreview() {}
 
 function guardarVenta() {
-  const agente  = document.getElementById('v-agente').value;
-  const fecha   = document.getElementById('v-fecha').value;
-  const cliente = document.getElementById('v-cliente').value.trim();
-  const cuenta  = document.getElementById('v-cuenta').value.trim();
-  const mes     = document.getElementById('v-mes').value;
-  const campana = document.getElementById('v-campana').value;
-  const notas   = document.getElementById('v-notas').value.trim();
+  const agente      = document.getElementById('v-agente').value;
+  const fecha       = document.getElementById('v-fecha').value;
+  const cliente     = document.getElementById('v-cliente').value.trim();
+  const cuenta      = document.getElementById('v-cuenta').value.trim();
+  const mes         = document.getElementById('v-mes').value;
+  const campana     = document.getElementById('v-campana').value;
+  const notas       = document.getElementById('v-notas').value.trim();
+  const quincenaPago = document.getElementById('v-quincena').value; // '1', '2', or '' (auto)
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
 
   // Recoger todas las líneas
@@ -2217,7 +2247,7 @@ function guardarVenta() {
     // Edit: update solo la primera línea (una venta = un producto al editar)
     const v = appData.ventas.find(x=>x.id===editVentaId);
     const l = lineas[0];
-    Object.assign(v, { fecha, agente, cliente, cuenta, mes, campana,
+    Object.assign(v, { fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
       notas: l.notaLinea || notas,
       productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
     showNotif('✅ Venta actualizada');
@@ -2225,7 +2255,7 @@ function guardarVenta() {
     // Nueva: crear un registro por cada línea
     lineas.forEach(l=>{
       const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
-      appData.ventas.push({ id:maxId+1, fecha, agente, cliente, cuenta, mes, campana,
+      appData.ventas.push({ id:maxId+1, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
     });
@@ -2254,6 +2284,8 @@ function ventaInlineEdit(id, field, value, prodSelect) {
     v.comision = value;
     const totalEl = document.getElementById('vrow-total-'+id);
     if(totalEl) totalEl.textContent = fmt(value * v.cantidad);
+  } else if(field==='quincenaPago') {
+    v.quincenaPago = value; // '1', '2', or ''
   }
   guardar();
   showNotif('✅ Venta actualizada');
@@ -4497,6 +4529,7 @@ function saludOpenClienteModal(id=null) {
     document.getElementById('sc-fecha-efectiva').value = c.fechaEfectiva||'';
     document.getElementById('sc-estado').value = c.estado;
     document.getElementById('sc-mes').value = c.mes;
+    document.getElementById('sc-quincena').value = c.quincenaPago||'';
     document.getElementById('sc-campana').value = c.campana||'';
     document.getElementById('sc-notas').value = c.notas||'';
   } else {
@@ -4514,6 +4547,7 @@ function saludOpenClienteModal(id=null) {
     document.getElementById('sc-estado').value='activo';
     const meses = getSaludMeses();
     document.getElementById('sc-mes').value = meses[meses.length-1]||'';
+    document.getElementById('sc-quincena').value='';
     document.getElementById('sc-campana').value='';
     document.getElementById('sc-notas').value='';
   }
@@ -4573,6 +4607,7 @@ function saludGuardarCliente() {
     fechaEfectiva: document.getElementById('sc-fecha-efectiva').value,
     estado: document.getElementById('sc-estado').value,
     mes:    document.getElementById('sc-mes').value,
+    quincenaPago: document.getElementById('sc-quincena').value,
     campana: document.getElementById('sc-campana').value,
     notas:  document.getElementById('sc-notas').value.trim()
   };
@@ -5151,10 +5186,18 @@ function saludRenderPagos() {
       const q1key=saludGetQuincenaKey(a.nombre,mes,1); const q2key=saludGetQuincenaKey(a.nombre,mes,2);
       const q1=saludData.quincenas[q1key]; const q2=saludData.quincenas[q2key];
       const vMes=ventasAgente.filter(c=>c.mes===mes);
-      const comMes=vMes.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
+      // Separar comisiones por quincena (usa quincenaPago si existe, sino determina por fecha)
+      function clienteEnQ(c, q) {
+        if(c.quincenaPago) return parseInt(c.quincenaPago)===q;
+        const dia=parseInt((c.fecha||'').split('-')[2]||'1');
+        return q===1 ? dia<=15 : dia>15;
+      }
+      const comQ1=vMes.filter(c=>clienteEnQ(c,1)).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
+      const comQ2=vMes.filter(c=>clienteEnQ(c,2)).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
+      const comMes=comQ1+comQ2;
       const comMesPag=vMes.filter(c=>c.comAgentePagada).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
       const sueldoMes=(q1?a.sueldoQuincenal:0)+(q2?a.sueldoQuincenal:0);
-      return { mes, q1, q2, sueldoMes, sueldoPend:a.sueldoQuincenal*2-sueldoMes, comMes, comMesPag, vMes:vMes.length };
+      return { mes, q1, q2, sueldoMes, sueldoPend:a.sueldoQuincenal*2-sueldoMes, comMes, comQ1, comQ2, comMesPag, vMes:vMes.length };
     });
     return `<div class="section" style="margin-bottom:20px">
       <div class="section-header">
@@ -5165,20 +5208,30 @@ function saludRenderPagos() {
         </div>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Mes</th><th style="text-align:center">1ra Quincena</th><th style="text-align:center">📅 Fecha Q1</th><th style="text-align:center">2da Quincena</th><th style="text-align:center">📅 Fecha Q2</th><th>Sueldo Mes</th><th>Pendiente</th><th>Ventas</th><th>Com. Mes</th><th>Com. Pend.</th></tr></thead>
+        <thead><tr>
+          <th>Mes</th>
+          <th style="text-align:center">💳 1ra Quincena</th><th style="text-align:center">📅 Fecha Q1</th>
+          <th style="text-align:center">💳 2da Quincena</th><th style="text-align:center">📅 Fecha Q2</th>
+          <th style="text-align:right">🏠 Sueldo</th><th style="text-align:right">Com. Q1</th><th style="text-align:right">Com. Q2</th>
+          <th style="text-align:right">💰 Total Q1</th><th style="text-align:right">💰 Total Q2</th>
+          <th style="text-align:right">Pend. Sueldo</th>
+        </tr></thead>
         <tbody>${filasMeses.map(f=>{
           const danger=f.sueldoPend>0;
+          const totalQ1=(f.q1?a.sueldoQuincenal:0)+f.comQ1;
+          const totalQ2=(f.q2?a.sueldoQuincenal:0)+f.comQ2;
           return `<tr style="${danger?'background:rgba(239,68,68,0.05)':''}">
             <td style="font-weight:700">${f.mes}</td>
             <td style="text-align:center"><button class="toggle-btn ${f.q1?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${a.nombre}','${f.mes}',1,${a.sueldoQuincenal})">${f.q1?`✅ PAGADO<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`:`⏳ PEND.<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`}</button></td>
             <td style="text-align:center"><input type="date" style="background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.q1?.fecha||''}" ${!f.q1?'disabled':''} onchange="saludSetQuincenaFecha('${a.nombre}','${f.mes}',1,this.value)"></td>
             <td style="text-align:center"><button class="toggle-btn ${f.q2?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${a.nombre}','${f.mes}',2,${a.sueldoQuincenal})">${f.q2?`✅ PAGADO<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`:`⏳ PEND.<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`}</button></td>
             <td style="text-align:center"><input type="date" style="background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.q2?.fecha||''}" ${!f.q2?'disabled':''} onchange="saludSetQuincenaFecha('${a.nombre}','${f.mes}',2,this.value)"></td>
-            <td style="color:#0091AE;font-weight:700">${fmt(f.sueldoMes)}</td>
-            <td style="color:${f.sueldoPend>0?'#ef4444':'#22c55e'};font-weight:700">${f.sueldoPend>0?fmt(f.sueldoPend):'✅'}</td>
-            <td style="color:#0091AE">${f.vMes}</td>
-            <td style="color:#6A78D1">${fmt(f.comMes)}</td>
-            <td style="color:${f.comMes-f.comMesPag>0?'#f97316':'#22c55e'}">${f.comMes-f.comMesPag>0?fmt(f.comMes-f.comMesPag):'✅'}</td>
+            <td style="color:#0091AE;font-weight:700;text-align:right">${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal)+'/q':'—'}</td>
+            <td style="color:#6A78D1;font-weight:700;text-align:right">${f.comQ1>0?fmt(f.comQ1):'—'}</td>
+            <td style="color:#6A78D1;font-weight:700;text-align:right">${f.comQ2>0?fmt(f.comQ2):'—'}</td>
+            <td style="font-weight:800;text-align:right;background:#F0FDF4;border-radius:6px;color:#059669">${totalQ1>0?fmt(totalQ1):'—'}</td>
+            <td style="font-weight:800;text-align:right;background:#F0FDF4;border-radius:6px;color:#059669">${totalQ2>0?fmt(totalQ2):'—'}</td>
+            <td style="color:${f.sueldoPend>0?'#ef4444':'#22c55e'};font-weight:700;text-align:right">${f.sueldoPend>0?fmt(f.sueldoPend):'✅'}</td>
           </tr>`;
         }).join('')}
         </tbody></table></div>
