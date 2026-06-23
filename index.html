@@ -470,7 +470,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th>Notas</th><th>Acc.</th></tr></thead>
+            <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th>📞 Grabación</th><th>Notas</th><th>Acc.</th></tr></thead>
             <tbody id="ventas-body"></tbody>
           </table>
         </div>
@@ -1142,6 +1142,29 @@ tr:hover td{background:#EAF0FB}
         <button onclick="agregarLineaVenta()" style="background:#009FDB;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar producto</button>
       </div>
       <div id="v-lineas-container"></div>
+
+      <!-- Llamada grabada -->
+      <div style="border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 14px;margin-top:12px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:0" id="v-grab-header">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#33475B;margin:0">
+            <input type="checkbox" id="v-llamada-grabada" onchange="toggleGrabacion()"
+              style="width:16px;height:16px;cursor:pointer;accent-color:#6A78D1">
+            📞 Llamada grabada
+          </label>
+          <span style="font-size:11px;color:#99ACC2">La comisión va al agente que grabó, aparte de la venta</span>
+        </div>
+        <div id="v-grab-fields" style="display:none;margin-top:10px;display:none;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group" style="margin:0">
+            <label>🎙️ Agente que grabó</label>
+            <select id="v-agente-grabacion" style="border:1.5px solid #6A78D1;border-radius:8px;padding:8px 10px;font-size:13px;background:#F4F5FF;font-weight:600;color:#33475B"></select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>💵 Comisión por grabación ($)</label>
+            <input type="number" id="v-comision-grabacion" min="0" step="0.01" placeholder="0.00"
+              style="border:1.5px solid #6A78D1;border-radius:8px;padding:8px 10px;font-size:13px;background:#F4F5FF;font-weight:600;color:#33475B;width:100%;box-sizing:border-box">
+          </div>
+        </div>
+      </div>
 
       <!-- Total -->
       <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
@@ -1852,6 +1875,16 @@ function getComisionesQuincena(a, mes, q) {
       const rate = (stored > 0) ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
       return s + rate * qty;
     }, 0);
+  // Comisiones por grabación de llamadas (cualquier agente puede tenerlas)
+  const grabaciones = appData.ventas
+    .filter(v=>{
+      if(!v.llamadaGrabada || !v.agenteGrabacion) return false;
+      if((v.agenteGrabacion||'').trim().toLowerCase() !== nombreLow) return false;
+      const pp = getPeríodoPago(v);
+      return pp.mes === mes && pp.q === q;
+    })
+    .reduce((s,v)=>s + (parseFloat(v.comisionGrabacion)||0), 0);
+
   // Gerentes/supervisores: comisión de supervisión sobre ventas de agentes a cargo
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
@@ -1862,9 +1895,9 @@ function getComisionesQuincena(a, mes, q) {
           return pp.mes === mes && pp.q === q;
         }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
-    return propias + deAgentes;
+    return propias + deAgentes + grabaciones;
   }
-  return propias;
+  return propias + grabaciones;
 }
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
@@ -2134,6 +2167,14 @@ function renderVentas() {
         <option value="2" ${v.quincenaPago==='2'?'selected':''}>Manual Q2</option>
       </select>
     </td>
+    <td style="min-width:110px;font-size:11px">
+      ${v.llamadaGrabada && v.agenteGrabacion
+        ? `<div style="background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:3px 7px;color:#33475B">
+            🎙️ <b>${v.agenteGrabacion}</b><br>
+            <span style="color:#6A78D1;font-weight:700">${fmt(v.comisionGrabacion||0)}</span>
+           </div>`
+        : `<span style="color:#CBD6E2">—</span>`}
+    </td>
     <td style="color:#7C98B6;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${v.notas||''}">${v.notas||'—'}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-xs" onclick="openVentaModal(${v.id})">✏️</button>
@@ -2270,6 +2311,20 @@ function seleccionarClienteExistente(nombre, cuenta, agente, campana, mes) {
   if(mes) document.getElementById('v-mes').value = mes;
 }
 
+function toggleGrabacion() {
+  const checked = document.getElementById('v-llamada-grabada').checked;
+  const fields = document.getElementById('v-grab-fields');
+  fields.style.display = checked ? 'grid' : 'none';
+}
+
+function populateAgenteGrabacion() {
+  const sel = document.getElementById('v-agente-grabacion');
+  if(!sel) return;
+  const agentes = appData.agentes.filter(a=>!a.soloHQ && a.activo!==false);
+  sel.innerHTML = '<option value="">— Sin agente —</option>' +
+    agentes.map(a=>`<option value="${a.nombre}">${a.nombre}</option>`).join('');
+}
+
 function openVentaModal(id=null) {
   editVentaId = id;
   document.getElementById('modal-venta-title').textContent = id ? '✏️ Editar Venta' : '➕ Nueva Venta';
@@ -2277,6 +2332,7 @@ function openVentaModal(id=null) {
   populateMes('v-mes', false);
   document.getElementById('v-campana').innerHTML = '<option value="">— Sin campaña / Orgánico —</option>' +
     (appData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  populateAgenteGrabacion();
   document.getElementById('v-lineas-container').innerHTML = '';
   _lineaCount = 0;
 
@@ -2291,6 +2347,10 @@ function openVentaModal(id=null) {
     document.getElementById('v-campana').value = v.campana||'';
     document.getElementById('v-notas').value = v.notas||'';
     document.getElementById('v-quincena').value = v.quincenaPago||'';
+    document.getElementById('v-llamada-grabada').checked = !!v.llamadaGrabada;
+    document.getElementById('v-agente-grabacion').value = v.agenteGrabacion||'';
+    document.getElementById('v-comision-grabacion').value = v.comisionGrabacion||'';
+    document.getElementById('v-grab-fields').style.display = v.llamadaGrabada ? 'grid' : 'none';
     agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision });
   } else {
     document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
@@ -2301,6 +2361,10 @@ function openVentaModal(id=null) {
     document.getElementById('v-campana').value = '';
     document.getElementById('v-notas').value = '';
     document.getElementById('v-quincena').value = '';
+    document.getElementById('v-llamada-grabada').checked = false;
+    document.getElementById('v-agente-grabacion').value = '';
+    document.getElementById('v-comision-grabacion').value = '';
+    document.getElementById('v-grab-fields').style.display = 'none';
     agregarLineaVenta();
   }
   updateVentaTotal();
@@ -2320,8 +2384,12 @@ function guardarVenta() {
   const mes         = document.getElementById('v-mes').value;
   const campana     = document.getElementById('v-campana').value;
   const notas       = document.getElementById('v-notas').value.trim();
-  const quincenaPago = document.getElementById('v-quincena').value; // '1', '2', or '' (auto)
+  const quincenaPago     = document.getElementById('v-quincena').value;
+  const llamadaGrabada   = document.getElementById('v-llamada-grabada').checked;
+  const agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'') : '';
+  const comisionGrabacion= llamadaGrabada ? (parseFloat(document.getElementById('v-comision-grabacion').value)||0) : 0;
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
+  if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Selecciona el agente que grabó la llamada','error'); return; }
 
   // Recoger todas las líneas
   const lineas = [];
@@ -2343,6 +2411,7 @@ function guardarVenta() {
     const v = appData.ventas.find(x=>x.id===editVentaId);
     const l = lineas[0];
     Object.assign(v, { fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
+      llamadaGrabada, agenteGrabacion, comisionGrabacion,
       notas: l.notaLinea || notas,
       productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
     showNotif('✅ Venta actualizada');
@@ -2351,6 +2420,7 @@ function guardarVenta() {
     lineas.forEach(l=>{
       const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
       appData.ventas.push({ id:maxId+1, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
+        llamadaGrabada, agenteGrabacion, comisionGrabacion,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
     });
@@ -3000,7 +3070,7 @@ function renderPagos() {
         <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${pagado?'#D1FAE5':'#FFF3EE'};color:${pagado?'#059669':'#FF7A59'}">${pagado?'✅ Pagado':'⏳ Pendiente'}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;font-size:11px">
-        <div style="color:#7C98B6">Comisiones</div><div style="text-align:right;font-weight:600;color:#009FDB">${fmt(comQ)}</div>
+        <div style="color:#7C98B6">Comisiones ventas</div><div style="text-align:right;font-weight:600;color:#009FDB">${fmt(comQ)}</div>
         ${basico>0?`<div style="color:#7C98B6">Básico</div><div style="text-align:right;font-weight:600;color:#33475B">${fmt(basico)}</div>`:''}
         ${deAnt>0?`<div style="color:#D4A017">De Q.Ant.</div><div style="text-align:right;font-weight:600;color:#D4A017">+${fmt(deAnt)}</div>`:''}
         ${bonos>0?`<div style="color:#6A78D1">Bonos</div><div style="text-align:right;font-weight:600;color:#6A78D1">+${fmt(bonos)}</div>`:''}
@@ -3046,6 +3116,15 @@ function renderPagos() {
         const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
         const prev    = getPrevQuincena(meses, mes, q);
         const deAnt   = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
+        // Grabaciones: ventas donde este agente grabó la llamada en este período
+        const grabRows = appData.ventas.filter(v=>{
+          if(!v.llamadaGrabada || !v.agenteGrabacion) return false;
+          if((v.agenteGrabacion||'').trim().toLowerCase() !== nombreLow) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===mes && pp.q===q;
+        });
+        const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comisionGrabacion)||0),0);
+
         const subTotal= comQ + basico + bonos + prestamo + deAnt;
         const total   = subTotal - desc;
 
@@ -3055,11 +3134,18 @@ function renderPagos() {
           ? `<span style="font-weight:700;color:#D4A017;background:#FFFBE8;border-radius:5px;padding:2px 6px;font-size:11px">+${fmt(deAnt)}</span>`
           : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
 
+        const grabCell = comGrab>0
+          ? `<div style="background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:3px 7px;font-size:11px">
+              📞 <b style="color:#6A78D1">${fmt(comGrab)}</b>
+              <div style="color:#99ACC2;font-size:10px">${grabRows.map(v=>v.cliente||v.productoId).join(', ')}</div>
+             </div>`
+          : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
+
         // Breakdown tooltip
-        const breakStr = `Comisiones: ${fmt(comQ)}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
+        const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' | Grabaciones: '+fmt(comGrab):''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
         return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
-          <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–15)':'(días 16–31)'}</span></td>
+          <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–14)':'(días 15–penúlt.)'}</span></td>
           <td>
             <button class="q-btn ${pagado?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',${q});renderPagos()">
               ${pagado?'✅':'⏳'} Q${q}
@@ -3070,6 +3156,7 @@ function renderPagos() {
           <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00')}</td>
           <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00')}</td>
           <td style="text-align:right">${deAntCell}</td>
+          <td style="text-align:right">${grabCell}</td>
           <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00')}</td>
           <td title="${breakStr}" style="font-weight:800;font-size:14px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'};background:${total>=0?'#F0FDF4':'#FEF2F2'};border-radius:6px;padding:4px 8px;cursor:help">${fmt(total)}</td>
           <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
@@ -3101,6 +3188,7 @@ function renderPagos() {
           <th style="text-align:right">🎁 Bonos</th>
           <th style="text-align:right">💵 Préstamos</th>
           <th style="text-align:right">🔄 De Q.Ant.</th>
+          <th style="text-align:right">📞 Grabaciones</th>
           <th style="text-align:right">➖ Descuento</th>
           <th style="text-align:right">💰 TOTAL A PAGAR</th>
           <th style="text-align:right">⏩ Pend.→Sig.</th>
