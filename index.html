@@ -6090,6 +6090,25 @@ function ejecutarMigraciones() {
     appData._mig_clearQuincenaPago_v1 = true;
     if(cleared > 0) { guardar(); showNotif(`🔄 ${cleared} ventas ajustadas al ciclo automático de quincena`); }
   }
+
+  // Migración: convertir _esGrabacion a esGrabacion y _refVentaId a refVentaId
+  if(!appData._mig_grabacionPropsV1) {
+    let converted = 0;
+    (appData.ventas||[]).forEach(v => {
+      if(v._esGrabacion) {
+        v.esGrabacion = v._esGrabacion;
+        delete v._esGrabacion;
+        converted++;
+      }
+      if(v._refVentaId) {
+        v.refVentaId = v._refVentaId;
+        delete v._refVentaId;
+        converted++;
+      }
+    });
+    appData._mig_grabacionPropsV1 = true;
+    if(converted > 0) { guardar(); showNotif(`📞 ${Math.floor(converted/2)} grabaciones migradas a nuevo formato`); }
+  }
 } // fin ejecutarMigraciones()
 
 // ── Migración de datos reales de Salud (borra placeholders si existen) ──
