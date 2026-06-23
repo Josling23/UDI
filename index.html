@@ -461,7 +461,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
           <div style="font-size:12px;color:#7C98B6;flex:1" id="ventas-stats"></div>
-          <div style="display:flex;align-items:center;gap:6px;background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:5px 10px" title="Auto: días 1-14 se pagan en Q2 del mismo mes · días 15+ se pagan en Q1 del mes siguiente">
+          <div style="display:flex;align-items:center;gap:6px;background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:5px 10px" title="Auto: último día del mes ant. + días 1-14 → Q2 del mes | días 15 al penúltimo → Q1 del mes siguiente">
             <span style="font-size:11px;color:#0057A8;font-weight:600">💳 Excepción quincena filtradas:</span>
             <button onclick="asignarQuincenaFiltradas(1)" style="background:#009FDB;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer" title="Forzar pago en Q1 de este mes">Forzar Q1</button>
             <button onclick="asignarQuincenaFiltradas(2)" style="background:#00BDA5;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer" title="Forzar pago en Q2 de este mes">Forzar Q2</button>
@@ -843,9 +843,9 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group">
           <label>💳 Quincena de Pago</label>
           <select id="sc-quincena" style="border:1.5px solid #0091AE;border-radius:8px;padding:8px 10px;font-size:13px;background:#E6F7F8;font-weight:600;color:#006372">
-            <option value="">⚡ Auto: días 1-14 → Q2 / días 15+ → Q1 sig. mes</option>
-            <option value="1">Manual: pagar en Q1 de este mes</option>
-            <option value="2">Manual: pagar en Q2 de este mes</option>
+            <option value="">⚡ Auto: últ.día anterior + días 1-14 → Q2 · días 15-penúlt. → Q1 sig.</option>
+            <option value="1">Manual: forzar Q1 de este mes</option>
+            <option value="2">Manual: forzar Q2 de este mes</option>
           </select>
         </div>
         <div class="form-group"><label>Campaña Origen</label><select id="sc-campana"><option value="">Ninguna / Orgánico</option></select></div>
@@ -1099,9 +1099,9 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group" style="margin:0">
           <label>💳 Quincena de Pago</label>
           <select id="v-quincena" style="border:1.5px solid #009FDB;border-radius:8px;padding:8px 10px;font-size:13px;background:#EAF7FB;font-weight:600;color:#0057A8">
-            <option value="">⚡ Auto: días 1-14 → Q2 / días 15+ → Q1 sig. mes</option>
-            <option value="1">Manual: pagar en Q1 de este mes</option>
-            <option value="2">Manual: pagar en Q2 de este mes</option>
+            <option value="">⚡ Auto: últ.día anterior + días 1-14 → Q2 · días 15-penúlt. → Q1 sig.</option>
+            <option value="1">Manual: forzar Q1 de este mes</option>
+            <option value="2">Manual: forzar Q2 de este mes</option>
           </select>
         </div>
       </div>
@@ -1780,7 +1780,7 @@ function getComisionesMes(a, mes) {
 function getMeses() { return appData.meses || []; }
 
 // Comisiones de una quincena específica según fecha de las ventas (Q1=días 1-15, Q2=días 16-31)
-// Dado un mes "Junio 2026", devuelve el siguiente "Julio 2026"
+// Dado "Junio 2026" devuelve "Julio 2026"
 function siguienteMes(mesStr) {
   const parts = (mesStr||'').split(' ');
   const idx = MESES_ES.indexOf(parts[0]);
@@ -1789,17 +1789,39 @@ function siguienteMes(mesStr) {
   if(idx === 11) return `Enero ${año+1}`;
   return `${MESES_ES[idx+1]} ${año}`;
 }
+// Convierte "2026-06" o año+mm numérico en "Junio 2026"
+function mesStrDesdeNum(yyyy, mm) {
+  return `${MESES_ES[mm-1]} ${yyyy}`;
+}
 
-// Calcula en qué quincena de pago cae una venta automáticamente:
-//   días 1–14  → se paga en Q2 del mismo mes
-//   días 15+   → se paga en Q1 del mes siguiente
-// Si tiene quincenaPago manual ('1' o '2'), lo respeta (mes de la venta + quincena indicada)
+// Calcula en qué quincena de PAGO cae una venta (basado en v.fecha):
+//   Último día del mes anterior + días 1–14  → Q2 del mes calendario de esos días
+//   Días 15 hasta penúltimo del mes          → Q1 del mes siguiente
+// Override manual ('1' o '2'): usa v.mes como mes de pago
 function getPeríodoPago(v) {
   if(v.quincenaPago === '1') return { mes: v.mes, q: 1 };
   if(v.quincenaPago === '2') return { mes: v.mes, q: 2 };
-  const dia = parseInt((v.fecha||'').split('-')[2]||'1');
-  if(dia <= 14) return { mes: v.mes, q: 2 };
-  return { mes: siguienteMes(v.mes), q: 1 };
+
+  const parts = (v.fecha||'').split('-');
+  if(parts.length < 3) return { mes: v.mes, q: 2 };
+  const yyyy = parseInt(parts[0]);
+  const mm   = parseInt(parts[1]); // 1-12
+  const dia  = parseInt(parts[2]);
+
+  const ultimoDelMes = new Date(yyyy, mm, 0).getDate(); // último día del mes de la fecha
+
+  if(dia === ultimoDelMes) {
+    // Último día del mes → Q2 del mes siguiente
+    const sig = new Date(yyyy, mm, 1); // 1ro del mes siguiente
+    return { mes: mesStrDesdeNum(sig.getFullYear(), sig.getMonth()+1), q: 2 };
+  } else if(dia <= 14) {
+    // Días 1–14 → Q2 del mismo mes calendario
+    return { mes: mesStrDesdeNum(yyyy, mm), q: 2 };
+  } else {
+    // Días 15 al penúltimo → Q1 del mes siguiente
+    const sig = new Date(yyyy, mm, 1);
+    return { mes: mesStrDesdeNum(sig.getFullYear(), sig.getMonth()+1), q: 1 };
+  }
 }
 
 function getComisionesQuincena(a, mes, q) {
