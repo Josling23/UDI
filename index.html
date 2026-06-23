@@ -1738,7 +1738,7 @@ function getComisionesMes(a, mes) {
   // Ventas directas propias → usa tarifa DIRECTA (la más alta)
   const propias = appData.ventas
     .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow)
-    .reduce((s,v)=>s + getComisionDirectaAgente(v.productoId, a.nombre)*v.cantidad, 0);
+    .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
   // Productos extra custom
   const extras = getExtrasComMes(a.id, mes);
   // Gerentes/supervisores: también gana de agentes supervisados → usa tarifa DE SUPERVISIÓN (la pequeña)
@@ -1762,11 +1762,11 @@ function getComisionesQuincena(a, mes, q) {
     const dia = parseInt((fecha||'').split('-')[2]||'0');
     return q===1 ? (dia>=1 && dia<=15) : dia>=16;
   }
-  // Ventas directas propias → tarifa directa
+  // Usa v.comision directamente (ya fue calculada y guardada al registrar la venta)
   const propias = appData.ventas
     .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow && enQ(v.fecha))
-    .reduce((s,v)=>s + getComisionDirectaAgente(v.productoId, a.nombre)*v.cantidad, 0);
-  // Gerentes/supervisores: ventas de agentes supervisados → tarifa de supervisión
+    .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+  // Gerentes/supervisores: comisión de supervisión sobre ventas de agentes a cargo
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
     const deAgentes = sups.length
