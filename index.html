@@ -400,6 +400,7 @@ tr:hover td{background:#EAF0FB}
     <!-- ===== DASHBOARD ===== -->
     <div class="page active" id="page-dashboard">
       <div class="cards" id="dash-cards"></div>
+      <div id="dash-bonos-alerta"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div class="section">
           <div class="section-header"><h2>📱 Mobility — Este Mes</h2></div>
@@ -2010,6 +2011,10 @@ function renderDashboard() {
     <div class="card purple"><label>Com. Total General</label><div class="val">${fmt(comTotal)}</div><div class="sub">${totalVentasTodas} ventas históricas</div></div>
   `;
 
+  // Bonus activation alerts
+  const bonosAlertHTML = renderBonosActivacion(mes, appData.agentes.filter(a=>!a.soloHQ && a.activo!==false));
+  document.getElementById('dash-bonos-alerta').innerHTML = bonosAlertHTML;
+
   // Mobility breakdown
   const mobProds = ['att-act8','att-act10','att-starter','att-extra','att-premium','att-upgrade','att-reloj','att-ipad','att-nextup','att-seg','att-combo'];
   document.getElementById('dash-mobility').innerHTML = mobProds.map(pid=>{
@@ -2989,6 +2994,63 @@ function pendInput(agente, mes, q) {
     onfocus="this.style.borderColor='#D4A017'" onblur="this.style.borderColor='#F5C26B'">`;
 }
 
+// ── Activaciones de un agente en un mes (att-act8 y att-act10) ──
+function getActivacionesMes(agenteNombre, mes) {
+  const nombreLow = (agenteNombre||'').trim().toLowerCase();
+  const IDS_ACT = ['att-act8','att-act10'];
+  return appData.ventas.filter(v=>
+    v.mes === mes &&
+    (v.agente||'').trim().toLowerCase() === nombreLow &&
+    IDS_ACT.includes(v.productoId)
+  ).reduce((s,v)=>s+(parseFloat(v.cantidad)||1), 0);
+}
+
+// ── Banner de alertas de bonos por activaciones ──
+function renderBonosActivacion(mes, agentes) {
+  const MILESTONES = [
+    { n:5,  label:'5 activaciones',  color:'#F5C26B', bg:'#FFFBE8', icon:'⭐',   stars:'⭐' },
+    { n:10, label:'10 activaciones', color:'#FF7A59', bg:'#FFF3EE', icon:'🌟',   stars:'⭐⭐' },
+    { n:15, label:'15 activaciones', color:'#6A78D1', bg:'#F4F5FF', icon:'🏆',   stars:'⭐⭐⭐' },
+  ];
+
+  const alertas = [];
+  agentes.forEach(a=>{
+    const total = getActivacionesMes(a.nombre, mes);
+    if(total < 5) return;
+    // Determinar el milestone más alto alcanzado
+    let milestone = null;
+    MILESTONES.forEach(m=>{ if(total >= m.n) milestone = m; });
+    if(!milestone) return;
+    alertas.push({ agente:a, total, milestone });
+  });
+
+  if(!alertas.length) return '';
+
+  const cards = alertas.map(({agente, total, milestone})=>`
+    <div style="background:${milestone.bg};border:2px solid ${milestone.color};border-radius:10px;padding:12px 16px;min-width:180px;flex:1;max-width:260px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:800;color:#33475B">${agente.nombre}</div>
+        <span style="font-size:16px">${milestone.stars}</span>
+      </div>
+      <div style="font-size:22px;font-weight:900;color:${milestone.color};margin-bottom:2px">${total} act.</div>
+      <div style="font-size:10px;color:#7C98B6;font-weight:600">Alcanzó: <b style="color:${milestone.color}">${milestone.label}</b></div>
+      <div style="font-size:10px;color:#F2545B;font-weight:700;margin-top:6px">💰 ¡Pendiente agregar bono!</div>
+    </div>
+  `).join('');
+
+  return `
+    <div style="background:#FFFBE8;border:2px solid #F5C26B;border-radius:12px;padding:14px 18px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="font-size:18px">🎯</span>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#33475B">Bonos por Activaciones — ${mes}</div>
+          <div style="font-size:11px;color:#7C98B6">Milestones: ⭐ 5 act. · ⭐⭐ 10 act. · ⭐⭐⭐ 15 act. (mensual)</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div>
+    </div>`;
+}
+
 // DEBUG temporal — llámala desde la consola del navegador:
 // debugQuincena('Claudia', 'Junio 2026', 2)
 window.debugQuincena = function(nombreAgente, mes, q) {
@@ -3086,8 +3148,9 @@ function renderPagos() {
     </div>`;
   }).join('');
 
-  document.getElementById('pagos-content').innerHTML = `
-    <div style="margin-bottom:24px">
+  document.getElementById('pagos-content').innerHTML =
+    renderBonosActivacion(mesAct, ordenados) +
+    `<div style="margin-bottom:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <h3 style="font-size:15px;font-weight:800;color:#33475B">💳 Resumen de Pago — ${mesAct} Q${qAct} <span style="font-size:11px;font-weight:400;color:#99ACC2">(${qAct===1?'días 1–15':'días 16–31'})</span></h3>
         <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:8px 16px;font-size:13px;color:#0057A8">
