@@ -461,11 +461,11 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
           <div style="font-size:12px;color:#7C98B6;flex:1" id="ventas-stats"></div>
-          <div style="display:flex;align-items:center;gap:6px;background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:5px 10px">
-            <span style="font-size:11px;color:#0057A8;font-weight:600">💳 Asignar quincena a filtradas:</span>
-            <button onclick="asignarQuincenaFiltradas(1)" style="background:#009FDB;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer">Q1</button>
-            <button onclick="asignarQuincenaFiltradas(2)" style="background:#00BDA5;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer">Q2</button>
-            <button onclick="asignarQuincenaFiltradas('')" style="background:#F5F8FA;color:#7C98B6;border:1px solid #CBD6E2;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" title="Volver a automático por fecha">⚡ Auto</button>
+          <div style="display:flex;align-items:center;gap:6px;background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:5px 10px" title="Auto: días 1-14 se pagan en Q2 del mismo mes · días 15+ se pagan en Q1 del mes siguiente">
+            <span style="font-size:11px;color:#0057A8;font-weight:600">💳 Excepción quincena filtradas:</span>
+            <button onclick="asignarQuincenaFiltradas(1)" style="background:#009FDB;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer" title="Forzar pago en Q1 de este mes">Forzar Q1</button>
+            <button onclick="asignarQuincenaFiltradas(2)" style="background:#00BDA5;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer" title="Forzar pago en Q2 de este mes">Forzar Q2</button>
+            <button onclick="asignarQuincenaFiltradas('')" style="background:#F5F8FA;color:#7C98B6;border:1px solid #CBD6E2;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" title="Restaurar cálculo automático (días 1-14→Q2, días 15+→Q1 sig. mes)">⚡ Restaurar Auto</button>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -843,9 +843,9 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group">
           <label>💳 Quincena de Pago</label>
           <select id="sc-quincena" style="border:1.5px solid #0091AE;border-radius:8px;padding:8px 10px;font-size:13px;background:#E6F7F8;font-weight:600;color:#006372">
-            <option value="">⚡ Auto (por fecha)</option>
-            <option value="1">Q1 — Días 1 al 15</option>
-            <option value="2">Q2 — Días 16 al 31</option>
+            <option value="">⚡ Auto: días 1-14 → Q2 / días 15+ → Q1 sig. mes</option>
+            <option value="1">Manual: pagar en Q1 de este mes</option>
+            <option value="2">Manual: pagar en Q2 de este mes</option>
           </select>
         </div>
         <div class="form-group"><label>Campaña Origen</label><select id="sc-campana"><option value="">Ninguna / Orgánico</option></select></div>
@@ -1099,9 +1099,9 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group" style="margin:0">
           <label>💳 Quincena de Pago</label>
           <select id="v-quincena" style="border:1.5px solid #009FDB;border-radius:8px;padding:8px 10px;font-size:13px;background:#EAF7FB;font-weight:600;color:#0057A8">
-            <option value="">⚡ Auto (por fecha)</option>
-            <option value="1">Q1 — Días 1 al 15</option>
-            <option value="2">Q2 — Días 16 al 31</option>
+            <option value="">⚡ Auto: días 1-14 → Q2 / días 15+ → Q1 sig. mes</option>
+            <option value="1">Manual: pagar en Q1 de este mes</option>
+            <option value="2">Manual: pagar en Q2 de este mes</option>
           </select>
         </div>
       </div>
@@ -1780,26 +1780,47 @@ function getComisionesMes(a, mes) {
 function getMeses() { return appData.meses || []; }
 
 // Comisiones de una quincena específica según fecha de las ventas (Q1=días 1-15, Q2=días 16-31)
+// Dado un mes "Junio 2026", devuelve el siguiente "Julio 2026"
+function siguienteMes(mesStr) {
+  const parts = (mesStr||'').split(' ');
+  const idx = MESES_ES.indexOf(parts[0]);
+  const año = parseInt(parts[1])||new Date().getFullYear();
+  if(idx === -1) return mesStr;
+  if(idx === 11) return `Enero ${año+1}`;
+  return `${MESES_ES[idx+1]} ${año}`;
+}
+
+// Calcula en qué quincena de pago cae una venta automáticamente:
+//   días 1–14  → se paga en Q2 del mismo mes
+//   días 15+   → se paga en Q1 del mes siguiente
+// Si tiene quincenaPago manual ('1' o '2'), lo respeta (mes de la venta + quincena indicada)
+function getPeríodoPago(v) {
+  if(v.quincenaPago === '1') return { mes: v.mes, q: 1 };
+  if(v.quincenaPago === '2') return { mes: v.mes, q: 2 };
+  const dia = parseInt((v.fecha||'').split('-')[2]||'1');
+  if(dia <= 14) return { mes: v.mes, q: 2 };
+  return { mes: siguienteMes(v.mes), q: 1 };
+}
+
 function getComisionesQuincena(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
-  // Determina si una venta pertenece a esta quincena:
-  // Si tiene quincenaPago explícito lo usa; si no, lo determina por la fecha
-  function enPeriodo(v) {
-    if(v.quincenaPago) return parseInt(v.quincenaPago) === q;
-    const dia = parseInt((v.fecha||'').split('-')[2]||'0');
-    return q===1 ? (dia>=1 && dia<=15) : dia>=16;
-  }
-  // Usa v.comision directamente (ya fue calculada y guardada al registrar la venta)
+  // Incluye ventas cuyo período de PAGO calculado coincide con (mes, q)
   const propias = appData.ventas
-    .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow && enPeriodo(v))
+    .filter(v=>{
+      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+      const pp = getPeríodoPago(v);
+      return pp.mes === mes && pp.q === q;
+    })
     .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
   // Gerentes/supervisores: comisión de supervisión sobre ventas de agentes a cargo
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
     const deAgentes = sups.length
-      ? appData.ventas
-          .filter(v=>v.mes===mes && sups.includes((v.agente||'').trim().toLowerCase()) && enPeriodo(v))
-          .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
+      ? appData.ventas.filter(v=>{
+          if(!sups.includes((v.agente||'').trim().toLowerCase())) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes === mes && pp.q === q;
+        }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
     return propias + deAgentes;
   }
@@ -2069,8 +2090,8 @@ function renderVentas() {
       <select style="${iSty};width:88px;background:${v.quincenaPago?'#EAF7FB':'#fff'};font-weight:600;color:#0057A8"
         onchange="ventaInlineEdit(${v.id},'quincenaPago',this.value)">
         <option value="" ${!v.quincenaPago?'selected':''}>⚡ Auto</option>
-        <option value="1" ${v.quincenaPago==='1'?'selected':''}>Q1</option>
-        <option value="2" ${v.quincenaPago==='2'?'selected':''}>Q2</option>
+        <option value="1" ${v.quincenaPago==='1'?'selected':''}>Manual Q1</option>
+        <option value="2" ${v.quincenaPago==='2'?'selected':''}>Manual Q2</option>
       </select>
     </td>
     <td style="color:#7C98B6;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${v.notas||''}">${v.notas||'—'}</td>
