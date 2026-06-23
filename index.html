@@ -3245,6 +3245,7 @@ function renderPagos() {
     </div>` +
   (ordenados.map(a=>{
     const rol = a.rol||'agente';
+    const nombreLow = (a.nombre||'').trim().toLowerCase();
     let totalPagado = 0, totalPend = 0;
 
     // Dos filas por mes — comisiones por quincena según fecha de venta (Q1=días 1-15, Q2=días 16-31)
