@@ -2422,12 +2422,13 @@ function guardarVenta() {
     // Actualizar o crear el registro de grabación vinculado
     const existing = appData.ventas.find(x=>x.esGrabacion===true && x.refVentaId===editVentaId);
     if(llamadaGrabada && agenteGrabacion) {
+      const comGrab = parseFloat(comisionGrabacion)||0;
       if(existing) {
-        Object.assign(existing, { agente:agenteGrabacion, cliente, fecha, mes, quincenaPago, comision:comisionGrabacion });
+        Object.assign(existing, { agente:agenteGrabacion, cliente, fecha, mes, quincenaPago, comision:comGrab });
       } else {
         const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
         appData.ventas.push({ id:maxId+1, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
-          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comisionGrabacion,
+          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
           notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:editVentaId });
       }
     } else if(existing) {
@@ -2447,10 +2448,11 @@ function guardarVenta() {
       // Auto-crear registro de grabación para el agente grabador
       if(llamadaGrabada && agenteGrabacion) {
         const grabId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
+        const comGrab = parseFloat(comisionGrabacion)||0;
         appData.ventas.push({ id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
-          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comisionGrabacion,
+          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
           notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:newId });
-        showNotif('📞 Registro de grabación creado para '+agenteGrabacion);
+        showNotif(`📞 Grabación registrada para ${agenteGrabacion} — Comisión: $${fmt(comGrab)}`);
       }
     });
     showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
