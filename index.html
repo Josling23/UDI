@@ -2213,13 +2213,21 @@ function asignarQuincenaFiltradas(q) {
 // Aplicar fechas automáticas según quincena seleccionada
 function aplicarFechasQuincena() {
   const qSel = document.getElementById('fv-quincena-rapida')?.value || '';
-  const mesSel = document.getElementById('fv-mes')?.value || '';
 
-  if(!qSel || !mesSel) {
-    // Si no hay selección, limpiar fechas
+  // Si no selecciona quincena, limpiar fechas
+  if(!qSel) {
     document.getElementById('fv-fecha-desde').value = '';
     document.getElementById('fv-fecha-hasta').value = '';
     renderVentas();
+    return;
+  }
+
+  // Obtener el mes actualmente seleccionado en fv-mes
+  const mesSel = document.getElementById('fv-mes')?.value || '';
+
+  if(!mesSel) {
+    alert('Por favor, selecciona un mes primero');
+    document.getElementById('fv-quincena-rapida').value = '';
     return;
   }
 
@@ -2245,6 +2253,7 @@ function aplicarFechasQuincena() {
     hasta = `${yyyy}-${String(mm).padStart(2,'0')}-${String(ultimoDelMes).padStart(2,'0')}`;
   }
 
+  console.log('Aplicando fechas:', { desde, hasta, mes: mesSel, quincena: qSel });
   document.getElementById('fv-fecha-desde').value = desde;
   document.getElementById('fv-fecha-hasta').value = hasta;
   renderVentas();
