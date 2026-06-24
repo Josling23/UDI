@@ -455,13 +455,12 @@ tr:hover td{background:#EAF0FB}
           </select>
           <select id="fv-agente" onchange="renderVentas()"><option value="">Todos los Agentes</option></select>
           <select id="fv-mes" onchange="renderVentas()"><option value="">Todos los Meses</option></select>
+          <select id="fv-quincena-rapida" onchange="aplicarFechasQuincena()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;min-width:120px">
+            <option value="">📅 Quincena</option>
+            <option value="1">Q1 (1-14)</option>
+            <option value="2">Q2 (15-fin)</option>
+          </select>
           <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:5px 10px">
-            <select id="fv-quincena-rapida" onchange="aplicarFechasQuincena()" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent;font-weight:600;cursor:pointer;padding:0">
-              <option value="">📅</option>
-              <option value="1">Q1 (1-14)</option>
-              <option value="2">Q2 (15-fin)</option>
-            </select>
-            <span style="color:#CBD6E2">|</span>
             <input type="date" id="fv-fecha-desde" onchange="renderVentas()" title="Desde" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
             <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
             <input type="date" id="fv-fecha-hasta" onchange="renderVentas()" title="Hasta" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
