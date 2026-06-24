@@ -2238,19 +2238,24 @@ function aplicarFechasQuincena() {
   const mesIdx = MESES_ES.indexOf(mesNombre);
   const mm = mesIdx + 1; // 1-12
 
-  // Obtener el último día del mes
-  const ultimoDelMes = new Date(yyyy, mm, 0).getDate();
+  // Obtener el último día del mes actual y el mes anterior
+  const ultimoDelMesActual = new Date(yyyy, mm, 0).getDate();
+  const ultimoDelMesAnterior = new Date(yyyy, mm - 1, 0).getDate();
 
   let desde, hasta;
 
   if(qSel === '1') {
-    // Q1: del 1 al 14
-    desde = `${yyyy}-${String(mm).padStart(2,'0')}-01`;
+    // Q1: desde último día del mes anterior hasta el 14 del mes actual
+    const mmAnterior = mm - 1;
+    const yyyyAnterior = mmAnterior === 0 ? yyyy - 1 : yyyy;
+    const mmAnteriorAjustado = mmAnterior === 0 ? 12 : mmAnterior;
+    desde = `${yyyyAnterior}-${String(mmAnteriorAjustado).padStart(2,'0')}-${String(ultimoDelMesAnterior).padStart(2,'0')}`;
     hasta = `${yyyy}-${String(mm).padStart(2,'0')}-14`;
   } else if(qSel === '2') {
-    // Q2: del 15 al último día
+    // Q2: desde el 15 del mes actual hasta el penúltimo día del mes
+    const penultimoDia = ultimoDelMesActual - 1;
     desde = `${yyyy}-${String(mm).padStart(2,'0')}-15`;
-    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-${String(ultimoDelMes).padStart(2,'0')}`;
+    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-${String(penultimoDia).padStart(2,'0')}`;
   }
 
   console.log('Aplicando fechas:', { desde, hasta, mes: mesSel, quincena: qSel });
