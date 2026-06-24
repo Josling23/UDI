@@ -3380,9 +3380,14 @@ function renderPagos() {
         <span style="font-size:11px;color:#7C98B6">TOTAL Q${qAct}</span>
         <span style="font-size:18px;font-weight:800;color:${pagado?'#059669':'#00BDA5'}">${fmt(total)}</span>
       </div>
-      <button onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mesAct}',${qAct});renderPagos()" style="width:100%;margin-top:8px;padding:6px;border-radius:7px;border:none;background:${pagado?'#FEE2E2':'#D1FAE5'};color:${pagado?'#DC2626':'#059669'};font-weight:700;font-size:11px;cursor:pointer">
-        ${pagado?'↩ Marcar pendiente':'✅ Marcar como pagado'}
-      </button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+        <button onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mesAct}',${qAct});renderPagos()" style="width:100%;padding:6px;border-radius:7px;border:none;background:${pagado?'#FEE2E2':'#D1FAE5'};color:${pagado?'#DC2626':'#059669'};font-weight:700;font-size:11px;cursor:pointer">
+          ${pagado?'↩ Marcar pendiente':'✅ Marcar como pagado'}
+        </button>
+        <button onclick="abrirDetalleAgenteQuincena('${a.nombre.replace(/'/g,"\\'")}','${mesAct}',${qAct})" style="width:100%;padding:6px;border-radius:7px;border:none;background:#009FDB;color:#fff;font-weight:700;font-size:11px;cursor:pointer">
+          📊 Ver Detalle
+        </button>
+      </div>
     </div>`;
   }).join('');
 
@@ -5974,12 +5979,9 @@ function migrarAgentes() {
   if(changed) { if(!appData.nextId||appData.nextId<=maxId) appData.nextId=maxId+1; guardar(); }
 }
 
-// Modal: Ver detalle completo de un agente en Pagos
-function abrirDetalleAgenteModal() {
-  const agenteId = document.getElementById('fp-agente')?.value;
-  if(!agenteId) { showNotif('⚠️ Selecciona un agente primero','error'); return; }
-
-  const agente = appData.agentes.find(a=>a.id==agenteId);
+// Modal: Ver detalle completo de un agente en Pagos por quincena específica
+function abrirDetalleAgenteQuincena(nombreAgente, mes, q) {
+  const agente = appData.agentes.find(a=>(a.nombre||'').trim().toLowerCase()===nombreAgente.trim().toLowerCase());
   if(!agente) { showNotif('⚠️ Agente no encontrado','error'); return; }
 
   const meses = getMeses();
@@ -6008,41 +6010,50 @@ function abrirDetalleAgenteModal() {
         <tbody>
   `;
 
-  meses.forEach(mes => {
-    [1, 2].forEach(q => {
-      const comQ = getComisionesQuincena(agente, mes, q);
-      const basico = agente.sueldoQuincenal||0;
-      const bonos = getExtra('bono', agente.nombre, mes+'Q'+q);
-      const prestamo = getExtra('prest', agente.nombre, mes+'Q'+q);
-      const desc = getExtra('desc', agente.nombre, mes+'Q'+q);
-      const prev = getPrevQuincena(meses, mes, q);
-      const deAnt = prev ? getPend(agente.nombre, prev.mes, prev.q) : 0;
+  // Mostrar la quincena actual primero, luego el resto
+  const mesActual = mes;
+  const qActual = q;
+  const todosLosMeses = [
+    { mes: mesActual, q: qActual, highlight: true },
+    ...meses.filter(m=>m!==mesActual).flatMap(m=>[
+      { mes: m, q: 1, highlight: false },
+      { mes: m, q: 2, highlight: false }
+    ])
+  ];
 
-      const grabaciones = appData.ventas.filter(v=>{
-        if(!v.esGrabacion && !v._esGrabacion) return false;
-        if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
-        const pp = getPeríodoPago(v);
-        return pp.mes===mes && pp.q===q;
-      }).reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+  todosLosMeses.forEach(({mes: m, q: qNum, highlight}) => {
+    const comQ = getComisionesQuincena(agente, m, qNum);
+    const basico = agente.sueldoQuincenal||0;
+    const bonos = getExtra('bono', agente.nombre, m+'Q'+qNum);
+    const prestamo = getExtra('prest', agente.nombre, m+'Q'+qNum);
+    const desc = getExtra('desc', agente.nombre, m+'Q'+qNum);
+    const prev = getPrevQuincena(meses, m, qNum);
+    const deAnt = prev ? getPend(agente.nombre, prev.mes, prev.q) : 0;
 
-      const total = comQ + grabaciones + basico + bonos + prestamo + deAnt - desc;
-      const pagado = appData.quincenas[getQuincenaKey(agente.nombre, mes, q)];
+    const grabaciones = appData.ventas.filter(v=>{
+      if(!v.esGrabacion && !v._esGrabacion) return false;
+      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+      const pp = getPeríodoPago(v);
+      return pp.mes===m && pp.q===qNum;
+    }).reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
 
-      html += `
-        <tr style="border-bottom:1px solid #F0F2F5;background:${q===2?'#FAFBFC':'#fff'}">
-          <td style="padding:8px;font-weight:600;color:${q===2?'#7C98B6':'#33475B'}">${mes} — Q${q}</td>
-          <td style="padding:8px;text-align:right;color:#009FDB;font-weight:600">${fmt(comQ)}</td>
-          <td style="padding:8px;text-align:right;color:#33475B">${fmt(basico)}</td>
-          <td style="padding:8px;text-align:right;color:#6A78D1">${fmt(bonos)}</td>
-          <td style="padding:8px;text-align:right;color:#F5C26B">${fmt(prestamo)}</td>
-          <td style="padding:8px;text-align:right;color:#D4A017">${fmt(deAnt)}</td>
-          <td style="padding:8px;text-align:right;color:#6A78D1">${fmt(grabaciones)}</td>
-          <td style="padding:8px;text-align:right;color:#F2545B">${fmt(desc)}</td>
-          <td style="padding:8px;text-align:right;color:#00BDA5;font-weight:700;background:${total>=0?'#F0FDF4':'#FEF2F2'};border-radius:4px">${fmt(total)}</td>
-          <td style="padding:8px;text-align:center">${pagado?'✅':'⏳'}</td>
-        </tr>
-      `;
-    });
+    const total = comQ + grabaciones + basico + bonos + prestamo + deAnt - desc;
+    const pagado = appData.quincenas[getQuincenaKey(agente.nombre, m, qNum)];
+
+    html += `
+      <tr style="border-bottom:1px solid #F0F2F5;background:${highlight?'#EAF7FB':qNum===2?'#FAFBFC':'#fff'};${highlight?'border-left:4px solid #009FDB;':''}font-weight:${highlight?'700':'400'}">
+        <td style="padding:8px;color:${highlight?'#0057A8':qNum===2?'#7C98B6':'#33475B'}">${m} — Q${qNum}</td>
+        <td style="padding:8px;text-align:right;color:#009FDB;font-weight:600">${fmt(comQ)}</td>
+        <td style="padding:8px;text-align:right;color:#33475B">${fmt(basico)}</td>
+        <td style="padding:8px;text-align:right;color:#6A78D1">${fmt(bonos)}</td>
+        <td style="padding:8px;text-align:right;color:#F5C26B">${fmt(prestamo)}</td>
+        <td style="padding:8px;text-align:right;color:#D4A017">${fmt(deAnt)}</td>
+        <td style="padding:8px;text-align:right;color:#6A78D1">${fmt(grabaciones)}</td>
+        <td style="padding:8px;text-align:right;color:#F2545B">${fmt(desc)}</td>
+        <td style="padding:8px;text-align:right;color:#00BDA5;font-weight:700;background:${total>=0?'#F0FDF4':'#FEF2F2'};border-radius:4px">${fmt(total)}</td>
+        <td style="padding:8px;text-align:center">${pagado?'✅':'⏳'}</td>
+      </tr>
+    `;
   });
 
   html += `
