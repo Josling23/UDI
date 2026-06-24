@@ -3384,7 +3384,7 @@ function renderPagos() {
         <button onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mesAct}',${qAct});renderPagos()" style="width:100%;padding:6px;border-radius:7px;border:none;background:${pagado?'#FEE2E2':'#D1FAE5'};color:${pagado?'#DC2626':'#059669'};font-weight:700;font-size:11px;cursor:pointer">
           ${pagado?'↩ Marcar pendiente':'✅ Marcar como pagado'}
         </button>
-        <button onclick="abrirDetalleAgenteQuincena('${a.nombre.replace(/'/g,"\\'")}','${mesAct}',${qAct})" style="width:100%;padding:6px;border-radius:7px;border:none;background:#009FDB;color:#fff;font-weight:700;font-size:11px;cursor:pointer">
+        <button onclick="abrirDetalleAgente('${a.id}')" style="width:100%;padding:6px;border-radius:7px;border:none;background:#009FDB;color:#fff;font-weight:700;font-size:11px;cursor:pointer">
           📊 Ver Detalle
         </button>
       </div>
@@ -5979,7 +5979,69 @@ function migrarAgentes() {
   if(changed) { if(!appData.nextId||appData.nextId<=maxId) appData.nextId=maxId+1; guardar(); }
 }
 
-// Modal: Ver detalle completo de un agente en Pagos por quincena específica
+// Modal: Ver detalle completo de un agente
+function abrirDetalleAgente(agenteId) {
+  const agente = appData.agentes.find(a=>a.id==agenteId);
+  if(!agente) { showNotif('⚠️ Agente no encontrado','error'); return; }
+
+  const meses = getMeses();
+  const rol = agente.rol||'agente';
+  const nombreLow = (agente.nombre||'').trim().toLowerCase();
+
+  // Generar tabla con todas las quincenas y meses
+  let html = `<h4 style="color:#0057A8;margin-bottom:12px">${agente.nombre} (${ROL_LABELS[rol]||rol})</h4>`;
+  html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">`;
+  html += `<thead><tr style="background:#EAF7FB;border-bottom:2px solid #009FDB">`;
+  html += `<th style="padding:8px;text-align:left;font-weight:700;color:#0057A8">Período</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#009FDB">Comisiones</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#33475B">Sueldo</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#6A78D1">Bonos</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#F5C26B">Préstamo</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#D4A017">De Q.Ant.</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#6A78D1">Grabaciones</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#F2545B">Descuento</th>`;
+  html += `<th style="padding:8px;text-align:right;color:#00BDA5;font-weight:700">TOTAL</th>`;
+  html += `<th style="padding:8px;text-align:center">Pagado</th></tr></thead><tbody>`;
+
+  meses.forEach(mes => {
+    [1, 2].forEach(q => {
+      const comQ = getComisionesQuincena(agente, mes, q);
+      const basico = agente.sueldoQuincenal||0;
+      const bonos = getExtra('bono', agente.nombre, mes+'Q'+q);
+      const prestamo = getExtra('prest', agente.nombre, mes+'Q'+q);
+      const desc = getExtra('desc', agente.nombre, mes+'Q'+q);
+      const prev = getPrevQuincena(meses, mes, q);
+      const deAnt = prev ? getPend(agente.nombre, prev.mes, prev.q) : 0;
+      const grabaciones = appData.ventas.filter(v=>{
+        if(!v.esGrabacion && !v._esGrabacion) return false;
+        if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+        const pp = getPeríodoPago(v);
+        return pp.mes===mes && pp.q===q;
+      }).reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+      const total = comQ + grabaciones + basico + bonos + prestamo + deAnt - desc;
+      const pagado = appData.quincenas[getQuincenaKey(agente.nombre, mes, q)];
+
+      html += `<tr style="border-bottom:1px solid #F0F2F5;background:${q===2?'#FAFBFC':'#fff'}">`;
+      html += `<td style="padding:8px;font-weight:600;color:${q===2?'#7C98B6':'#33475B'}">${mes} Q${q}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#009FDB;font-weight:600">${fmt(comQ)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#33475B">${fmt(basico)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#6A78D1">${fmt(bonos)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#F5C26B">${fmt(prestamo)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#D4A017">${fmt(deAnt)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#6A78D1">${fmt(grabaciones)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#F2545B">${fmt(desc)}</td>`;
+      html += `<td style="padding:8px;text-align:right;color:#00BDA5;font-weight:700;background:${total>=0?'#F0FDF4':'#FEF2F2'};border-radius:4px">${fmt(total)}</td>`;
+      html += `<td style="padding:8px;text-align:center">${pagado?'✅':'⏳'}</td></tr>`;
+    });
+  });
+
+  html += `</tbody></table></div>`;
+  document.getElementById('modal-detalle-titulo').textContent = `📊 Detalle de Pagos — ${agente.nombre}`;
+  document.getElementById('modal-detalle-body').innerHTML = html;
+  document.getElementById('modal-detalle-agente').classList.add('open');
+}
+
+// Modal: Ver detalle completo de un agente en Pagos por quincena específica (LEGACY - no se usa)
 function abrirDetalleAgenteQuincena(nombreAgente, mes, q) {
   const agente = appData.agentes.find(a=>(a.nombre||'').trim().toLowerCase()===nombreAgente.trim().toLowerCase());
   if(!agente) { showNotif('⚠️ Agente no encontrado','error'); return; }
