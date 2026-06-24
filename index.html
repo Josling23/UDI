@@ -1168,9 +1168,9 @@ tr:hover td{background:#EAF0FB}
             <select id="v-agente-grabacion" style="border:1.5px solid #6A78D1;border-radius:8px;padding:8px 10px;font-size:13px;background:#F4F5FF;font-weight:600;color:#33475B"></select>
           </div>
           <div class="form-group" style="margin:0">
-            <label>💵 Comisión por grabación ($)</label>
-            <input type="number" id="v-comision-grabacion" min="0" step="0.01" placeholder="0.00"
-              style="border:1.5px solid #6A78D1;border-radius:8px;padding:8px 10px;font-size:13px;background:#F4F5FF;font-weight:600;color:#33475B;width:100%;box-sizing:border-box">
+            <label>💵 Comisión por grabación</label>
+            <input type="text" id="v-comision-grabacion" value="$2.00" readonly
+              style="border:1.5px solid #6A78D1;border-radius:8px;padding:8px 10px;font-size:13px;background:#F4F5FF;font-weight:600;color:#33475B;width:100%;box-sizing:border-box;cursor:not-allowed">
           </div>
         </div>
       </div>
@@ -2614,7 +2614,7 @@ function openVentaModal(id=null) {
     document.getElementById('v-quincena').value = v.quincenaPago||'';
     document.getElementById('v-llamada-grabada').checked = !!v.llamadaGrabada;
     document.getElementById('v-agente-grabacion').value = v.agenteGrabacion||'';
-    document.getElementById('v-comision-grabacion').value = v.comisionGrabacion||'';
+    document.getElementById('v-comision-grabacion').value = '$2.00'; // Siempre $2
     document.getElementById('v-grab-fields').style.display = v.llamadaGrabada ? 'grid' : 'none';
     agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision });
   } else {
@@ -2628,7 +2628,7 @@ function openVentaModal(id=null) {
     document.getElementById('v-quincena').value = '';
     document.getElementById('v-llamada-grabada').checked = false;
     document.getElementById('v-agente-grabacion').value = '';
-    document.getElementById('v-comision-grabacion').value = '';
+    document.getElementById('v-comision-grabacion').value = '$2.00'; // Siempre $2
     document.getElementById('v-grab-fields').style.display = 'none';
     agregarLineaVenta();
   }
@@ -2652,7 +2652,7 @@ function guardarVenta() {
   const quincenaPago     = document.getElementById('v-quincena').value;
   const llamadaGrabada   = document.getElementById('v-llamada-grabada').checked;
   const agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'') : '';
-  const comisionGrabacion= llamadaGrabada ? (parseFloat(document.getElementById('v-comision-grabacion').value)||0) : 0;
+  const comisionGrabacion= llamadaGrabada ? 2 : 0; // Siempre $2 por llamada grabada
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
   if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Selecciona el agente que grabó la llamada','error'); return; }
 
