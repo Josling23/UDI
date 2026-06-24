@@ -455,11 +455,16 @@ tr:hover td{background:#EAF0FB}
           </select>
           <select id="fv-agente" onchange="renderVentas()"><option value="">Todos los Agentes</option></select>
           <select id="fv-mes" onchange="renderVentas()"><option value="">Todos los Meses</option></select>
+          <select id="fv-quincena-sel" onchange="aplicarFechasQuincena()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none">
+            <option value="">📅 Rango de fechas</option>
+            <option value="1">Q1 (1-14)</option>
+            <option value="2">Q2 (15-penúltimo)</option>
+          </select>
           <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:5px 10px">
             <input type="date" id="fv-fecha-desde" onchange="renderVentas()" title="Desde" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
             <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
             <input type="date" id="fv-fecha-hasta" onchange="renderVentas()" title="Hasta" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
-            <button onclick="document.getElementById('fv-fecha-desde').value='';document.getElementById('fv-fecha-hasta').value='';renderVentas()" title="Limpiar fechas" style="border:none;background:none;cursor:pointer;color:#99ACC2;font-size:13px;padding:0;line-height:1">✕</button>
+            <button onclick="document.getElementById('fv-fecha-desde').value='';document.getElementById('fv-fecha-hasta').value='';document.getElementById('fv-quincena-sel').value='';renderVentas()" title="Limpiar fechas" style="border:none;background:none;cursor:pointer;color:#99ACC2;font-size:13px;padding:0;line-height:1">✕</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
@@ -2203,6 +2208,46 @@ function asignarQuincenaFiltradas(q) {
   guardar();
   renderVentas();
   showNotif(`✅ ${count} venta${count>1?'s':''} asignada${count>1?'s':''} a ${qStr?'Q'+qStr:'Auto (por fecha)'}`);
+}
+
+// Aplicar fechas automáticas según quincena seleccionada
+function aplicarFechasQuincena() {
+  const qSel = document.getElementById('fv-quincena-sel')?.value || '';
+  const mesSel = document.getElementById('fv-mes')?.value || '';
+
+  if(!qSel || !mesSel) {
+    // Si no hay selección, limpiar fechas
+    document.getElementById('fv-fecha-desde').value = '';
+    document.getElementById('fv-fecha-hasta').value = '';
+    renderVentas();
+    return;
+  }
+
+  // Extraer año y mes del formato "Mes Año"
+  const partes = mesSel.split(' ');
+  const mesNombre = partes[0];
+  const yyyy = parseInt(partes[1]);
+  const mesIdx = MESES_ES.indexOf(mesNombre);
+  const mm = mesIdx + 1; // 1-12
+
+  // Obtener el último día del mes
+  const ultimoDelMes = new Date(yyyy, mm, 0).getDate();
+
+  let desde, hasta;
+
+  if(qSel === '1') {
+    // Q1: del 1 al 14
+    desde = `${yyyy}-${String(mm).padStart(2,'0')}-01`;
+    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-14`;
+  } else if(qSel === '2') {
+    // Q2: del 15 al último día
+    desde = `${yyyy}-${String(mm).padStart(2,'0')}-15`;
+    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-${String(ultimoDelMes).padStart(2,'0')}`;
+  }
+
+  document.getElementById('fv-fecha-desde').value = desde;
+  document.getElementById('fv-fecha-hasta').value = hasta;
+  renderVentas();
 }
 
 function renderVentas() {
