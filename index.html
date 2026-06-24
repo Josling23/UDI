@@ -2293,11 +2293,68 @@ function renderVentas() {
   if(fAg && fMes) {
     const agente = appData.agentes.find(a=>a.id==fAg);
     if(agente) {
-      // Detectar quincena actual o del filtro
-      const hoy = new Date().getDate();
-      const qActual = hoy <= 15 ? 1 : 2;
+      // Detectar si hay quincena filtrada
+      const quinc = document.getElementById('fv-quincena-rapida')?.value || '';
 
-      // Mostrar resumen de ambas quincenas del mes filtrado
+      // Si hay quincena específica seleccionada, mostrar solo esa
+      if(quinc) {
+        const q = parseInt(quinc);
+        const comQ = getComisionesQuincena(agente, fMes, q);
+        const basico = agente.sueldoQuincenal||0;
+        const bonos = getExtra('bono', agente.nombre, fMes+'Q'+q);
+        const prest = getExtra('prest', agente.nombre, fMes+'Q'+q);
+        const desc = getExtra('desc', agente.nombre, fMes+'Q'+q);
+        const prev = getPrevQuincena(getMeses(), fMes, q);
+        const deAnt = prev ? getPend(agente.nombre, prev.mes, prev.q) : 0;
+        const grabaciones = appData.ventas.filter(v=>{
+          if(!v.esGrabacion && !v._esGrabacion) return false;
+          if((v.agente||'').trim().toLowerCase() !== (agente.nombre||'').trim().toLowerCase()) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===fMes && pp.q===q;
+        }).reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+
+        const total = comQ + grabaciones + basico + bonos + prest + deAnt - desc;
+
+        statsHTML += ` · 💼 Sueldo: <b style="color:#33475B">${fmt(basico)}</b> · 💰 Total a Pagar: <b style="color:#00BDA5">${fmt(total)}</b>`;
+      } else {
+        // Sin quincena filtrada: mostrar total de AMBAS quincenas
+        let comTotalAmbas = 0;
+        let sueldoTotal = 0;
+        let bonosTotal = 0;
+        let prestTotal = 0;
+        let descTotal = 0;
+        let deAntTotal = 0;
+        let grabacionesTotal = 0;
+
+        [1, 2].forEach(q => {
+          const comQ = getComisionesQuincena(agente, fMes, q);
+          const basico = agente.sueldoQuincenal||0;
+          const bonos = getExtra('bono', agente.nombre, fMes+'Q'+q);
+          const prest = getExtra('prest', agente.nombre, fMes+'Q'+q);
+          const desc = getExtra('desc', agente.nombre, fMes+'Q'+q);
+          const prev = getPrevQuincena(getMeses(), fMes, q);
+          const deAnt = prev ? getPend(agente.nombre, prev.mes, prev.q) : 0;
+          const grabaciones = appData.ventas.filter(v=>{
+            if(!v.esGrabacion && !v._esGrabacion) return false;
+            if((v.agente||'').trim().toLowerCase() !== (agente.nombre||'').trim().toLowerCase()) return false;
+            const pp = getPeríodoPago(v);
+            return pp.mes===fMes && pp.q===q;
+          }).reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+
+          comTotalAmbas += comQ;
+          sueldoTotal += basico;
+          bonosTotal += bonos;
+          prestTotal += prest;
+          descTotal += desc;
+          deAntTotal += deAnt;
+          grabacionesTotal += grabaciones;
+        });
+
+        const totalAmbas = comTotalAmbas + grabacionesTotal + sueldoTotal + bonosTotal + prestTotal + deAntTotal - descTotal;
+        statsHTML += ` · 💼 Sueldo (Q1+Q2): <b style="color:#33475B">${fmt(sueldoTotal)}</b> · 💰 Total a Pagar: <b style="color:#00BDA5">${fmt(totalAmbas)}</b>`;
+      }
+
+      // Mostrar resumen expandido de ambas quincenas
       let resumenHTML = '<div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:12px">';
       resumenHTML += `<div style="font-weight:700;color:#0057A8;margin-bottom:8px">📊 Resumen de Pago — ${fMes}</div>`;
       resumenHTML += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
