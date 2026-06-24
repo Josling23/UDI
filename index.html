@@ -1505,8 +1505,30 @@ function normalizarAppData() {
   if(!appData.nextOIId)    appData.nextOIId = 1;
   if(!appData.campanas)    appData.campanas = [];
   if(!appData.nextCampId)  appData.nextCampId = 1;
+
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
+
+  // Normalizar estructura de ventas: asegurar que TODAS tengan los campos necesarios
+  appData.ventas.forEach(v => {
+    if(!v.id) v.id = Math.max(...appData.ventas.map(x=>x.id||0), 0) + 1;
+    if(!v.fecha) v.fecha = new Date().toISOString().split('T')[0];
+    if(!v.agente) v.agente = '';
+    if(!v.productoId) v.productoId = '';
+    if(!v.categoria) v.categoria = 'servicios';
+    if(!v.cantidad) v.cantidad = 1;
+    if(v.comision === undefined || v.comision === null) v.comision = 0;
+    if(!v.cliente) v.cliente = '';
+    if(!v.cuenta) v.cuenta = '';
+    if(!v.mes) v.mes = mesActual();
+    if(!v.campana) v.campana = '';
+    if(!v.notas) v.notas = '';
+    if(!v.quincenaPago) v.quincenaPago = '';
+    if(v.llamadaGrabada === undefined) v.llamadaGrabada = false;
+    if(!v.agenteGrabacion) v.agenteGrabacion = '';
+    if(v.comisionGrabacion === undefined) v.comisionGrabacion = 0;
+  });
+
   // Eliminar campo pins (ya no se usa)
   delete appData.pins;
 }
