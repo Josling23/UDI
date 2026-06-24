@@ -2212,7 +2212,62 @@ function renderVentas() {
 
   const totalCom = list.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
   const totalUnits = list.reduce((s,v)=>s+v.cantidad,0);
-  document.getElementById('ventas-stats').innerHTML = `<b>${list.length}</b> registros · <b>${totalUnits}</b> unidades · Comisión total: <b style="color:#00BDA5">${fmt(totalCom)}</b>`;
+
+  // Si hay agente seleccionado, mostrar resumen de pago de esa quincena
+  let statsHTML = `<b>${list.length}</b> registros · <b>${totalUnits}</b> unidades · Comisión total: <b style="color:#00BDA5">${fmt(totalCom)}</b>`;
+
+  if(fAg && fMes) {
+    const agente = appData.agentes.find(a=>a.id==fAg);
+    if(agente) {
+      // Detectar quincena actual o del filtro
+      const hoy = new Date().getDate();
+      const qActual = hoy <= 15 ? 1 : 2;
+
+      // Mostrar resumen de ambas quincenas del mes filtrado
+      let resumenHTML = '<div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:12px">';
+      resumenHTML += `<div style="font-weight:700;color:#0057A8;margin-bottom:8px">📊 Resumen de Pago — ${fMes}</div>`;
+      resumenHTML += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+      [1, 2].forEach(q => {
+        const comQ = getComisionesQuincena(agente, fMes, q);
+        const basico = agente.sueldoQuincenal||0;
+        const bonos = getExtra('bono', agente.nombre, fMes+'Q'+q);
+        const prest = getExtra('prest', agente.nombre, fMes+'Q'+q);
+        const desc = getExtra('desc', agente.nombre, fMes+'Q'+q);
+        const prev = getPrevQuincena(getMeses(), fMes, q);
+        const deAnt = prev ? getPend(agente.nombre, prev.mes, prev.q) : 0;
+        const grabaciones = appData.ventas.filter(v=>{
+          if(!v.esGrabacion && !v._esGrabacion) return false;
+          if((v.agente||'').trim().toLowerCase() !== (agente.nombre||'').trim().toLowerCase()) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===fMes && pp.q===q;
+        }).reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+
+        const total = comQ + grabaciones + basico + bonos + prest + deAnt - desc;
+
+        resumenHTML += `
+          <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:8px;font-size:11px">
+            <div style="font-weight:700;color:#0057A8;margin-bottom:6px">Q${q}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:10px">
+              <span style="color:#7C98B6">Comisiones:</span><span style="text-align:right;font-weight:600;color:#009FDB">${fmt(comQ)}</span>
+              ${grabaciones>0?`<span style="color:#7C98B6">Grabaciones:</span><span style="text-align:right;font-weight:600;color:#6A78D1">${fmt(grabaciones)}</span>`:''}
+              <span style="color:#7C98B6">Sueldo:</span><span style="text-align:right;font-weight:600;color:#33475B">${fmt(basico)}</span>
+              ${bonos>0?`<span style="color:#7C98B6">Bonos:</span><span style="text-align:right;font-weight:600;color:#6A78D1">+${fmt(bonos)}</span>`:''}
+              ${desc>0?`<span style="color:#7C98B6">Descuento:</span><span style="text-align:right;font-weight:600;color:#F2545B">−${fmt(desc)}</span>`:''}
+              <div style="border-top:1px solid #F0F2F5;grid-column:1/-1;margin-top:3px;padding-top:3px;font-weight:700;color:#00BDA5;display:grid;grid-template-columns:1fr 1fr">
+                <span>TOTAL:</span><span style="text-align:right">${fmt(total)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      resumenHTML += '</div></div>';
+      statsHTML += resumenHTML;
+    }
+  }
+
+  document.getElementById('ventas-stats').innerHTML = statsHTML;
 
   const iSty = 'border:1.5px solid #CBD6E2;border-radius:6px;padding:3px 6px;font-size:12px;color:#33475B;outline:none;background:#fff;font-family:inherit';
   document.getElementById('ventas-body').innerHTML = list.length ? list.map((v,i)=>{
