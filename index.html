@@ -4711,7 +4711,7 @@ function renderTopROI() {
           ...ings.map(i=>`<tr>
             <td><b style="color:#0057A8">${i.fuente||'—'}</b> <span style="color:#7C98B6;font-size:11px">${i.descripcion||''}</span></td>
             <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(i.monto)}</td>
-            <td style="text-align:right"><button class="btn btn-danger btn-xs" onclick="eliminarIngreso(${i.id})">✕</button></td>
+            <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="editarIngreso(${i.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="eliminarIngreso(${i.id})" style="margin-left:4px">✕</button></td>
           </tr>`)
         ];
         return rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>Fuente</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<div style="color:#99ACC2;font-size:12px;padding:8px 0">Sin ingresos registrados para este mes.</div>';
@@ -4861,6 +4861,21 @@ function abrirIngreso() {
   const maxId  = appData.ingresos.reduce((m,i)=>Math.max(m,i.id||0),0);
   appData.ingresos.push({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), fuente: fuente.trim()||'Otro', descripcion: desc.trim(), monto, mes });
   guardar(); renderTopROI(); showNotif('✅ Ingreso registrado');
+}
+
+function editarIngreso(id) {
+  const ingreso = (appData.ingresos||[]).find(i=>i.id===id);
+  if(!ingreso) return;
+  const fuente = prompt('Fuente del ingreso:', ingreso.fuente||'');
+  if(fuente===null) return;
+  const desc   = prompt('Descripción (opcional):', ingreso.descripcion||'');
+  if(desc===null) return;
+  const monto  = parseFloat(prompt('Monto ($):', ingreso.monto||'0')||'0');
+  if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
+  ingreso.fuente = fuente.trim()||'Otro';
+  ingreso.descripcion = desc.trim();
+  ingreso.monto = monto;
+  guardar(); renderTopROI(); showNotif('✅ Ingreso actualizado');
 }
 
 function eliminarIngreso(id) {
