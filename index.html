@@ -4873,13 +4873,21 @@ async function guardarPin(area) {
   const st  = document.getElementById('pin-cfg-' + area + '-status');
   if (!pin) { if(st) { st.style.color='#F2545B'; st.textContent='Ingresa un PIN.'; } return; }
   try {
-    await fbDB.ref('pins/' + area).set(pin);
+    // Intentar guardar en Firebase primero
+    try {
+      await fbDB.ref('pins/' + area).set(pin);
+    } catch(fbErr) {
+      console.warn('Firebase error, using localStorage:', fbErr);
+      // Fallback a localStorage
+      localStorage.setItem('pin_' + area, pin);
+    }
     el.value = '';
     el.placeholder = '••••••';
     if(st) { st.style.color='#00BDA5'; st.textContent='✅ PIN guardado'; }
     showNotif(`✅ PIN de ${area.toUpperCase()} guardado`);
   } catch(e) {
     if(st) { st.style.color='#F2545B'; st.textContent='Error al guardar.'; }
+    console.error('guardarPin error:', e);
   }
 }
 
