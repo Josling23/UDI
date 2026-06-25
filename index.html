@@ -3882,13 +3882,14 @@ async function cerrarSesion() {
   currentUser = null;
   currentRole = null;
   pinMode = false;
+  sessionStorage.removeItem('pinIngresado');
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'none';
   document.getElementById('sidebar-nav-admin').style.display = 'none';
   document.getElementById('sidebar-nav-hq').style.display    = 'none';
   document.getElementById('sidebar-nav-top').style.display   = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
-  mostrarLogin();
+  mostrarAreas(); // Volver directamente a áreas, no a login
   showNotif('🔒 Sesión cerrada');
 }
 
@@ -3938,11 +3939,12 @@ async function loginConPin() {
       document.getElementById('pin-input').value = '';
       return;
     }
-    // PIN correcto
+    // PIN correcto - guardar en sessionStorage
     const roleMap = { admin:'pin-admin', hq:'pin-hq', salud:'pin-salud', top:'pin-top' };
     currentRole = roleMap[area] || 'pin-admin';
     currentUser = null;
     pinMode = true;
+    sessionStorage.setItem('pinIngresado', JSON.stringify({ area, pin, timestamp: Date.now() }));
     document.getElementById('login-screen').style.display = 'none';
     // Cargar datos de Firebase antes de abrir el área
     await cargar();
@@ -6678,7 +6680,27 @@ document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
   ' <button class="btn btn-ghost btn-sm" onclick="agregarMes()">➕ Mes</button>'
 );
 
-// onAuthStateChanged ya se encarga del login/render — no necesitamos llamar nada aquí
+// Inicialización: saltarse login y ir directo a áreas
+// Si hay PIN guardado en sessionStorage, usarlo automáticamente
+window.addEventListener('load', async () => {
+  const pinGuardado = sessionStorage.getItem('pinIngresado');
+
+  if (pinGuardado) {
+    // Hay un PIN guardado - usar automáticamente sin pedir de nuevo
+    try {
+      const { area, pin } = JSON.parse(pinGuardado);
+      _pinAreaSel = area;
+      document.getElementById('pin-input').value = pin;
+      await loginConPin(); // Entrar automáticamente con el PIN guardado
+    } catch(e) {
+      console.log('Error usando PIN guardado:', e);
+      mostrarAreas(); // Si falla, mostrar selección de áreas
+    }
+  } else {
+    // No hay PIN guardado - mostrar selección de áreas
+    mostrarAreas();
+  }
+});
 
 </script>
 </body>
