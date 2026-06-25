@@ -3606,6 +3606,38 @@ function renderPagos() {
         // Breakdown tooltip
         const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' | Grabaciones: '+fmt(comGrab):''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
+        // ★ DESGLOSE DETALLADO DE VENTAS POR QUINCENA
+        const ventasQuincena = appData.ventas.filter(v=>{
+          if(!v || v.esGrabacion || v._esGrabacion) return false; // Excluir grabaciones
+          if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===mes && pp.q===q;
+        });
+
+        const ventasDesglose = ventasQuincena.length > 0
+          ? `<tr style="background:#F9FAFB;border-top:1px solid #E5E7EB">
+              <td colspan="11" style="padding:0;border:none">
+                <div style="padding:8px 12px;font-size:11px">
+                  <div style="font-weight:600;color:#7C98B6;margin-bottom:6px;text-transform:uppercase">📋 Detalle de ventas que generaron comisiones:</div>
+                  <div style="display:grid;grid-template-columns:140px 140px 60px 80px 80px;gap:8px;background:#fff;padding:6px;border-radius:6px;border:1px solid #E5E7EB">
+                    <div style="font-weight:600;color:#33475B;font-size:10px">Cliente</div>
+                    <div style="font-weight:600;color:#33475B;font-size:10px">Producto</div>
+                    <div style="font-weight:600;color:#33475B;font-size:10px;text-align:right">Cant.</div>
+                    <div style="font-weight:600;color:#009FDB;font-size:10px;text-align:right">Com./u</div>
+                    <div style="font-weight:600;color:#009FDB;font-size:10px;text-align:right">Total com.</div>
+                    ${ventasQuincena.map(v=>`
+                      <div style="color:#33475B;font-size:10px">${v.cliente||'—'}</div>
+                      <div style="color:#7C98B6;font-size:10px">${getProdNombre(v.productoId)}</div>
+                      <div style="color:#33475B;font-size:10px;text-align:right;font-weight:600">${v.cantidad||1}</div>
+                      <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</div>
+                      <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:700;background:#EAF7FB;padding:2px 4px;border-radius:3px">${fmt((parseFloat(v.comision)||0)*v.cantidad)}</div>
+                    `).join('')}
+                  </div>
+                </div>
+              </td>
+            </tr>`
+          : '';
+
         return `<tr style="background:${q===2?'#FAFBFC':'#fff'}">
           <td style="font-weight:600;white-space:nowrap;color:${q===2?'#7C98B6':'#33475B'};font-size:${q===2?'11px':'12px'}">${mes} — Q${q} <span style="font-size:9px;color:#99ACC2">${q===1?'(días 1–14)':'(días 15–penúlt.)'}</span></td>
           <td>
@@ -3622,7 +3654,8 @@ function renderPagos() {
           <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00')}</td>
           <td title="${breakStr}" style="font-weight:800;font-size:14px;text-align:right;color:${total>=0?'#00BDA5':'#F2545B'};background:${total>=0?'#F0FDF4':'#FEF2F2'};border-radius:6px;padding:4px 8px;cursor:help">${fmt(total)}</td>
           <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
-        </tr>`;
+        </tr>
+        ${ventasDesglose}`;
       });
     }).join('');
 
