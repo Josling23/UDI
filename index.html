@@ -2538,7 +2538,8 @@ function onLineProdChange(idx) {
   const agente = document.getElementById('v-agente')?.value||'';
   if(pid) {
     const com = getComisionParaAgente(pid, agente);
-    document.getElementById('vl-com-'+idx).value = com||'';
+    // FIX: Si com es 0, mostrar "0" no cadena vacía
+    document.getElementById('vl-com-'+idx).value = (com !== null && com !== undefined) ? com : '';
   }
   updateVentaTotal();
 }
@@ -2660,51 +2661,77 @@ function guardarVenta() {
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
   if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Selecciona el agente que grabó la llamada','error'); return; }
 
-  // Recoger todas las líneas
+  // Recoger todas las líneas — VALIDAR QUE TODAS ESTÉN COMPLETAS
   const lineas = [];
-  document.querySelectorAll('[id^="vlinea-"]').forEach(div=>{
+  let hasIncompleteLines = false;
+  let incompleteLineNumbers = [];
+
+  document.querySelectorAll('[id^="vlinea-"]').forEach((div, visibleIdx)=>{
     const idx = div.id.replace('vlinea-','');
     const cat  = document.getElementById('vl-cat-'+idx)?.value||'';
     const prod = document.getElementById('vl-prod-'+idx)?.value||'';
     const qty  = parseInt(document.getElementById('vl-qty-'+idx)?.value)||1;
     const com  = parseFloat(document.getElementById('vl-com-'+idx)?.value)||0;
     const nota = document.getElementById('vl-nota-'+idx)?.value?.trim()||'';
+
     if(!cat || !prod) {
-      console.warn(`Línea ${idx} incompleta: cat=${cat}, prod=${prod}`);
+      console.warn(`Línea ${visibleIdx+1} incompleta: cat=${cat}, prod=${prod}`);
+      hasIncompleteLines = true;
+      incompleteLineNumbers.push(visibleIdx+1);
       return;
     }
     lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota });
   });
 
+  // Si hay líneas incompletas, mostrar error específico
+  if(hasIncompleteLines) {
+    const lineNums = incompleteLineNumbers.join(', ');
+    showNotif(`⚠️ Línea${incompleteLineNumbers.length>1?'s':''} ${lineNums} incompleta${incompleteLineNumbers.length>1?'s':''} — Selecciona Categoría y Producto para todas`, 'error');
+    return;
+  }
+
   console.log(`Líneas a guardar: ${lineas.length}`, lineas);
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
 
   if(editVentaId !== null) {
-    // Edit: update solo la primera línea
-    const v = appData.ventas.find(x=>x.id===editVentaId);
-    const l = lineas[0];
-    Object.assign(v, { fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
-      llamadaGrabada, agenteGrabacion, comisionGrabacion,
-      notas: l.notaLinea || notas,
-      productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision });
-    // Actualizar o crear el registro de grabación vinculado
-    const existing = appData.ventas.find(x=>x.esGrabacion===true && x.refVentaId===editVentaId);
-    if(llamadaGrabada && agenteGrabacion) {
-      const comGrab = parseFloat(comisionGrabacion)||0;
-      if(existing) {
-        Object.assign(existing, { agente:agenteGrabacion, cliente, fecha, mes, quincenaPago, comision:comGrab });
-      } else {
-        const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
-        appData.ventas.push({ id:maxId+1, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
-          productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
-          notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:editVentaId });
-      }
-    } else if(existing) {
-      // Si quitaron la grabación, eliminar el registro vinculado
-      const idx = appData.ventas.findIndex(x=>x.esGrabacion===true && x.refVentaId===editVentaId);
-      if(idx !== -1) appData.ventas.splice(idx, 1);
+    // Edit: eliminar todas las líneas antiguas de esta venta y crear nuevas
+    // Primero, eliminar la venta original y cualquier grabación vinculada
+    const originalVentaIdx = appData.ventas.findIndex(x=>x.id===editVentaId);
+    if(originalVentaIdx !== -1) {
+      appData.ventas.splice(originalVentaIdx, 1);
     }
-    showNotif('✅ Venta actualizada');
+    // Eliminar grabación vinculada si existe
+    const existingGrab = appData.ventas.findIndex(x=>x.esGrabacion===true && x.refVentaId===editVentaId);
+    if(existingGrab !== -1) appData.ventas.splice(existingGrab, 1);
+
+    // Ahora crear nuevas líneas (con el mismo ID para la primera)
+    let newVentaId = null;
+    let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+
+    lineas.forEach((l, idx)=>{
+      maxId++;
+      const ventaId = idx === 0 ? editVentaId : maxId;
+      if(idx === 0) newVentaId = ventaId;
+
+      const ventaObj = { id:ventaId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
+        llamadaGrabada: idx === 0 ? llamadaGrabada : false,
+        agenteGrabacion: idx === 0 ? agenteGrabacion : '',
+        comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
+        notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
+        productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision };
+      appData.ventas.push(ventaObj);
+    });
+
+    // Crear grabación si corresponde
+    if(llamadaGrabada && agenteGrabacion && newVentaId) {
+      maxId++;
+      const comGrab = parseFloat(comisionGrabacion)||0;
+      const grabObj = { id:maxId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
+        productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
+        notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:newVentaId };
+      appData.ventas.push(grabObj);
+    }
+    showNotif(`✅ Venta actualizada con ${lineas.length} producto${lineas.length>1?'s':''}`);
   } else {
     // Nueva: crear un registro por cada línea + UN SOLO registro de grabación para la primera línea
     let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
