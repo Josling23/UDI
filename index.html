@@ -6753,13 +6753,8 @@ function saveBotAPIKey() {
 function addBotMessage(text, sender = 'user') {
   const messagesDiv = document.getElementById('bot-messages');
   const msgDiv = document.createElement('div');
-  msgDiv.style.cssText = \`
-    padding:10px;
-    border-radius:8px;
-    max-width:85%;
-    word-wrap:break-word;
-    font-size:12px;
-    \${sender==='bot' ? 'background:#EAF7FB;color:#0057A8;align-self:flex-start;border:1px solid #009FDB' : 'background:#009FDB;color:#fff;align-self:flex-end'}\`;
+  const bgColor = sender==='bot' ? 'background:#EAF7FB;color:#0057A8;align-self:flex-start;border:1px solid #009FDB' : 'background:#009FDB;color:#fff;align-self:flex-end';
+  msgDiv.style.cssText = 'padding:10px;border-radius:8px;max-width:85%;word-wrap:break-word;font-size:12px;' + bgColor;
   msgDiv.textContent = text;
   messagesDiv.appendChild(msgDiv);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
