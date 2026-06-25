@@ -536,8 +536,8 @@ tr:hover td{background:#EAF0FB}
         </select>
         <select id="fp-quincena" onchange="renderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none">
           <option value="">Q1 + Q2</option>
-          <option value="1">Q1 (días 1–15)</option>
-          <option value="2">Q2 (días 16–31)</option>
+          <option value="1">Q1 (últim. día mes ant. + días 1–14)</option>
+          <option value="2">Q2 (días 15–penúlt.)</option>
         </select>
         <button onclick="document.getElementById('fp-agente').value='';document.getElementById('fp-mes').value='';document.getElementById('fp-quincena').value='';renderPagos()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
         <button onclick="abrirDetalleAgenteModal()" style="background:#009FDB;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">👤 Ver Detalle Completo</button>
@@ -1853,7 +1853,7 @@ function getComisionesMes(a, mes) {
 }
 function getMeses() { return appData.meses || []; }
 
-// Comisiones de una quincena específica según fecha de las ventas (Q1=días 1-15, Q2=días 16-31)
+// Comisiones de una quincena específica según fecha de las ventas (Q1=últim día mes ant + días 1-14, Q2=días 15-penúlt.)
 // Dado "Junio 2026" devuelve "Julio 2026"
 function siguienteMes(mesStr) {
   const parts = (mesStr||'').split(' ');
@@ -3593,7 +3593,7 @@ function renderPagos() {
     renderBonosActivacion(mesAct, ordenados) +
     `<div style="margin-bottom:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <h3 style="font-size:15px;font-weight:800;color:#33475B">💳 Resumen de Pago — ${mesAct} Q${qAct} <span style="font-size:11px;font-weight:400;color:#99ACC2">(${qAct===1?'días 1–15':'días 16–31'})</span></h3>
+        <h3 style="font-size:15px;font-weight:800;color:#33475B">💳 Resumen de Pago — ${mesAct} Q${qAct} <span style="font-size:11px;font-weight:400;color:#99ACC2">(${qAct===1?'últim. día mes ant. + días 1–14':'días 15–penúlt.'})</span></h3>
         <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:8px 16px;font-size:13px;color:#0057A8">
           Total a pagar: <b style="font-size:16px;color:#F2545B">${fmt(totalAPagar)}</b>
         </div>
@@ -3610,7 +3610,7 @@ function renderPagos() {
     const nombreLow = (a.nombre||'').trim().toLowerCase();
     let totalPagado = 0, totalPend = 0;
 
-    // Dos filas por mes — comisiones por quincena según fecha de venta (Q1=días 1-15, Q2=días 16-31)
+    // Dos filas por mes — comisiones por quincena según fecha de venta (Q1=últim día mes ant + días 1-14, Q2=días 15-penúlt.)
     const filas = mesesVis.flatMap(mes=>{
       return qVis.map(q=>{
         const pagado  = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
@@ -4540,7 +4540,7 @@ function renderHQ() {
         </div>`;
     }
 
-    // ── HISTORIAL DE PAGOS — dos filas por mes (Q1 días 1-15, Q2 días 16-31) ──
+    // ── HISTORIAL DE PAGOS — dos filas por mes (Q1 últim día mes ant + días 1-14, Q2 días 15-penúlt.) ──
     const filasHist = meses.flatMap((mes, idxMes)=>{
       return [1,2].map(q=>{
         const pagado = appData.quincenas[getQuincenaKey(a.nombre,mes,q)];
