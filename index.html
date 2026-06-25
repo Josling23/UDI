@@ -3970,27 +3970,33 @@ async function obtenerRol(uid) {
 
 // Inicialización sin login — acceso directo al dashboard
 // Top controla todo y asigna PINs a otras sesiones
-window.addEventListener('DOMContentLoaded', async () => {
+setTimeout(async () => {
   try {
     currentUser = { email: 'top' };
     currentRole = 'owner';
-    // Cargar datos
-    await cargar();
-    await cargarSalud();
+    // Cargar datos (con timeout)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Load timeout')), 3000)
+    );
+    try {
+      await Promise.race([cargar(), timeoutPromise]);
+    } catch(e) {
+      console.warn('Cargar timeout/error, continuando sin datos previos:', e);
+    }
     ejecutarMigraciones();
-    // Mostrar pantalla de selección de áreas (TOP, HQ, Admin, Salud)
+    // Mostrar pantalla de selección de áreas
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('area-screen').style.display = 'flex';
     document.getElementById('app-wrap').style.display = 'none';
     document.getElementById('area-user-badge').textContent = '👤 Top';
-    // Construir botones de sesiones
+    // Construir botones
     mostrarAreas();
-    showNotif('🔓 Dashboard abierto');
+    showNotif('✅ Dashboard listo');
   } catch(e) {
     console.error('Init error:', e);
-    showNotif('⚠️ Error al cargar', 'error');
+    mostrarAreas(); // Mostrar áreas de todas formas
   }
-});
+}, 500);
 
 // ============================================================
 // GESTIÓN DE USUARIOS (página Usuarios — solo owner)
