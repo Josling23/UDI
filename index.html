@@ -4313,7 +4313,13 @@ function renderHQ() {
 
     // ── DESGLOSE COMISIONES POR AGENTE Y PRODUCTO ─────────────
     const mesPara  = selMes || (meses[meses.length-1]||'');
-    const qFiltroD = selQ ? [parseInt(selQ)] : [1,2];
+    // CRITICAL: Use same hardened filter logic for breakdown
+    let qFiltroD = [1,2]; // Default: both quincenas
+    if(selQ === '1') {
+      qFiltroD = [1]; // Only Q1
+    } else if(selQ === '2') {
+      qFiltroD = [2]; // Only Q2
+    }
     if(mesPara) {
       const nombreLow = a.nombre.trim().toLowerCase();
       const supervisadosLow = supervisa.map(n=>n.trim().toLowerCase());
