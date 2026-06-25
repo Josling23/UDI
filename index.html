@@ -3606,37 +3606,70 @@ function renderPagos() {
         // Breakdown tooltip
         const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' | Grabaciones: '+fmt(comGrab):''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
-        // ★ DESGLOSE DETALLADO DE VENTAS POR QUINCENA
+        // ★ DESGLOSE DETALLADO DE TODAS LAS FUENTES DE COMISIÓN
+        // Obtener desglose de ventas propias + supervisión + grabaciones
+        const desglose = getComisionesQuincenaDesglose(a, mes, q);
+
+        // Filtrar ventas propias
         const ventasQuincena = appData.ventas.filter(v=>{
-          if(!v || v.esGrabacion || v._esGrabacion) return false; // Excluir grabaciones
+          if(!v || v.esGrabacion || v._esGrabacion) return false;
           if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
           const pp = getPeríodoPago(v);
           return pp.mes===mes && pp.q===q;
         });
 
+        // Filtrar ventas de supervisados (para desglose de supervisión)
+        const agentesSupervisa = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+        const ventasSupervisadas = agentesSupervisa.length > 0 ? appData.ventas.filter(v=>{
+          if(!v || v.esGrabacion || v._esGrabacion) return false;
+          if(!agentesSupervisa.includes((v.agente||'').trim().toLowerCase())) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===mes && pp.q===q;
+        }) : [];
+
         let ventasDesglose = '';
-        if(ventasQuincena.length > 0) {
-          const filasVentas = ventasQuincena.map(v=>{
-            const nomProd = getProdNombre(v.productoId);
-            const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
-            return `<div style="color:#33475B;font-size:10px">${v.cliente||'—'}</div>
-                    <div style="color:#7C98B6;font-size:10px">${nomProd}</div>
-                    <div style="color:#33475B;font-size:10px;text-align:right;font-weight:600">${v.cantidad||1}</div>
-                    <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</div>
-                    <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:700;background:#EAF7FB;padding:2px 4px;border-radius:3px">${fmt(comTotal)}</div>`;
-          }).join('');
+        if(ventasQuincena.length > 0 || ventasSupervisadas.length > 0) {
+          let contenido = '';
+
+          // Sección 1: Ventas propias
+          if(ventasQuincena.length > 0) {
+            contenido += `<div style="font-weight:600;color:#009FDB;font-size:10px;margin-top:8px;margin-bottom:4px">💼 Ventas Propias:</div>`;
+            contenido += `<div style="display:grid;grid-template-columns:140px 140px 60px 80px 80px;gap:8px;margin-bottom:10px">`;
+            const filasVentas = ventasQuincena.map(v=>{
+              const nomProd = getProdNombre(v.productoId);
+              const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
+              return `<div style="color:#33475B;font-size:10px">${v.cliente||'—'}</div>
+                      <div style="color:#7C98B6;font-size:10px">${nomProd}</div>
+                      <div style="color:#33475B;font-size:10px;text-align:right;font-weight:600">${v.cantidad||1}</div>
+                      <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</div>
+                      <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:700;background:#EAF7FB;padding:2px 4px;border-radius:3px">${fmt(comTotal)}</div>`;
+            }).join('');
+            contenido += filasVentas + `</div>`;
+          }
+
+          // Sección 2: Supervisión (si las hay)
+          if(ventasSupervisadas.length > 0 && agentesSupervisa.length > 0) {
+            contenido += `<div style="font-weight:600;color:#6A78D1;font-size:10px;margin-top:8px;margin-bottom:4px">👥 Comisiones de Supervisión (de agentes supervisados):</div>`;
+            contenido += `<div style="display:grid;grid-template-columns:140px 140px 60px 80px 80px;gap:8px;margin-bottom:10px">`;
+            const filasSup = ventasSupervisadas.map(v=>{
+              const nomProd = getProdNombre(v.productoId);
+              const comRate = getComisionParaAgente(v.productoId, a.nombre);
+              const comTotal = comRate * (v.cantidad||1);
+              return `<div style="color:#6A78D1;font-size:10px">${v.cliente||'—'}</div>
+                      <div style="color:#7C98B6;font-size:10px">${nomProd}</div>
+                      <div style="color:#33475B;font-size:10px;text-align:right;font-weight:600">${v.cantidad||1}</div>
+                      <div style="color:#6A78D1;font-size:10px;text-align:right;font-weight:600">$${comRate.toFixed(2)}</div>
+                      <div style="color:#6A78D1;font-size:10px;text-align:right;font-weight:700;background:#F0EDFF;padding:2px 4px;border-radius:3px">${fmt(comTotal)}</div>`;
+            }).join('');
+            contenido += filasSup + `</div>`;
+          }
 
           ventasDesglose = `<tr style="background:#F9FAFB;border-top:1px solid #E5E7EB">
             <td colspan="11" style="padding:0;border:none">
               <div style="padding:8px 12px;font-size:11px">
-                <div style="font-weight:600;color:#7C98B6;margin-bottom:6px;text-transform:uppercase">📋 Detalle de ventas que generaron comisiones:</div>
-                <div style="display:grid;grid-template-columns:140px 140px 60px 80px 80px;gap:8px;background:#fff;padding:6px;border-radius:6px;border:1px solid #E5E7EB">
-                  <div style="font-weight:600;color:#33475B;font-size:10px">Cliente</div>
-                  <div style="font-weight:600;color:#33475B;font-size:10px">Producto</div>
-                  <div style="font-weight:600;color:#33475B;font-size:10px;text-align:right">Cant.</div>
-                  <div style="font-weight:600;color:#009FDB;font-size:10px;text-align:right">Com./u</div>
-                  <div style="font-weight:600;color:#009FDB;font-size:10px;text-align:right">Total com.</div>
-                  ${filasVentas}
+                <div style="font-weight:600;color:#7C98B6;margin-bottom:6px;text-transform:uppercase">📋 Desglose de Fuentes de Comisión (${mes} Q${q}):</div>
+                <div style="background:#fff;padding:8px;border-radius:6px;border:1px solid #E5E7EB">
+                  ${contenido}
                 </div>
               </div>
             </td>
