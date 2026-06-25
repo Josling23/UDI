@@ -3968,30 +3968,21 @@ async function obtenerRol(uid) {
   return null; // Sin acceso
 }
 
-// Observer de autenticación — punto de entrada principal
-fbAuth.onAuthStateChanged(async (user) => {
-  if (user) {
-    currentUser = user;
-    const role = await obtenerRol(user.uid);
-    if(!role) {
-      await fbAuth.signOut();
-      document.getElementById('login-error').textContent = 'Tu cuenta no tiene acceso autorizado.';
-      document.getElementById('login-error').style.display = 'block';
-      mostrarLogin();
-      return;
-    }
-    currentRole = role;
-    document.getElementById('login-btn').disabled = false;
-    document.getElementById('login-spinner').style.display = 'none';
-    // Cargar datos y mostrar pantalla de áreas
-    await cargar();
-    ejecutarMigraciones();
-    mostrarAreas();
-    showNotif(`🔓 Bienvenido, ${user.email.split('@')[0]}`);
-  } else {
-    mostrarLogin();
-  }
-});
+// Inicialización sin login — acceso directo al dashboard
+// Top controla todo y asigna PINs a otras sesiones
+(async () => {
+  currentUser = { email: 'top@dashboard.local' };
+  currentRole = 'owner';
+  // Ocultar pantalla de login, mostrar dashboard
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'flex';
+  // Cargar datos
+  await cargar();
+  await cargarSalud();
+  ejecutarMigraciones();
+  mostrarAreas();
+  showNotif('🔓 Bienvenido');
+})();
 
 // ============================================================
 // GESTIÓN DE USUARIOS (página Usuarios — solo owner)
