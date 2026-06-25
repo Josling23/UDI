@@ -1605,7 +1605,11 @@ function activarListenerAppData() {
 // Cargar desde Firebase (primera carga); fallback a localStorage
 async function cargar() {
   try {
-    const snap = await fbDB.ref('appData').get();
+    // Agregar timeout de 5 segundos para evitar que se quede esperando
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firebase timeout')), 5000)
+    );
+    const snap = await Promise.race([fbDB.ref('appData').get(), timeoutPromise]);
     if (snap.exists()) {
       const raw = snap.val();
       appData = { ...appData, ...raw };
