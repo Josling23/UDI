@@ -3606,11 +3606,7 @@ function renderPagos() {
         // Breakdown tooltip
         const breakStr = `Ventas: ${fmt(comQ)}${comGrab>0?' | Grabaciones: '+fmt(comGrab):''}${basico>0?' | Sueldo: '+fmt(basico):''}${bonos>0?' | Bonos: +'+fmt(bonos):''}${prestamo>0?' | Préstamo: +'+fmt(prestamo):''}${deAnt>0?' | De Q.Ant: +'+fmt(deAnt):''}${desc>0?' | Descuento: −'+fmt(desc):''}`;
 
-        // ★ DESGLOSE DETALLADO DE TODAS LAS FUENTES DE COMISIÓN
-        // Obtener desglose de ventas propias + supervisión + grabaciones
-        const desglose = getComisionesQuincenaDesglose(a, mes, q);
-
-        // Filtrar ventas propias
+        // ★ DESGLOSE SIMPLE DE VENTAS POR QUINCENA
         const ventasQuincena = appData.ventas.filter(v=>{
           if(!v || v.esGrabacion || v._esGrabacion) return false;
           if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
@@ -3618,60 +3614,36 @@ function renderPagos() {
           return pp.mes===mes && pp.q===q;
         });
 
-        // Filtrar ventas de supervisados (para desglose de supervisión)
-        const agentesSupervisa = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
-        const ventasSupervisadas = agentesSupervisa.length > 0 ? appData.ventas.filter(v=>{
-          if(!v || v.esGrabacion || v._esGrabacion) return false;
-          if(!agentesSupervisa.includes((v.agente||'').trim().toLowerCase())) return false;
-          const pp = getPeríodoPago(v);
-          return pp.mes===mes && pp.q===q;
-        }) : [];
-
         let ventasDesglose = '';
-        if(ventasQuincena.length > 0 || ventasSupervisadas.length > 0) {
-          let contenido = '';
+        if(ventasQuincena.length > 0) {
+          const filasHTML = ventasQuincena.map(v=>{
+            const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
+            return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px">
+              <td style="padding:4px 8px;color:#33475B">${v.cliente||'—'}</td>
+              <td style="padding:4px 8px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
+              <td style="padding:4px 8px;color:#33475B;text-align:right">${v.cantidad||1}</td>
+              <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</td>
+              <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:700">$${comTotal.toFixed(2)}</td>
+            </tr>`;
+          }).join('');
 
-          // Sección 1: Ventas propias
-          if(ventasQuincena.length > 0) {
-            contenido += `<div style="font-weight:600;color:#009FDB;font-size:10px;margin-top:8px;margin-bottom:4px">💼 Ventas Propias:</div>`;
-            contenido += `<div style="display:grid;grid-template-columns:140px 140px 60px 80px 80px;gap:8px;margin-bottom:10px">`;
-            const filasVentas = ventasQuincena.map(v=>{
-              const nomProd = getProdNombre(v.productoId);
-              const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
-              return `<div style="color:#33475B;font-size:10px">${v.cliente||'—'}</div>
-                      <div style="color:#7C98B6;font-size:10px">${nomProd}</div>
-                      <div style="color:#33475B;font-size:10px;text-align:right;font-weight:600">${v.cantidad||1}</div>
-                      <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</div>
-                      <div style="color:#009FDB;font-size:10px;text-align:right;font-weight:700;background:#EAF7FB;padding:2px 4px;border-radius:3px">${fmt(comTotal)}</div>`;
-            }).join('');
-            contenido += filasVentas + `</div>`;
-          }
-
-          // Sección 2: Supervisión (si las hay)
-          if(ventasSupervisadas.length > 0 && agentesSupervisa.length > 0) {
-            contenido += `<div style="font-weight:600;color:#6A78D1;font-size:10px;margin-top:8px;margin-bottom:4px">👥 Comisiones de Supervisión (de agentes supervisados):</div>`;
-            contenido += `<div style="display:grid;grid-template-columns:140px 140px 60px 80px 80px;gap:8px;margin-bottom:10px">`;
-            const filasSup = ventasSupervisadas.map(v=>{
-              const nomProd = getProdNombre(v.productoId);
-              const comRate = getComisionParaAgente(v.productoId, a.nombre);
-              const comTotal = comRate * (v.cantidad||1);
-              return `<div style="color:#6A78D1;font-size:10px">${v.cliente||'—'}</div>
-                      <div style="color:#7C98B6;font-size:10px">${nomProd}</div>
-                      <div style="color:#33475B;font-size:10px;text-align:right;font-weight:600">${v.cantidad||1}</div>
-                      <div style="color:#6A78D1;font-size:10px;text-align:right;font-weight:600">$${comRate.toFixed(2)}</div>
-                      <div style="color:#6A78D1;font-size:10px;text-align:right;font-weight:700;background:#F0EDFF;padding:2px 4px;border-radius:3px">${fmt(comTotal)}</div>`;
-            }).join('');
-            contenido += filasSup + `</div>`;
-          }
-
-          ventasDesglose = `<tr style="background:#F9FAFB;border-top:1px solid #E5E7EB">
-            <td colspan="11" style="padding:0;border:none">
-              <div style="padding:8px 12px;font-size:11px">
-                <div style="font-weight:600;color:#7C98B6;margin-bottom:6px;text-transform:uppercase">📋 Desglose de Fuentes de Comisión (${mes} Q${q}):</div>
-                <div style="background:#fff;padding:8px;border-radius:6px;border:1px solid #E5E7EB">
-                  ${contenido}
-                </div>
-              </div>
+          ventasDesglose = `<tr style="background:#F9FAFB">
+            <td colspan="11" style="padding:8px 12px;border:none">
+              <div style="font-weight:600;color:#7C98B6;font-size:10px;margin-bottom:6px;text-transform:uppercase">📋 Desglose de comisiones:</div>
+              <table style="width:100%;font-size:11px;border-collapse:collapse">
+                <thead style="background:#F5F8FA">
+                  <tr style="font-size:10px;font-weight:600;color:#33475B">
+                    <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Cliente</th>
+                    <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Producto</th>
+                    <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2">Cant.</th>
+                    <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2;color:#009FDB">Com./u</th>
+                    <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2;color:#009FDB">Total com.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filasHTML}
+                </tbody>
+              </table>
             </td>
           </tr>`;
         }
