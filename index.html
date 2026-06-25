@@ -3444,7 +3444,14 @@ function renderPagos() {
   const filtroMes   = document.getElementById('fp-mes')?.value||'';
   const filtroQ     = document.getElementById('fp-quincena')?.value||'';
   const mesesVis    = filtroMes ? [filtroMes] : meses;
-  const qVis        = filtroQ ? [parseInt(filtroQ)] : [1,2];
+  // CRITICAL: Only include selected quincena(s) in filter
+  let qVis = [1,2]; // Default: both quincenas
+  if(filtroQ === '1') {
+    qVis = [1]; // Only Q1
+  } else if(filtroQ === '2') {
+    qVis = [2]; // Only Q2
+  }
+  // If filtroQ is '' or unset, qVis stays as [1,2]
 
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
   const todos = [
@@ -4233,7 +4240,14 @@ function renderHQ() {
   const hqFiltrados = selAg ? hqAgentes.filter(a=>String(a.id)===selAg) : hqAgentes;
   hqFiltrados.forEach(a=>{
     const msFiltro = selMes ? [selMes] : meses;
-    const qFiltro  = selQ ? [parseInt(selQ)] : [1,2];
+    // CRITICAL: Only include selected quincena(s) in filter
+    let qFiltro = [1,2]; // Default: both quincenas
+    if(selQ === '1') {
+      qFiltro = [1]; // Only Q1
+    } else if(selQ === '2') {
+      qFiltro = [2]; // Only Q2
+    }
+    // If selQ is '' or unset, qFiltro stays as [1,2]
 
     // Comisiones según filtro de quincena
     const comTotal = msFiltro.reduce((s,m)=>
@@ -6125,8 +6139,8 @@ function abrirDetalleAgenteConFiltros(agenteId, mesAct, qAct) {
   const filtroQ = document.getElementById('fp-quincena')?.value || '';
   const filtroMes = document.getElementById('fp-mes')?.value || '';
 
-  // Si hay quincena específica seleccionada, mostrar solo esa
-  if(filtroQ && filtroMes) {
+  // Si hay quincena específica seleccionada (1 o 2), mostrar solo esa
+  if((filtroQ === '1' || filtroQ === '2') && filtroMes) {
     abrirDetalleAgenteQuincenaEspecifica(agenteId, filtroMes, parseInt(filtroQ));
   } else {
     // Si no hay filtro de quincena, mostrar todo
