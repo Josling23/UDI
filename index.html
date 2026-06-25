@@ -4344,8 +4344,8 @@ function renderHQ() {
       </select>
       <select id="hq-q-sel" onchange="renderHQ()" style="${sFiltro}">
         <option value="">Q1 + Q2</option>
-        <option value="1" ${selQ==='1'?'selected':''}>Q1 — Días 1–14</option>
-        <option value="2" ${selQ==='2'?'selected':''}>Q2 — Días 15–penúlt.</option>
+        <option value="1" ${selQ==='1'?'selected':''}>Q1 (últim. día mes ant. + días 1–14)</option>
+        <option value="2" ${selQ==='2'?'selected':''}>Q2 (días 15–penúlt.)</option>
       </select>
       <button onclick="document.getElementById('hq-ag-sel').value='';document.getElementById('hq-mes-sel').value='';document.getElementById('hq-q-sel').value='';renderHQ()"
         style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
