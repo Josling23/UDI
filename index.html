@@ -3530,6 +3530,50 @@ function renderPagos() {
         ${bonos>0?`<div style="color:#6A78D1">Bonos</div><div style="text-align:right;font-weight:600;color:#6A78D1">+${fmt(bonos)}</div>`:''}
         ${desc>0?`<div style="color:#F2545B">Descuento</div><div style="text-align:right;font-weight:600;color:#F2545B">−${fmt(desc)}</div>`:''}
       </div>
+
+      <!-- ★ DESGLOSE DE SUPERVISIÓN SI APLICA -->
+      ${(()=>{
+        const agSups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+        if(a.rol!=='gerente' && a.rol!=='supervisor' || agSups.length===0) return '';
+
+        // Filtrar ventas de supervisados en esta quincena
+        const ventasSup = appData.ventas.filter(v=>{
+          if(!v || v.esGrabacion || v._esGrabacion) return false;
+          if(!agSups.includes((v.agente||'').trim().toLowerCase())) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===mesAct && pp.q===qAct;
+        });
+
+        if(ventasSup.length===0) return '';
+
+        // Agrupar por agente supervisado
+        const porAgente = {};
+        ventasSup.forEach(v=>{
+          const ag = (v.agente||'').trim();
+          if(!porAgente[ag]) porAgente[ag] = [];
+          porAgente[ag].push(v);
+        });
+
+        let desglose = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #F0F2F5;font-size:9px">';
+        desglose += '<div style="font-weight:600;color:#6A78D1;margin-bottom:4px">👥 Desglose de Supervisión:</div>';
+
+        Object.keys(porAgente).forEach(agNom=>{
+          const ventas = porAgente[agNom];
+          const comTotal = ventas.reduce((s,v)=>{
+            const rate = getComisionParaAgente(v.productoId, a.nombre);
+            return s + rate * (v.cantidad||1);
+          }, 0);
+
+          desglose += '<div style="color:#33475B;margin-bottom:3px">';
+          desglose += '<b>' + agNom + ':</b> ';
+          const prods = ventas.map(v=>getProdNombre(v.productoId)+' ('+v.cantidad+')').join(', ');
+          desglose += prods + ' = <b style="color:#6A78D1">$' + comTotal.toFixed(2) + '</b>';
+          desglose += '</div>';
+        });
+
+        desglose += '</div>';
+        return desglose;
+      })()}
       <div style="border-top:1px solid #F0F2F5;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:11px;color:#7C98B6">TOTAL Q${qAct}</span>
         <span style="font-size:18px;font-weight:800;color:${pagado?'#059669':'#00BDA5'}">${fmt(total)}</span>
