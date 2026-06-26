@@ -602,6 +602,8 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
+    <div class="nav-section">IA Assistant</div>
+    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -609,6 +611,8 @@ tr:hover td{background:#EAF0FB}
   <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
     <div class="nav-section">🏛️ HEADQUARTERS</div>
     <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
+    <div class="nav-section">IA Assistant</div>
+    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -617,6 +621,8 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
+    <div class="nav-section">IA Assistant</div>
+    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -631,6 +637,8 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('salud-resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
+    <div class="nav-section">IA Assistant</div>
+    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -843,6 +851,52 @@ tr:hover td{background:#EAF0FB}
     <!-- ===== USUARIOS (solo owner) ===== -->
     <div class="page" id="page-usuarios">
       <div id="usuarios-content"></div>
+    </div>
+
+    <!-- ===== CHAT CON CLAUDE ===== -->
+    <div class="page" id="page-claude-chat">
+      <div style="display:flex;flex-direction:column;height:100vh;background:#fff">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#0057A8,#009FDB);color:white;padding:20px;text-align:center;border-bottom:2px solid #009FDB">
+          <h1 style="margin:0;font-size:24px;font-weight:800">🤖 CLAUDE - Asistente IA</h1>
+          <p style="margin:5px 0 0 0;font-size:12px;opacity:0.9">Análisis inteligente • Creación de datos • Recomendaciones</p>
+        </div>
+
+        <!-- Chat Container -->
+        <div style="flex:1;overflow-y:auto;padding:20px;background:#f9fafb" id="claude-full-messages">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="background:#e3f2fd;border-left:4px solid #009FDB;padding:15px;border-radius:8px">
+              <strong>👋 Hola!</strong> Soy CLAUDE, tu asistente IA avanzado de USA Distributor Inc.
+              <br><br>
+              Puedo:
+              <ul style="margin:10px 0;padding-left:20px">
+                <li>📊 Analizar datos en tiempo real</li>
+                <li>📝 Responder preguntas complejas</li>
+                <li>➕ Crear ventas, gastos, agentes, clientes</li>
+                <li>✏️ Editar información con confirmación</li>
+                <li>💡 Dar recomendaciones basadas en tendencias</li>
+              </ul>
+              ¿Qué necesitas?
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Area -->
+        <div style="border-top:1px solid #e0e0e0;padding:15px;background:#fff">
+          <div style="display:flex;gap:10px">
+            <input type="text" id="claude-full-input" placeholder="Escribe tu pregunta aquí..."
+              style="flex:1;padding:12px 15px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:14px;outline:none"
+              onkeypress="if(event.key==='Enter') enviarClaudeFull()">
+            <button onclick="enviarClaudeFull()"
+              style="padding:12px 25px;background:#009FDB;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px">
+              Enviar
+            </button>
+          </div>
+          <div style="font-size:11px;color:#99ACC2;margin-top:8px;text-align:center">
+            Escribe "Ayuda" para ver todos los comandos disponibles
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ====================================================== -->
@@ -7753,6 +7807,118 @@ function traducirToolName(toolName) {
     'crear_gasto': 'crear un gasto'
   };
   return translations[toolName] || toolName;
+}
+
+// ══════════════════════════════════════════════════════════════
+// CHAT DEDICADO - PÁGINA COMPLETA CLAUDE
+// ══════════════════════════════════════════════════════════════
+
+async function enviarClaudeFull() {
+  const input = document.getElementById('claude-full-input');
+  const message = input.value.trim();
+
+  if (!message) return;
+
+  // Verificar API Key
+  if (!CLAUDE_API_KEY) {
+    const apiKey = prompt('🔑 Ingresa tu Claude API Key (sk-ant-...):\n\nEsta se guardará localmente en tu navegador.');
+    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+      agregarMensajeClaudeFull('❌ API Key inválida. Debe comenzar con "sk-ant-"', 'error');
+      return;
+    }
+    CLAUDE_API_KEY = apiKey;
+    localStorage.setItem('claudeAPIKey', apiKey);
+    agregarMensajeClaudeFull('✅ API Key configurada. Ahora puedo funcionar correctamente.', 'bot');
+    input.value = '';
+    return;
+  }
+
+  // Manejar confirmación si está esperando
+  if (window.botWaitingConfirmation) {
+    if (message.toLowerCase().includes('sí') || message.toLowerCase().includes('si')) {
+      window.botWaitingConfirmation.callback(true);
+      input.value = '';
+      agregarMensajeClaudeFull(message, 'user');
+      return;
+    } else if (message.toLowerCase().includes('no')) {
+      window.botWaitingConfirmation.callback(false);
+      input.value = '';
+      agregarMensajeClaudeFull(message, 'user');
+      return;
+    }
+  }
+
+  // Agregar mensaje del usuario
+  agregarMensajeClaudeFull(message, 'user');
+  input.value = '';
+
+  // Mostrar que está escribiendo
+  mostrarEscribiendoClaudeFull();
+
+  try {
+    // Enviar a Claude API
+    const response = await chatWithClaudeAPI(message);
+    quitarEscribiendoClaudeFull();
+
+    // Procesar respuesta
+    await procesarRespuestaClaudeAPI(response);
+  } catch (error) {
+    quitarEscribiendoClaudeFull();
+    agregarMensajeClaudeFull(`❌ Error: ${error.message}`, 'error');
+    console.error('Claude API Error:', error);
+  }
+}
+
+function agregarMensajeClaudeFull(texto, tipo = 'bot') {
+  const container = document.getElementById('claude-full-messages');
+  const messageDiv = document.createElement('div');
+
+  let estilo = '';
+  let icono = '';
+
+  if (tipo === 'user') {
+    estilo = 'text-align:right;margin-left:40px';
+    icono = '👤';
+  } else if (tipo === 'bot') {
+    estilo = 'margin-right:40px';
+    icono = '🤖';
+  } else if (tipo === 'error') {
+    estilo = 'background:#fee;border-left:4px solid #f33;padding:12px;border-radius:8px';
+    icono = '❌';
+  }
+
+  messageDiv.style.cssText = estilo;
+  messageDiv.innerHTML = `
+    <div style="display:inline-block;background:${tipo === 'user' ? '#009FDB' : '#f0f0f0'};color:${tipo === 'user' ? 'white' : 'black'};padding:12px 15px;border-radius:12px;max-width:80%;text-align:left;word-wrap:break-word;white-space:pre-wrap">
+      ${texto}
+    </div>
+  `;
+
+  container.appendChild(messageDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+function mostrarEscribiendoClaudeFull() {
+  const container = document.getElementById('claude-full-messages');
+  const typingDiv = document.createElement('div');
+  typingDiv.id = 'claude-typing';
+  typingDiv.style.cssText = 'margin-right:40px;margin-top:10px';
+  typingDiv.innerHTML = `
+    <div style="display:inline-block;background:#f0f0f0;padding:12px 15px;border-radius:12px">
+      <div style="display:flex;gap:4px;align-items:center">
+        <div style="width:8px;height:8px;background:#999;border-radius:50%;animation:bounce 1.4s infinite"></div>
+        <div style="width:8px;height:8px;background:#999;border-radius:50%;animation:bounce 1.4s infinite 0.2s"></div>
+        <div style="width:8px;height:8px;background:#999;border-radius:50%;animation:bounce 1.4s infinite 0.4s"></div>
+      </div>
+    </div>
+  `;
+  container.appendChild(typingDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+function quitarEscribiendoClaudeFull() {
+  const typing = document.getElementById('claude-typing');
+  if (typing) typing.remove();
 }
 
 function addBotMessage(text, type = 'bot') {
