@@ -1971,6 +1971,11 @@ function getComisionesQuincena(a, mes, q) {
       return s + Math.max(rate, 0) * qty;
     }, 0);
 
+  // Comisiones extras
+  const extras = (appData.ventasExtra||[])
+    .filter(e=>e.agenteId===a.id && e.mes===mes)
+    .reduce((s,e)=>s + (e.comisionUnit||0)*(e.cantidad||0), 0);
+
   // Gerentes/supervisores: comisión de supervisión
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
