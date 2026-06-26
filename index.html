@@ -7758,13 +7758,27 @@ function procesarPreguntaBot(pregunta) {
   // AYUDA
   // ════════════════════════════════════════════════════════════════
   if (q.includes('help') || q.includes('ayuda') || q.includes('qué')) {
-    return `📚 Puedo:
-• PREGUNTAR: "¿Quién vendió más?" "Ventas de Oriana en junio" "Gastos totales"
-• CREAR VENTA: "Registra venta de [agente]: $[monto] [cliente] para [mes] [Q1/Q2]"
-• CREAR GASTO: "Nuevo gasto fijo: [descripción] $[monto]"
-• CREAR AGENTE: "Nuevo agente: [nombre], [rol]"
-• CREAR CLIENTE: "Nuevo cliente: [nombre], [empresa]"
-• IMPORTAR: Sube archivos Excel con datos`;
+    return `📚 COMANDOS DISPONIBLES:
+
+📊 CONSULTAR DATOS:
+  • "¿Quién vendió más?"
+  • "Ventas de Oriana en junio"
+  • "Gastos totales"
+  • "¿Cuántos agentes activos?"
+
+➕ CREAR DATOS (Modo interactivo):
+  • "Registra una venta" → Te guiaré paso a paso
+  • "Nuevo gasto" → Te pediré: tipo, descripción, monto, mes
+  • "Nuevo agente" → Te pediré: nombre, rol
+  • "Nuevo cliente" → Te pediré: nombre, empresa
+
+📁 IMPORTAR:
+  • Sube archivos Excel con datos (detecta automáticamente)
+
+💡 TIPS:
+  • Puedo entender números sin "$" (ej: "1000" en lugar de "$1000")
+  • En cualquier momento escribe "No" para cancelar
+  • Escribe "Sí" para confirmar`;
   }
 
   return `No entendí bien. Prueba: "¿Quién vendió más en junio?" o "Registra venta de Oriana: $1000 RS&I para junio Q1" o escribe "Ayuda".`;
