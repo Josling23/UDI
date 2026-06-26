@@ -5115,15 +5115,27 @@ function abrirGasto() {
   if(!mes) return;
   const desc  = prompt('Descripción del gasto (ej: Publicidad, Alquiler, Servicios):','');
   if(desc===null) return;
-  const tipo  = prompt('Tipo (fijo/variable/otro):', 'variable');
-  if(tipo===null) return;
-  if(!['fijo','variable','otro'].includes(tipo.toLowerCase())) { showNotif('⚠️ El tipo debe ser: fijo, variable u otro','error'); return; }
+
+  // Preguntar tipo de gasto de forma más clara
+  let tipo = 'variable';
+  const esFijo = confirm('¿Es un gasto FIJO?\n(Ej: Alquiler, Salarios, Seguros)\n\nOK = Fijo\nCancelar = Continuar');
+  if(esFijo) {
+    tipo = 'fijo';
+  } else {
+    const esVariable = confirm('¿Es un gasto VARIABLE?\n(Ej: Publicidad, Comisiones, Materiales)\n\nOK = Variable\nCancelar = Otro');
+    if(esVariable) {
+      tipo = 'variable';
+    } else {
+      tipo = 'otro';
+    }
+  }
+
   const monto = parseFloat(prompt('Monto ($):','0')||'0');
   if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
   if(!appData.gastos) appData.gastos = [];
   const maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
-  appData.gastos.push({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), descripcion: desc.trim(), tipo: tipo.toLowerCase(), monto, mes });
-  guardar(); renderTopROI(); showNotif('✅ Gasto registrado');
+  appData.gastos.push({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), descripcion: desc.trim(), tipo: tipo, monto, mes });
+  guardar(); renderTopROI(); showNotif(`✅ Gasto ${tipo.toUpperCase()} registrado`);
 }
 
 function editarGasto(id) {
@@ -5131,15 +5143,27 @@ function editarGasto(id) {
   if(!gasto) return;
   const desc  = prompt('Descripción del gasto:', gasto.descripcion||'');
   if(desc===null) return;
-  const tipo  = prompt('Tipo (fijo/variable/otro):', gasto.tipo||'variable');
-  if(tipo===null) return;
-  if(!['fijo','variable','otro'].includes(tipo.toLowerCase())) { showNotif('⚠️ El tipo debe ser: fijo, variable u otro','error'); return; }
+
+  // Preguntar tipo de gasto de forma más clara
+  let tipo = gasto.tipo || 'variable';
+  const esFijo = confirm(`¿Es un gasto FIJO?\n(Ej: Alquiler, Salarios, Seguros)\n\nActualmente: ${gasto.tipo.toUpperCase()}\n\nOK = Fijo\nCancelar = Continuar`);
+  if(esFijo) {
+    tipo = 'fijo';
+  } else {
+    const esVariable = confirm('¿Es un gasto VARIABLE?\n(Ej: Publicidad, Comisiones, Materiales)\n\nOK = Variable\nCancelar = Otro');
+    if(esVariable) {
+      tipo = 'variable';
+    } else {
+      tipo = 'otro';
+    }
+  }
+
   const monto = parseFloat(prompt('Monto ($):', gasto.monto||'0')||'0');
   if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
   gasto.descripcion = desc.trim();
-  gasto.tipo = tipo.toLowerCase();
+  gasto.tipo = tipo;
   gasto.monto = monto;
-  guardar(); renderTopROI(); showNotif('✅ Gasto actualizado');
+  guardar(); renderTopROI(); showNotif(`✅ Gasto ${tipo.toUpperCase()} actualizado`);
 }
 
 function eliminarGasto(id) {
