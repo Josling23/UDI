@@ -3630,8 +3630,15 @@ function basicoCOPCell(a, mesQ, basico) {
 function getExtraKey(tipo, agente, mes) { return `${tipo}||${agente.trim().toLowerCase()}||${mes}`; }
 function setExtra(tipo, agente, mes, valor) {
   const k = getExtraKey(tipo, agente, mes);
-  if(parseFloat(valor)) appData.quincenas[k] = parseFloat(valor);
-  else delete appData.quincenas[k];
+  // Para bonodesc y otros strings, guardar como texto
+  if(tipo === 'bonodesc' || tipo === 'desc-motivo') {
+    if(valor && valor.trim()) appData.quincenas[k] = valor.trim();
+    else delete appData.quincenas[k];
+  } else {
+    // Para números, parsear
+    if(parseFloat(valor)) appData.quincenas[k] = parseFloat(valor);
+    else delete appData.quincenas[k];
+  }
   guardar();
 }
 function getExtra(tipo, agente, mes) { return parseFloat(appData.quincenas[getExtraKey(tipo,agente,mes)])||0; }
