@@ -4982,7 +4982,85 @@ function renderTopROI() {
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">${alertCards}</div>
         </div>` : `<div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 16px;font-size:12px;font-weight:700;color:#059669">✅ Todos los agentes tienen ventas este mes</div>`}
       </div>`;
-    })()}`;
+    })()}
+
+    <!-- BREAK-EVEN ANALYSIS -->
+    ${(() => {
+      const allMeses = meses;
+      if (!allMeses.length) return '';
+      const totalFixed = allMeses.reduce((s,m)=>{
+        const roi = calcROI(m);
+        return s + roi.gastosFijos;
+      },0);
+      const totalVar = allMeses.reduce((s,m)=>{
+        const roi = calcROI(m);
+        return s + roi.gastosVar;
+      },0);
+      const totalIngresos = allMeses.reduce((s,m)=>s+calcROI(m).pagado,0);
+      const totalEgresos = allMeses.reduce((s,m)=>s+calcROI(m).totalEgresos,0);
+
+      const avgMonthlyFixed = totalFixed / allMeses.length;
+      const marginalCost = totalEgresos / totalIngresos;
+      const contributionMargin = (1 - marginalCost) * 100;
+      const breakEvenRevenue = contributionMargin > 0 ? avgMonthlyFixed / (contributionMargin/100) : 0;
+      const currentAvg = allMeses.reduce((s,m)=>s+calcROI(m).pagado,0) / allMeses.length;
+      const bufferPct = currentAvg > 0 ? ((currentAvg - breakEvenRevenue) / currentAvg) * 100 : 0;
+
+      return `<div class="roi-card" style="margin-bottom:18px">
+        <h3>🎯 Break-Even Analysis</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+          <div class="roi-item">
+            <label>Fixed Costs/Month</label>
+            <div class="val blue">${fmt(avgMonthlyFixed)}</div>
+          </div>
+          <div class="roi-item">
+            <label>Contribution Margin</label>
+            <div class="val">${contributionMargin.toFixed(1)}%</div>
+          </div>
+          <div class="roi-item" style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+            <label>Break-Even Revenue</label>
+            <div style="font-size:18px;font-weight:900;color:#D4A017">${fmt(breakEvenRevenue)}</div>
+          </div>
+          <div class="roi-item" style="background:${bufferPct>30?'rgba(0,180,165,0.2)':bufferPct>10?'rgba(212,160,23,0.2)':'rgba(224,64,72,0.2)'};border-radius:8px;padding:10px">
+            <label>Safety Buffer</label>
+            <div style="font-size:18px;font-weight:900;color:${bufferPct>30?'#00BDA5':bufferPct>10?'#D4A017':'#E04048'}">${bufferPct.toFixed(0)}%</div>
+          </div>
+        </div>
+        <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:12px;margin-top:12px;font-size:11px;line-height:1.6;color:#B0C4DB">
+          <strong>💡 Insight:</strong> Need minimum <strong>${fmt(breakEvenRevenue)}</strong>/month to cover fixed costs. Currently averaging <strong>${fmt(currentAvg)}</strong>/month with <strong>${bufferPct.toFixed(1)}%</strong> safety margin.
+        </div>
+      </div>`;
+    })()}
+
+    <!-- REVENUE BY SOURCE -->
+    ${selMes ? (()=>{
+      const legado = parseFloat(appData.pagosRecibidos[selMes]||0);
+      const bySource = {};
+      if(legado > 0) bySource['AT&T (legacy)'] = legado;
+      (appData.ingresos||[]).filter(i=>i.mes===selMes).forEach(i=>{
+        const source = i.fuente || 'Otro';
+        bySource[source] = (bySource[source]||0) + parseFloat(i.monto||0);
+      });
+      const sources = Object.entries(bySource).sort((a,b)=>b[1]-a[1]);
+      if (!sources.length) return '';
+      const totalRevenue = sources.reduce((s,x)=>s+x[1],0);
+      return `<div class="section" style="margin-bottom:18px;border-left:4px solid #009FDB">
+        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:12px">🥧 Ingresos por Fuente — ${selMes}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+          ${sources.map(([source, amount])=>{
+            const pct = totalRevenue>0?(amount/totalRevenue)*100:0;
+            return `<div style="background:#F5F8FA;border-radius:8px;padding:10px;border-left:4px solid #009FDB">
+              <div style="font-size:11px;font-weight:700;color:#33475B;margin-bottom:6px">${source}</div>
+              <div style="font-size:14px;font-weight:800;color:#009FDB;margin-bottom:4px">${fmt(amount)}</div>
+              <div style="background:#E8F5FB;height:6px;border-radius:3px;overflow:hidden;margin-bottom:4px">
+                <div style="background:#009FDB;height:100%;width:${pct}%"></div>
+              </div>
+              <div style="font-size:10px;color:#7C98B6">${pct.toFixed(1)}% of total</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    })() : ''}`
 }
 
 function guardarPagoRecibido() {
