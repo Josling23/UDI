@@ -3402,6 +3402,14 @@ function extraInput(tipo, agente, mes, color, placeholder) {
     onfocus="this.style.borderColor='${color}'" onblur="this.style.borderColor='#CBD6E2'">`;
 }
 
+function extraInputHQ(tipo, agente, mes, color, placeholder) {
+  const val = getExtra(tipo, agente, mes);
+  return `<input type="number" min="0" step="0.01" value="${val||''}" placeholder="${placeholder}"
+    style="width:78px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:${color};outline:none;text-align:right"
+    onchange="setExtra('${tipo}','${agente.replace(/'/g,"\\'")}','${mes}',this.value);renderHQ()"
+    onfocus="this.style.borderColor='${color}'" onblur="this.style.borderColor='#CBD6E2'">`;
+}
+
 // Devuelve el mes anterior y su quincena previa
 function getPrevQuincena(meses, mes, q) {
   if(q===2) return { mes, q:1 };
@@ -4434,11 +4442,12 @@ function renderHQ() {
     const comTotal = msFiltro.reduce((s,m)=>
       s + qFiltro.reduce((sq,q)=>sq+getComisionesQuincena(a,m,q),0), 0);
 
-    // Básico: contar quincenas del filtro
+    // Básico: contar quincenas del filtro (incluye sueldo base + sueldo USD manual)
     const basicoTot = msFiltro.reduce((s,m)=>
       s + qFiltro.reduce((sq,q)=>{
         const key = getQuincenaKey(a.nombre,m,q);
-        return sq + (a.sueldoQuincenal||0);
+        const sueldoUSD = getExtra('sueldousd', a.nombre, m+'Q'+q);
+        return sq + (a.sueldoQuincenal||0) + sueldoUSD;
       },0), 0);
 
     // Bonos/prest/desc: por quincena específica o suma del mes
@@ -4613,13 +4622,14 @@ function renderHQ() {
         const pagado = appData.quincenas[getQuincenaKey(a.nombre,mes,q)];
         const comQ   = getComisionesQuincena(a, mes, q);
         const bas    = a.sueldoQuincenal||0;
+        const sueldoUSD = getExtra('sueldousd', a.nombre, mes+'Q'+q);
         const bon    = getExtra('bono',  a.nombre, mes+'Q'+q);
         const pres   = getExtra('prest', a.nombre, mes+'Q'+q);
         const desc   = getExtra('desc',  a.nombre, mes+'Q'+q);
         // Pendiente de quincena anterior
         const prev   = getPrevQuincena(meses, mes, q);
         const deAnt  = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
-        const subTotal = comQ + bas + bon + pres + deAnt;
+        const subTotal = comQ + bas + sueldoUSD + bon + pres + deAnt;
         const total    = subTotal - desc;
         const deAntCell = deAnt>0
           ? `<b style="color:#D4A017">+${fmt(deAnt)}</b>`
@@ -4632,12 +4642,13 @@ function renderHQ() {
           </td>
           <td style="text-align:right;font-weight:800;color:#00BDA5;font-size:13px">${fmt(comQ)}</td>
           <td style="text-align:right;color:#7C98B6">${pagado?fmt(bas):'—'}</td>
-          <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00')}</td>
-          <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00')}</td>
+          <td style="text-align:right">${extraInputHQ('sueldousd',a.nombre,mes+'Q'+q,'#059669','0.00')}</td>
+          <td style="text-align:right">${extraInput('bono',a.nombre,mes+'Q'+q,'#6A78D1','0.00').replace('renderPagos()','renderHQ()')}</td>
+          <td style="text-align:right">${extraInput('prest',a.nombre,mes+'Q'+q,'#F5C26B','0.00').replace('renderPagos()','renderHQ()')}</td>
           <td style="text-align:right">${deAntCell}</td>
-          <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00')}</td>
+          <td style="text-align:right">${extraInput('desc',a.nombre,mes+'Q'+q,'#F2545B','0.00').replace('renderPagos()','renderHQ()')}</td>
           <td style="text-align:right;font-weight:900;font-size:14px;color:${total>=0?'#00BDA5':'#F2545B'}">${fmt(total)}</td>
-          <td style="text-align:right">${pendInput(a.nombre,mes,q)}</td>
+          <td style="text-align:right">${pendInput(a.nombre,mes,q).replace('renderPagos()','renderHQ()')}</td>
         </tr>`;
       });
     }).join('');
@@ -4651,6 +4662,7 @@ function renderHQ() {
             <th>Quincena</th>
             <th style="text-align:right">Comisiones</th>
             <th style="text-align:right">Básico</th>
+            <th style="text-align:right">💵 USD (Manual)</th>
             <th style="text-align:right">Bonos</th>
             <th style="text-align:right">Préstamos</th>
             <th style="text-align:right">🔄 De Q.Ant.</th>
