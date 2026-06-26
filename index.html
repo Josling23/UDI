@@ -1963,6 +1963,19 @@ function mesStrDesdeNum(yyyy, mm) {
   return `${MESES_ES[mm-1]} ${yyyy}`;
 }
 
+// Convierte mes de formato "Mes Año" a ISO "YYYY-MM"
+function mesAISO(mesStr) {
+  if(!mesStr) return mesStr;
+  if(mesStr.includes('-')) return mesStr; // Ya es ISO
+  if(mesStr.includes(' ')) {
+    const partes = mesStr.split(' ');
+    const yyyy = parseInt(partes[1]);
+    const mm = MESES_ES.indexOf(partes[0]) + 1;
+    return `${yyyy}-${String(mm).padStart(2, '0')}`;
+  }
+  return mesStr;
+}
+
 // Calcula en qué quincena de PAGO cae una venta (basado en v.fecha):
 //   Último día del mes anterior + días 1–14  → Q2 del mes calendario de esos días
 //   Días 15 hasta penúltimo del mes          → Q1 del mes siguiente
@@ -2007,13 +2020,15 @@ function getPeríodoPagoAuto(v) {
 
 function getComisionesQuincena(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
+  const mesISO = mesAISO(mes); // Convertir a ISO format
+
   // Incluye solo ventas (sin grabaciones)
   const propias = appData.ventas
     .filter(v=>{
       if(v.esGrabacion || v._esGrabacion) return false; // Excluir grabaciones
       if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
       const pp = getPeríodoPago(v);
-      return pp.mes === mes && pp.q === q;
+      return pp.mes === mesISO && pp.q === q;
     })
     .reduce((s,v)=>{
       const qty = parseFloat(v.cantidad)||1;
@@ -3799,11 +3814,12 @@ function renderPagos() {
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
     // Grabaciones
     const nombreLow = (a.nombre||'').trim().toLowerCase();
+    const mesActISO = mesAISO(mesAct); // Convertir a ISO format
     const grabRows = appData.ventas.filter(v=>{
       if(!v.esGrabacion && !v._esGrabacion) return false;
       if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
       const pp = getPeríodoPago(v);
-      return pp.mes===mesAct && pp.q===qAct;
+      return pp.mes===mesActISO && pp.q===qAct;
     });
     const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
 
