@@ -7410,13 +7410,11 @@ window.addEventListener('load', async () => {
   <div class="bot-messages" id="botMessages">
     <div class="bot-message bot">
       <div class="bot-message-content">
-        ¡Hola! 👋 Soy tu asistente UDI. Puedo ayudarte a:
-        <br><br>
-        📊 <strong>Analizar archivos</strong> (Excel, CSV, PDF, imágenes)<br>
-        📝 <strong>Responder preguntas</strong> sobre tus datos<br>
-        💾 <strong>Guardar información</strong> automáticamente<br>
-        <br>
-        ¿Cómo puedo ayudarte hoy?
+        ¡Hola! 👋 Soy tu asistente UDI. Te ayudo con:<br><br>
+        📊 <strong>Analizar archivos</strong> - Sube Excel, CSV, PDF o imágenes<br>
+        📝 <strong>Responder preguntas</strong> - Pregunta sobre ventas, agentes, gastos<br>
+        💾 <strong>Guardar datos</strong> - Importo información automáticamente<br><br>
+        ¿Qué necesitas?
       </div>
     </div>
   </div>
@@ -7485,7 +7483,9 @@ function addBotMessage(text, type = 'bot') {
   const messagesContainer = document.getElementById('botMessages');
   const messageDiv = document.createElement('div');
   messageDiv.className = `bot-message ${type}`;
-  messageDiv.innerHTML = `<div class="bot-message-content">${escapeHtml(text)}</div>`;
+  // Si contiene HTML, renderizalo; si no, escapalo para seguridad
+  const contenido = text.includes('<') && text.includes('>') ? text : escapeHtml(text);
+  messageDiv.innerHTML = `<div class="bot-message-content">${contenido}</div>`;
   messagesContainer.appendChild(messageDiv);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
