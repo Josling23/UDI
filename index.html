@@ -197,254 +197,6 @@ tr:hover td{background:#EAF0FB}
 .cards{grid-template-columns:1fr 1fr}
 }
 
-/* ══════════════════════════════════════════════════════════════ */
-/* BOT STYLES */
-/* ══════════════════════════════════════════════════════════════ */
-
-.bot-widget-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #009FDB, #0057A8);
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  box-shadow: 0 4px 12px rgba(0, 87, 168, 0.4);
-  z-index: 999;
-  transition: all 0.3s ease;
-}
-
-.bot-widget-button.visible {
-  display: flex;
-}
-
-.bot-widget-button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(0, 87, 168, 0.5);
-}
-
-.bot-widget-button.open {
-  background: linear-gradient(135deg, #E04048, #D41F26);
-}
-
-.bot-container {
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 400px;
-  height: 600px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 5px 40px rgba(0, 0, 0, 0.16);
-  display: none;
-  flex-direction: column;
-  z-index: 998;
-  border: 1px solid #CBD6E2;
-}
-
-.bot-container.open {
-  display: flex;
-}
-
-.bot-header {
-  background: linear-gradient(135deg, #009FDB, #0057A8);
-  color: white;
-  padding: 16px;
-  border-radius: 12px 12px 0 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.bot-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.bot-header-close {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.bot-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.bot-message {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-  animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.bot-message.user {
-  justify-content: flex-end;
-}
-
-.bot-message.bot {
-  justify-content: flex-start;
-}
-
-.bot-message-content {
-  max-width: 80%;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.5;
-  word-wrap: break-word;
-}
-
-.bot-message.user .bot-message-content {
-  background: linear-gradient(135deg, #009FDB, #0057A8);
-  color: white;
-  border-radius: 10px 2px 10px 10px;
-}
-
-.bot-message.bot .bot-message-content {
-  background: #F5F8FA;
-  color: #33475B;
-  border-radius: 2px 10px 10px 10px;
-}
-
-.bot-message.info .bot-message-content {
-  background: #FFFBE8;
-  color: #8B7500;
-  border-radius: 10px;
-}
-
-.bot-message.error .bot-message-content {
-  background: #FFF0F0;
-  color: #E04048;
-  border-radius: 10px;
-}
-
-.bot-input-area {
-  padding: 12px;
-  border-top: 1px solid #CBD6E2;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.bot-input-wrapper {
-  display: flex;
-  gap: 8px;
-}
-
-.bot-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid #CBD6E2;
-  border-radius: 8px;
-  font-size: 12px;
-  outline: none;
-  font-family: inherit;
-}
-
-.bot-input:focus {
-  border-color: #009FDB;
-  box-shadow: 0 0 0 3px rgba(0, 159, 219, 0.1);
-}
-
-.bot-send-btn {
-  background: linear-gradient(135deg, #009FDB, #0057A8);
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 12px;
-  transition: all 0.15s;
-}
-
-.bot-send-btn:hover {
-  background: linear-gradient(135deg, #007FC0, #004A9A);
-}
-
-.bot-file-input {
-  display: none;
-}
-
-.bot-file-btn {
-  background: #F5F8FA;
-  color: #7C98B6;
-  border: 1px solid #CBD6E2;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.15s;
-}
-
-.bot-file-btn:hover {
-  background: #EAF0FB;
-  color: #33475B;
-}
-
-.bot-typing {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  padding: 10px 14px;
-}
-
-.bot-typing-dot {
-  width: 8px;
-  height: 8px;
-  background: #7C98B6;
-  border-radius: 50%;
-  animation: typing 1.4s infinite;
-}
-
-.bot-typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.bot-typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes typing {
-  0%, 60%, 100% {
-    opacity: 0.5;
-    transform: translateY(0);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-8px);
-  }
-}
-
 </style>
 </head>
 <body>
@@ -602,8 +354,6 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
-    <div class="nav-section">IA Assistant</div>
-    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -611,8 +361,6 @@ tr:hover td{background:#EAF0FB}
   <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
     <div class="nav-section">🏛️ HEADQUARTERS</div>
     <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
-    <div class="nav-section">IA Assistant</div>
-    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -621,8 +369,6 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
-    <div class="nav-section">IA Assistant</div>
-    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -637,8 +383,6 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('salud-resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
-    <div class="nav-section">IA Assistant</div>
-    <div class="nav-item" onclick="showPage('claude-chat',this)"><span class="icon">💬</span><span>Chat con CLAUDE</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -851,52 +595,6 @@ tr:hover td{background:#EAF0FB}
     <!-- ===== USUARIOS (solo owner) ===== -->
     <div class="page" id="page-usuarios">
       <div id="usuarios-content"></div>
-    </div>
-
-    <!-- ===== CHAT CON CLAUDE ===== -->
-    <div class="page" id="page-claude-chat">
-      <div style="display:flex;flex-direction:column;height:100vh;background:#fff">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,#0057A8,#009FDB);color:white;padding:20px;text-align:center;border-bottom:2px solid #009FDB">
-          <h1 style="margin:0;font-size:24px;font-weight:800">🤖 CLAUDE - Asistente IA</h1>
-          <p style="margin:5px 0 0 0;font-size:12px;opacity:0.9">Análisis inteligente • Creación de datos • Recomendaciones</p>
-        </div>
-
-        <!-- Chat Container -->
-        <div style="flex:1;overflow-y:auto;padding:20px;background:#f9fafb" id="claude-full-messages">
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="background:#e3f2fd;border-left:4px solid #009FDB;padding:15px;border-radius:8px">
-              <strong>👋 Hola!</strong> Soy CLAUDE, tu asistente IA avanzado de USA Distributor Inc.
-              <br><br>
-              Puedo:
-              <ul style="margin:10px 0;padding-left:20px">
-                <li>📊 Analizar datos en tiempo real</li>
-                <li>📝 Responder preguntas complejas</li>
-                <li>➕ Crear ventas, gastos, agentes, clientes</li>
-                <li>✏️ Editar información con confirmación</li>
-                <li>💡 Dar recomendaciones basadas en tendencias</li>
-              </ul>
-              ¿Qué necesitas?
-            </div>
-          </div>
-        </div>
-
-        <!-- Input Area -->
-        <div style="border-top:1px solid #e0e0e0;padding:15px;background:#fff">
-          <div style="display:flex;gap:10px">
-            <input type="text" id="claude-full-input" placeholder="Escribe tu pregunta aquí..."
-              style="flex:1;padding:12px 15px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:14px;outline:none"
-              onkeypress="if(event.key==='Enter') enviarClaudeFull()">
-            <button onclick="enviarClaudeFull()"
-              style="padding:12px 25px;background:#009FDB;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px">
-              Enviar
-            </button>
-          </div>
-          <div style="font-size:11px;color:#99ACC2;margin-top:8px;text-align:center">
-            Escribe "Ayuda" para ver todos los comandos disponibles
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ====================================================== -->
@@ -1392,6 +1090,43 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL INFORMACIÓN FINANCIERA ===== -->
+<div class="modal-overlay" id="modal-finanzas">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h3>📊 Registrar Información Financiera</h3>
+      <button class="modal-close" onclick="closeModal('modal-finanzas')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Tipo *</label>
+          <select id="fin-tipo">
+            <option value="gasto_fijo">💰 Gasto Fijo</option>
+            <option value="gasto_variable">📊 Gasto Variable</option>
+            <option value="nomina">👥 Nómina Total</option>
+            <option value="comisiones_pagadas">🎯 Comisiones Pagadas</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mes *</label>
+          <select id="fin-mes"></select>
+        </div>
+        <div class="form-group">
+          <label>Quincena *</label>
+          <select id="fin-quincena"></select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1"><label>Descripción</label><input type="text" id="fin-desc" placeholder="Ej: Nómina Q1, Comisiones mayo..."></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Monto ($) *</label><input type="number" id="fin-monto" step="0.01" min="0" placeholder="0.00"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-finanzas')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarFinanzas()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL VENTA ===== -->
 <div class="modal-overlay" id="modal-venta">
   <div class="modal" style="max-width:680px">
@@ -1810,6 +1545,9 @@ let appData = {
   chargebacks: {},
   rsiReportes: {},
   accesoPrivado: [],
+  finanzas: [],
+  nextFinanzasId: 1,
+  gastosNomina: {},
 };
 
 function normalizarAppData() {
@@ -1830,6 +1568,9 @@ function normalizarAppData() {
   if(!appData.nextOIId)    appData.nextOIId = 1;
   if(!appData.campanas)    appData.campanas = [];
   if(!appData.nextCampId)  appData.nextCampId = 1;
+  if(!appData.finanzas)    appData.finanzas = [];
+  if(!appData.nextFinanzasId) appData.nextFinanzasId = 1;
+  if(!appData.gastosNomina) appData.gastosNomina = {};
 
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
@@ -2246,9 +1987,9 @@ function getComisionesQuincena(a, mes, q) {
           return pp.mes === mes && pp.q === q;
         }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
-    return propias + deAgentes;
+    return propias + deAgentes + extras;
   }
-  return propias;
+  return propias + extras;
 }
 
 // Nueva función: devuelve desglose de comisiones (ventas, grabaciones, supervisión)
@@ -2488,7 +2229,6 @@ function renderDashboard() {
     </div>`).join('') || '<div style="color:#99ACC2;font-size:12px;padding:10px">Sin datos</div>';
 
   // Mostrar bot en ADMIN
-  actualizarVisibilidadBot('admin');
 }
 
 // ============================================================
@@ -2759,7 +2499,6 @@ function renderVentas() {
     </td>
   </tr>`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
 
-  actualizarVisibilidadBot('admin');
 }
 
 let _lineaCount = 0;
@@ -3235,7 +2974,6 @@ function renderAgentes() {
     '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
 
   renderAgenteVentas();
-  actualizarVisibilidadBot('admin');
 }
 
 function renderAgenteVentas() {
@@ -3586,7 +3324,6 @@ function renderResumen() {
       <td></td>
     </tr></tbody></table>`;
 
-  actualizarVisibilidadBot('admin');
 }
 
 // ============================================================
@@ -4060,7 +3797,6 @@ function renderPagos() {
     </div>`;
   }).join('') || '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>');
 
-  actualizarVisibilidadBot('admin');
 }
 
 // ============================================================
@@ -4147,7 +3883,6 @@ function renderProductos() {
   </div>` : '';
 
   document.getElementById('productos-content').innerHTML = mobSection + intSection + oiSection + preSection;
-  actualizarVisibilidadBot('admin');
 }
 
 function updateComision(prodId, valor) {
@@ -4913,7 +4648,6 @@ function renderHQ() {
   });
 
   document.getElementById('hq-content').innerHTML = html;
-  actualizarVisibilidadBot('hq');
 }
 
 // Abrir modal de venta preseleccionando el agente HQ
@@ -4947,7 +4681,6 @@ function renderTop() {
   renderTopROI();
   renderTopChargebacks();
   renderTopConfig();
-  actualizarVisibilidadBot('top');
 }
 
 function switchTopTab(id, el) {
@@ -4984,11 +4717,29 @@ function renderTopROI() {
     const gastosFijos  = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='fijo').reduce((s,g)=>s+parseFloat(g.monto||0),0);
     const gastosVar    = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='variable').reduce((s,g)=>s+parseFloat(g.monto||0),0);
     const gastosOtros  = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='otro').reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const totalGastos  = gastosFijos+gastosVar+gastosOtros;
-    const totalEgresos = comAgentes+comGerSup+nomina+totalGastos;
+
+    // INTEGRACIÓN: Datos de tabla Gastos & Nómina
+    let gnGastosFijos = 0, gnGastosVar = 0, gnNomina = 0, gnComisiones = 0;
+    if (mes && appData.gastosNomina[mes]) {
+      gnGastosFijos = parseFloat(appData.gastosNomina[mes].gastosFijos||0);
+      gnGastosVar = parseFloat(appData.gastosNomina[mes].gastosVar||0);
+      gnNomina = parseFloat(appData.gastosNomina[mes].nominas||0);
+      gnComisiones = parseFloat(appData.gastosNomina[mes].comisiones||0);
+    }
+
+    // INTEGRACIÓN: Información Financiera (legado, si existe)
+    const finGastosFijos = appData.finanzas.filter(f=>(!mes||f.mes===mes)&&f.tipo==='gasto_fijo').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+    const finGastosVar = appData.finanzas.filter(f=>(!mes||f.mes===mes)&&f.tipo==='gasto_variable').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+    const finNomina = appData.finanzas.filter(f=>(!mes||f.mes===mes)&&f.tipo==='nomina').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+    const finComisiones = appData.finanzas.filter(f=>(!mes||f.mes===mes)&&f.tipo==='comisiones_pagadas').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+
+    const totalGastos  = gastosFijos+gastosVar+gastosOtros+gnGastosFijos+gnGastosVar+finGastosFijos+finGastosVar;
+    const totalNominaIntegrada = nomina+gnNomina+finNomina;
+    const totalComisionesIntegradas = comAgentes+comGerSup+gnComisiones+finComisiones;
+    const totalEgresos = totalComisionesIntegradas+totalNominaIntegrada+totalGastos;
     const utilidad     = pagado - totalEgresos;
     const roi          = pagado>0?(utilidad/pagado*100):0;
-    return { pagado, comAgentes, comGerSup, nomina, gastosFijos, gastosVar, gastosOtros, totalGastos, totalEgresos, utilidad, roi };
+    return { pagado, comAgentes, comGerSup, nomina, gastosFijos, gastosVar, gastosOtros, totalGastos, totalEgresos, utilidad, roi, finNomina, finComisiones, finGastosFijos, finGastosVar, totalNominaIntegrada, totalComisionesIntegradas };
   }
 
   const d = calcROI(selMes);
@@ -5129,6 +4880,42 @@ function renderTopROI() {
         <div style="font-size:12px;font-weight:700;color:#E04048;margin-bottom:12px">📊 Desglose de Gastos — ${selMes}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">${items}</div>
       </div>` : '';
+    })() : ''}
+
+    <!-- INFORMACIÓN FINANCIERA (desde Admin) -->
+    ${selMes ? (()=>{
+      const finanzas = appData.finanzas.filter(f=>f.mes===selMes);
+      if(!finanzas.length) return '';
+
+      const gFijos = finanzas.filter(f=>f.tipo==='gasto_fijo').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+      const gVars = finanzas.filter(f=>f.tipo==='gasto_variable').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+      const nomina = finanzas.filter(f=>f.tipo==='nomina').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+      const comisiones = finanzas.filter(f=>f.tipo==='comisiones_pagadas').reduce((s,f)=>s+parseFloat(f.monto||0),0);
+
+      return `<div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;font-weight:700;color:#6A78D1">📊 Información Financiera Registrada — ${selMes}</div>
+          <button class="btn btn-primary btn-sm" onclick="document.querySelectorAll('.priv-section.active')[0].style.display='none'; switchAdminTab('finanzas'); showPage('admin'); window.setTimeout(()=>switchAdminTab('finanzas'),100)" style="background:#6A78D1;border-color:#6A78D1">⚙️ Editar en Admin</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+          <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:4px solid #F2545B">
+            <div style="font-size:9px;font-weight:700;color:#E04048;text-transform:uppercase">Gastos Fijos</div>
+            <div style="font-size:16px;font-weight:800;color:#F2545B">${fmt(gFijos)}</div>
+          </div>
+          <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:4px solid #FF7A59">
+            <div style="font-size:9px;font-weight:700;color:#E66E50;text-transform:uppercase">Gastos Variables</div>
+            <div style="font-size:16px;font-weight:800;color:#FF7A59">${fmt(gVars)}</div>
+          </div>
+          <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:4px solid #009FDB">
+            <div style="font-size:9px;font-weight:700;color:#0057A8;text-transform:uppercase">Nómina</div>
+            <div style="font-size:16px;font-weight:800;color:#009FDB">${fmt(nomina)}</div>
+          </div>
+          <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:4px solid #00BDA5">
+            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">Comisiones Pagadas</div>
+            <div style="font-size:16px;font-weight:800;color:#00BDA5">${fmt(comisiones)}</div>
+          </div>
+        </div>
+      </div>`;
     })() : ''}
 
     <!-- AGENT PERFORMANCE & COST STRUCTURE -->
@@ -5659,133 +5446,90 @@ async function guardarPin(area) {
 // ============================================================
 function renderAdmin() {
   document.getElementById('admin-content').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-      <div>
-        <h2 style="font-size:18px;font-weight:800;color:#33475B">💸 Gastos & Nómina</h2>
-        <div style="font-size:11px;color:#99ACC2">Estos datos se reflejan automáticamente en el ROI del área TOP</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('gastos',this)">💸 Gastos</button>
-        <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('nomina',this)">👥 Nómina</button>
-      </div>
+    <div style="margin-bottom:20px">
+      <h2 style="font-size:18px;font-weight:800;color:#33475B">💸 Gastos & Nómina</h2>
+      <div style="font-size:11px;color:#99ACC2">Ingresa los datos mensuales. Los cambios se reflejan automáticamente en TOP</div>
     </div>
-    <div class="priv-section active" id="admin-gastos"></div>
-    <div class="priv-section" id="admin-nomina"></div>
+    <div id="admin-gasto-nomina-table"></div>
   `;
-  renderAdminGastos();
-  renderAdminNomina();
-  actualizarVisibilidadBot('admin');
+  renderAdminGastoNominaTable();
 }
 
-function switchAdminTab(id, el) {
-  document.querySelectorAll('#admin-content .priv-section').forEach(s=>s.classList.remove('active'));
-  document.getElementById('admin-'+id).classList.add('active');
-}
-
-// ── Gastos (Admin) ──────────────────────────────────────────
-let editGastoId = null;
-function renderAdminGastos() {
-  const gastos = [...appData.gastos].sort((a,b)=>b.id-a.id);
-  const totalFijo = gastos.filter(g=>g.tipo==='fijo').reduce((s,g)=>s+parseFloat(g.monto||0),0);
-  const totalVar  = gastos.filter(g=>g.tipo==='variable').reduce((s,g)=>s+parseFloat(g.monto||0),0);
-  const totalOtro = gastos.filter(g=>g.tipo==='otro').reduce((s,g)=>s+parseFloat(g.monto||0),0);
-  document.getElementById('admin-gastos').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-      <div style="display:flex;gap:16px;font-size:13px;flex-wrap:wrap">
-        <span>📌 Fijos: <b style="color:#F2545B">${fmt(totalFijo)}</b></span>
-        <span>📊 Variables: <b style="color:#FF7A59">${fmt(totalVar)}</b></span>
-        <span>📢 Marketing/Otros: <b style="color:#6A78D1">${fmt(totalOtro)}</b></span>
-        <span style="font-weight:700">Total: <b>${fmt(totalFijo+totalVar+totalOtro)}</b></span>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="openGastoModal()">➕ Nuevo Gasto</button>
-    </div>
-    <div class="tbl-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Mes</th><th style="text-align:right">Monto</th><th>✕</th></tr></thead>
-      <tbody>${gastos.length ? gastos.map(g=>`<tr>
-        <td>${g.fecha}</td>
-        <td><span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:${g.tipo==='fijo'?'#FFF0F0':g.tipo==='variable'?'#FFF3EE':'#F0EDFF'};color:${g.tipo==='fijo'?'#E04048':g.tipo==='variable'?'#E66E50':'#6A78D1'}">${g.tipo==='fijo'?'📌 Fijo':g.tipo==='variable'?'📊 Variable':'📢 Otro'}</span></td>
-        <td style="font-weight:600">${g.descripcion}</td>
-        <td style="color:#7C98B6">${g.mes||'—'}</td>
-        <td style="text-align:right;font-weight:700;color:#F2545B">${fmt(g.monto)}</td>
-        <td><button class="btn btn-danger btn-xs" onclick="eliminarGasto(${g.id})">✕</button></td>
-      </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Sin gastos registrados</td></tr>'}</tbody>
-    </table></div>`;
-}
-
-function openGastoModal() {
+// ── Tabla Gastos & Nómina Unificada (Admin) ──────────────────────────────────────────
+function renderAdminGastoNominaTable() {
   const meses = getMeses();
-  document.getElementById('g-mes').innerHTML = meses.map(m=>`<option value="${m}">${m}</option>`).join('');
-  document.getElementById('g-fecha').value = new Date().toISOString().split('T')[0];
-  document.getElementById('g-tipo').value = 'fijo';
-  document.getElementById('g-desc').value = '';
-  document.getElementById('g-monto').value = '';
-  document.getElementById('g-notas').value = '';
-  document.getElementById('g-mes').value = meses[meses.length-1]||'';
-  document.getElementById('modal-gasto').classList.add('open');
-}
-function guardarGasto() {
-  const desc  = document.getElementById('g-desc').value.trim();
-  const monto = parseFloat(document.getElementById('g-monto').value)||0;
-  if(!desc)  { showNotif('⚠️ Ingresa la descripción','error'); return; }
-  if(!monto) { showNotif('⚠️ Ingresa el monto','error'); return; }
-  const maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
-  appData.gastos.push({ id:maxId+1,
-    fecha: document.getElementById('g-fecha').value,
-    tipo:  document.getElementById('g-tipo').value,
-    descripcion: desc, monto,
-    mes:   document.getElementById('g-mes').value,
-    notas: document.getElementById('g-notas').value.trim(),
+
+  // Calcular totales por mes
+  let datos = [];
+  let totalAnualNominas = 0, totalAnualComisiones = 0, totalAnualGastosVar = 0, totalAnualGastosFijos = 0;
+
+  meses.forEach(mes => {
+    const nominas = (appData.gastosNomina[mes]?.nominas || 0);
+    const comisiones = (appData.gastosNomina[mes]?.comisiones || 0);
+    const gastosVar = (appData.gastosNomina[mes]?.gastosVar || 0);
+    const gastosFijos = (appData.gastosNomina[mes]?.gastosFijos || 0);
+    const totalMes = nominas + comisiones + gastosVar + gastosFijos;
+
+    datos.push({ mes, nominas, comisiones, gastosVar, gastosFijos, totalMes });
+    totalAnualNominas += nominas;
+    totalAnualComisiones += comisiones;
+    totalAnualGastosVar += gastosVar;
+    totalAnualGastosFijos += gastosFijos;
   });
-  guardar(); closeModal('modal-gasto'); renderAdminGastos();
-  showNotif('✅ Gasto registrado');
-}
-function eliminarGasto(id) {
-  if(!confirm('¿Eliminar gasto?')) return;
-  appData.gastos = appData.gastos.filter(g=>g.id!==id);
-  guardar(); renderAdminGastos(); showNotif('🗑️ Gasto eliminado');
+
+  const totalAnual = totalAnualNominas + totalAnualComisiones + totalAnualGastosVar + totalAnualGastosFijos;
+
+  document.getElementById('admin-gasto-nomina-table').innerHTML = `
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table style="width:100%">
+        <thead>
+          <tr style="background:#F5F8FA">
+            <th style="text-align:left;min-width:140px">📅 Mes</th>
+            <th style="text-align:right;min-width:130px">💼 Nóminas</th>
+            <th style="text-align:right;min-width:130px">💰 Comisiones</th>
+            <th style="text-align:right;min-width:150px">📊 Gastos Var.</th>
+            <th style="text-align:right;min-width:130px">📌 Gastos Fijos</th>
+            <th style="text-align:right;min-width:130px">💵 Total Mensual</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${datos.map(d => `
+            <tr style="border-bottom:1px solid #CBD6E2">
+              <td style="padding:12px;font-weight:600;color:#33475B">${d.mes}</td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.nominas}" data-field="nominas" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#009FDB" /></td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00BDA5" /></td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
+              <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
+            </tr>
+          `).join('')}
+          <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
+            <td style="padding:12px;color:#33475B">📊 Total Anual</td>
+            <td style="padding:12px;text-align:right;color:#009FDB">${fmt(totalAnualNominas)}</td>
+            <td style="padding:12px;text-align:right;color:#00BDA5">${fmt(totalAnualComisiones)}</td>
+            <td style="padding:12px;text-align:right;color:#FF7A59">${fmt(totalAnualGastosVar)}</td>
+            <td style="padding:12px;text-align:right;color:#F2545B">${fmt(totalAnualGastosFijos)}</td>
+            <td style="padding:12px;text-align:right;color:#009FDB;font-size:16px">${fmt(totalAnual)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
-// ── Nómina (Admin) ──────────────────────────────────────────
-function renderAdminNomina() {
-  const meses = getMeses();
-  const html = meses.map(mes=>{
-    const filas = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
-      const q1 = appData.quincenas[getQuincenaKey(a.nombre,mes,1)];
-      const q2 = appData.quincenas[getQuincenaKey(a.nombre,mes,2)];
-      const com   = getComisionesMes(a,mes);
-      const bas   = (a.sueldoQuincenal||0)*2;
-      const bon   = getExtra('bono',a.nombre,mes);
-      const pres  = getExtra('prest',a.nombre,mes);
-      const desc  = getExtra('desc',a.nombre,mes);
-      const total = com+bas+bon+pres-desc;
-      return `<tr>
-        <td style="font-weight:600">${a.nombre}</td>
-        <td><span style="font-size:10px;padding:2px 7px;border-radius:20px;background:${ROL_BG[a.rol||'agente']};color:${ROL_COLORS[a.rol||'agente']};font-weight:700">${ROL_LABELS[a.rol||'agente']}</span></td>
-        <td style="text-align:right;color:#009FDB">${fmt(com)}</td>
-        <td style="text-align:right;color:#7C98B6">${bas>0?fmt(bas):'—'}</td>
-        <td style="text-align:right;color:#6A78D1">${bon>0?fmt(bon):'—'}</td>
-        <td style="text-align:right;color:#F5C26B">${pres>0?fmt(pres):'—'}</td>
-        <td style="text-align:right;color:#F2545B">${desc>0?fmt(desc):'—'}</td>
-        <td style="text-align:right;font-weight:800;color:#00BDA5">${fmt(total)}</td>
-        <td>${q1?'✅':''} Q1 ${q2?'✅':''} Q2</td>
-      </tr>`;
-    }).join('');
-    const totalNom = appData.agentes.filter(a=>!a.soloHQ).reduce((s,a)=>{
-      return s+getComisionesMes(a,mes)+(a.sueldoQuincenal||0)*2
-        +getExtra('bono',a.nombre,mes)+getExtra('prest',a.nombre,mes)-getExtra('desc',a.nombre,mes);
-    },0);
-    return `<div class="section" style="margin-bottom:14px">
-      <div class="section-header">
-        <h2>📅 ${mes}</h2>
-        <span style="font-size:13px;font-weight:700;color:#F2545B">Total nómina: ${fmt(totalNom)}</span>
-      </div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Agente</th><th>Rol</th><th style="text-align:right">Com.</th><th style="text-align:right">Básico</th><th style="text-align:right">Bonos</th><th style="text-align:right">Préstamos</th><th style="text-align:right">Descuento</th><th style="text-align:right">TOTAL</th><th>Quinc.</th></tr></thead>
-        <tbody>${filas}</tbody>
-      </table></div>
-    </div>`;
-  }).join('');
-  document.getElementById('admin-nomina').innerHTML = html||'<div style="color:#99ACC2;padding:20px">Sin datos</div>';
+function guardarGastoNominaCell(input) {
+  const mes = input.getAttribute('data-mes');
+  const field = input.getAttribute('data-field');
+  const valor = parseFloat(input.value) || 0;
+
+  if (!appData.gastosNomina[mes]) {
+    appData.gastosNomina[mes] = { nominas: 0, comisiones: 0, gastosVar: 0, gastosFijos: 0 };
+  }
+
+  appData.gastosNomina[mes][field] = valor;
+  guardar();
+  renderAdminGastoNominaTable();
+  renderTopROI(); // Actualizar TOP
 }
 
 // ============================================================
@@ -7457,1474 +7201,6 @@ window.addEventListener('load', async () => {
     mostrarAreas();
   }
 });
-
-</script>
-
-<!-- ══════════════════════════════════════════════════════════════ -->
-<!-- BOT WIDGET HTML -->
-<!-- ══════════════════════════════════════════════════════════════ -->
-
-<button class="bot-widget-button" id="botWidgetBtn" onclick="toggleBotWidget()">🤖</button>
-
-<div class="bot-container" id="botContainer">
-  <div class="bot-header">
-    <h3>🤖 Asistente UDI</h3>
-    <button class="bot-header-close" onclick="toggleBotWidget()">✕</button>
-  </div>
-
-  <div class="bot-messages" id="botMessages">
-    <div class="bot-message bot">
-      <div class="bot-message-content">
-        ¡Hola! 👋 Soy <strong>CLAUDE</strong>, tu asistente IA de USA Distributor Inc.<br><br>
-        Puedo:<br>
-        📊 <strong>Analizar datos en tiempo real</strong> - Leo todo el dashboard<br>
-        📝 <strong>Responder preguntas complejas</strong> - Con análisis profundo<br>
-        ➕ <strong>Crear datos</strong> - Ventas, gastos, agentes, clientes<br>
-        ✏️ <strong>Editar información</strong> - Con tu confirmación<br>
-        💡 <strong>Dar recomendaciones</strong> - Basadas en tendencias<br><br>
-        ¿Qué necesitas?
-      </div>
-    </div>
-  </div>
-
-  <div class="bot-input-area">
-    <div class="bot-input-wrapper">
-      <button class="bot-file-btn" onclick="document.getElementById('botFileInput').click()">📎 Archivo</button>
-      <input type="file" id="botFileInput" class="bot-file-input" onchange="handleBotFileUpload(event)" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.txt">
-      <input type="text" class="bot-input" id="botInput" placeholder="Escribe tu pregunta..." onkeypress="handleBotKeyPress(event)">
-      <button class="bot-send-btn" onclick="sendBotMessage()">Enviar</button>
-    </div>
-    <div style="font-size:10px;color:#99ACC2;padding:0 4px">
-      💡 Prueba: "¿Cuántas ventas hay?" o sube un Excel con datos
-    </div>
-  </div>
-</div>
-
-<script>
-// ══════════════════════════════════════════════════════════════
-// CLAUDE API INTEGRATION - DIRECT ACCESS
-// ══════════════════════════════════════════════════════════════
-
-// CLAUDE API - Con proxy CORS para navegador
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
-let claudeConversationHistory = [];
-let CLAUDE_API_KEY = localStorage.getItem('claudeAPIKey') || null;
-
-// Función para hacer fetch con manejo de CORS
-async function fetchClaudeAPI(url, options) {
-  // Usar proxy CORS confiable
-  const proxyUrl = 'https://allorigins.win/raw?url=' + encodeURIComponent(url);
-
-  const response = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
-    body: options.body
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  return response;
-}
-
-function toggleBotWidget() {
-  const container = document.getElementById('botContainer');
-  const btn = document.getElementById('botWidgetBtn');
-  container.classList.toggle('open');
-  btn.classList.toggle('open');
-}
-
-async function sendBotMessage() {
-  const input = document.getElementById('botInput');
-  const message = input.value.trim();
-
-  if (!message) return;
-
-  // Verificar si API Key está configurada
-  if (!CLAUDE_API_KEY) {
-    const apiKey = prompt('🔑 Ingresa tu Claude API Key (sk-ant-...):\n\nEsta se guardará localmente en tu navegador.');
-    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
-      addBotMessage('❌ API Key inválida. Debe comenzar con "sk-ant-"', 'error');
-      return;
-    }
-    CLAUDE_API_KEY = apiKey;
-    localStorage.setItem('claudeAPIKey', apiKey);
-    addBotMessage('✅ API Key configurada. Ahora puedo funcionar correctamente.', 'bot');
-    input.value = '';
-    return;
-  }
-
-  // Manejar confirmación si está esperando
-  if (window.botWaitingConfirmation) {
-    if (message.toLowerCase().includes('sí') || message.toLowerCase().includes('si')) {
-      window.botWaitingConfirmation.callback(true);
-      input.value = '';
-      addBotMessage(message, 'user');
-      return;
-    } else if (message.toLowerCase().includes('no')) {
-      window.botWaitingConfirmation.callback(false);
-      input.value = '';
-      addBotMessage(message, 'user');
-      return;
-    }
-  }
-
-  // Agregar mensaje del usuario
-  addBotMessage(message, 'user');
-  input.value = '';
-
-  // Mostrar que está escribiendo
-  showBotTyping();
-
-  try {
-    // Enviar a Claude API
-    const response = await chatWithClaudeAPI(message);
-    removeBotTyping();
-
-    // Procesar respuesta (puede incluir tool use)
-    await procesarRespuestaClaudeAPI(response);
-  } catch (error) {
-    removeBotTyping();
-    addBotMessage(`❌ Error: ${error.message}`, 'error');
-    console.error('Claude API Error:', error);
-  }
-}
-
-async function chatWithClaudeAPI(mensaje) {
-  // Agregar mensaje a historial
-  claudeConversationHistory.push({
-    role: 'user',
-    content: mensaje
-  });
-
-  // Capturar contexto del dashboard
-  const contextoDashboard = capturarContextoDashboard();
-
-  // Definir herramientas disponibles para Claude
-  const tools = [
-    {
-      name: 'crear_venta',
-      description: 'Crea una nueva venta en el sistema',
-      input_schema: {
-        type: 'object',
-        properties: {
-          agente: { type: 'string' },
-          cliente: { type: 'string' },
-          monto: { type: 'number' },
-          mes: { type: 'string' },
-          quincena: { type: 'string', enum: ['1', '2'] },
-          producto: { type: 'string' }
-        },
-        required: ['agente', 'monto', 'mes', 'quincena']
-      }
-    },
-    {
-      name: 'crear_gasto',
-      description: 'Crea un nuevo gasto',
-      input_schema: {
-        type: 'object',
-        properties: {
-          tipo: { type: 'string', enum: ['fijo', 'variable', 'otro'] },
-          descripcion: { type: 'string' },
-          monto: { type: 'number' },
-          mes: { type: 'string' }
-        },
-        required: ['tipo', 'descripcion', 'monto', 'mes']
-      }
-    }
-  ];
-
-  const response = await fetchClaudeAPI(CLAUDE_API_URL, {
-    method: 'POST',
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2048,
-      system: `Eres CLAUDE, asistente IA avanzado de USA Distributor Inc.
-
-CONTEXTO ACTUAL:
-${contextoDashboard}
-
-INSTRUCCIONES:
-1. Analiza preguntas sobre datos del negocio
-2. Responde basado en información visible
-3. Si solicitan crear datos, usa las herramientas disponibles
-4. SIEMPRE pide confirmación antes de modificar datos
-5. Sé preciso, conciso y útil`,
-      tools: tools,
-      messages: claudeConversationHistory
-    })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Error en Claude API');
-  }
-
-  const data = await response.json();
-
-  // Agregar respuesta al historial
-  claudeConversationHistory.push({
-    role: 'assistant',
-    content: data.content
-  });
-
-  return data;
-}
-
-async function procesarRespuestaClaudeAPI(response) {
-  for (let block of response.content) {
-    if (block.type === 'text') {
-      addBotMessage(block.text, 'bot');
-    } else if (block.type === 'tool_use') {
-      const toolName = block.name;
-      const toolInput = block.input;
-
-      // Pedir confirmación
-      const confirmacion = await pedirConfirmacion(toolName, toolInput);
-
-      if (confirmacion) {
-        const resultado = await ejecutarHerramienta(toolName, toolInput);
-        addBotMessage(`✅ ${resultado}`, 'bot');
-      } else {
-        addBotMessage('❌ Operación cancelada.', 'bot');
-      }
-    }
-  }
-}
-
-async function pedirConfirmacion(toolName, params) {
-  return new Promise((resolve) => {
-    let mensaje = `📝 Voy a ${traducirToolName(toolName)}:\n\n`;
-
-    if (toolName === 'crear_venta') {
-      mensaje += `▸ Agente: ${params.agente}\n`;
-      mensaje += `▸ Cliente: ${params.cliente || 'Sin especificar'}\n`;
-      mensaje += `▸ Monto: $${fmt(params.monto)}\n`;
-      mensaje += `▸ Mes: ${params.mes}\n`;
-      mensaje += `▸ Quincena: Q${params.quincena}\n`;
-    } else if (toolName === 'crear_gasto') {
-      mensaje += `▸ Tipo: ${params.tipo}\n`;
-      mensaje += `▸ Descripción: ${params.descripcion}\n`;
-      mensaje += `▸ Monto: $${fmt(params.monto)}\n`;
-      mensaje += `▸ Mes: ${params.mes}\n`;
-    }
-
-    mensaje += '\n¿CONFIRMAS? (Escribe "Sí" o "No")';
-    addBotMessage(mensaje, 'bot');
-
-    window.botWaitingConfirmation = {
-      callback: (confirmed) => {
-        window.botWaitingConfirmation = null;
-        resolve(confirmed);
-      }
-    };
-  });
-}
-
-async function ejecutarHerramienta(toolName, params) {
-  if (toolName === 'crear_venta') {
-    return crearVentaClaudeAPI(params);
-  } else if (toolName === 'crear_gasto') {
-    return crearGastoClaudeAPI(params);
-  }
-}
-
-function crearVentaClaudeAPI(params) {
-  if (!appData.ventas) appData.ventas = [];
-  const maxId = appData.ventas.reduce((m, x) => Math.max(m, x.id || 0), 0);
-
-  const ventaObj = {
-    id: maxId + 1,
-    fecha: new Date().toISOString().slice(0, 10),
-    agente: params.agente,
-    cliente: params.cliente || '',
-    cuenta: '',
-    mes: params.mes,
-    campana: '',
-    quincenaPago: params.quincena,
-    llamadaGrabada: false,
-    agenteGrabacion: '',
-    comisionGrabacion: 0,
-    notas: params.producto || '',
-    productoId: 'generico',
-    categoria: 'general',
-    cantidad: 1,
-    comision: 0
-  };
-
-  appData.ventas.push(ventaObj);
-  guardar();
-
-  try { renderAdmin(); } catch(e) {}
-  try { renderTop(); } catch(e) {}
-  try { renderVentas(); } catch(e) {}
-
-  return `Venta creada para ${params.agente}`;
-}
-
-function crearGastoClaudeAPI(params) {
-  if (!appData.gastos) appData.gastos = [];
-  const maxId = appData.gastos.reduce((m, x) => Math.max(m, x.id || 0), 0);
-
-  const gastoObj = {
-    id: maxId + 1,
-    fecha: new Date().toISOString().slice(0, 10),
-    descripcion: params.descripcion,
-    tipo: params.tipo,
-    monto: params.monto,
-    mes: params.mes
-  };
-
-  appData.gastos.push(gastoObj);
-  guardar();
-
-  try { renderAdmin(); } catch(e) {}
-  try { renderTop(); } catch(e) {}
-
-  return `Gasto de $${fmt(params.monto)} creado`;
-}
-
-function capturarContextoDashboard() {
-  let contexto = 'DATOS SISTEMA:\n';
-  contexto += `Ventas: ${(appData.ventas || []).length}\n`;
-  contexto += `Agentes: ${(appData.agentes || []).length}\n`;
-  contexto += `Clientes: ${(appData.clientes || []).length}\n`;
-  contexto += `Gastos: ${(appData.gastos || []).length}\n`;
-  if ((appData.ventas || []).length > 0) {
-    contexto += `\nÚltimas ventas: ${appData.ventas.slice(-3).map(v => `${v.agente}:$${v.monto}`).join(', ')}\n`;
-  }
-  return contexto;
-}
-
-function traducirToolName(toolName) {
-  const translations = {
-    'crear_venta': 'crear una venta',
-    'crear_gasto': 'crear un gasto'
-  };
-  return translations[toolName] || toolName;
-}
-
-// ══════════════════════════════════════════════════════════════
-// CHAT DEDICADO - PÁGINA COMPLETA CLAUDE
-// ══════════════════════════════════════════════════════════════
-
-async function enviarClaudeFull() {
-  const input = document.getElementById('claude-full-input');
-  const message = input.value.trim();
-
-  if (!message) return;
-
-  // Verificar API Key
-  if (!CLAUDE_API_KEY) {
-    const apiKey = prompt('🔑 Ingresa tu Claude API Key (sk-ant-...):\n\nEsta se guardará localmente en tu navegador.');
-    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
-      agregarMensajeClaudeFull('❌ API Key inválida. Debe comenzar con "sk-ant-"', 'error');
-      return;
-    }
-    CLAUDE_API_KEY = apiKey;
-    localStorage.setItem('claudeAPIKey', apiKey);
-    agregarMensajeClaudeFull('✅ API Key configurada. Ahora puedo funcionar correctamente.', 'bot');
-    input.value = '';
-    return;
-  }
-
-  // Manejar confirmación si está esperando
-  if (window.botWaitingConfirmation) {
-    if (message.toLowerCase().includes('sí') || message.toLowerCase().includes('si')) {
-      window.botWaitingConfirmation.callback(true);
-      input.value = '';
-      agregarMensajeClaudeFull(message, 'user');
-      return;
-    } else if (message.toLowerCase().includes('no')) {
-      window.botWaitingConfirmation.callback(false);
-      input.value = '';
-      agregarMensajeClaudeFull(message, 'user');
-      return;
-    }
-  }
-
-  // Agregar mensaje del usuario
-  agregarMensajeClaudeFull(message, 'user');
-  input.value = '';
-
-  // Mostrar que está escribiendo
-  mostrarEscribiendoClaudeFull();
-
-  try {
-    // Enviar a Claude API
-    const response = await chatWithClaudeAPI(message);
-    quitarEscribiendoClaudeFull();
-
-    // Procesar respuesta
-    await procesarRespuestaClaudeAPI(response);
-  } catch (error) {
-    quitarEscribiendoClaudeFull();
-    agregarMensajeClaudeFull(`❌ Error: ${error.message}`, 'error');
-    console.error('Claude API Error:', error);
-  }
-}
-
-function agregarMensajeClaudeFull(texto, tipo = 'bot') {
-  const container = document.getElementById('claude-full-messages');
-  const messageDiv = document.createElement('div');
-
-  let estilo = '';
-  let icono = '';
-
-  if (tipo === 'user') {
-    estilo = 'text-align:right;margin-left:40px';
-    icono = '👤';
-  } else if (tipo === 'bot') {
-    estilo = 'margin-right:40px';
-    icono = '🤖';
-  } else if (tipo === 'error') {
-    estilo = 'background:#fee;border-left:4px solid #f33;padding:12px;border-radius:8px';
-    icono = '❌';
-  }
-
-  messageDiv.style.cssText = estilo;
-  messageDiv.innerHTML = `
-    <div style="display:inline-block;background:${tipo === 'user' ? '#009FDB' : '#f0f0f0'};color:${tipo === 'user' ? 'white' : 'black'};padding:12px 15px;border-radius:12px;max-width:80%;text-align:left;word-wrap:break-word;white-space:pre-wrap">
-      ${texto}
-    </div>
-  `;
-
-  container.appendChild(messageDiv);
-  container.scrollTop = container.scrollHeight;
-}
-
-function mostrarEscribiendoClaudeFull() {
-  const container = document.getElementById('claude-full-messages');
-  const typingDiv = document.createElement('div');
-  typingDiv.id = 'claude-typing';
-  typingDiv.style.cssText = 'margin-right:40px;margin-top:10px';
-  typingDiv.innerHTML = `
-    <div style="display:inline-block;background:#f0f0f0;padding:12px 15px;border-radius:12px">
-      <div style="display:flex;gap:4px;align-items:center">
-        <div style="width:8px;height:8px;background:#999;border-radius:50%;animation:bounce 1.4s infinite"></div>
-        <div style="width:8px;height:8px;background:#999;border-radius:50%;animation:bounce 1.4s infinite 0.2s"></div>
-        <div style="width:8px;height:8px;background:#999;border-radius:50%;animation:bounce 1.4s infinite 0.4s"></div>
-      </div>
-    </div>
-  `;
-  container.appendChild(typingDiv);
-  container.scrollTop = container.scrollHeight;
-}
-
-function quitarEscribiendoClaudeFull() {
-  const typing = document.getElementById('claude-typing');
-  if (typing) typing.remove();
-}
-
-function addBotMessage(text, type = 'bot') {
-  const messagesContainer = document.getElementById('botMessages');
-  const messageDiv = document.createElement('div');
-  messageDiv.className = `bot-message ${type}`;
-  // Si contiene HTML, renderizalo; si no, escapalo para seguridad
-  const contenido = text.includes('<') && text.includes('>') ? text : escapeHtml(text);
-  messageDiv.innerHTML = `<div class="bot-message-content">${contenido}</div>`;
-  messagesContainer.appendChild(messageDiv);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function showBotTyping() {
-  const messagesContainer = document.getElementById('botMessages');
-  const typingDiv = document.createElement('div');
-  typingDiv.className = 'bot-message bot';
-  typingDiv.id = 'botTyping';
-  typingDiv.innerHTML = `
-    <div class="bot-message-content">
-      <div class="bot-typing">
-        <div class="bot-typing-dot"></div>
-        <div class="bot-typing-dot"></div>
-        <div class="bot-typing-dot"></div>
-      </div>
-    </div>
-  `;
-  messagesContainer.appendChild(typingDiv);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function removeBotTyping() {
-  const typing = document.getElementById('botTyping');
-  if (typing) typing.remove();
-}
-
-function handleBotKeyPress(event) {
-  if (event.key === 'Enter') {
-    sendBotMessage();
-  }
-}
-
-function handleBotFileUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  addBotMessage(`📎 Archivo cargado: ${file.name}`, 'info');
-  showBotTyping();
-
-  setTimeout(() => {
-    removeBotTyping();
-    let response = procesarArchivoBot(file);
-    addBotMessage(response, 'bot');
-  }, 2000);
-
-  // Reset input
-  event.target.value = '';
-}
-
-// ══════════════════════════════════════════════════════════════
-// BOT INTELIGENTE - PROCESAR PREGUNTAS
-// ══════════════════════════════════════════════════════════════
-
-function procesarPreguntaBot(pregunta) {
-  const q = pregunta.toLowerCase().trim();
-  const tieneAccessoTOP = currentRole === 'admin' || currentRole === 'owner' || currentRole === 'gerente';
-  const meses = getMeses();
-  const mesActual = meses[meses.length - 1];
-
-  // FUNCIÓN AUXILIAR: Detectar mes específico en la pregunta
-  function detectarMes(texto) {
-    const mesesMap = {
-      'enero': '2026-01', 'febrero': '2026-02', 'marzo': '2026-03', 'abril': '2026-04',
-      'mayo': '2026-05', 'junio': '2026-06', 'julio': '2026-07', 'agosto': '2026-08',
-      'septiembre': '2026-09', 'octubre': '2026-10', 'noviembre': '2026-11', 'diciembre': '2026-12'
-    };
-    for (let [mes, key] of Object.entries(mesesMap)) {
-      if (texto.includes(mes)) return key;
-    }
-    if (texto.includes('este mes') || texto.includes('hoy') || texto.includes('actual')) return mesActual;
-    if (texto.includes('q1') || texto.includes('primer trimestre')) return ['2026-01', '2026-02', '2026-03'];
-    if (texto.includes('q2') || texto.includes('segundo trimestre')) return ['2026-04', '2026-05', '2026-06'];
-    return null;
-  }
-
-  // FUNCIÓN AUXILIAR: Detectar quincena específica
-  function detectarQuincena(texto) {
-    if (texto.includes('q1') || texto.includes('quincena 1')) return '1';
-    if (texto.includes('q2') || texto.includes('quincena 2')) return '2';
-    return null;
-  }
-
-  // Las confirmaciones se manejan en sendBotMessage(), no aquí
-
-  // ════════════════════════════════════════════════════════════════
-  // CREACIÓN DE VENTA
-  // ════════════════════════════════════════════════════════════════
-  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nueva')) && q.includes('venta')) {
-    return procesarCreacionVenta(pregunta, detectarMes, detectarQuincena, mesActual);
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // CREACIÓN DE GASTO
-  // ════════════════════════════════════════════════════════════════
-  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nuevo')) && q.includes('gasto')) {
-    return procesarCreacionGasto(pregunta, detectarMes, mesActual);
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // CREACIÓN DE AGENTE
-  // ════════════════════════════════════════════════════════════════
-  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nuevo')) && q.includes('agente')) {
-    return procesarCreacionAgente(pregunta);
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // CREACIÓN DE CLIENTE
-  // ════════════════════════════════════════════════════════════════
-  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nuevo')) && q.includes('cliente')) {
-    return procesarCreacionCliente(pregunta);
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // PREGUNTAS COMPLEJAS: "¿Quién vendió más?" "¿Mejor agente?"
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('quien') && (q.includes('vend') || q.includes('mejor') || q.includes('mas'))) {
-    const mesAanalizar = detectarMes(q);
-    const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
-
-    const ranking = (appData.agentes || [])
-      .filter(a => !a.soloHQ)
-      .map(a => {
-        const ventasAgente = (appData.ventas || []).filter(v =>
-          (v.agente || '').toLowerCase() === a.nombre.toLowerCase() &&
-          mesesFiltro.includes(v.mes)
-        );
-        const montoTotal = ventasAgente.reduce((s, v) => s + parseFloat(v.monto || 0), 0);
-        return { nombre: a.nombre, ventas: ventasAgente.length, monto: montoTotal };
-      })
-      .filter(a => a.ventas > 0)
-      .sort((x, y) => y.monto - x.monto);
-
-    if (ranking.length === 0) return `No hay ventas en el periodo especificado.`;
-    const periodo = Array.isArray(mesAanalizar) ? mesAanalizar[0].split('-')[1] : (mesAanalizar ? mesAanalizar.split('-')[1] : mesActual.split('-')[1]);
-    return `Ranking de ventas (mes ${periodo}): ${ranking.slice(0, 5).map((a, i) => `${i + 1}. ${a.nombre}: ${a.ventas} venta(s) por ${fmt(a.monto)}`).join(' | ')}`;
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // AGENTE ESPECÍFICO CON FECHA
-  // ════════════════════════════════════════════════════════════════
-  for (let agente of (appData.agentes || [])) {
-    const nombreLower = agente.nombre.toLowerCase();
-    if (q.includes(nombreLower)) {
-      const mesAanalizar = detectarMes(q);
-      const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
-
-      if (q.includes('vend') || q.includes('cuanto') || q.includes('vendido') || q.includes('hoy') || q.includes('junio') || q.includes('mes')) {
-        const ventas = (appData.ventas || []).filter(v =>
-          (v.agente || '').toLowerCase() === nombreLower &&
-          mesesFiltro.includes(v.mes)
-        );
-        const monto = ventas.reduce((s, v) => s + parseFloat(v.monto || 0), 0);
-        if (ventas.length === 0) return `${agente.nombre} no tiene ventas en ese periodo.`;
-        return `${agente.nombre}: ${ventas.length} venta(s) por ${fmt(monto)}.`;
-      }
-
-      if (q.includes('comision')) {
-        const com = getComisionesMes(agente, mesAanalizar || mesActual);
-        return `${agente.nombre} tiene comisión de ${fmt(com)}.`;
-      }
-
-      return `${agente.nombre} - Rol: ${agente.rol || 'Agente'}, Sueldo: ${fmt(agente.sueldoQuincenal || 0)}/quincena, Status: ${agente.activo !== false ? 'Activo' : 'Inactivo'}`;
-    }
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // VENTAS GENERALES
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('venta') || q.includes('vendido')) {
-    const mesAanalizar = detectarMes(q);
-    const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
-
-    const ventasFiltradas = (appData.ventas || []).filter(v => mesesFiltro.includes(v.mes));
-    const monto = ventasFiltradas.reduce((s, v) => s + parseFloat(v.monto || 0), 0);
-    const periodo = Array.isArray(mesAanalizar) ? 'ese trimestre' : (mesAanalizar ? mesAanalizar.split('-')[1] : 'este mes');
-    return `${ventasFiltradas.length} venta(s) por ${fmt(monto)} en ${periodo}.`;
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // AGENTES (GENERAL)
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('agente')) {
-    if (q.includes('mejor') || q.includes('top')) {
-      const top = (appData.agentes || [])
-        .filter(a => !a.soloHQ)
-        .map(a => ({ nombre: a.nombre, com: getComisionesMes(a, mesActual) }))
-        .sort((x, y) => y.com - x.com)
-        .slice(0, 5);
-      return `Top agentes (este mes): ${top.map((a, i) => `${i + 1}. ${a.nombre} - ${fmt(a.com)}`).join(' | ')}`;
-    }
-    const total = (appData.agentes || []).filter(a => !a.soloHQ).length;
-    const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo !== false).length;
-    return `Total: ${total} agentes, ${activos} activos.`;
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // CLIENTES
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('cliente')) {
-    return `Tienes ${(appData.clientes || []).length} clientes registrados.`;
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // GASTOS
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('gasto')) {
-    const mesAanalizar = detectarMes(q);
-    const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
-
-    const gastosFiltrados = (appData.gastos || []).filter(g => mesesFiltro.includes(g.mes));
-    const total = gastosFiltrados.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
-    const fijos = gastosFiltrados.filter(g => g.tipo === 'fijo').reduce((s, g) => s + parseFloat(g.monto || 0), 0);
-    const vars = gastosFiltrados.filter(g => g.tipo === 'variable').reduce((s, g) => s + parseFloat(g.monto || 0), 0);
-    return `Gastos: Fijos ${fmt(fijos)}, Variables ${fmt(vars)}, Total ${fmt(total)}.`;
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // FINANZAS / ROI
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('ganan') || q.includes('utilidad') || q.includes('roi') || q.includes('rentab') || q.includes('profit')) {
-    if (!tieneAccessoTOP) return `No tengo permiso para información financiera privada. Acceso solo en TOP.`;
-    return `Para información financiera detallada, ve a TOP → Finanzas.`;
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // AYUDA
-  // ════════════════════════════════════════════════════════════════
-  if (q.includes('help') || q.includes('ayuda') || q.includes('qué')) {
-    return `📚 COMANDOS DISPONIBLES:
-
-📊 CONSULTAR DATOS:
-  • "¿Quién vendió más?"
-  • "Ventas de Oriana en junio"
-  • "Gastos totales"
-  • "¿Cuántos agentes activos?"
-
-➕ CREAR DATOS (Modo interactivo):
-  • "Registra una venta" → Te guiaré paso a paso
-  • "Nuevo gasto" → Te pediré: tipo, descripción, monto, mes
-  • "Nuevo agente" → Te pediré: nombre, rol
-  • "Nuevo cliente" → Te pediré: nombre, empresa
-
-📁 IMPORTAR:
-  • Sube archivos Excel con datos (detecta automáticamente)
-
-💡 TIPS:
-  • Puedo entender números sin "$" (ej: "1000" en lugar de "$1000")
-  • En cualquier momento escribe "No" para cancelar
-  • Escribe "Sí" para confirmar`;
-  }
-
-  return `No entendí bien. Prueba: "¿Quién vendió más en junio?" o "Registra venta de Oriana: $1000 RS&I para junio Q1" o escribe "Ayuda".`;
-}
-
-// ══════════════════════════════════════════════════════════════
-// FUNCIONES DE CREACIÓN DE DATOS
-// ══════════════════════════════════════════════════════════════
-
-function procesarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual) {
-  // Modo interactivo paso-a-paso si ya hay una creación en progreso
-  if (window.botCreacionVentaEnProgreso) {
-    return continuarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual);
-  }
-
-  // Primera vez: iniciar el proceso de creación
-  window.botCreacionVentaEnProgreso = {
-    paso: 'agente',
-    datos: {
-      agente: null,
-      cliente: null,
-      monto: null,
-      mes: mesActual,
-      quincena: '1',
-      producto: null,
-      fecha: new Date().toISOString().slice(0, 10)
-    }
-  };
-
-  // Lista de agentes disponibles
-  const agentes = (appData.agentes || []).filter(a => !a.soloHQ).map(a => a.nombre);
-
-  return `📝 Voy a ayudarte a registrar una venta.
-
-¿De qué AGENTE? Opciones:
-${agentes.map((a, i) => `${i + 1}. ${a}`).join('\n')}
-
-Responde con el nombre o número del agente.`;
-}
-
-function continuarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual) {
-  const creacion = window.botCreacionVentaEnProgreso;
-  const datos = creacion.datos;
-  const paso = creacion.paso;
-
-  if (paso === 'agente') {
-    // Tratar de encontrar el agente
-    const input = texto.toLowerCase().trim();
-    let agenteEncontrado = null;
-
-    // Buscar por nombre
-    for (let agente of (appData.agentes || [])) {
-      if (agente.nombre.toLowerCase().includes(input) || input.includes(agente.nombre.toLowerCase())) {
-        agenteEncontrado = agente.nombre;
-        break;
-      }
-    }
-
-    // Si no encontrado, intentar por número
-    if (!agenteEncontrado) {
-      const agentes = (appData.agentes || []).filter(a => !a.soloHQ).map(a => a.nombre);
-      const num = parseInt(input);
-      if (num > 0 && num <= agentes.length) {
-        agenteEncontrado = agentes[num - 1];
-      }
-    }
-
-    if (!agenteEncontrado) {
-      return '❌ No encontré ese agente. Intenta de nuevo con el nombre completo o número.';
-    }
-
-    datos.agente = agenteEncontrado;
-    creacion.paso = 'cliente';
-    return `✅ Agente: ${agenteEncontrado}
-
-¿Para qué CLIENTE? (nombre o empresa)`;
-  }
-
-  if (paso === 'cliente') {
-    datos.cliente = texto.trim() || 'Cliente sin nombre';
-    creacion.paso = 'monto';
-    return `✅ Cliente: ${datos.cliente}
-
-¿Cuál es el MONTO de la venta? (ej: 1000, 1500.50)`;
-  }
-
-  if (paso === 'monto') {
-    const montoMatch = texto.match(/[\d,]+\.?\d*/);
-    const monto = montoMatch ? parseFloat(montoMatch[0].replace(/,/g, '')) : null;
-
-    if (!monto || monto <= 0) {
-      return '❌ Monto inválido. Ingresa un número (ej: 1000)';
-    }
-
-    datos.monto = monto;
-    creacion.paso = 'producto';
-    return `✅ Monto: $${fmt(monto)}
-
-¿Qué PRODUCTO o SERVICIO? (ej: RS&I, Internet, Mobility)`;
-  }
-
-  if (paso === 'producto') {
-    datos.producto = texto.trim() || 'Producto genérico';
-    creacion.paso = 'mes';
-    const meses = getMeses();
-    return `✅ Producto: ${datos.producto}
-
-¿Qué MES? Opciones:
-${meses.map((m, i) => `${i + 1}. ${m}`).join('  |  ')}
-
-Responde con el número o nombre del mes.`;
-  }
-
-  if (paso === 'mes') {
-    const meses = getMeses();
-    const input = texto.toLowerCase().trim();
-    let mesEncontrado = null;
-
-    // Buscar por número
-    const num = parseInt(input);
-    if (num > 0 && num <= meses.length) {
-      mesEncontrado = meses[num - 1];
-    }
-
-    // Buscar por nombre
-    if (!mesEncontrado) {
-      for (let mes of meses) {
-        if (mes.includes(input) || input.includes(mes.split('-')[1])) {
-          mesEncontrado = mes;
-          break;
-        }
-      }
-    }
-
-    if (!mesEncontrado) {
-      return '❌ Mes no válido. Intenta de nuevo.';
-    }
-
-    datos.mes = mesEncontrado;
-    creacion.paso = 'quincena';
-    return `✅ Mes: ${datos.mes}
-
-¿Qué QUINCENA?
-1. Q1 (primeros 14 días)
-2. Q2 (últimos días del mes)`;
-  }
-
-  if (paso === 'quincena') {
-    const input = texto.toLowerCase().trim();
-    const q = input.includes('2') || input.includes('segunda') ? '2' : '1';
-    datos.quincena = q;
-
-    // Listo para confirmar
-    creacion.paso = 'confirmar';
-    window.botPendingCreation = {
-      tipo: 'venta',
-      datos: datos
-    };
-    window.botCreacionVentaEnProgreso = null;
-
-    return `📝 Resumen de la venta:
-━━━━━━━━━━━━━━━━━━━━━━
-▸ Agente: ${datos.agente}
-▸ Cliente: ${datos.cliente}
-▸ Producto: ${datos.producto}
-▸ Monto: $${fmt(datos.monto)}
-▸ Mes: ${datos.mes.split('-')[1]}
-▸ Quincena: Q${datos.quincena}
-━━━━━━━━━━━━━━━━━━━━━━
-
-¿CONFIRMAS? (Escribe "Sí" o "No")`;
-  }
-
-  return 'Error en el flujo de creación.';
-}
-
-function procesarCreacionGasto(texto, detectarMes, mesActual) {
-  // Modo interactivo paso-a-paso
-  if (window.botCreacionGastoEnProgreso) {
-    return continuarCreacionGasto(texto, detectarMes, mesActual);
-  }
-
-  // Primera vez: iniciar el proceso
-  window.botCreacionGastoEnProgreso = {
-    paso: 'tipo',
-    datos: {
-      tipo: null,
-      descripcion: null,
-      monto: null,
-      mes: mesActual,
-      fecha: new Date().toISOString().slice(0, 10)
-    }
-  };
-
-  return `📝 Voy a registrar un GASTO.
-
-¿Qué TIPO de gasto?
-1. Fijo (ej: Renta, Salarios)
-2. Variable (ej: Transporte, Materiales)
-3. Otro
-
-Responde con el número o nombre.`;
-}
-
-function continuarCreacionGasto(texto, detectarMes, mesActual) {
-  const creacion = window.botCreacionGastoEnProgreso;
-  const datos = creacion.datos;
-  const paso = creacion.paso;
-
-  if (paso === 'tipo') {
-    const input = texto.toLowerCase().trim();
-    const tipos = ['fijo', 'variable', 'otro'];
-    let tipoEncontrado = null;
-
-    if (input === '1' || input.includes('fijo')) tipoEncontrado = 'fijo';
-    else if (input === '2' || input.includes('variable')) tipoEncontrado = 'variable';
-    else if (input === '3' || input.includes('otro')) tipoEncontrado = 'otro';
-
-    if (!tipoEncontrado) {
-      return '❌ Tipo inválido. Usa: "Fijo", "Variable" u "Otro"';
-    }
-
-    datos.tipo = tipoEncontrado;
-    creacion.paso = 'descripcion';
-    return `✅ Tipo: ${tipoEncontrado}
-
-¿Descripción del gasto? (ej: Renta, Servicios, etc.)`;
-  }
-
-  if (paso === 'descripcion') {
-    datos.descripcion = texto.trim() || 'Gasto sin descripción';
-    creacion.paso = 'monto';
-    return `✅ Descripción: ${datos.descripcion}
-
-¿Cuál es el MONTO? (ej: 2000, 500.50)`;
-  }
-
-  if (paso === 'monto') {
-    const montoMatch = texto.match(/[\d,]+\.?\d*/);
-    const monto = montoMatch ? parseFloat(montoMatch[0].replace(/,/g, '')) : null;
-
-    if (!monto || monto <= 0) {
-      return '❌ Monto inválido. Ingresa un número.';
-    }
-
-    datos.monto = monto;
-    creacion.paso = 'mes';
-    const meses = getMeses();
-    return `✅ Monto: $${fmt(monto)}
-
-¿Qué MES?
-${meses.map((m, i) => `${i + 1}. ${m}`).join('  |  ')}`;
-  }
-
-  if (paso === 'mes') {
-    const meses = getMeses();
-    const input = texto.toLowerCase().trim();
-    let mesEncontrado = null;
-
-    const num = parseInt(input);
-    if (num > 0 && num <= meses.length) {
-      mesEncontrado = meses[num - 1];
-    }
-
-    if (!mesEncontrado) {
-      for (let mes of meses) {
-        if (mes.includes(input) || input.includes(mes.split('-')[1])) {
-          mesEncontrado = mes;
-          break;
-        }
-      }
-    }
-
-    if (!mesEncontrado) {
-      return '❌ Mes no válido.';
-    }
-
-    datos.mes = mesEncontrado;
-    creacion.paso = 'confirmar';
-    window.botPendingCreation = {
-      tipo: 'gasto',
-      datos: datos
-    };
-    window.botCreacionGastoEnProgreso = null;
-
-    return `📝 Resumen del gasto:
-━━━━━━━━━━━━━━━━━━━━━
-▸ Tipo: ${datos.tipo}
-▸ Descripción: ${datos.descripcion}
-▸ Monto: $${fmt(datos.monto)}
-▸ Mes: ${datos.mes.split('-')[1]}
-━━━━━━━━━━━━━━━━━━━━━
-
-¿CONFIRMAS? (Escribe "Sí" o "No")`;
-  }
-
-  return 'Error en el flujo.';
-}
-
-function procesarCreacionAgente(texto) {
-  // Modo interactivo
-  if (window.botCreacionAgenteEnProgreso) {
-    return continuarCreacionAgente(texto);
-  }
-
-  window.botCreacionAgenteEnProgreso = {
-    paso: 'nombre',
-    datos: {
-      nombre: null,
-      rol: null,
-      sueldoQuincenal: 0,
-      comisiones: {},
-      activo: true
-    }
-  };
-
-  return `📝 Voy a crear un nuevo AGENTE.
-
-¿Nombre completo del agente?`;
-}
-
-function continuarCreacionAgente(texto) {
-  const creacion = window.botCreacionAgenteEnProgreso;
-  const datos = creacion.datos;
-  const paso = creacion.paso;
-
-  if (paso === 'nombre') {
-    const nombre = texto.trim();
-    if (!nombre) return '❌ El nombre no puede estar vacío.';
-
-    if ((appData.agentes || []).some(a => a.nombre.toLowerCase() === nombre.toLowerCase())) {
-      return `❌ El agente "${nombre}" ya existe.`;
-    }
-
-    datos.nombre = nombre;
-    creacion.paso = 'rol';
-    return `✅ Nombre: ${nombre}
-
-¿Rol del agente? (ej: Agente, Supervisor, Gerente)`;
-  }
-
-  if (paso === 'rol') {
-    datos.rol = texto.trim() || 'Agente de Ventas';
-    creacion.paso = 'confirmar';
-    window.botPendingCreation = {
-      tipo: 'agente',
-      datos: datos
-    };
-    window.botCreacionAgenteEnProgreso = null;
-
-    return `📝 Resumen del agente:
-━━━━━━━━━━━━━━━━━━
-▸ Nombre: ${datos.nombre}
-▸ Rol: ${datos.rol}
-━━━━━━━━━━━━━━━━━━
-
-¿CONFIRMAS? (Escribe "Sí" o "No")`;
-  }
-
-  return 'Error en el flujo.';
-}
-
-function procesarCreacionCliente(texto) {
-  // Modo interactivo
-  if (window.botCreacionClienteEnProgreso) {
-    return continuarCreacionCliente(texto);
-  }
-
-  window.botCreacionClienteEnProgreso = {
-    paso: 'nombre',
-    datos: {
-      nombre: null,
-      empresa: null,
-      contacto: '',
-      telefono: '',
-      email: ''
-    }
-  };
-
-  return `📝 Voy a crear un nuevo CLIENTE.
-
-¿Nombre del cliente?`;
-}
-
-function continuarCreacionCliente(texto) {
-  const creacion = window.botCreacionClienteEnProgreso;
-  const datos = creacion.datos;
-  const paso = creacion.paso;
-
-  if (paso === 'nombre') {
-    const nombre = texto.trim();
-    if (!nombre) return '❌ El nombre no puede estar vacío.';
-
-    if ((appData.clientes || []).some(c => c.nombre && c.nombre.toLowerCase() === nombre.toLowerCase())) {
-      return `❌ El cliente "${nombre}" ya existe.`;
-    }
-
-    datos.nombre = nombre;
-    creacion.paso = 'empresa';
-    return `✅ Nombre: ${nombre}
-
-¿Empresa o compañía? (déjalo en blanco si es el mismo que el nombre)`;
-  }
-
-  if (paso === 'empresa') {
-    datos.empresa = texto.trim() || datos.nombre;
-    creacion.paso = 'confirmar';
-    window.botPendingCreation = {
-      tipo: 'cliente',
-      datos: datos
-    };
-    window.botCreacionClienteEnProgreso = null;
-
-    return `📝 Resumen del cliente:
-━━━━━━━━━━━━━━━━━━
-▸ Nombre: ${datos.nombre}
-▸ Empresa: ${datos.empresa}
-━━━━━━━━━━━━━━━━━━
-
-¿CONFIRMAS? (Escribe "Sí" o "No")`;
-  }
-
-  return 'Error en el flujo.';
-}
-
-function ejecutarCreacionPendiente(confirmar) {
-  if (!window.botPendingCreation) return 'No hay operación pendiente.';
-
-  const creacion = window.botPendingCreation;
-  const datos = creacion.datos;
-
-  try {
-    switch(creacion.tipo) {
-      case 'venta':
-        // Crear venta con estructura correcta
-        if (!appData.ventas) appData.ventas = [];
-        const maxVentaId = appData.ventas.reduce((m, x) => Math.max(m, x.id || 0), 0);
-
-        const ventaObj = {
-          id: maxVentaId + 1,
-          fecha: datos.fecha,
-          agente: datos.agente,
-          cliente: datos.cliente,
-          cuenta: '',
-          mes: datos.mes,
-          campana: '',
-          quincenaPago: datos.quincena,
-          llamadaGrabada: false,
-          agenteGrabacion: '',
-          comisionGrabacion: 0,
-          notas: datos.producto,
-          productoId: 'generico', // ID genérico
-          categoria: 'general',
-          cantidad: 1,
-          comision: 0
-        };
-
-        appData.ventas.push(ventaObj);
-        break;
-
-      case 'gasto':
-        // Crear gasto
-        if (!appData.gastos) appData.gastos = [];
-        const maxGastoId = appData.gastos.reduce((m, x) => Math.max(m, x.id || 0), 0);
-
-        const gastoObj = {
-          id: maxGastoId + 1,
-          fecha: datos.fecha,
-          descripcion: datos.descripcion,
-          tipo: datos.tipo,
-          monto: datos.monto,
-          mes: datos.mes
-        };
-
-        appData.gastos.push(gastoObj);
-        break;
-
-      case 'agente':
-        // Crear agente
-        if (!appData.agentes) appData.agentes = [];
-        const maxAgenteId = appData.agentes.reduce((m, x) => Math.max(m, x.id || 0), 0);
-
-        const agenteObj = {
-          id: maxAgenteId + 1,
-          nombre: datos.nombre,
-          rol: datos.rol,
-          sueldoQuincenal: datos.sueldoQuincenal,
-          comisiones: datos.comisiones || {},
-          activo: true
-        };
-
-        appData.agentes.push(agenteObj);
-        break;
-
-      case 'cliente':
-        // Crear cliente
-        if (!appData.clientes) appData.clientes = [];
-        const maxClienteId = appData.clientes.reduce((m, x) => Math.max(m, x.id || 0), 0);
-
-        const clienteObj = {
-          id: maxClienteId + 1,
-          nombre: datos.nombre,
-          empresa: datos.empresa,
-          contacto: datos.contacto || '',
-          telefono: datos.telefono || '',
-          email: datos.email || ''
-        };
-
-        appData.clientes.push(clienteObj);
-        break;
-    }
-
-    // Guardar en Firebase
-    guardar();
-
-    // Re-renderizar vistas
-    try { renderAdmin(); } catch(e) { console.error('Error renderAdmin:', e); }
-    try { renderTop(); } catch(e) { console.error('Error renderTop:', e); }
-    try { renderVentas(); } catch(e) { console.error('Error renderVentas:', e); }
-    try { renderPagos(); } catch(e) { console.error('Error renderPagos:', e); }
-
-    window.botPendingCreation = null;
-
-    let msg = '';
-    switch(creacion.tipo) {
-      case 'venta': msg = `✅ Venta registrada para ${datos.agente}`; break;
-      case 'gasto': msg = `✅ Gasto de ${fmt(datos.monto)} registrado`; break;
-      case 'agente': msg = `✅ Agente ${datos.nombre} creado`; break;
-      case 'cliente': msg = `✅ Cliente ${datos.nombre} registrado`; break;
-    }
-
-    return msg;
-  } catch(err) {
-    console.error('Error ejecutar creación:', err);
-    window.botPendingCreation = null;
-    return `❌ Error al crear: ${err.message}`;
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// PROCESAR ARCHIVOS EXCEL/CSV
-// ══════════════════════════════════════════════════════════════
-
-function procesarArchivoBot(file) {
-  const nombre = file.name.toLowerCase();
-
-  if (nombre.includes('.xlsx') || nombre.includes('.xls') || nombre.includes('.csv')) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-
-        if (rows.length === 0) {
-          addBotMessage('El archivo está vacío. Por favor sube un archivo con datos.', 'error');
-          return;
-        }
-
-        analizarDatosExcel(rows, nombre);
-      } catch(err) {
-        addBotMessage(`Error al leer el archivo: ${err.message}`, 'error');
-      }
-    };
-    reader.readAsArrayBuffer(file);
-    addBotMessage(`Analizando archivo ${file.name}...`, 'info');
-    return;
-  }
-
-  if (file.type.includes('image')) {
-    addBotMessage(`📸 Imagen recibida: ${file.name}. Próximamente podré analizar imágenes con OCR.`, 'info');
-    return;
-  }
-
-  if (file.type.includes('pdf')) {
-    addBotMessage(`📄 PDF recibido: ${file.name}. Próximamente podré procesar PDFs.`, 'info');
-    return;
-  }
-
-  addBotMessage(`Formato no soportado. Usa: Excel, CSV, PDF o imágenes.`, 'error');
-}
-
-function analizarDatosExcel(rows, nombreArchivo) {
-  const datos = {
-    ventas: [],
-    gastos: [],
-    agentes: [],
-    clientes: []
-  };
-
-  // Detectar tipo de datos en el archivo
-  for (let row of rows) {
-    const keys = Object.keys(row).map(k => k.toLowerCase());
-
-    // Detectar VENTAS
-    if (keys.some(k => k.includes('venta') || k.includes('agente') || k.includes('cliente') || k.includes('monto'))) {
-      if ((row.Agente || row.agente || row.AGENTE || row.Vendor) && (row.Monto || row.monto || row.MONTO || row.Amount)) {
-        datos.ventas.push({
-          agente: row.Agente || row.agente || row.AGENTE || row.Vendor || '',
-          cliente: row.Cliente || row.cliente || row.CLIENTE || row.Client || '',
-          monto: parseFloat(row.Monto || row.monto || row.MONTO || row.Amount || 0),
-          descripcion: row.Descripcion || row.descripcion || row.Description || '',
-          fecha: row.Fecha || row.fecha || row.DATE || new Date().toISOString().slice(0,10)
-        });
-      }
-    }
-
-    // Detectar GASTOS
-    if (keys.some(k => k.includes('gasto') || k.includes('expense') || k.includes('costo'))) {
-      if ((row.Tipo || row.tipo || row.TYPE) && (row.Monto || row.monto || row.Amount)) {
-        datos.gastos.push({
-          descripcion: row.Descripcion || row.descripcion || row.Description || '',
-          tipo: row.Tipo || row.tipo || row.TYPE || 'otro',
-          monto: parseFloat(row.Monto || row.monto || row.Amount || 0),
-          fecha: row.Fecha || row.fecha || row.DATE || new Date().toISOString().slice(0,10)
-        });
-      }
-    }
-  }
-
-  // Mostrar análisis y pedir confirmación
-  let resumen = `Detecté en el archivo:\n`;
-  resumen += datos.ventas.length > 0 ? `• ${datos.ventas.length} venta(s)\n` : '';
-  resumen += datos.gastos.length > 0 ? `• ${datos.gastos.length} gasto(s)\n` : '';
-
-  if (datos.ventas.length === 0 && datos.gastos.length === 0) {
-    addBotMessage('No pude identificar datos válidos en el archivo. Asegúrate que tenga columnas: Agente, Cliente, Monto (para ventas) o Tipo, Monto (para gastos).', 'error');
-    return;
-  }
-
-  addBotMessage(resumen + `\n¿Deseas que importe estos datos?`, 'info');
-
-  // Guardar datos temporales para confirmación
-  window.botPendingData = datos;
-  window.botAction = 'importar_excel';
-}
-
-function confirmarImportacion() {
-  if (!window.botPendingData) return;
-
-  let importados = 0;
-
-  // Importar ventas
-  if (window.botPendingData.ventas.length > 0) {
-    for (let v of window.botPendingData.ventas) {
-      if (v.agente && v.monto) {
-        const mes = getMeses()[getMeses().length - 1];
-        if (!appData.ventas) appData.ventas = [];
-        appData.ventas.push({
-          id: (appData.ventas.reduce((m,x) => Math.max(m, x.id||0), 0) + 1),
-          fecha: v.fecha,
-          agente: v.agente,
-          cliente: v.cliente,
-          monto: v.monto,
-          cantidad: 1,
-          descripcion: v.descripcion,
-          mes: mes
-        });
-        importados++;
-      }
-    }
-  }
-
-  // Importar gastos
-  if (window.botPendingData.gastos.length > 0) {
-    for (let g of window.botPendingData.gastos) {
-      if (g.monto) {
-        const mes = getMeses()[getMeses().length - 1];
-        if (!appData.gastos) appData.gastos = [];
-        appData.gastos.push({
-          id: (appData.gastos.reduce((m,x) => Math.max(m, x.id||0), 0) + 1),
-          fecha: g.fecha,
-          descripcion: g.descripcion,
-          tipo: ['fijo', 'variable', 'otro'].includes(g.tipo.toLowerCase()) ? g.tipo.toLowerCase() : 'otro',
-          monto: g.monto,
-          mes: mes
-        });
-        importados++;
-      }
-    }
-  }
-
-  if (importados > 0) {
-    guardar();
-    addBotMessage(`✅ Importé ${importados} registro(s) correctamente en el sistema.`, 'info');
-    renderAdmin();
-    renderTop();
-  } else {
-    addBotMessage('No se pudo importar. Verifica que los datos sean válidos.', 'error');
-  }
-
-  window.botPendingData = null;
-}
-
-function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-// Cerrar bot si se presiona ESC
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape') {
-    const container = document.getElementById('botContainer');
-    const btn = document.getElementById('botWidgetBtn');
-    if (container.classList.contains('open')) {
-      container.classList.remove('open');
-      btn.classList.remove('open');
-    }
-  }
-});
-
-// ══════════════════════════════════════════════════════════════
-// CONTROL DE VISIBILIDAD DEL BOT
-// ══════════════════════════════════════════════════════════════
-
-function actualizarVisibilidadBot(area) {
-  const botBtn = document.getElementById('botWidgetBtn');
-  const botContainer = document.getElementById('botContainer');
-
-  // Validar que los elementos existan
-  if (!botBtn || !botContainer) {
-    console.warn('Bot widget elements not found');
-    return;
-  }
-
-  // Solo mostrar en TOP y ADMIN
-  if (area === 'top' || area === 'admin') {
-    botBtn.classList.add('visible');
-    // Agregar indicator visual de que el bot está disponible
-    if (!botBtn.title) {
-      botBtn.title = '🤖 Asistente UDI - Escribe tu pregunta aquí';
-    }
-  } else {
-    botBtn.classList.remove('visible');
-    // Cerrar el bot si está abierto
-    botContainer.classList.remove('open');
-    botBtn.classList.remove('open');
-  }
-}
 
 </script>
 
