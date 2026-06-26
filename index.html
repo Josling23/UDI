@@ -11,6 +11,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- XLSX Library for Excel file processing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
 <style>
 /* === HUBSPOT PALETTE === */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -7446,7 +7448,7 @@ function toggleBotWidget() {
 
 function sendBotMessage() {
   const input = document.getElementById('botInput');
-  const message = input.value.trim();
+  const message = input.value.trim().toLowerCase();
 
   if (!message) return;
 
@@ -7454,15 +7456,29 @@ function sendBotMessage() {
   addBotMessage(message, 'user');
   input.value = '';
 
-  // Simular respuesta del bot
-  showBotTyping();
+  // Verificar confirmación pendiente
+  if (window.botPendingData && window.botAction === 'importar_excel') {
+    if (message.includes('sí') || message.includes('si') || message.includes('yes') || message.includes('ok') || message.includes('okay')) {
+      showBotTyping();
+      setTimeout(() => {
+        removeBotTyping();
+        confirmarImportacion();
+      }, 800);
+      return;
+    } else if (message.includes('no')) {
+      addBotMessage('Entendido, cancelé la importación.', 'bot');
+      window.botPendingData = null;
+      return;
+    }
+  }
 
+  // Respuesta normal
+  showBotTyping();
   setTimeout(() => {
     removeBotTyping();
-    // Aquí irá la lógica de respuesta inteligente
     let response = procesarPreguntaBot(message);
     addBotMessage(response, 'bot');
-  }, 1500);
+  }, 1200);
 }
 
 function addBotMessage(text, type = 'bot') {
@@ -7520,208 +7536,225 @@ function handleBotFileUpload(event) {
   event.target.value = '';
 }
 
+// ══════════════════════════════════════════════════════════════
+// BOT INTELIGENTE - PROCESAR PREGUNTAS
+// ══════════════════════════════════════════════════════════════
+
 function procesarPreguntaBot(pregunta) {
   const q = pregunta.toLowerCase().trim();
   const tieneAccessoTOP = currentRole === 'admin' || currentRole === 'owner' || currentRole === 'gerente';
 
-  // ══════════════════════════════════════════════════════════════
-  // 1. PREGUNTAS SOBRE AGENTES ESPECÍFICOS
-  // ══════════════════════════════════════════════════════════════
+  // Buscar agente específico
   for (let agente of (appData.agentes || [])) {
-    const nombreAgente = agente.nombre.toLowerCase();
-    if (q.includes(nombreAgente)) {
-      // ¿Cuánto vendió [Agente]?
-      if (q.includes('vend') || q.includes('cuanto')) {
-        const ventasAgente = (appData.ventas || []).filter(v =>
-          (v.agente || '').toLowerCase().includes(nombreAgente)
-        );
-        const totalVentas = ventasAgente.length;
-        const totalMonto = ventasAgente.reduce((s, v) => s + (parseFloat(v.monto) || 0), 0);
-        if (totalVentas === 0) {
-          return `📊 <strong>${agente.nombre}</strong> aún no tiene ventas registradas.`;
-        }
-        return `📊 <strong>${agente.nombre}</strong>:<br>
-          • <strong>${totalVentas}</strong> venta${totalVentas!==1?'s':''}<br>
-          • Monto total: <strong>${fmt(totalMonto)}</strong>`;
+    if (q.includes(agente.nombre.toLowerCase())) {
+      if (q.includes('vend') || q.includes('cuanto') || q.includes('vendido')) {
+        const ventas = (appData.ventas || []).filter(v => (v.agente || '').toLowerCase() === agente.nombre.toLowerCase());
+        const monto = ventas.reduce((s,v) => s + parseFloat(v.monto||0), 0);
+        if (ventas.length === 0) return `${agente.nombre} no tiene ventas registradas aún.`;
+        return `${agente.nombre} tiene ${ventas.length} venta(s) por ${fmt(monto)}.`;
       }
-
-      // ¿Cuánta comisión tiene [Agente]?
       if (q.includes('comision')) {
-        const com = getComisionesMes(agente, getMeses()[getMeses().length - 1]);
-        return `💰 Comisión de <strong>${agente.nombre}</strong> (último mes):<br><strong>${fmt(com)}</strong>`;
+        const com = getComisionesMes(agente, getMeses()[getMeses().length-1]);
+        return `${agente.nombre} tiene una comisión de ${fmt(com)} este mes.`;
       }
-
-      // Info general del agente
-      return `👤 <strong>${agente.nombre}</strong><br>
-        • Rol: ${agente.rol || 'Agente'}<br>
-        • Sueldo: ${fmt(agente.sueldoQuincenal || 0)}/quincena<br>
-        • Status: ${agente.activo !== false ? '✅ Activo' : '⭕ Inactivo'}`;
+      return `${agente.nombre} - Rol: ${agente.rol||'Agente'}, Sueldo: ${fmt(agente.sueldoQuincenal||0)}/quincena, Status: ${agente.activo!==false?'Activo':'Inactivo'}`;
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 2. PREGUNTAS SOBRE VENTAS
-  // ══════════════════════════════════════════════════════════════
   if (q.includes('venta')) {
-    // Ventas por mes específico
-    const meses = getMeses();
-    for (let mes of meses) {
-      if (q.includes(mes.split('-')[1])) { // buscar por número de mes
-        const ventasMes = (appData.ventas || []).filter(v => v.mes === mes);
-        const totalMonto = ventasMes.reduce((s, v) => s + (parseFloat(v.monto) || 0), 0);
-        return `📊 Ventas en <strong>${mes}</strong>:<br>
-          • Total: <strong>${ventasMes.length}</strong> venta${ventasMes.length!==1?'s':''}<br>
-          • Monto: <strong>${fmt(totalMonto)}</strong>`;
-      }
-    }
-
-    // Ventas totales
     const totalVentas = (appData.ventas || []).length;
-    const totalMonto = (appData.ventas || []).reduce((s, v) => s + (parseFloat(v.monto) || 0), 0);
-    return `📊 Total de ventas:<br>
-      • <strong>${totalVentas}</strong> venta${totalVentas!==1?'s':''}<br>
-      • Monto total: <strong>${fmt(totalMonto)}</strong>`;
+    const totalMonto = (appData.ventas || []).reduce((s,v) => s + parseFloat(v.monto||0), 0);
+    return `Hay ${totalVentas} ventas registradas por un total de ${fmt(totalMonto)}.`;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 3. PREGUNTAS SOBRE AGENTES (General)
-  // ══════════════════════════════════════════════════════════════
-  if (q.includes('agente') || q.includes('vendedor')) {
+  if (q.includes('agente')) {
+    const total = (appData.agentes || []).filter(a => !a.soloHQ).length;
+    const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo!==false).length;
     if (q.includes('mejor') || q.includes('top')) {
-      const meses = getMeses();
-      const mesActual = meses[meses.length - 1];
-      const topAgentes = (appData.agentes || [])
-        .filter(a => !a.soloHQ && a.rol !== 'subdealer')
-        .map(a => ({
-          nombre: a.nombre,
-          com: getComisionesMes(a, mesActual)
-        }))
-        .sort((x, y) => y.com - x.com)
-        .slice(0, 3);
-
-      if (topAgentes.length === 0) return '📊 Sin datos de comisiones aún.';
-      return `🏆 <strong>Top 3 Agentes (${mesActual}):</strong><br>
-        ${topAgentes.map((a, i) => `${i+1}. ${a.nombre}: <strong>${fmt(a.com)}</strong>`).join('<br>')}`;
+      const top = (appData.agentes || []).filter(a => !a.soloHQ).map(a => ({nombre:a.nombre, com:getComisionesMes(a, getMeses()[getMeses().length-1])})).sort((x,y)=>y.com-x.com).slice(0,3);
+      return `Top 3 agentes: ${top.map((a,i)=>`${i+1}. ${a.nombre} (${fmt(a.com)})`).join(', ')}`;
     }
-
-    const totalAgentes = (appData.agentes || []).filter(a => !a.soloHQ).length;
-    const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo !== false).length;
-    return `👥 <strong>Agentes:</strong><br>
-      • Total: <strong>${totalAgentes}</strong><br>
-      • Activos: <strong>${activos}</strong>`;
+    return `Total: ${total} agentes, ${activos} activos.`;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 4. PREGUNTAS SOBRE CLIENTES
-  // ══════════════════════════════════════════════════════════════
   if (q.includes('cliente')) {
-    const totalClientes = (appData.clientes || []).length;
-    return `🏢 <strong>Clientes:</strong><br>Total registrados: <strong>${totalClientes}</strong>`;
+    return `Tienes ${(appData.clientes||[]).length} clientes registrados.`;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 5. PREGUNTAS SOBRE INFORMACIÓN FINANCIERA (TOP)
-  // ══════════════════════════════════════════════════════════════
-  if (q.includes('ganan') || q.includes('ganancia') || q.includes('utilidad') || q.includes('roi') || q.includes('rentab')) {
-    if (!tieneAccessoTOP) {
-      return '🔒 <strong>Acceso denegado.</strong><br>Información financiera privada disponible solo en TOP con permisos especiales.';
-    }
-    // Si tiene acceso TOP
-    const meses = getMeses();
-    const mesActual = meses[meses.length - 1];
-    const roi = {pagado:0, totalEgresos:0, utilidad:0, roi:0}; // Placeholder
-    return `📈 <strong>Información Financiera (${mesActual}):</strong><br>
-      Para detalles completos, accede a:<br>
-      <strong>TOP → 📊 Finanzas</strong>`;
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  // 6. PREGUNTAS SOBRE GASTOS
-  // ══════════════════════════════════════════════════════════════
   if (q.includes('gasto')) {
-    const totalGastos = (appData.gastos || []).reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-    const gastosFijos = (appData.gastos || []).filter(g => g.tipo === 'fijo').reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-    const gastosVar = (appData.gastos || []).filter(g => g.tipo === 'variable').reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
-    return `💸 <strong>Gastos:</strong><br>
-      • Fijos: <strong>${fmt(gastosFijos)}</strong><br>
-      • Variables: <strong>${fmt(gastosVar)}</strong><br>
-      • Total: <strong>${fmt(totalGastos)}</strong>`;
+    const total = (appData.gastos||[]).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const fijos = (appData.gastos||[]).filter(g=>g.tipo==='fijo').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const var_ = (appData.gastos||[]).filter(g=>g.tipo==='variable').reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    return `Gastos: Fijos ${fmt(fijos)}, Variables ${fmt(var_)}, Total ${fmt(total)}.`;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 7. AYUDA Y COMANDOS
-  // ══════════════════════════════════════════════════════════════
-  if (q.includes('help') || q.includes('ayuda') || q.includes('qué puedes') || q.includes('comandos')) {
-    return `<strong>🤖 Puedo ayudarte con:</strong><br><br>
-      <strong>👤 Agentes:</strong><br>
-      • "¿Cuántos agentes?"<br>
-      • "¿Cuánto vendió [Nombre]?"<br>
-      • "¿Mejor agente este mes?"<br><br>
-      <strong>📊 Ventas:</strong><br>
-      • "¿Cuántas ventas en junio?"<br>
-      • "Total de ventas"<br><br>
-      <strong>💸 Gastos & Finanzas:</strong><br>
-      • "¿Cuántos gastos?"<br>
-      • "Información financiera" (solo TOP)<br><br>
-      <strong>📁 Archivos:</strong><br>
-      • Sube Excel, PDF o imágenes para analizar`;
+  if (q.includes('ganan') || q.includes('utilidad') || q.includes('roi') || q.includes('rentab')) {
+    if (!tieneAccessoTOP) return `No tengo permiso para mostrar información financiera privada. Acceso solo en TOP.`;
+    return `Para información financiera detallada, ve a TOP → Finanzas.`;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 8. RESPUESTA POR DEFECTO
-  // ══════════════════════════════════════════════════════════════
-  return `🤔 <strong>No entendí bien...</strong><br><br>
-    Prueba preguntar sobre:<br>
-    • Agentes específicos: "¿Cuánto vendió Oriana?"<br>
-    • Ventas: "Ventas en junio"<br>
-    • Finanzas: "Gastos totales"<br>
-    • O escribe "Ayuda" para ver opciones`;
+  if (q.includes('help') || q.includes('ayuda') || q.includes('qué')) {
+    return `Puedo ayudarte preguntando sobre: agentes, ventas, clientes, gastos. Ejemplo: "¿Cuánto vendió Oriana?" o "Total de ventas". También puedo procesar archivos Excel que subas.`;
+  }
+
+  return `No entendí bien. Pregunta sobre agentes, ventas, clientes o gastos. Escribe "Ayuda" para más opciones.`;
 }
 
+// ══════════════════════════════════════════════════════════════
+// PROCESAR ARCHIVOS EXCEL/CSV
+// ══════════════════════════════════════════════════════════════
+
 function procesarArchivoBot(file) {
-  const tipo = file.type;
-  const nombre = file.name;
+  const nombre = file.name.toLowerCase();
 
-  if (nombre.includes('.csv') || nombre.includes('.xlsx') || nombre.includes('.xls')) {
-    return `✅ Archivo de datos detectado: <strong>${nombre}</strong>
-    <br><br>
-    📝 El archivo será analizado para detectar:
-    <br>• Ventas y transacciones
-    <br>• Nombres de agentes
-    <br>• Clientes
-    <br>• Comisiones
-    <br>• Fechas
-    <br><br>
-    ⏳ En la siguiente versión podré importar automáticamente. Por ahora, guarda este archivo para referencia.`;
+  if (nombre.includes('.xlsx') || nombre.includes('.xls') || nombre.includes('.csv')) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        if (rows.length === 0) {
+          addBotMessage('El archivo está vacío. Por favor sube un archivo con datos.', 'error');
+          return;
+        }
+
+        analizarDatosExcel(rows, nombre);
+      } catch(err) {
+        addBotMessage(`Error al leer el archivo: ${err.message}`, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    addBotMessage(`Analizando archivo ${file.name}...`, 'info');
+    return;
   }
 
-  if (tipo.includes('image')) {
-    return `📸 Imagen recibida: <strong>${nombre}</strong>
-    <br><br>
-    🔍 Puedo analizar:
-    <br>• Capturas de pantallas de reportes
-    <br>• Fotos de documentos
-    <br>• Tablas en imágenes
-    <br><br>
-    ⏳ Próximamente: análisis automático con OCR.`;
+  if (file.type.includes('image')) {
+    addBotMessage(`📸 Imagen recibida: ${file.name}. Próximamente podré analizar imágenes con OCR.`, 'info');
+    return;
   }
 
-  if (tipo.includes('pdf')) {
-    return `📄 PDF recibido: <strong>${nombre}</strong>
-    <br><br>
-    📋 Puedo procesar:
-    <br>• Reportes
-    <br>• Estados de cuenta
-    <br>• Documentos administrativos
-    <br><br>
-    ⏳ Próximamente: extracción automática de datos.`;
+  if (file.type.includes('pdf')) {
+    addBotMessage(`📄 PDF recibido: ${file.name}. Próximamente podré procesar PDFs.`, 'info');
+    return;
   }
 
-  return `📎 Archivo recibido: <strong>${nombre}</strong>
-  <br><br>
-  Aún no puedo procesar este tipo de archivo.
-  <br>
-  Formatos soportados: Excel, CSV, PDF, imágenes (JPG, PNG)`;
+  addBotMessage(`Formato no soportado. Usa: Excel, CSV, PDF o imágenes.`, 'error');
+}
+
+function analizarDatosExcel(rows, nombreArchivo) {
+  const datos = {
+    ventas: [],
+    gastos: [],
+    agentes: [],
+    clientes: []
+  };
+
+  // Detectar tipo de datos en el archivo
+  for (let row of rows) {
+    const keys = Object.keys(row).map(k => k.toLowerCase());
+
+    // Detectar VENTAS
+    if (keys.some(k => k.includes('venta') || k.includes('agente') || k.includes('cliente') || k.includes('monto'))) {
+      if ((row.Agente || row.agente || row.AGENTE || row.Vendor) && (row.Monto || row.monto || row.MONTO || row.Amount)) {
+        datos.ventas.push({
+          agente: row.Agente || row.agente || row.AGENTE || row.Vendor || '',
+          cliente: row.Cliente || row.cliente || row.CLIENTE || row.Client || '',
+          monto: parseFloat(row.Monto || row.monto || row.MONTO || row.Amount || 0),
+          descripcion: row.Descripcion || row.descripcion || row.Description || '',
+          fecha: row.Fecha || row.fecha || row.DATE || new Date().toISOString().slice(0,10)
+        });
+      }
+    }
+
+    // Detectar GASTOS
+    if (keys.some(k => k.includes('gasto') || k.includes('expense') || k.includes('costo'))) {
+      if ((row.Tipo || row.tipo || row.TYPE) && (row.Monto || row.monto || row.Amount)) {
+        datos.gastos.push({
+          descripcion: row.Descripcion || row.descripcion || row.Description || '',
+          tipo: row.Tipo || row.tipo || row.TYPE || 'otro',
+          monto: parseFloat(row.Monto || row.monto || row.Amount || 0),
+          fecha: row.Fecha || row.fecha || row.DATE || new Date().toISOString().slice(0,10)
+        });
+      }
+    }
+  }
+
+  // Mostrar análisis y pedir confirmación
+  let resumen = `Detecté en el archivo:\n`;
+  resumen += datos.ventas.length > 0 ? `• ${datos.ventas.length} venta(s)\n` : '';
+  resumen += datos.gastos.length > 0 ? `• ${datos.gastos.length} gasto(s)\n` : '';
+
+  if (datos.ventas.length === 0 && datos.gastos.length === 0) {
+    addBotMessage('No pude identificar datos válidos en el archivo. Asegúrate que tenga columnas: Agente, Cliente, Monto (para ventas) o Tipo, Monto (para gastos).', 'error');
+    return;
+  }
+
+  addBotMessage(resumen + `\n¿Deseas que importe estos datos?`, 'info');
+
+  // Guardar datos temporales para confirmación
+  window.botPendingData = datos;
+  window.botAction = 'importar_excel';
+}
+
+function confirmarImportacion() {
+  if (!window.botPendingData) return;
+
+  let importados = 0;
+
+  // Importar ventas
+  if (window.botPendingData.ventas.length > 0) {
+    for (let v of window.botPendingData.ventas) {
+      if (v.agente && v.monto) {
+        const mes = getMeses()[getMeses().length - 1];
+        if (!appData.ventas) appData.ventas = [];
+        appData.ventas.push({
+          id: (appData.ventas.reduce((m,x) => Math.max(m, x.id||0), 0) + 1),
+          fecha: v.fecha,
+          agente: v.agente,
+          cliente: v.cliente,
+          monto: v.monto,
+          cantidad: 1,
+          descripcion: v.descripcion,
+          mes: mes
+        });
+        importados++;
+      }
+    }
+  }
+
+  // Importar gastos
+  if (window.botPendingData.gastos.length > 0) {
+    for (let g of window.botPendingData.gastos) {
+      if (g.monto) {
+        const mes = getMeses()[getMeses().length - 1];
+        if (!appData.gastos) appData.gastos = [];
+        appData.gastos.push({
+          id: (appData.gastos.reduce((m,x) => Math.max(m, x.id||0), 0) + 1),
+          fecha: g.fecha,
+          descripcion: g.descripcion,
+          tipo: ['fijo', 'variable', 'otro'].includes(g.tipo.toLowerCase()) ? g.tipo.toLowerCase() : 'otro',
+          monto: g.monto,
+          mes: mes
+        });
+        importados++;
+      }
+    }
+  }
+
+  if (importados > 0) {
+    guardar();
+    addBotMessage(`✅ Importé ${importados} registro(s) correctamente en el sistema.`, 'info');
+    renderAdmin();
+    renderTop();
+  } else {
+    addBotMessage('No se pudo importar. Verifica que los datos sean válidos.', 'error');
+  }
+
+  window.botPendingData = null;
 }
 
 function escapeHtml(text) {
