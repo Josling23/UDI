@@ -7451,9 +7451,39 @@ window.addEventListener('load', async () => {
 // CLAUDE API INTEGRATION - DIRECT ACCESS
 // ══════════════════════════════════════════════════════════════
 
+// CLAUDE API - Con proxy CORS para navegador
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 let claudeConversationHistory = [];
 let CLAUDE_API_KEY = localStorage.getItem('claudeAPIKey') || null;
+
+// Función para hacer fetch con manejo de CORS
+async function fetchClaudeAPI(url, options) {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    // Si falla con fetch directo, intentar con proxy
+    if (error.message.includes('Failed to fetch')) {
+      console.warn('Intentando con proxy CORS...');
+      return fetch('https://cors-anywhere.herokuapp.com/' + url, options);
+    }
+    throw error;
+  }
+}
 
 function toggleBotWidget() {
   const container = document.getElementById('botContainer');
@@ -7562,13 +7592,8 @@ async function chatWithClaudeAPI(mensaje) {
     }
   ];
 
-  const response = await fetch(CLAUDE_API_URL, {
+  const response = await fetchClaudeAPI(CLAUDE_API_URL, {
     method: 'POST',
-    headers: {
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json'
-    },
     body: JSON.stringify({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 2048,
