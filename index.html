@@ -7476,10 +7476,25 @@ function sendBotMessage() {
       }, 800);
       return;
     } else if (message.includes('no') || message.includes('cancelar')) {
-      addBotMessage('Operación cancelada.', 'bot');
+      addBotMessage('❌ Operación cancelada.', 'bot');
       window.botPendingCreation = null;
+      window.botCreacionVentaEnProgreso = null;
+      window.botCreacionGastoEnProgreso = null;
+      window.botCreacionAgenteEnProgreso = null;
+      window.botCreacionClienteEnProgreso = null;
       return;
     }
+  }
+
+  // Si hay un proceso de creación en progreso, continuar con él
+  if (window.botCreacionVentaEnProgreso || window.botCreacionGastoEnProgreso || window.botCreacionAgenteEnProgreso || window.botCreacionClienteEnProgreso) {
+    showBotTyping();
+    setTimeout(() => {
+      removeBotTyping();
+      let response = procesarPreguntaBot(message);
+      addBotMessage(response, 'bot');
+    }, 600);
+    return;
   }
 
   // Verificar confirmación de importación de Excel
@@ -7597,17 +7612,7 @@ function procesarPreguntaBot(pregunta) {
     return null;
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // INTENCIÓN DE CONFIRMACIÓN (después de una creación propuesta)
-  // ════════════════════════════════════════════════════════════════
-  if (window.botPendingCreation) {
-    if (q.includes('si') || q.includes('sí') || q.includes('confirmar') || q.includes('ok') || q.includes('adelante') || q.includes('listo')) {
-      return ejecutarCreacionPendiente(true);
-    } else if (q.includes('no') || q.includes('cancelar') || q.includes('espera')) {
-      window.botPendingCreation = null;
-      return 'Operación cancelada.';
-    }
-  }
+  // Las confirmaciones se manejan en sendBotMessage(), no aquí
 
   // ════════════════════════════════════════════════════════════════
   // CREACIÓN DE VENTA
@@ -7770,186 +7775,419 @@ function procesarPreguntaBot(pregunta) {
 // ══════════════════════════════════════════════════════════════
 
 function procesarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual) {
-  // Patrones esperados: "Registra venta de [agente]: $[monto] [cliente] para [mes] [Q1/Q2]"
-  // Ejemplo: "Registra venta de Oriana: $1000 RS&I para junio Q1"
-
-  const q = texto.toLowerCase();
-
-  // Detectar agente
-  let agenteMatch = null;
-  for (let agente of (appData.agentes || [])) {
-    if (q.includes(agente.nombre.toLowerCase())) {
-      agenteMatch = agente.nombre;
-      break;
-    }
+  // Modo interactivo paso-a-paso si ya hay una creación en progreso
+  if (window.botCreacionVentaEnProgreso) {
+    return continuarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual);
   }
 
-  if (!agenteMatch) return '⚠️ No encontré el agente. Menciona su nombre (ej: "Oriana", "Juan").';
-
-  // Detectar monto (buscar $ o número)
-  const montoMatch = texto.match(/\$?([\d,]+\.?\d*)/);
-  const monto = montoMatch ? parseFloat(montoMatch[1].replace(/,/g, '')) : null;
-
-  if (!monto || monto <= 0) return '⚠️ Monto inválido. Usa: "Registra venta de Oriana: $1000 RS&I"';
-
-  // Detectar cliente (después de $monto y antes de "para")
-  const partes = texto.split(/\$[\d,.]*/);
-  const clientePart = partes[1] ? partes[1].split('para')[0].trim() : '';
-  const cliente = clientePart || 'Cliente sin nombre';
-
-  // Detectar mes
-  const mes = detectarMes(texto) || mesActual;
-
-  // Detectar quincena
-  const quincena = detectarQuincena(texto) || '1';
-
-  // Detectar producto/servicio
-  const productoMatch = texto.match(/:\s*\$[\d,.]*(.*?)(para|q1|q2|$)/i);
-  const producto = productoMatch ? productoMatch[1].trim() : 'Producto no especificado';
-
-  // Guardar en window.botPendingCreation
-  window.botPendingCreation = {
-    tipo: 'venta',
+  // Primera vez: iniciar el proceso de creación
+  window.botCreacionVentaEnProgreso = {
+    paso: 'agente',
     datos: {
-      agente: agenteMatch,
-      cliente: cliente,
-      monto: monto,
-      mes: mes,
-      quincena: quincena,
-      producto: producto,
+      agente: null,
+      cliente: null,
+      monto: null,
+      mes: mesActual,
+      quincena: '1',
+      producto: null,
       fecha: new Date().toISOString().slice(0, 10)
     }
   };
 
-  return `📝 Voy a crear:
-▸ Agente: ${agenteMatch}
-▸ Cliente: ${cliente}
-▸ Producto: ${producto}
-▸ Monto: $${fmt(monto)}
-▸ Mes: ${mes.split('-')[1]}
-▸ Quincena: Q${quincena}
+  // Lista de agentes disponibles
+  const agentes = (appData.agentes || []).filter(a => !a.soloHQ).map(a => a.nombre);
 
-¿Confirmas? (Escribe "Sí" o "No")`;
+  return `📝 Voy a ayudarte a registrar una venta.
+
+¿De qué AGENTE? Opciones:
+${agentes.map((a, i) => `${i + 1}. ${a}`).join('\n')}
+
+Responde con el nombre o número del agente.`;
+}
+
+function continuarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual) {
+  const creacion = window.botCreacionVentaEnProgreso;
+  const datos = creacion.datos;
+  const paso = creacion.paso;
+
+  if (paso === 'agente') {
+    // Tratar de encontrar el agente
+    const input = texto.toLowerCase().trim();
+    let agenteEncontrado = null;
+
+    // Buscar por nombre
+    for (let agente of (appData.agentes || [])) {
+      if (agente.nombre.toLowerCase().includes(input) || input.includes(agente.nombre.toLowerCase())) {
+        agenteEncontrado = agente.nombre;
+        break;
+      }
+    }
+
+    // Si no encontrado, intentar por número
+    if (!agenteEncontrado) {
+      const agentes = (appData.agentes || []).filter(a => !a.soloHQ).map(a => a.nombre);
+      const num = parseInt(input);
+      if (num > 0 && num <= agentes.length) {
+        agenteEncontrado = agentes[num - 1];
+      }
+    }
+
+    if (!agenteEncontrado) {
+      return '❌ No encontré ese agente. Intenta de nuevo con el nombre completo o número.';
+    }
+
+    datos.agente = agenteEncontrado;
+    creacion.paso = 'cliente';
+    return `✅ Agente: ${agenteEncontrado}
+
+¿Para qué CLIENTE? (nombre o empresa)`;
+  }
+
+  if (paso === 'cliente') {
+    datos.cliente = texto.trim() || 'Cliente sin nombre';
+    creacion.paso = 'monto';
+    return `✅ Cliente: ${datos.cliente}
+
+¿Cuál es el MONTO de la venta? (ej: 1000, 1500.50)`;
+  }
+
+  if (paso === 'monto') {
+    const montoMatch = texto.match(/[\d,]+\.?\d*/);
+    const monto = montoMatch ? parseFloat(montoMatch[0].replace(/,/g, '')) : null;
+
+    if (!monto || monto <= 0) {
+      return '❌ Monto inválido. Ingresa un número (ej: 1000)';
+    }
+
+    datos.monto = monto;
+    creacion.paso = 'producto';
+    return `✅ Monto: $${fmt(monto)}
+
+¿Qué PRODUCTO o SERVICIO? (ej: RS&I, Internet, Mobility)`;
+  }
+
+  if (paso === 'producto') {
+    datos.producto = texto.trim() || 'Producto genérico';
+    creacion.paso = 'mes';
+    const meses = getMeses();
+    return `✅ Producto: ${datos.producto}
+
+¿Qué MES? Opciones:
+${meses.map((m, i) => `${i + 1}. ${m}`).join('  |  ')}
+
+Responde con el número o nombre del mes.`;
+  }
+
+  if (paso === 'mes') {
+    const meses = getMeses();
+    const input = texto.toLowerCase().trim();
+    let mesEncontrado = null;
+
+    // Buscar por número
+    const num = parseInt(input);
+    if (num > 0 && num <= meses.length) {
+      mesEncontrado = meses[num - 1];
+    }
+
+    // Buscar por nombre
+    if (!mesEncontrado) {
+      for (let mes of meses) {
+        if (mes.includes(input) || input.includes(mes.split('-')[1])) {
+          mesEncontrado = mes;
+          break;
+        }
+      }
+    }
+
+    if (!mesEncontrado) {
+      return '❌ Mes no válido. Intenta de nuevo.';
+    }
+
+    datos.mes = mesEncontrado;
+    creacion.paso = 'quincena';
+    return `✅ Mes: ${datos.mes}
+
+¿Qué QUINCENA?
+1. Q1 (primeros 14 días)
+2. Q2 (últimos días del mes)`;
+  }
+
+  if (paso === 'quincena') {
+    const input = texto.toLowerCase().trim();
+    const q = input.includes('2') || input.includes('segunda') ? '2' : '1';
+    datos.quincena = q;
+
+    // Listo para confirmar
+    creacion.paso = 'confirmar';
+    window.botPendingCreation = {
+      tipo: 'venta',
+      datos: datos
+    };
+    window.botCreacionVentaEnProgreso = null;
+
+    return `📝 Resumen de la venta:
+━━━━━━━━━━━━━━━━━━━━━━
+▸ Agente: ${datos.agente}
+▸ Cliente: ${datos.cliente}
+▸ Producto: ${datos.producto}
+▸ Monto: $${fmt(datos.monto)}
+▸ Mes: ${datos.mes.split('-')[1]}
+▸ Quincena: Q${datos.quincena}
+━━━━━━━━━━━━━━━━━━━━━━
+
+¿CONFIRMAS? (Escribe "Sí" o "No")`;
+  }
+
+  return 'Error en el flujo de creación.';
 }
 
 function procesarCreacionGasto(texto, detectarMes, mesActual) {
-  // Patrones: "Nuevo gasto [tipo]: [descripción] $[monto]"
-  // Ejemplo: "Nuevo gasto fijo: Renta $2000"
-
-  const q = texto.toLowerCase();
-  const tipos = ['fijo', 'variable', 'otro'];
-
-  let tipo = 'otro';
-  for (let t of tipos) {
-    if (q.includes(t)) {
-      tipo = t;
-      break;
-    }
+  // Modo interactivo paso-a-paso
+  if (window.botCreacionGastoEnProgreso) {
+    return continuarCreacionGasto(texto, detectarMes, mesActual);
   }
 
-  // Detectar monto
-  const montoMatch = texto.match(/\$?([\d,]+\.?\d*)/);
-  const monto = montoMatch ? parseFloat(montoMatch[1].replace(/,/g, '')) : null;
-
-  if (!monto || monto <= 0) return '⚠️ Monto inválido. Usa: "Nuevo gasto fijo: Renta $2000"';
-
-  // Detectar descripción (entre tipo y monto)
-  const descMatch = texto.match(/:\s*(.*?)\s*\$?[\d,]/i);
-  const descripcion = descMatch ? descMatch[1].trim() : 'Gasto sin descripción';
-
-  // Detectar mes
-  const mes = detectarMes(texto) || mesActual;
-
-  window.botPendingCreation = {
-    tipo: 'gasto',
+  // Primera vez: iniciar el proceso
+  window.botCreacionGastoEnProgreso = {
+    paso: 'tipo',
     datos: {
-      tipo: tipo,
-      descripcion: descripcion,
-      monto: monto,
-      mes: mes,
+      tipo: null,
+      descripcion: null,
+      monto: null,
+      mes: mesActual,
       fecha: new Date().toISOString().slice(0, 10)
     }
   };
 
-  return `📝 Voy a crear:
-▸ Tipo: ${tipo}
-▸ Descripción: ${descripcion}
-▸ Monto: $${fmt(monto)}
-▸ Mes: ${mes.split('-')[1]}
+  return `📝 Voy a registrar un GASTO.
 
-¿Confirmas? (Escribe "Sí" o "No")`;
+¿Qué TIPO de gasto?
+1. Fijo (ej: Renta, Salarios)
+2. Variable (ej: Transporte, Materiales)
+3. Otro
+
+Responde con el número o nombre.`;
+}
+
+function continuarCreacionGasto(texto, detectarMes, mesActual) {
+  const creacion = window.botCreacionGastoEnProgreso;
+  const datos = creacion.datos;
+  const paso = creacion.paso;
+
+  if (paso === 'tipo') {
+    const input = texto.toLowerCase().trim();
+    const tipos = ['fijo', 'variable', 'otro'];
+    let tipoEncontrado = null;
+
+    if (input === '1' || input.includes('fijo')) tipoEncontrado = 'fijo';
+    else if (input === '2' || input.includes('variable')) tipoEncontrado = 'variable';
+    else if (input === '3' || input.includes('otro')) tipoEncontrado = 'otro';
+
+    if (!tipoEncontrado) {
+      return '❌ Tipo inválido. Usa: "Fijo", "Variable" u "Otro"';
+    }
+
+    datos.tipo = tipoEncontrado;
+    creacion.paso = 'descripcion';
+    return `✅ Tipo: ${tipoEncontrado}
+
+¿Descripción del gasto? (ej: Renta, Servicios, etc.)`;
+  }
+
+  if (paso === 'descripcion') {
+    datos.descripcion = texto.trim() || 'Gasto sin descripción';
+    creacion.paso = 'monto';
+    return `✅ Descripción: ${datos.descripcion}
+
+¿Cuál es el MONTO? (ej: 2000, 500.50)`;
+  }
+
+  if (paso === 'monto') {
+    const montoMatch = texto.match(/[\d,]+\.?\d*/);
+    const monto = montoMatch ? parseFloat(montoMatch[0].replace(/,/g, '')) : null;
+
+    if (!monto || monto <= 0) {
+      return '❌ Monto inválido. Ingresa un número.';
+    }
+
+    datos.monto = monto;
+    creacion.paso = 'mes';
+    const meses = getMeses();
+    return `✅ Monto: $${fmt(monto)}
+
+¿Qué MES?
+${meses.map((m, i) => `${i + 1}. ${m}`).join('  |  ')}`;
+  }
+
+  if (paso === 'mes') {
+    const meses = getMeses();
+    const input = texto.toLowerCase().trim();
+    let mesEncontrado = null;
+
+    const num = parseInt(input);
+    if (num > 0 && num <= meses.length) {
+      mesEncontrado = meses[num - 1];
+    }
+
+    if (!mesEncontrado) {
+      for (let mes of meses) {
+        if (mes.includes(input) || input.includes(mes.split('-')[1])) {
+          mesEncontrado = mes;
+          break;
+        }
+      }
+    }
+
+    if (!mesEncontrado) {
+      return '❌ Mes no válido.';
+    }
+
+    datos.mes = mesEncontrado;
+    creacion.paso = 'confirmar';
+    window.botPendingCreation = {
+      tipo: 'gasto',
+      datos: datos
+    };
+    window.botCreacionGastoEnProgreso = null;
+
+    return `📝 Resumen del gasto:
+━━━━━━━━━━━━━━━━━━━━━
+▸ Tipo: ${datos.tipo}
+▸ Descripción: ${datos.descripcion}
+▸ Monto: $${fmt(datos.monto)}
+▸ Mes: ${datos.mes.split('-')[1]}
+━━━━━━━━━━━━━━━━━━━━━
+
+¿CONFIRMAS? (Escribe "Sí" o "No")`;
+  }
+
+  return 'Error en el flujo.';
 }
 
 function procesarCreacionAgente(texto) {
-  // Patrones: "Nuevo agente: [nombre], [rol]"
-  // Ejemplo: "Nuevo agente: Juan Pérez, Gerente de Ventas"
-
-  const q = texto.toLowerCase();
-
-  // Detectar nombre y rol (después de :)
-  const match = texto.match(/:\s*(.+?)(?:,\s*(.+))?$/i);
-
-  if (!match || !match[1]) return '⚠️ Formato incorrecto. Usa: "Nuevo agente: [nombre], [rol]"';
-
-  const nombre = match[1].trim();
-  const rol = match[2] ? match[2].trim() : 'Agente de Ventas';
-
-  // Validar que el agente no exista ya
-  if ((appData.agentes || []).some(a => a.nombre.toLowerCase() === nombre.toLowerCase())) {
-    return `⚠️ El agente "${nombre}" ya existe en el sistema.`;
+  // Modo interactivo
+  if (window.botCreacionAgenteEnProgreso) {
+    return continuarCreacionAgente(texto);
   }
 
-  window.botPendingCreation = {
-    tipo: 'agente',
+  window.botCreacionAgenteEnProgreso = {
+    paso: 'nombre',
     datos: {
-      nombre: nombre,
-      rol: rol,
+      nombre: null,
+      rol: null,
       sueldoQuincenal: 0,
       comisiones: {},
       activo: true
     }
   };
 
-  return `📝 Voy a crear:
-▸ Nombre: ${nombre}
-▸ Rol: ${rol}
-▸ Status: Activo
+  return `📝 Voy a crear un nuevo AGENTE.
 
-¿Confirmas? (Escribe "Sí" o "No")`;
+¿Nombre completo del agente?`;
+}
+
+function continuarCreacionAgente(texto) {
+  const creacion = window.botCreacionAgenteEnProgreso;
+  const datos = creacion.datos;
+  const paso = creacion.paso;
+
+  if (paso === 'nombre') {
+    const nombre = texto.trim();
+    if (!nombre) return '❌ El nombre no puede estar vacío.';
+
+    if ((appData.agentes || []).some(a => a.nombre.toLowerCase() === nombre.toLowerCase())) {
+      return `❌ El agente "${nombre}" ya existe.`;
+    }
+
+    datos.nombre = nombre;
+    creacion.paso = 'rol';
+    return `✅ Nombre: ${nombre}
+
+¿Rol del agente? (ej: Agente, Supervisor, Gerente)`;
+  }
+
+  if (paso === 'rol') {
+    datos.rol = texto.trim() || 'Agente de Ventas';
+    creacion.paso = 'confirmar';
+    window.botPendingCreation = {
+      tipo: 'agente',
+      datos: datos
+    };
+    window.botCreacionAgenteEnProgreso = null;
+
+    return `📝 Resumen del agente:
+━━━━━━━━━━━━━━━━━━
+▸ Nombre: ${datos.nombre}
+▸ Rol: ${datos.rol}
+━━━━━━━━━━━━━━━━━━
+
+¿CONFIRMAS? (Escribe "Sí" o "No")`;
+  }
+
+  return 'Error en el flujo.';
 }
 
 function procesarCreacionCliente(texto) {
-  // Patrones: "Nuevo cliente: [nombre], [empresa]"
-  // Ejemplo: "Nuevo cliente: ABC Corp, ABC Consulting"
-
-  const match = texto.match(/:\s*(.+?)(?:,\s*(.+))?$/i);
-
-  if (!match || !match[1]) return '⚠️ Formato incorrecto. Usa: "Nuevo cliente: [nombre], [empresa]"';
-
-  const nombre = match[1].trim();
-  const empresa = match[2] ? match[2].trim() : nombre;
-
-  // Validar que el cliente no exista ya
-  if ((appData.clientes || []).some(c => c.nombre && c.nombre.toLowerCase() === nombre.toLowerCase())) {
-    return `⚠️ El cliente "${nombre}" ya existe en el sistema.`;
+  // Modo interactivo
+  if (window.botCreacionClienteEnProgreso) {
+    return continuarCreacionCliente(texto);
   }
 
-  window.botPendingCreation = {
-    tipo: 'cliente',
+  window.botCreacionClienteEnProgreso = {
+    paso: 'nombre',
     datos: {
-      nombre: nombre,
-      empresa: empresa,
+      nombre: null,
+      empresa: null,
       contacto: '',
       telefono: '',
       email: ''
     }
   };
 
-  return `📝 Voy a crear:
-▸ Nombre: ${nombre}
-▸ Empresa: ${empresa}
+  return `📝 Voy a crear un nuevo CLIENTE.
 
-¿Confirmas? (Escribe "Sí" o "No")`;
+¿Nombre del cliente?`;
+}
+
+function continuarCreacionCliente(texto) {
+  const creacion = window.botCreacionClienteEnProgreso;
+  const datos = creacion.datos;
+  const paso = creacion.paso;
+
+  if (paso === 'nombre') {
+    const nombre = texto.trim();
+    if (!nombre) return '❌ El nombre no puede estar vacío.';
+
+    if ((appData.clientes || []).some(c => c.nombre && c.nombre.toLowerCase() === nombre.toLowerCase())) {
+      return `❌ El cliente "${nombre}" ya existe.`;
+    }
+
+    datos.nombre = nombre;
+    creacion.paso = 'empresa';
+    return `✅ Nombre: ${nombre}
+
+¿Empresa o compañía? (déjalo en blanco si es el mismo que el nombre)`;
+  }
+
+  if (paso === 'empresa') {
+    datos.empresa = texto.trim() || datos.nombre;
+    creacion.paso = 'confirmar';
+    window.botPendingCreation = {
+      tipo: 'cliente',
+      datos: datos
+    };
+    window.botCreacionClienteEnProgreso = null;
+
+    return `📝 Resumen del cliente:
+━━━━━━━━━━━━━━━━━━
+▸ Nombre: ${datos.nombre}
+▸ Empresa: ${datos.empresa}
+━━━━━━━━━━━━━━━━━━
+
+¿CONFIRMAS? (Escribe "Sí" o "No")`;
+  }
+
+  return 'Error en el flujo.';
 }
 
 function ejecutarCreacionPendiente(confirmar) {
