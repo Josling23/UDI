@@ -1685,12 +1685,17 @@ async function cargar() {
     appData.agentes = [
       { id:1, nombre:'Jose Piña', rol:'gerente', soloHQ:true, sueldoQuincenal:0, tel:'', email:'', activo:true,
         comisionesPersonales:{ 'att-act8':2,'att-act10':2,'att-upgrade':1,'air':5,'lyca':1,'att-combo':2 },
-        agentesSupervisa:['Claudia','Carlos'] },
-      { id:2, nombre:'Claudia', rol:'agente',     sueldoQuincenal:100, tel:'', email:'', activo:true,
-        comisionesPersonales:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8,'att-seg':1 },
+        comisionesDirectas:{ 'att-act8':5,'att-act10':8,'att-upgrade':3,'air':20,'lyca':5,'att-combo':5 },
         agentesSupervisa:[] },
-      { id:3, nombre:'Carlos',  rol:'agente',     sueldoQuincenal:65,  tel:'', email:'', activo:true,
-        comisionesPersonales:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8,'att-seg':1 },
+      { id:2, nombre:'Christian', rol:'agente', sueldoQuincenal:50, tel:'', email:'', activo:true,
+        comisionesPersonales:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8 },
+        agentesSupervisa:[] },
+      { id:3, nombre:'Leidy', rol:'agente', sueldoQuincenal:100, tel:'', email:'', activo:true,
+        comisionesPersonales:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8 },
+        agentesSupervisa:[] },
+      { id:4, nombre:'Oriana', rol:'supervisor', sueldoQuincenal:250, tel:'', email:'', activo:true,
+        comisionesPersonales:{ 'att-act8':2,'att-act10':2,'att-upgrade':1,'air':5,'lyca':1,'att-combo':2 },
+        comisionesDirectas:{ 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8 },
         agentesSupervisa:[] },
     ];
     const hoyStr = hoy.toISOString().split('T')[0];
