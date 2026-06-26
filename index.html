@@ -1960,7 +1960,8 @@ function siguienteMes(mesStr) {
 }
 // Convierte "2026-06" o año+mm numérico en "Junio 2026"
 function mesStrDesdeNum(yyyy, mm) {
-  return `${MESES_ES[mm-1]} ${yyyy}`;
+  // Devuelve formato ISO YYYY-MM para consistencia en getPeríodoPago
+  return `${yyyy}-${String(mm).padStart(2, '0')}`;
 }
 
 // Calcula en qué quincena de PAGO cae una venta (basado en v.fecha):
