@@ -7543,61 +7543,145 @@ function handleBotFileUpload(event) {
 function procesarPreguntaBot(pregunta) {
   const q = pregunta.toLowerCase().trim();
   const tieneAccessoTOP = currentRole === 'admin' || currentRole === 'owner' || currentRole === 'gerente';
+  const meses = getMeses();
+  const mesActual = meses[meses.length - 1];
 
-  // Buscar agente específico
+  // FUNCIÓN AUXILIAR: Detectar mes específico en la pregunta
+  function detectarMes(texto) {
+    const mesesMap = {
+      'enero': '2026-01', 'febrero': '2026-02', 'marzo': '2026-03', 'abril': '2026-04',
+      'mayo': '2026-05', 'junio': '2026-06', 'julio': '2026-07', 'agosto': '2026-08',
+      'septiembre': '2026-09', 'octubre': '2026-10', 'noviembre': '2026-11', 'diciembre': '2026-12'
+    };
+    for (let [mes, key] of Object.entries(mesesMap)) {
+      if (texto.includes(mes)) return key;
+    }
+    if (texto.includes('este mes') || texto.includes('hoy') || texto.includes('actual')) return mesActual;
+    if (texto.includes('q1') || texto.includes('primer trimestre')) return ['2026-01', '2026-02', '2026-03'];
+    if (texto.includes('q2') || texto.includes('segundo trimestre')) return ['2026-04', '2026-05', '2026-06'];
+    return null;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // PREGUNTAS COMPLEJAS: "¿Quién vendió más?" "¿Mejor agente?"
+  // ════════════════════════════════════════════════════════════════
+  if (q.includes('quien') && (q.includes('vend') || q.includes('mejor') || q.includes('mas'))) {
+    const mesAanalizar = detectarMes(q);
+    const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
+
+    const ranking = (appData.agentes || [])
+      .filter(a => !a.soloHQ)
+      .map(a => {
+        const ventasAgente = (appData.ventas || []).filter(v =>
+          (v.agente || '').toLowerCase() === a.nombre.toLowerCase() &&
+          mesesFiltro.includes(v.mes)
+        );
+        const montoTotal = ventasAgente.reduce((s, v) => s + parseFloat(v.monto || 0), 0);
+        return { nombre: a.nombre, ventas: ventasAgente.length, monto: montoTotal };
+      })
+      .filter(a => a.ventas > 0)
+      .sort((x, y) => y.monto - x.monto);
+
+    if (ranking.length === 0) return `No hay ventas en el periodo especificado.`;
+    const periodo = Array.isArray(mesAanalizar) ? mesAanalizar[0].split('-')[1] : (mesAanalizar ? mesAanalizar.split('-')[1] : mesActual.split('-')[1]);
+    return `Ranking de ventas (mes ${periodo}):<br>${ranking.slice(0, 5).map((a, i) => `${i + 1}. ${a.nombre}: ${a.ventas} venta(s) por ${fmt(a.monto)}`).join('<br>')}`;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // AGENTE ESPECÍFICO CON FECHA
+  // ════════════════════════════════════════════════════════════════
   for (let agente of (appData.agentes || [])) {
-    if (q.includes(agente.nombre.toLowerCase())) {
-      if (q.includes('vend') || q.includes('cuanto') || q.includes('vendido')) {
-        const ventas = (appData.ventas || []).filter(v => (v.agente || '').toLowerCase() === agente.nombre.toLowerCase());
-        const monto = ventas.reduce((s,v) => s + parseFloat(v.monto||0), 0);
-        if (ventas.length === 0) return `${agente.nombre} no tiene ventas registradas aún.`;
-        return `${agente.nombre} tiene ${ventas.length} venta(s) por ${fmt(monto)}.`;
+    const nombreLower = agente.nombre.toLowerCase();
+    if (q.includes(nombreLower)) {
+      const mesAanalizar = detectarMes(q);
+      const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
+
+      if (q.includes('vend') || q.includes('cuanto') || q.includes('vendido') || q.includes('hoy') || q.includes('junio') || q.includes('mes')) {
+        const ventas = (appData.ventas || []).filter(v =>
+          (v.agente || '').toLowerCase() === nombreLower &&
+          mesesFiltro.includes(v.mes)
+        );
+        const monto = ventas.reduce((s, v) => s + parseFloat(v.monto || 0), 0);
+        if (ventas.length === 0) return `${agente.nombre} no tiene ventas en ese periodo.`;
+        return `${agente.nombre}: ${ventas.length} venta(s) por ${fmt(monto)}.`;
       }
+
       if (q.includes('comision')) {
-        const com = getComisionesMes(agente, getMeses()[getMeses().length-1]);
-        return `${agente.nombre} tiene una comisión de ${fmt(com)} este mes.`;
+        const com = getComisionesMes(agente, mesAanalizar || mesActual);
+        return `${agente.nombre} tiene comisión de ${fmt(com)}.`;
       }
-      return `${agente.nombre} - Rol: ${agente.rol||'Agente'}, Sueldo: ${fmt(agente.sueldoQuincenal||0)}/quincena, Status: ${agente.activo!==false?'Activo':'Inactivo'}`;
+
+      return `${agente.nombre} - Rol: ${agente.rol || 'Agente'}, Sueldo: ${fmt(agente.sueldoQuincenal || 0)}/quincena, Status: ${agente.activo !== false ? 'Activo' : 'Inactivo'}`;
     }
   }
 
-  if (q.includes('venta')) {
-    const totalVentas = (appData.ventas || []).length;
-    const totalMonto = (appData.ventas || []).reduce((s,v) => s + parseFloat(v.monto||0), 0);
-    return `Hay ${totalVentas} ventas registradas por un total de ${fmt(totalMonto)}.`;
+  // ════════════════════════════════════════════════════════════════
+  // VENTAS GENERALES
+  // ════════════════════════════════════════════════════════════════
+  if (q.includes('venta') || q.includes('vendido')) {
+    const mesAanalizar = detectarMes(q);
+    const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
+
+    const ventasFiltradas = (appData.ventas || []).filter(v => mesesFiltro.includes(v.mes));
+    const monto = ventasFiltradas.reduce((s, v) => s + parseFloat(v.monto || 0), 0);
+    const periodo = Array.isArray(mesAanalizar) ? 'ese trimestre' : (mesAanalizar ? mesAanalizar.split('-')[1] : 'este mes');
+    return `${ventasFiltradas.length} venta(s) por ${fmt(monto)} en ${periodo}.`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // AGENTES (GENERAL)
+  // ════════════════════════════════════════════════════════════════
   if (q.includes('agente')) {
-    const total = (appData.agentes || []).filter(a => !a.soloHQ).length;
-    const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo!==false).length;
     if (q.includes('mejor') || q.includes('top')) {
-      const top = (appData.agentes || []).filter(a => !a.soloHQ).map(a => ({nombre:a.nombre, com:getComisionesMes(a, getMeses()[getMeses().length-1])})).sort((x,y)=>y.com-x.com).slice(0,3);
-      return `Top 3 agentes: ${top.map((a,i)=>`${i+1}. ${a.nombre} (${fmt(a.com)})`).join(', ')}`;
+      const top = (appData.agentes || [])
+        .filter(a => !a.soloHQ)
+        .map(a => ({ nombre: a.nombre, com: getComisionesMes(a, mesActual) }))
+        .sort((x, y) => y.com - x.com)
+        .slice(0, 5);
+      return `Top agentes (este mes):<br>${top.map((a, i) => `${i + 1}. ${a.nombre} - ${fmt(a.com)}`).join('<br>')}`;
     }
+    const total = (appData.agentes || []).filter(a => !a.soloHQ).length;
+    const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo !== false).length;
     return `Total: ${total} agentes, ${activos} activos.`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // CLIENTES
+  // ════════════════════════════════════════════════════════════════
   if (q.includes('cliente')) {
-    return `Tienes ${(appData.clientes||[]).length} clientes registrados.`;
+    return `Tienes ${(appData.clientes || []).length} clientes registrados.`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // GASTOS
+  // ════════════════════════════════════════════════════════════════
   if (q.includes('gasto')) {
-    const total = (appData.gastos||[]).reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const fijos = (appData.gastos||[]).filter(g=>g.tipo==='fijo').reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const var_ = (appData.gastos||[]).filter(g=>g.tipo==='variable').reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    return `Gastos: Fijos ${fmt(fijos)}, Variables ${fmt(var_)}, Total ${fmt(total)}.`;
+    const mesAanalizar = detectarMes(q);
+    const mesesFiltro = Array.isArray(mesAanalizar) ? mesAanalizar : (mesAanalizar ? [mesAanalizar] : [mesActual]);
+
+    const gastosFiltrados = (appData.gastos || []).filter(g => mesesFiltro.includes(g.mes));
+    const total = gastosFiltrados.reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+    const fijos = gastosFiltrados.filter(g => g.tipo === 'fijo').reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+    const vars = gastosFiltrados.filter(g => g.tipo === 'variable').reduce((s, g) => s + parseFloat(g.monto || 0), 0);
+    return `Gastos: Fijos ${fmt(fijos)}, Variables ${fmt(vars)}, Total ${fmt(total)}.`;
   }
 
-  if (q.includes('ganan') || q.includes('utilidad') || q.includes('roi') || q.includes('rentab')) {
-    if (!tieneAccessoTOP) return `No tengo permiso para mostrar información financiera privada. Acceso solo en TOP.`;
+  // ════════════════════════════════════════════════════════════════
+  // FINANZAS / ROI
+  // ════════════════════════════════════════════════════════════════
+  if (q.includes('ganan') || q.includes('utilidad') || q.includes('roi') || q.includes('rentab') || q.includes('profit')) {
+    if (!tieneAccessoTOP) return `No tengo permiso para información financiera privada. Acceso solo en TOP.`;
     return `Para información financiera detallada, ve a TOP → Finanzas.`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // AYUDA
+  // ════════════════════════════════════════════════════════════════
   if (q.includes('help') || q.includes('ayuda') || q.includes('qué')) {
-    return `Puedo ayudarte preguntando sobre: agentes, ventas, clientes, gastos. Ejemplo: "¿Cuánto vendió Oriana?" o "Total de ventas". También puedo procesar archivos Excel que subas.`;
+    return `Puedo responder sobre:<br>• Agentes: "¿Cuántos agentes?" o "¿Quién vendió más?"<br>• Ventas: "Ventas en junio" o "Total de ventas"<br>• Gastos: "Gastos totales"<br>• Fechas: Menciona mes (junio, julio, etc.)<br>• Archivos: Sube Excel para importar datos`;
   }
 
-  return `No entendí bien. Pregunta sobre agentes, ventas, clientes o gastos. Escribe "Ayuda" para más opciones.`;
+  return `No entendí bien. Intenta: "¿Quién vendió más en junio?", "Ventas de Oriana", "Gastos totales" o escribe "Ayuda".`;
 }
 
 // ══════════════════════════════════════════════════════════════
