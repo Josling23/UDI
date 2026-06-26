@@ -7514,39 +7514,161 @@ function handleBotFileUpload(event) {
 }
 
 function procesarPreguntaBot(pregunta) {
-  pregunta = pregunta.toLowerCase();
-
-  // Verificar si el usuario tiene acceso a TOP
+  const q = pregunta.toLowerCase().trim();
   const tieneAccessoTOP = currentRole === 'admin' || currentRole === 'owner' || currentRole === 'gerente';
 
-  // Respuestas según pregunta
-  if (pregunta.includes('venta') && pregunta.includes('cuantas')) {
-    const totalVentas = (appData.ventas || []).length;
-    return `📊 Total de ventas registradas: <strong>${totalVentas}</strong>`;
-  }
+  // ══════════════════════════════════════════════════════════════
+  // 1. PREGUNTAS SOBRE AGENTES ESPECÍFICOS
+  // ══════════════════════════════════════════════════════════════
+  for (let agente of (appData.agentes || [])) {
+    const nombreAgente = agente.nombre.toLowerCase();
+    if (q.includes(nombreAgente)) {
+      // ¿Cuánto vendió [Agente]?
+      if (q.includes('vend') || q.includes('cuanto')) {
+        const ventasAgente = (appData.ventas || []).filter(v =>
+          (v.agente || '').toLowerCase().includes(nombreAgente)
+        );
+        const totalVentas = ventasAgente.length;
+        const totalMonto = ventasAgente.reduce((s, v) => s + (parseFloat(v.monto) || 0), 0);
+        if (totalVentas === 0) {
+          return `📊 <strong>${agente.nombre}</strong> aún no tiene ventas registradas.`;
+        }
+        return `📊 <strong>${agente.nombre}</strong>:<br>
+          • <strong>${totalVentas}</strong> venta${totalVentas!==1?'s':''}<br>
+          • Monto total: <strong>${fmt(totalMonto)}</strong>`;
+      }
 
-  if (pregunta.includes('agente') || pregunta.includes('vendedor')) {
-    const totalAgentes = (appData.agentes || []).filter(a => !a.soloHQ).length;
-    return `👥 Total de agentes activos: <strong>${totalAgentes}</strong>`;
-  }
+      // ¿Cuánta comisión tiene [Agente]?
+      if (q.includes('comision')) {
+        const com = getComisionesMes(agente, getMeses()[getMeses().length - 1]);
+        return `💰 Comisión de <strong>${agente.nombre}</strong> (último mes):<br><strong>${fmt(com)}</strong>`;
+      }
 
-  if (pregunta.includes('ganan') || pregunta.includes('ganancia') || pregunta.includes('utilidad')) {
-    if (!tieneAccessoTOP) {
-      return '🔒 No tengo permiso para mostrar información financiera privada desde tu perfil. Solo disponible en TOP.';
+      // Info general del agente
+      return `👤 <strong>${agente.nombre}</strong><br>
+        • Rol: ${agente.rol || 'Agente'}<br>
+        • Sueldo: ${fmt(agente.sueldoQuincenal || 0)}/quincena<br>
+        • Status: ${agente.activo !== false ? '✅ Activo' : '⭕ Inactivo'}`;
     }
-    return '📈 Para información detallada de ganancias, ve a TOP → Finanzas.';
   }
 
-  if (pregunta.includes('help') || pregunta.includes('ayuda') || pregunta.includes('qué')) {
-    return `Puedo ayudarte con:
-    <br>✅ Contar ventas, agentes, clientes
-    <br>✅ Analizar archivos Excel
-    <br>✅ Responder preguntas sobre tus datos
-    <br>✅ Sugerir dónde guardar información
-    <br><br>¿Qué necesitas?`;
+  // ══════════════════════════════════════════════════════════════
+  // 2. PREGUNTAS SOBRE VENTAS
+  // ══════════════════════════════════════════════════════════════
+  if (q.includes('venta')) {
+    // Ventas por mes específico
+    const meses = getMeses();
+    for (let mes of meses) {
+      if (q.includes(mes.split('-')[1])) { // buscar por número de mes
+        const ventasMes = (appData.ventas || []).filter(v => v.mes === mes);
+        const totalMonto = ventasMes.reduce((s, v) => s + (parseFloat(v.monto) || 0), 0);
+        return `📊 Ventas en <strong>${mes}</strong>:<br>
+          • Total: <strong>${ventasMes.length}</strong> venta${ventasMes.length!==1?'s':''}<br>
+          • Monto: <strong>${fmt(totalMonto)}</strong>`;
+      }
+    }
+
+    // Ventas totales
+    const totalVentas = (appData.ventas || []).length;
+    const totalMonto = (appData.ventas || []).reduce((s, v) => s + (parseFloat(v.monto) || 0), 0);
+    return `📊 Total de ventas:<br>
+      • <strong>${totalVentas}</strong> venta${totalVentas!==1?'s':''}<br>
+      • Monto total: <strong>${fmt(totalMonto)}</strong>`;
   }
 
-  return '🤔 No entendí bien tu pregunta. Prueba preguntar sobre: ventas, agentes, clientes, o sube un archivo para analizar.';
+  // ══════════════════════════════════════════════════════════════
+  // 3. PREGUNTAS SOBRE AGENTES (General)
+  // ══════════════════════════════════════════════════════════════
+  if (q.includes('agente') || q.includes('vendedor')) {
+    if (q.includes('mejor') || q.includes('top')) {
+      const meses = getMeses();
+      const mesActual = meses[meses.length - 1];
+      const topAgentes = (appData.agentes || [])
+        .filter(a => !a.soloHQ && a.rol !== 'subdealer')
+        .map(a => ({
+          nombre: a.nombre,
+          com: getComisionesMes(a, mesActual)
+        }))
+        .sort((x, y) => y.com - x.com)
+        .slice(0, 3);
+
+      if (topAgentes.length === 0) return '📊 Sin datos de comisiones aún.';
+      return `🏆 <strong>Top 3 Agentes (${mesActual}):</strong><br>
+        ${topAgentes.map((a, i) => `${i+1}. ${a.nombre}: <strong>${fmt(a.com)}</strong>`).join('<br>')}`;
+    }
+
+    const totalAgentes = (appData.agentes || []).filter(a => !a.soloHQ).length;
+    const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo !== false).length;
+    return `👥 <strong>Agentes:</strong><br>
+      • Total: <strong>${totalAgentes}</strong><br>
+      • Activos: <strong>${activos}</strong>`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 4. PREGUNTAS SOBRE CLIENTES
+  // ══════════════════════════════════════════════════════════════
+  if (q.includes('cliente')) {
+    const totalClientes = (appData.clientes || []).length;
+    return `🏢 <strong>Clientes:</strong><br>Total registrados: <strong>${totalClientes}</strong>`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 5. PREGUNTAS SOBRE INFORMACIÓN FINANCIERA (TOP)
+  // ══════════════════════════════════════════════════════════════
+  if (q.includes('ganan') || q.includes('ganancia') || q.includes('utilidad') || q.includes('roi') || q.includes('rentab')) {
+    if (!tieneAccessoTOP) {
+      return '🔒 <strong>Acceso denegado.</strong><br>Información financiera privada disponible solo en TOP con permisos especiales.';
+    }
+    // Si tiene acceso TOP
+    const meses = getMeses();
+    const mesActual = meses[meses.length - 1];
+    const roi = {pagado:0, totalEgresos:0, utilidad:0, roi:0}; // Placeholder
+    return `📈 <strong>Información Financiera (${mesActual}):</strong><br>
+      Para detalles completos, accede a:<br>
+      <strong>TOP → 📊 Finanzas</strong>`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 6. PREGUNTAS SOBRE GASTOS
+  // ══════════════════════════════════════════════════════════════
+  if (q.includes('gasto')) {
+    const totalGastos = (appData.gastos || []).reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+    const gastosFijos = (appData.gastos || []).filter(g => g.tipo === 'fijo').reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+    const gastosVar = (appData.gastos || []).filter(g => g.tipo === 'variable').reduce((s, g) => s + (parseFloat(g.monto) || 0), 0);
+    return `💸 <strong>Gastos:</strong><br>
+      • Fijos: <strong>${fmt(gastosFijos)}</strong><br>
+      • Variables: <strong>${fmt(gastosVar)}</strong><br>
+      • Total: <strong>${fmt(totalGastos)}</strong>`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 7. AYUDA Y COMANDOS
+  // ══════════════════════════════════════════════════════════════
+  if (q.includes('help') || q.includes('ayuda') || q.includes('qué puedes') || q.includes('comandos')) {
+    return `<strong>🤖 Puedo ayudarte con:</strong><br><br>
+      <strong>👤 Agentes:</strong><br>
+      • "¿Cuántos agentes?"<br>
+      • "¿Cuánto vendió [Nombre]?"<br>
+      • "¿Mejor agente este mes?"<br><br>
+      <strong>📊 Ventas:</strong><br>
+      • "¿Cuántas ventas en junio?"<br>
+      • "Total de ventas"<br><br>
+      <strong>💸 Gastos & Finanzas:</strong><br>
+      • "¿Cuántos gastos?"<br>
+      • "Información financiera" (solo TOP)<br><br>
+      <strong>📁 Archivos:</strong><br>
+      • Sube Excel, PDF o imágenes para analizar`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 8. RESPUESTA POR DEFECTO
+  // ══════════════════════════════════════════════════════════════
+  return `🤔 <strong>No entendí bien...</strong><br><br>
+    Prueba preguntar sobre:<br>
+    • Agentes específicos: "¿Cuánto vendió Oriana?"<br>
+    • Ventas: "Ventas en junio"<br>
+    • Finanzas: "Gastos totales"<br>
+    • O escribe "Ayuda" para ver opciones`;
 }
 
 function procesarArchivoBot(file) {
