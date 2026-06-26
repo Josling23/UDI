@@ -3641,7 +3641,13 @@ function setExtra(tipo, agente, mes, valor) {
   }
   guardar();
 }
-function getExtra(tipo, agente, mes) { return parseFloat(appData.quincenas[getExtraKey(tipo,agente,mes)])||0; }
+function getExtra(tipo, agente, mes) {
+  const val = appData.quincenas[getExtraKey(tipo,agente,mes)];
+  // Para tipos de string (bonodesc, etc), devolver el string
+  if(tipo === 'bonodesc' || tipo === 'desc-motivo') return val || '';
+  // Para números, devolver parseFloat o 0
+  return parseFloat(val)||0;
+}
 
 function extraInput(tipo, agente, mes, color, placeholder) {
   const val = getExtra(tipo, agente, mes);
