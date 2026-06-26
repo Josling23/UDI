@@ -7445,8 +7445,12 @@ window.addEventListener('load', async () => {
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// BOT WIDGET FUNCTIONS
+// CLAUDE API INTEGRATION - DIRECT ACCESS
 // ══════════════════════════════════════════════════════════════
+
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+let claudeConversationHistory = [];
+let CLAUDE_API_KEY = localStorage.getItem('claudeAPIKey') || null;
 
 function toggleBotWidget() {
   const container = document.getElementById('botContainer');
@@ -7455,71 +7459,279 @@ function toggleBotWidget() {
   btn.classList.toggle('open');
 }
 
-function sendBotMessage() {
+async function sendBotMessage() {
   const input = document.getElementById('botInput');
-  const message = input.value.trim().toLowerCase();
+  const message = input.value.trim();
 
   if (!message) return;
+
+  // Verificar si API Key está configurada
+  if (!CLAUDE_API_KEY) {
+    const apiKey = prompt('🔑 Ingresa tu Claude API Key (sk-ant-...):\n\nEsta se guardará localmente en tu navegador.');
+    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+      addBotMessage('❌ API Key inválida. Debe comenzar con "sk-ant-"', 'error');
+      return;
+    }
+    CLAUDE_API_KEY = apiKey;
+    localStorage.setItem('claudeAPIKey', apiKey);
+    addBotMessage('✅ API Key configurada. Ahora puedo funcionar correctamente.', 'bot');
+    input.value = '';
+    return;
+  }
+
+  // Manejar confirmación si está esperando
+  if (window.botWaitingConfirmation) {
+    if (message.toLowerCase().includes('sí') || message.toLowerCase().includes('si')) {
+      window.botWaitingConfirmation.callback(true);
+      input.value = '';
+      addBotMessage(message, 'user');
+      return;
+    } else if (message.toLowerCase().includes('no')) {
+      window.botWaitingConfirmation.callback(false);
+      input.value = '';
+      addBotMessage(message, 'user');
+      return;
+    }
+  }
 
   // Agregar mensaje del usuario
   addBotMessage(message, 'user');
   input.value = '';
 
-  // Verificar confirmación de creación de datos
-  if (window.botPendingCreation) {
-    if (message.includes('sí') || message.includes('si') || message.includes('yes') || message.includes('ok') || message.includes('okay') || message.includes('confirmar') || message.includes('adelante')) {
-      showBotTyping();
-      setTimeout(() => {
-        removeBotTyping();
-        let response = ejecutarCreacionPendiente(true);
-        addBotMessage(response, 'bot');
-      }, 800);
-      return;
-    } else if (message.includes('no') || message.includes('cancelar')) {
-      addBotMessage('❌ Operación cancelada.', 'bot');
-      window.botPendingCreation = null;
-      window.botCreacionVentaEnProgreso = null;
-      window.botCreacionGastoEnProgreso = null;
-      window.botCreacionAgenteEnProgreso = null;
-      window.botCreacionClienteEnProgreso = null;
-      return;
-    }
-  }
-
-  // Si hay un proceso de creación en progreso, continuar con él
-  if (window.botCreacionVentaEnProgreso || window.botCreacionGastoEnProgreso || window.botCreacionAgenteEnProgreso || window.botCreacionClienteEnProgreso) {
-    showBotTyping();
-    setTimeout(() => {
-      removeBotTyping();
-      let response = procesarPreguntaBot(message);
-      addBotMessage(response, 'bot');
-    }, 600);
-    return;
-  }
-
-  // Verificar confirmación de importación de Excel
-  if (window.botPendingData && window.botAction === 'importar_excel') {
-    if (message.includes('sí') || message.includes('si') || message.includes('yes') || message.includes('ok') || message.includes('okay')) {
-      showBotTyping();
-      setTimeout(() => {
-        removeBotTyping();
-        confirmarImportacion();
-      }, 800);
-      return;
-    } else if (message.includes('no')) {
-      addBotMessage('Entendido, cancelé la importación.', 'bot');
-      window.botPendingData = null;
-      return;
-    }
-  }
-
-  // Respuesta normal
+  // Mostrar que está escribiendo
   showBotTyping();
-  setTimeout(() => {
+
+  try {
+    // Enviar a Claude API
+    const response = await chatWithClaudeAPI(message);
     removeBotTyping();
-    let response = procesarPreguntaBot(message);
-    addBotMessage(response, 'bot');
-  }, 1200);
+
+    // Procesar respuesta (puede incluir tool use)
+    await procesarRespuestaClaudeAPI(response);
+  } catch (error) {
+    removeBotTyping();
+    addBotMessage(`❌ Error: ${error.message}`, 'error');
+    console.error('Claude API Error:', error);
+  }
+}
+
+async function chatWithClaudeAPI(mensaje) {
+  // Agregar mensaje a historial
+  claudeConversationHistory.push({
+    role: 'user',
+    content: mensaje
+  });
+
+  // Capturar contexto del dashboard
+  const contextoDashboard = capturarContextoDashboard();
+
+  // Definir herramientas disponibles para Claude
+  const tools = [
+    {
+      name: 'crear_venta',
+      description: 'Crea una nueva venta en el sistema',
+      input_schema: {
+        type: 'object',
+        properties: {
+          agente: { type: 'string' },
+          cliente: { type: 'string' },
+          monto: { type: 'number' },
+          mes: { type: 'string' },
+          quincena: { type: 'string', enum: ['1', '2'] },
+          producto: { type: 'string' }
+        },
+        required: ['agente', 'monto', 'mes', 'quincena']
+      }
+    },
+    {
+      name: 'crear_gasto',
+      description: 'Crea un nuevo gasto',
+      input_schema: {
+        type: 'object',
+        properties: {
+          tipo: { type: 'string', enum: ['fijo', 'variable', 'otro'] },
+          descripcion: { type: 'string' },
+          monto: { type: 'number' },
+          mes: { type: 'string' }
+        },
+        required: ['tipo', 'descripcion', 'monto', 'mes']
+      }
+    }
+  ];
+
+  const response = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 2048,
+      system: `Eres CLAUDE, asistente IA avanzado de USA Distributor Inc.
+
+CONTEXTO ACTUAL:
+${contextoDashboard}
+
+INSTRUCCIONES:
+1. Analiza preguntas sobre datos del negocio
+2. Responde basado en información visible
+3. Si solicitan crear datos, usa las herramientas disponibles
+4. SIEMPRE pide confirmación antes de modificar datos
+5. Sé preciso, conciso y útil`,
+      tools: tools,
+      messages: claudeConversationHistory
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || 'Error en Claude API');
+  }
+
+  const data = await response.json();
+
+  // Agregar respuesta al historial
+  claudeConversationHistory.push({
+    role: 'assistant',
+    content: data.content
+  });
+
+  return data;
+}
+
+async function procesarRespuestaClaudeAPI(response) {
+  for (let block of response.content) {
+    if (block.type === 'text') {
+      addBotMessage(block.text, 'bot');
+    } else if (block.type === 'tool_use') {
+      const toolName = block.name;
+      const toolInput = block.input;
+
+      // Pedir confirmación
+      const confirmacion = await pedirConfirmacion(toolName, toolInput);
+
+      if (confirmacion) {
+        const resultado = await ejecutarHerramienta(toolName, toolInput);
+        addBotMessage(`✅ ${resultado}`, 'bot');
+      } else {
+        addBotMessage('❌ Operación cancelada.', 'bot');
+      }
+    }
+  }
+}
+
+async function pedirConfirmacion(toolName, params) {
+  return new Promise((resolve) => {
+    let mensaje = `📝 Voy a ${traducirToolName(toolName)}:\n\n`;
+
+    if (toolName === 'crear_venta') {
+      mensaje += `▸ Agente: ${params.agente}\n`;
+      mensaje += `▸ Cliente: ${params.cliente || 'Sin especificar'}\n`;
+      mensaje += `▸ Monto: $${fmt(params.monto)}\n`;
+      mensaje += `▸ Mes: ${params.mes}\n`;
+      mensaje += `▸ Quincena: Q${params.quincena}\n`;
+    } else if (toolName === 'crear_gasto') {
+      mensaje += `▸ Tipo: ${params.tipo}\n`;
+      mensaje += `▸ Descripción: ${params.descripcion}\n`;
+      mensaje += `▸ Monto: $${fmt(params.monto)}\n`;
+      mensaje += `▸ Mes: ${params.mes}\n`;
+    }
+
+    mensaje += '\n¿CONFIRMAS? (Escribe "Sí" o "No")';
+    addBotMessage(mensaje, 'bot');
+
+    window.botWaitingConfirmation = {
+      callback: (confirmed) => {
+        window.botWaitingConfirmation = null;
+        resolve(confirmed);
+      }
+    };
+  });
+}
+
+async function ejecutarHerramienta(toolName, params) {
+  if (toolName === 'crear_venta') {
+    return crearVentaClaudeAPI(params);
+  } else if (toolName === 'crear_gasto') {
+    return crearGastoClaudeAPI(params);
+  }
+}
+
+function crearVentaClaudeAPI(params) {
+  if (!appData.ventas) appData.ventas = [];
+  const maxId = appData.ventas.reduce((m, x) => Math.max(m, x.id || 0), 0);
+
+  const ventaObj = {
+    id: maxId + 1,
+    fecha: new Date().toISOString().slice(0, 10),
+    agente: params.agente,
+    cliente: params.cliente || '',
+    cuenta: '',
+    mes: params.mes,
+    campana: '',
+    quincenaPago: params.quincena,
+    llamadaGrabada: false,
+    agenteGrabacion: '',
+    comisionGrabacion: 0,
+    notas: params.producto || '',
+    productoId: 'generico',
+    categoria: 'general',
+    cantidad: 1,
+    comision: 0
+  };
+
+  appData.ventas.push(ventaObj);
+  guardar();
+
+  try { renderAdmin(); } catch(e) {}
+  try { renderTop(); } catch(e) {}
+  try { renderVentas(); } catch(e) {}
+
+  return `Venta creada para ${params.agente}`;
+}
+
+function crearGastoClaudeAPI(params) {
+  if (!appData.gastos) appData.gastos = [];
+  const maxId = appData.gastos.reduce((m, x) => Math.max(m, x.id || 0), 0);
+
+  const gastoObj = {
+    id: maxId + 1,
+    fecha: new Date().toISOString().slice(0, 10),
+    descripcion: params.descripcion,
+    tipo: params.tipo,
+    monto: params.monto,
+    mes: params.mes
+  };
+
+  appData.gastos.push(gastoObj);
+  guardar();
+
+  try { renderAdmin(); } catch(e) {}
+  try { renderTop(); } catch(e) {}
+
+  return `Gasto de $${fmt(params.monto)} creado`;
+}
+
+function capturarContextoDashboard() {
+  let contexto = 'DATOS SISTEMA:\n';
+  contexto += `Ventas: ${(appData.ventas || []).length}\n`;
+  contexto += `Agentes: ${(appData.agentes || []).length}\n`;
+  contexto += `Clientes: ${(appData.clientes || []).length}\n`;
+  contexto += `Gastos: ${(appData.gastos || []).length}\n`;
+  if ((appData.ventas || []).length > 0) {
+    contexto += `\nÚltimas ventas: ${appData.ventas.slice(-3).map(v => `${v.agente}:$${v.monto}`).join(', ')}\n`;
+  }
+  return contexto;
+}
+
+function traducirToolName(toolName) {
+  const translations = {
+    'crear_venta': 'crear una venta',
+    'crear_gasto': 'crear un gasto'
+  };
+  return translations[toolName] || toolName;
 }
 
 function addBotMessage(text, type = 'bot') {
