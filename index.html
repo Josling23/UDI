@@ -443,6 +443,7 @@ tr:hover td{background:#EAF0FB}
           <h2>📝 Registro de Ventas</h2>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="openVentaModal()">➕ Nueva Venta</button>
+            <button class="btn btn-success btn-sm" onclick="openImportarExcelModal()">📊 Importar Excel</button>
           </div>
         </div>
         <div class="filters">
@@ -1228,6 +1229,55 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL IMPORTAR EXCEL ===== -->
+<div class="modal-overlay" id="modal-importar-excel">
+  <div class="modal" style="max-width:820px;max-height:85vh">
+    <div class="modal-header">
+      <h3>📊 Importar Ventas desde Excel</h3>
+      <button class="modal-close" onclick="closeModal('modal-importar-excel')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:8px;padding:14px;margin-bottom:16px;font-size:12px;color:#0057A8">
+        <b>📋 Formato esperado en Excel:</b>
+        <div style="margin-top:8px;font-family:monospace;background:#fff;padding:10px;border-radius:5px;border-left:3px solid #009FDB">
+          Fecha | Agente | Cliente | Categoría | Producto | Cantidad | Comisión
+        </div>
+        <div style="margin-top:8px">Ejemplo: 2024-06-15 | Juan | ABC Corp | mobility | att-act8 | 2 | 16</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:#33475B">Cargar archivo Excel:</label>
+        <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="background:#fff;border:2px dashed #009FDB;padding:12px;border-radius:8px;width:100%;cursor:pointer">
+      </div>
+
+      <div id="importar-preview" style="max-height:400px;overflow-y:auto;border:1px solid #CBD6E2;border-radius:8px;display:none">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:#F5F8FA;border-bottom:2px solid #CBD6E2;position:sticky;top:0">
+              <th style="padding:8px;text-align:left">Fecha</th>
+              <th style="padding:8px;text-align:left">Agente</th>
+              <th style="padding:8px;text-align:left">Cliente</th>
+              <th style="padding:8px;text-align:left">Producto</th>
+              <th style="padding:8px;text-align:right">Cantidad</th>
+              <th style="padding:8px;text-align:right">Comisión</th>
+              <th style="padding:8px;text-align:center">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="importar-preview-body"></tbody>
+        </table>
+      </div>
+
+      <div id="importar-stats" style="margin-top:12px;padding:10px;background:#F5F8FA;border-radius:8px;display:none;font-size:11px;color:#7C98B6">
+        <div><b id="importar-count">0</b> registros válidos · <b id="importar-errors">0</b> errores</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-importar-excel')">Cancelar</button>
+      <button class="btn btn-success" id="btn-importar-guardar" onclick="guardarImportacionExcel()" style="display:none">✅ Importar <span id="importar-final-count">0</span> registros</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL AGENTE ===== -->
 <div class="modal-overlay" id="modal-agente">
   <div class="modal" style="max-width:720px">
@@ -1485,6 +1535,8 @@ const PRODUCTOS_CATALOG = [
   { id:'wind-1g',     cat:'internet', nombre:'Windstream >1 Gig',       comision:0,  empresa:'Windstream', excelCol:'WIND 1G+'     },
   // PREPAGO
   { id:'lyca',        cat:'prepago',  nombre:'Lyca Mobile',             comision:6,  excelCol:'LYCA'         },
+  // OTRO
+  { id:'cero',        cat:'otro',     nombre:'Cero',                    comision:0,  excelCol:'CERO'         },
 ];
 
 const CAT_LABELS = {
@@ -1494,6 +1546,7 @@ const CAT_LABELS = {
   'prepago':        '📞 Prepago',
   'servicios':      '🛠️ Servicios',
   'grabada':        '📞 Llamada Grabada',
+  'otro':           '📋 Otro',
 };
 
 // ROLES
@@ -1507,6 +1560,7 @@ const CAT_COLOR = {
   'otros-internet': '#6A78D1',
   'prepago':        '#FF7A59',
   'servicios':      '#F5C26B',
+  'otro':           '#99ACC2',
 };
 
 // ============================================================
@@ -2658,6 +2712,167 @@ function toggleGrabacion() {
     selectAgente.style.borderColor = '#CBD6E2';
     selectAgente.style.backgroundColor = '#fff';
   }
+}
+
+// IMPORTADOR EXCEL
+let _importData = [];
+function openImportarExcelModal() {
+  _importData = [];
+  document.getElementById('excel-file-input').value = '';
+  document.getElementById('importar-preview').style.display = 'none';
+  document.getElementById('importar-stats').style.display = 'none';
+  document.getElementById('btn-importar-guardar').style.display = 'none';
+  document.getElementById('modal-importar-excel').classList.add('open');
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const fileInput = document.getElementById('excel-file-input');
+  if(fileInput) {
+    fileInput.addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, {type:'array'});
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet);
+          procesarImportacionExcel(rows);
+        } catch(err) {
+          showNotif('❌ Error al leer Excel: '+err.message, 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+});
+
+function procesarImportacionExcel(rows) {
+  _importData = [];
+  let errCount = 0;
+
+  rows.forEach((row, idx)=>{
+    const fecha = row.Fecha || row.fecha || '';
+    const agente = row.Agente || row.agente || '';
+    const cliente = row.Cliente || row.cliente || '';
+    const catStr = row.Categoría || row.Categoria || row.categoria || '';
+    const prodStr = row.Producto || row.producto || '';
+    const cantidad = parseInt(row.Cantidad || row.cantidad || 1);
+    const comision = parseFloat(row.Comisión || row.Comision || row.comision || 0);
+
+    // Validar campos obligatorios
+    let errores = [];
+    if(!fecha) errores.push('Sin fecha');
+    if(!agente) errores.push('Sin agente');
+    if(!prodStr) errores.push('Sin producto');
+
+    // Verificar que agente existe
+    const agenteObj = appData.agentes.find(a=>a.nombre.trim().toLowerCase()===agente.trim().toLowerCase());
+    if(agente && !agenteObj) errores.push('Agente no existe');
+
+    // Buscar categoría y producto
+    let categoria = '';
+    let producto = '';
+    const prodLower = prodStr.trim().toLowerCase();
+    const prod = PRODUCTOS_CATALOG.find(p=>
+      p.nombre.toLowerCase()===prodLower ||
+      p.id.toLowerCase()===prodLower ||
+      p.excelCol?.toLowerCase()===prodLower
+    );
+    if(prod) {
+      categoria = prod.cat;
+      producto = prod.id;
+    } else if(prodLower) {
+      errores.push('Producto no encontrado');
+    }
+
+    if(errores.length > 0) {
+      errCount++;
+      _importData.push({
+        fecha, agente, cliente, producto, cantidad, comision,
+        valido: false, error: errores.join(' | ')
+      });
+    } else {
+      _importData.push({
+        fecha, agente, cliente, producto, categoria, cantidad, comision,
+        valido: true, error: ''
+      });
+    }
+  });
+
+  mostrarPreviewImportacion();
+}
+
+function mostrarPreviewImportacion() {
+  const preview = document.getElementById('importar-preview');
+  const previewBody = document.getElementById('importar-preview-body');
+  const stats = document.getElementById('importar-stats');
+  const btnGuardar = document.getElementById('btn-importar-guardar');
+
+  const validCount = _importData.filter(r=>r.valido).length;
+  const errCount = _importData.filter(r=>!r.valido).length;
+
+  previewBody.innerHTML = _importData.map(r=>`
+    <tr style="background:${r.valido?'#fff':'#FFF5F5'};border-bottom:1px solid #F5F8FA">
+      <td style="padding:8px;color:#7C98B6">${r.fecha}</td>
+      <td style="padding:8px;color:#7C98B6">${r.agente}</td>
+      <td style="padding:8px;color:#7C98B6">${r.cliente}</td>
+      <td style="padding:8px;color:#7C98B6">${r.producto}</td>
+      <td style="padding:8px;text-align:right;color:#009FDB;font-weight:600">${r.cantidad}</td>
+      <td style="padding:8px;text-align:right;color:#00BDA5;font-weight:600">$${r.comision}</td>
+      <td style="padding:8px;text-align:center;font-weight:600">
+        ${r.valido?'<span style="color:#059669">✅</span>':'<span style="color:#F2545B;font-size:10px">${r.error}</span>'}
+      </td>
+    </tr>
+  `).join('');
+
+  document.getElementById('importar-count').textContent = validCount;
+  document.getElementById('importar-errors').textContent = errCount;
+  document.getElementById('importar-final-count').textContent = validCount;
+
+  preview.style.display = 'table';
+  stats.style.display = 'block';
+  if(validCount > 0) btnGuardar.style.display = 'block';
+  else btnGuardar.style.display = 'none';
+}
+
+function guardarImportacionExcel() {
+  const validRows = _importData.filter(r=>r.valido);
+  if(validRows.length === 0) {
+    showNotif('⚠️ No hay registros válidos para guardar','error');
+    return;
+  }
+
+  let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  let guardados = 0;
+
+  validRows.forEach(r=>{
+    maxId++;
+    const ventaObj = {
+      id: maxId,
+      fecha: r.fecha,
+      agente: r.agente,
+      cliente: r.cliente,
+      cuenta: '',
+      mes: r.fecha.substring(0,7),
+      campana: '',
+      quincenaPago: '',
+      categoria: r.categoria,
+      productoId: r.producto,
+      cantidad: r.cantidad,
+      comision: r.comision,
+      notas: '📊 Importado desde Excel',
+      llamadaGrabada: false
+    };
+    appData.ventas.push(ventaObj);
+    guardados++;
+  });
+
+  guardar();
+  showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''} exitosamente`);
+  closeModal('modal-importar-excel');
+  renderVentas();
 }
 
 function populateAgenteGrabacion() {
