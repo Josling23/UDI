@@ -2724,7 +2724,7 @@ function guardarVenta() {
   const agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'') : '';
   const comisionGrabacion= llamadaGrabada ? 2 : 0; // Siempre $2 por llamada grabada
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
-  if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Selecciona el agente que grabó la llamada','error'); return; }
+  if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Marca "Llamada grabada" Y selecciona el agente en el dropdown 📞','error'); return; }
 
   // Recoger todas las líneas — VALIDAR QUE TODAS ESTÉN COMPLETAS
   const lineas = [];
