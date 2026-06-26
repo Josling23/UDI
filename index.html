@@ -2649,7 +2649,15 @@ function seleccionarClienteExistente(nombre, cuenta, agente, campana, mes) {
 function toggleGrabacion() {
   const checked = document.getElementById('v-llamada-grabada').checked;
   const fields = document.getElementById('v-grab-fields');
+  const selectAgente = document.getElementById('v-agente-grabacion');
   fields.style.display = checked ? 'grid' : 'none';
+  if(checked) {
+    selectAgente.style.borderColor = '#F2545B';
+    selectAgente.style.backgroundColor = '#FFF5F5';
+  } else {
+    selectAgente.style.borderColor = '#CBD6E2';
+    selectAgente.style.backgroundColor = '#fff';
+  }
 }
 
 function populateAgenteGrabacion() {
