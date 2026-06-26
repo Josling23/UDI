@@ -7458,31 +7458,24 @@ let CLAUDE_API_KEY = localStorage.getItem('claudeAPIKey') || null;
 
 // Función para hacer fetch con manejo de CORS
 async function fetchClaudeAPI(url, options) {
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      }
-    });
+  // Usar proxy CORS confiable
+  const proxyUrl = 'https://allorigins.win/raw?url=' + encodeURIComponent(url);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-    }
+  const response = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: {
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json'
+    },
+    body: options.body
+  });
 
-    return response;
-  } catch (error) {
-    // Si falla con fetch directo, intentar con proxy
-    if (error.message.includes('Failed to fetch')) {
-      console.warn('Intentando con proxy CORS...');
-      return fetch('https://cors-anywhere.herokuapp.com/' + url, options);
-    }
-    throw error;
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
   }
+
+  return response;
 }
 
 function toggleBotWidget() {
