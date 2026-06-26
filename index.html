@@ -2432,6 +2432,9 @@ function renderDashboard() {
       </div>
       <div class="bar-wrap"><div class="bar-fill" style="width:${(v/maxV)*100}%"></div></div>
     </div>`).join('') || '<div style="color:#99ACC2;font-size:12px;padding:10px">Sin datos</div>';
+
+  // Mostrar bot en ADMIN
+  actualizarVisibilidadBot('admin');
 }
 
 // ============================================================
@@ -2701,6 +2704,8 @@ function renderVentas() {
       <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
     </td>
   </tr>`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
+
+  actualizarVisibilidadBot('admin');
 }
 
 let _lineaCount = 0;
@@ -3176,6 +3181,7 @@ function renderAgentes() {
     '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
 
   renderAgenteVentas();
+  actualizarVisibilidadBot('admin');
 }
 
 function renderAgenteVentas() {
@@ -3525,6 +3531,8 @@ function renderResumen() {
       <td style="color:#F5C26B">${fmt(agRows.reduce((s,a)=>s+a.sueldoPagado,0))}</td>
       <td></td>
     </tr></tbody></table>`;
+
+  actualizarVisibilidadBot('admin');
 }
 
 // ============================================================
@@ -3997,6 +4005,8 @@ function renderPagos() {
       </table></div>
     </div>`;
   }).join('') || '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>');
+
+  actualizarVisibilidadBot('admin');
 }
 
 // ============================================================
@@ -4083,6 +4093,7 @@ function renderProductos() {
   </div>` : '';
 
   document.getElementById('productos-content').innerHTML = mobSection + intSection + oiSection + preSection;
+  actualizarVisibilidadBot('admin');
 }
 
 function updateComision(prodId, valor) {
@@ -8242,6 +8253,12 @@ document.addEventListener('keydown', function(event) {
 function actualizarVisibilidadBot(area) {
   const botBtn = document.getElementById('botWidgetBtn');
   const botContainer = document.getElementById('botContainer');
+
+  // Validar que los elementos existan
+  if (!botBtn || !botContainer) {
+    console.warn('Bot widget elements not found');
+    return;
+  }
 
   // Solo mostrar en TOP y ADMIN
   if (area === 'top' || area === 'admin') {
