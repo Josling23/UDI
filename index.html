@@ -7454,7 +7454,24 @@ function sendBotMessage() {
   addBotMessage(message, 'user');
   input.value = '';
 
-  // Verificar confirmación pendiente
+  // Verificar confirmación de creación de datos
+  if (window.botPendingCreation) {
+    if (message.includes('sí') || message.includes('si') || message.includes('yes') || message.includes('ok') || message.includes('okay') || message.includes('confirmar') || message.includes('adelante')) {
+      showBotTyping();
+      setTimeout(() => {
+        removeBotTyping();
+        let response = ejecutarCreacionPendiente(true);
+        addBotMessage(response, 'bot');
+      }, 800);
+      return;
+    } else if (message.includes('no') || message.includes('cancelar')) {
+      addBotMessage('Operación cancelada.', 'bot');
+      window.botPendingCreation = null;
+      return;
+    }
+  }
+
+  // Verificar confirmación de importación de Excel
   if (window.botPendingData && window.botAction === 'importar_excel') {
     if (message.includes('sí') || message.includes('si') || message.includes('yes') || message.includes('ok') || message.includes('okay')) {
       showBotTyping();
@@ -7562,6 +7579,53 @@ function procesarPreguntaBot(pregunta) {
     return null;
   }
 
+  // FUNCIÓN AUXILIAR: Detectar quincena específica
+  function detectarQuincena(texto) {
+    if (texto.includes('q1') || texto.includes('quincena 1')) return '1';
+    if (texto.includes('q2') || texto.includes('quincena 2')) return '2';
+    return null;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // INTENCIÓN DE CONFIRMACIÓN (después de una creación propuesta)
+  // ════════════════════════════════════════════════════════════════
+  if (window.botPendingCreation) {
+    if (q.includes('si') || q.includes('sí') || q.includes('confirmar') || q.includes('ok') || q.includes('adelante') || q.includes('listo')) {
+      return ejecutarCreacionPendiente(true);
+    } else if (q.includes('no') || q.includes('cancelar') || q.includes('espera')) {
+      window.botPendingCreation = null;
+      return 'Operación cancelada.';
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // CREACIÓN DE VENTA
+  // ════════════════════════════════════════════════════════════════
+  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nueva')) && q.includes('venta')) {
+    return procesarCreacionVenta(pregunta, detectarMes, detectarQuincena, mesActual);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // CREACIÓN DE GASTO
+  // ════════════════════════════════════════════════════════════════
+  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nuevo')) && q.includes('gasto')) {
+    return procesarCreacionGasto(pregunta, detectarMes, mesActual);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // CREACIÓN DE AGENTE
+  // ════════════════════════════════════════════════════════════════
+  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nuevo')) && q.includes('agente')) {
+    return procesarCreacionAgente(pregunta);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // CREACIÓN DE CLIENTE
+  // ════════════════════════════════════════════════════════════════
+  if ((q.includes('registra') || q.includes('crea') || q.includes('agrega') || q.includes('nuevo')) && q.includes('cliente')) {
+    return procesarCreacionCliente(pregunta);
+  }
+
   // ════════════════════════════════════════════════════════════════
   // PREGUNTAS COMPLEJAS: "¿Quién vendió más?" "¿Mejor agente?"
   // ════════════════════════════════════════════════════════════════
@@ -7584,7 +7648,7 @@ function procesarPreguntaBot(pregunta) {
 
     if (ranking.length === 0) return `No hay ventas en el periodo especificado.`;
     const periodo = Array.isArray(mesAanalizar) ? mesAanalizar[0].split('-')[1] : (mesAanalizar ? mesAanalizar.split('-')[1] : mesActual.split('-')[1]);
-    return `Ranking de ventas (mes ${periodo}):<br>${ranking.slice(0, 5).map((a, i) => `${i + 1}. ${a.nombre}: ${a.ventas} venta(s) por ${fmt(a.monto)}`).join('<br>')}`;
+    return `Ranking de ventas (mes ${periodo}): ${ranking.slice(0, 5).map((a, i) => `${i + 1}. ${a.nombre}: ${a.ventas} venta(s) por ${fmt(a.monto)}`).join(' | ')}`;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -7638,7 +7702,7 @@ function procesarPreguntaBot(pregunta) {
         .map(a => ({ nombre: a.nombre, com: getComisionesMes(a, mesActual) }))
         .sort((x, y) => y.com - x.com)
         .slice(0, 5);
-      return `Top agentes (este mes):<br>${top.map((a, i) => `${i + 1}. ${a.nombre} - ${fmt(a.com)}`).join('<br>')}`;
+      return `Top agentes (este mes): ${top.map((a, i) => `${i + 1}. ${a.nombre} - ${fmt(a.com)}`).join(' | ')}`;
     }
     const total = (appData.agentes || []).filter(a => !a.soloHQ).length;
     const activos = (appData.agentes || []).filter(a => !a.soloHQ && a.activo !== false).length;
@@ -7678,10 +7742,317 @@ function procesarPreguntaBot(pregunta) {
   // AYUDA
   // ════════════════════════════════════════════════════════════════
   if (q.includes('help') || q.includes('ayuda') || q.includes('qué')) {
-    return `Puedo responder sobre:<br>• Agentes: "¿Cuántos agentes?" o "¿Quién vendió más?"<br>• Ventas: "Ventas en junio" o "Total de ventas"<br>• Gastos: "Gastos totales"<br>• Fechas: Menciona mes (junio, julio, etc.)<br>• Archivos: Sube Excel para importar datos`;
+    return `📚 Puedo:
+• PREGUNTAR: "¿Quién vendió más?" "Ventas de Oriana en junio" "Gastos totales"
+• CREAR VENTA: "Registra venta de [agente]: $[monto] [cliente] para [mes] [Q1/Q2]"
+• CREAR GASTO: "Nuevo gasto fijo: [descripción] $[monto]"
+• CREAR AGENTE: "Nuevo agente: [nombre], [rol]"
+• CREAR CLIENTE: "Nuevo cliente: [nombre], [empresa]"
+• IMPORTAR: Sube archivos Excel con datos`;
   }
 
-  return `No entendí bien. Intenta: "¿Quién vendió más en junio?", "Ventas de Oriana", "Gastos totales" o escribe "Ayuda".`;
+  return `No entendí bien. Prueba: "¿Quién vendió más en junio?" o "Registra venta de Oriana: $1000 RS&I para junio Q1" o escribe "Ayuda".`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FUNCIONES DE CREACIÓN DE DATOS
+// ══════════════════════════════════════════════════════════════
+
+function procesarCreacionVenta(texto, detectarMes, detectarQuincena, mesActual) {
+  // Patrones esperados: "Registra venta de [agente]: $[monto] [cliente] para [mes] [Q1/Q2]"
+  // Ejemplo: "Registra venta de Oriana: $1000 RS&I para junio Q1"
+
+  const q = texto.toLowerCase();
+
+  // Detectar agente
+  let agenteMatch = null;
+  for (let agente of (appData.agentes || [])) {
+    if (q.includes(agente.nombre.toLowerCase())) {
+      agenteMatch = agente.nombre;
+      break;
+    }
+  }
+
+  if (!agenteMatch) return '⚠️ No encontré el agente. Menciona su nombre (ej: "Oriana", "Juan").';
+
+  // Detectar monto (buscar $ o número)
+  const montoMatch = texto.match(/\$?([\d,]+\.?\d*)/);
+  const monto = montoMatch ? parseFloat(montoMatch[1].replace(/,/g, '')) : null;
+
+  if (!monto || monto <= 0) return '⚠️ Monto inválido. Usa: "Registra venta de Oriana: $1000 RS&I"';
+
+  // Detectar cliente (después de $monto y antes de "para")
+  const partes = texto.split(/\$[\d,.]*/);
+  const clientePart = partes[1] ? partes[1].split('para')[0].trim() : '';
+  const cliente = clientePart || 'Cliente sin nombre';
+
+  // Detectar mes
+  const mes = detectarMes(texto) || mesActual;
+
+  // Detectar quincena
+  const quincena = detectarQuincena(texto) || '1';
+
+  // Detectar producto/servicio
+  const productoMatch = texto.match(/:\s*\$[\d,.]*(.*?)(para|q1|q2|$)/i);
+  const producto = productoMatch ? productoMatch[1].trim() : 'Producto no especificado';
+
+  // Guardar en window.botPendingCreation
+  window.botPendingCreation = {
+    tipo: 'venta',
+    datos: {
+      agente: agenteMatch,
+      cliente: cliente,
+      monto: monto,
+      mes: mes,
+      quincena: quincena,
+      producto: producto,
+      fecha: new Date().toISOString().slice(0, 10)
+    }
+  };
+
+  return `📝 Voy a crear:
+▸ Agente: ${agenteMatch}
+▸ Cliente: ${cliente}
+▸ Producto: ${producto}
+▸ Monto: $${fmt(monto)}
+▸ Mes: ${mes.split('-')[1]}
+▸ Quincena: Q${quincena}
+
+¿Confirmas? (Escribe "Sí" o "No")`;
+}
+
+function procesarCreacionGasto(texto, detectarMes, mesActual) {
+  // Patrones: "Nuevo gasto [tipo]: [descripción] $[monto]"
+  // Ejemplo: "Nuevo gasto fijo: Renta $2000"
+
+  const q = texto.toLowerCase();
+  const tipos = ['fijo', 'variable', 'otro'];
+
+  let tipo = 'otro';
+  for (let t of tipos) {
+    if (q.includes(t)) {
+      tipo = t;
+      break;
+    }
+  }
+
+  // Detectar monto
+  const montoMatch = texto.match(/\$?([\d,]+\.?\d*)/);
+  const monto = montoMatch ? parseFloat(montoMatch[1].replace(/,/g, '')) : null;
+
+  if (!monto || monto <= 0) return '⚠️ Monto inválido. Usa: "Nuevo gasto fijo: Renta $2000"';
+
+  // Detectar descripción (entre tipo y monto)
+  const descMatch = texto.match(/:\s*(.*?)\s*\$?[\d,]/i);
+  const descripcion = descMatch ? descMatch[1].trim() : 'Gasto sin descripción';
+
+  // Detectar mes
+  const mes = detectarMes(texto) || mesActual;
+
+  window.botPendingCreation = {
+    tipo: 'gasto',
+    datos: {
+      tipo: tipo,
+      descripcion: descripcion,
+      monto: monto,
+      mes: mes,
+      fecha: new Date().toISOString().slice(0, 10)
+    }
+  };
+
+  return `📝 Voy a crear:
+▸ Tipo: ${tipo}
+▸ Descripción: ${descripcion}
+▸ Monto: $${fmt(monto)}
+▸ Mes: ${mes.split('-')[1]}
+
+¿Confirmas? (Escribe "Sí" o "No")`;
+}
+
+function procesarCreacionAgente(texto) {
+  // Patrones: "Nuevo agente: [nombre], [rol]"
+  // Ejemplo: "Nuevo agente: Juan Pérez, Gerente de Ventas"
+
+  const q = texto.toLowerCase();
+
+  // Detectar nombre y rol (después de :)
+  const match = texto.match(/:\s*(.+?)(?:,\s*(.+))?$/i);
+
+  if (!match || !match[1]) return '⚠️ Formato incorrecto. Usa: "Nuevo agente: [nombre], [rol]"';
+
+  const nombre = match[1].trim();
+  const rol = match[2] ? match[2].trim() : 'Agente de Ventas';
+
+  // Validar que el agente no exista ya
+  if ((appData.agentes || []).some(a => a.nombre.toLowerCase() === nombre.toLowerCase())) {
+    return `⚠️ El agente "${nombre}" ya existe en el sistema.`;
+  }
+
+  window.botPendingCreation = {
+    tipo: 'agente',
+    datos: {
+      nombre: nombre,
+      rol: rol,
+      sueldoQuincenal: 0,
+      comisiones: {},
+      activo: true
+    }
+  };
+
+  return `📝 Voy a crear:
+▸ Nombre: ${nombre}
+▸ Rol: ${rol}
+▸ Status: Activo
+
+¿Confirmas? (Escribe "Sí" o "No")`;
+}
+
+function procesarCreacionCliente(texto) {
+  // Patrones: "Nuevo cliente: [nombre], [empresa]"
+  // Ejemplo: "Nuevo cliente: ABC Corp, ABC Consulting"
+
+  const match = texto.match(/:\s*(.+?)(?:,\s*(.+))?$/i);
+
+  if (!match || !match[1]) return '⚠️ Formato incorrecto. Usa: "Nuevo cliente: [nombre], [empresa]"';
+
+  const nombre = match[1].trim();
+  const empresa = match[2] ? match[2].trim() : nombre;
+
+  // Validar que el cliente no exista ya
+  if ((appData.clientes || []).some(c => c.nombre && c.nombre.toLowerCase() === nombre.toLowerCase())) {
+    return `⚠️ El cliente "${nombre}" ya existe en el sistema.`;
+  }
+
+  window.botPendingCreation = {
+    tipo: 'cliente',
+    datos: {
+      nombre: nombre,
+      empresa: empresa,
+      contacto: '',
+      telefono: '',
+      email: ''
+    }
+  };
+
+  return `📝 Voy a crear:
+▸ Nombre: ${nombre}
+▸ Empresa: ${empresa}
+
+¿Confirmas? (Escribe "Sí" o "No")`;
+}
+
+function ejecutarCreacionPendiente(confirmar) {
+  if (!window.botPendingCreation) return 'No hay operación pendiente.';
+
+  const creacion = window.botPendingCreation;
+  const datos = creacion.datos;
+
+  try {
+    switch(creacion.tipo) {
+      case 'venta':
+        // Crear venta con estructura correcta
+        if (!appData.ventas) appData.ventas = [];
+        const maxVentaId = appData.ventas.reduce((m, x) => Math.max(m, x.id || 0), 0);
+
+        const ventaObj = {
+          id: maxVentaId + 1,
+          fecha: datos.fecha,
+          agente: datos.agente,
+          cliente: datos.cliente,
+          cuenta: '',
+          mes: datos.mes,
+          campana: '',
+          quincenaPago: datos.quincena,
+          llamadaGrabada: false,
+          agenteGrabacion: '',
+          comisionGrabacion: 0,
+          notas: datos.producto,
+          productoId: 'generico', // ID genérico
+          categoria: 'general',
+          cantidad: 1,
+          comision: 0
+        };
+
+        appData.ventas.push(ventaObj);
+        break;
+
+      case 'gasto':
+        // Crear gasto
+        if (!appData.gastos) appData.gastos = [];
+        const maxGastoId = appData.gastos.reduce((m, x) => Math.max(m, x.id || 0), 0);
+
+        const gastoObj = {
+          id: maxGastoId + 1,
+          fecha: datos.fecha,
+          descripcion: datos.descripcion,
+          tipo: datos.tipo,
+          monto: datos.monto,
+          mes: datos.mes
+        };
+
+        appData.gastos.push(gastoObj);
+        break;
+
+      case 'agente':
+        // Crear agente
+        if (!appData.agentes) appData.agentes = [];
+        const maxAgenteId = appData.agentes.reduce((m, x) => Math.max(m, x.id || 0), 0);
+
+        const agenteObj = {
+          id: maxAgenteId + 1,
+          nombre: datos.nombre,
+          rol: datos.rol,
+          sueldoQuincenal: datos.sueldoQuincenal,
+          comisiones: datos.comisiones || {},
+          activo: true
+        };
+
+        appData.agentes.push(agenteObj);
+        break;
+
+      case 'cliente':
+        // Crear cliente
+        if (!appData.clientes) appData.clientes = [];
+        const maxClienteId = appData.clientes.reduce((m, x) => Math.max(m, x.id || 0), 0);
+
+        const clienteObj = {
+          id: maxClienteId + 1,
+          nombre: datos.nombre,
+          empresa: datos.empresa,
+          contacto: datos.contacto || '',
+          telefono: datos.telefono || '',
+          email: datos.email || ''
+        };
+
+        appData.clientes.push(clienteObj);
+        break;
+    }
+
+    // Guardar en Firebase
+    guardar();
+
+    // Re-renderizar vistas
+    try { renderAdmin(); } catch(e) { console.error('Error renderAdmin:', e); }
+    try { renderTop(); } catch(e) { console.error('Error renderTop:', e); }
+    try { renderVentas(); } catch(e) { console.error('Error renderVentas:', e); }
+    try { renderPagos(); } catch(e) { console.error('Error renderPagos:', e); }
+
+    window.botPendingCreation = null;
+
+    let msg = '';
+    switch(creacion.tipo) {
+      case 'venta': msg = `✅ Venta registrada para ${datos.agente}`; break;
+      case 'gasto': msg = `✅ Gasto de ${fmt(datos.monto)} registrado`; break;
+      case 'agente': msg = `✅ Agente ${datos.nombre} creado`; break;
+      case 'cliente': msg = `✅ Cliente ${datos.nombre} registrado`; break;
+    }
+
+    return msg;
+  } catch(err) {
+    console.error('Error ejecutar creación:', err);
+    window.botPendingCreation = null;
+    return `❌ Error al crear: ${err.message}`;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
