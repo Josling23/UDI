@@ -210,13 +210,17 @@ tr:hover td{background:#EAF0FB}
   color: white;
   border: none;
   cursor: pointer;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   font-size: 24px;
   box-shadow: 0 4px 12px rgba(0, 87, 168, 0.4);
   z-index: 999;
   transition: all 0.3s ease;
+}
+
+.bot-widget-button.visible {
+  display: flex;
 }
 
 .bot-widget-button:hover {
@@ -4842,6 +4846,7 @@ function renderHQ() {
   });
 
   document.getElementById('hq-content').innerHTML = html;
+  actualizarVisibilidadBot('hq');
 }
 
 // Abrir modal de venta preseleccionando el agente HQ
@@ -4875,6 +4880,7 @@ function renderTop() {
   renderTopROI();
   renderTopChargebacks();
   renderTopConfig();
+  actualizarVisibilidadBot('top');
 }
 
 function switchTopTab(id, el) {
@@ -5601,6 +5607,7 @@ function renderAdmin() {
   `;
   renderAdminGastos();
   renderAdminNomina();
+  actualizarVisibilidadBot('admin');
 }
 
 function switchAdminTab(id, el) {
@@ -7739,6 +7746,29 @@ document.addEventListener('keydown', function(event) {
     }
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+// CONTROL DE VISIBILIDAD DEL BOT
+// ══════════════════════════════════════════════════════════════
+
+function actualizarVisibilidadBot(area) {
+  const botBtn = document.getElementById('botWidgetBtn');
+  const botContainer = document.getElementById('botContainer');
+
+  // Solo mostrar en TOP y ADMIN
+  if (area === 'top' || area === 'admin') {
+    botBtn.classList.add('visible');
+    // Agregar indicator visual de que el bot está disponible
+    if (!botBtn.title) {
+      botBtn.title = '🤖 Asistente UDI - Escribe tu pregunta aquí';
+    }
+  } else {
+    botBtn.classList.remove('visible');
+    // Cerrar el bot si está abierto
+    botContainer.classList.remove('open');
+    botBtn.classList.remove('open');
+  }
+}
 
 </script>
 
