@@ -2336,8 +2336,24 @@ function renderVentas() {
     return true;
   }).sort((a,b)=>b.id-a.id);
 
-  const totalCom = list.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
-  const totalUnits = list.reduce((s,v)=>s+v.cantidad,0);
+  let totalCom = list.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+  let totalUnits = list.reduce((s,v)=>s+v.cantidad,0);
+
+  // Si es supervisor/gerente, agregar comisiones de supervisión
+  if(fAg && fMes) {
+    const agente = appData.agentes.find(a=>a.id==fAg);
+    if(agente && (agente.rol==='supervisor' || agente.rol==='gerente')) {
+      const supervisados = (agente.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+      if(supervisados.length > 0) {
+        const ventasSupervisa = appData.ventas.filter(v=>{
+          if(v.mes !== fMes) return false;
+          return supervisados.includes((v.agente||'').trim().toLowerCase());
+        });
+        const comSupervisa = ventasSupervisa.reduce((s,v)=>s + getComisionParaAgente(v.productoId, agente.nombre)*v.cantidad, 0);
+        totalCom += comSupervisa;
+      }
+    }
+  }
 
   // Si hay agente seleccionado, mostrar resumen de pago de esa quincena
   let statsHTML = `<b>${list.length}</b> registros · <b>${totalUnits}</b> unidades · Comisión total: <b style="color:#00BDA5">${fmt(totalCom)}</b>`;
