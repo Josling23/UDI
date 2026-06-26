@@ -2020,7 +2020,6 @@ function getPeríodoPagoAuto(v) {
 
 function getComisionesQuincena(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
-  const mesISO = mesAISO(mes); // Convertir a ISO format
 
   // Incluye solo ventas (sin grabaciones)
   const propias = appData.ventas
@@ -2028,7 +2027,7 @@ function getComisionesQuincena(a, mes, q) {
       if(v.esGrabacion || v._esGrabacion) return false; // Excluir grabaciones
       if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
       const pp = getPeríodoPago(v);
-      return pp.mes === mesISO && pp.q === q;
+      return pp.mes === mes && pp.q === q;
     })
     .reduce((s,v)=>{
       const qty = parseFloat(v.cantidad)||1;
@@ -3814,12 +3813,11 @@ function renderPagos() {
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
     // Grabaciones
     const nombreLow = (a.nombre||'').trim().toLowerCase();
-    const mesActISO = mesAISO(mesAct); // Convertir a ISO format
     const grabRows = appData.ventas.filter(v=>{
       if(!v.esGrabacion && !v._esGrabacion) return false;
       if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
       const pp = getPeríodoPago(v);
-      return pp.mes===mesActISO && pp.q===qAct;
+      return pp.mes===mesAct && pp.q===qAct;
     });
     const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
 
