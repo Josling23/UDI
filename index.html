@@ -194,6 +194,251 @@ tr:hover td{background:#EAF0FB}
 .form-grid{grid-template-columns:1fr}
 .cards{grid-template-columns:1fr 1fr}
 }
+
+/* ══════════════════════════════════════════════════════════════ */
+/* BOT STYLES */
+/* ══════════════════════════════════════════════════════════════ */
+
+.bot-widget-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #009FDB, #0057A8);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 87, 168, 0.4);
+  z-index: 999;
+  transition: all 0.3s ease;
+}
+
+.bot-widget-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 87, 168, 0.5);
+}
+
+.bot-widget-button.open {
+  background: linear-gradient(135deg, #E04048, #D41F26);
+}
+
+.bot-container {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 400px;
+  height: 600px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 40px rgba(0, 0, 0, 0.16);
+  display: none;
+  flex-direction: column;
+  z-index: 998;
+  border: 1px solid #CBD6E2;
+}
+
+.bot-container.open {
+  display: flex;
+}
+
+.bot-header {
+  background: linear-gradient(135deg, #009FDB, #0057A8);
+  color: white;
+  padding: 16px;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bot-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.bot-header-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bot-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bot-message {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bot-message.user {
+  justify-content: flex-end;
+}
+
+.bot-message.bot {
+  justify-content: flex-start;
+}
+
+.bot-message-content {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.bot-message.user .bot-message-content {
+  background: linear-gradient(135deg, #009FDB, #0057A8);
+  color: white;
+  border-radius: 10px 2px 10px 10px;
+}
+
+.bot-message.bot .bot-message-content {
+  background: #F5F8FA;
+  color: #33475B;
+  border-radius: 2px 10px 10px 10px;
+}
+
+.bot-message.info .bot-message-content {
+  background: #FFFBE8;
+  color: #8B7500;
+  border-radius: 10px;
+}
+
+.bot-message.error .bot-message-content {
+  background: #FFF0F0;
+  color: #E04048;
+  border-radius: 10px;
+}
+
+.bot-input-area {
+  padding: 12px;
+  border-top: 1px solid #CBD6E2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bot-input-wrapper {
+  display: flex;
+  gap: 8px;
+}
+
+.bot-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #CBD6E2;
+  border-radius: 8px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+
+.bot-input:focus {
+  border-color: #009FDB;
+  box-shadow: 0 0 0 3px rgba(0, 159, 219, 0.1);
+}
+
+.bot-send-btn {
+  background: linear-gradient(135deg, #009FDB, #0057A8);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.bot-send-btn:hover {
+  background: linear-gradient(135deg, #007FC0, #004A9A);
+}
+
+.bot-file-input {
+  display: none;
+}
+
+.bot-file-btn {
+  background: #F5F8FA;
+  color: #7C98B6;
+  border: 1px solid #CBD6E2;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.bot-file-btn:hover {
+  background: #EAF0FB;
+  color: #33475B;
+}
+
+.bot-typing {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.bot-typing-dot {
+  width: 8px;
+  height: 8px;
+  background: #7C98B6;
+  border-radius: 50%;
+  animation: typing 1.4s infinite;
+}
+
+.bot-typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.bot-typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    opacity: 0.5;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-8px);
+  }
+}
+
 </style>
 </head>
 <body>
@@ -7140,5 +7385,240 @@ window.addEventListener('load', async () => {
 });
 
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- BOT WIDGET HTML -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+
+<button class="bot-widget-button" id="botWidgetBtn" onclick="toggleBotWidget()">🤖</button>
+
+<div class="bot-container" id="botContainer">
+  <div class="bot-header">
+    <h3>🤖 Asistente UDI</h3>
+    <button class="bot-header-close" onclick="toggleBotWidget()">✕</button>
+  </div>
+
+  <div class="bot-messages" id="botMessages">
+    <div class="bot-message bot">
+      <div class="bot-message-content">
+        ¡Hola! 👋 Soy tu asistente UDI. Puedo ayudarte a:
+        <br><br>
+        📊 <strong>Analizar archivos</strong> (Excel, CSV, PDF, imágenes)<br>
+        📝 <strong>Responder preguntas</strong> sobre tus datos<br>
+        💾 <strong>Guardar información</strong> automáticamente<br>
+        <br>
+        ¿Cómo puedo ayudarte hoy?
+      </div>
+    </div>
+  </div>
+
+  <div class="bot-input-area">
+    <div class="bot-input-wrapper">
+      <button class="bot-file-btn" onclick="document.getElementById('botFileInput').click()">📎 Archivo</button>
+      <input type="file" id="botFileInput" class="bot-file-input" onchange="handleBotFileUpload(event)" accept=".xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png,.txt">
+      <input type="text" class="bot-input" id="botInput" placeholder="Escribe tu pregunta..." onkeypress="handleBotKeyPress(event)">
+      <button class="bot-send-btn" onclick="sendBotMessage()">Enviar</button>
+    </div>
+    <div style="font-size:10px;color:#99ACC2;padding:0 4px">
+      💡 Prueba: "¿Cuántas ventas hay?" o sube un Excel con datos
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// BOT WIDGET FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+
+function toggleBotWidget() {
+  const container = document.getElementById('botContainer');
+  const btn = document.getElementById('botWidgetBtn');
+  container.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+
+function sendBotMessage() {
+  const input = document.getElementById('botInput');
+  const message = input.value.trim();
+
+  if (!message) return;
+
+  // Agregar mensaje del usuario
+  addBotMessage(message, 'user');
+  input.value = '';
+
+  // Simular respuesta del bot
+  showBotTyping();
+
+  setTimeout(() => {
+    removeBotTyping();
+    // Aquí irá la lógica de respuesta inteligente
+    let response = procesarPreguntaBot(message);
+    addBotMessage(response, 'bot');
+  }, 1500);
+}
+
+function addBotMessage(text, type = 'bot') {
+  const messagesContainer = document.getElementById('botMessages');
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `bot-message ${type}`;
+  messageDiv.innerHTML = `<div class="bot-message-content">${escapeHtml(text)}</div>`;
+  messagesContainer.appendChild(messageDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function showBotTyping() {
+  const messagesContainer = document.getElementById('botMessages');
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'bot-message bot';
+  typingDiv.id = 'botTyping';
+  typingDiv.innerHTML = `
+    <div class="bot-message-content">
+      <div class="bot-typing">
+        <div class="bot-typing-dot"></div>
+        <div class="bot-typing-dot"></div>
+        <div class="bot-typing-dot"></div>
+      </div>
+    </div>
+  `;
+  messagesContainer.appendChild(typingDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function removeBotTyping() {
+  const typing = document.getElementById('botTyping');
+  if (typing) typing.remove();
+}
+
+function handleBotKeyPress(event) {
+  if (event.key === 'Enter') {
+    sendBotMessage();
+  }
+}
+
+function handleBotFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  addBotMessage(`📎 Archivo cargado: ${file.name}`, 'info');
+  showBotTyping();
+
+  setTimeout(() => {
+    removeBotTyping();
+    let response = procesarArchivoBot(file);
+    addBotMessage(response, 'bot');
+  }, 2000);
+
+  // Reset input
+  event.target.value = '';
+}
+
+function procesarPreguntaBot(pregunta) {
+  pregunta = pregunta.toLowerCase();
+
+  // Verificar si el usuario tiene acceso a TOP
+  const tieneAccessoTOP = currentRole === 'admin' || currentRole === 'owner' || currentRole === 'gerente';
+
+  // Respuestas según pregunta
+  if (pregunta.includes('venta') && pregunta.includes('cuantas')) {
+    const totalVentas = (appData.ventas || []).length;
+    return `📊 Total de ventas registradas: <strong>${totalVentas}</strong>`;
+  }
+
+  if (pregunta.includes('agente') || pregunta.includes('vendedor')) {
+    const totalAgentes = (appData.agentes || []).filter(a => !a.soloHQ).length;
+    return `👥 Total de agentes activos: <strong>${totalAgentes}</strong>`;
+  }
+
+  if (pregunta.includes('ganan') || pregunta.includes('ganancia') || pregunta.includes('utilidad')) {
+    if (!tieneAccessoTOP) {
+      return '🔒 No tengo permiso para mostrar información financiera privada desde tu perfil. Solo disponible en TOP.';
+    }
+    return '📈 Para información detallada de ganancias, ve a TOP → Finanzas.';
+  }
+
+  if (pregunta.includes('help') || pregunta.includes('ayuda') || pregunta.includes('qué')) {
+    return `Puedo ayudarte con:
+    <br>✅ Contar ventas, agentes, clientes
+    <br>✅ Analizar archivos Excel
+    <br>✅ Responder preguntas sobre tus datos
+    <br>✅ Sugerir dónde guardar información
+    <br><br>¿Qué necesitas?`;
+  }
+
+  return '🤔 No entendí bien tu pregunta. Prueba preguntar sobre: ventas, agentes, clientes, o sube un archivo para analizar.';
+}
+
+function procesarArchivoBot(file) {
+  const tipo = file.type;
+  const nombre = file.name;
+
+  if (nombre.includes('.csv') || nombre.includes('.xlsx') || nombre.includes('.xls')) {
+    return `✅ Archivo de datos detectado: <strong>${nombre}</strong>
+    <br><br>
+    📝 El archivo será analizado para detectar:
+    <br>• Ventas y transacciones
+    <br>• Nombres de agentes
+    <br>• Clientes
+    <br>• Comisiones
+    <br>• Fechas
+    <br><br>
+    ⏳ En la siguiente versión podré importar automáticamente. Por ahora, guarda este archivo para referencia.`;
+  }
+
+  if (tipo.includes('image')) {
+    return `📸 Imagen recibida: <strong>${nombre}</strong>
+    <br><br>
+    🔍 Puedo analizar:
+    <br>• Capturas de pantallas de reportes
+    <br>• Fotos de documentos
+    <br>• Tablas en imágenes
+    <br><br>
+    ⏳ Próximamente: análisis automático con OCR.`;
+  }
+
+  if (tipo.includes('pdf')) {
+    return `📄 PDF recibido: <strong>${nombre}</strong>
+    <br><br>
+    📋 Puedo procesar:
+    <br>• Reportes
+    <br>• Estados de cuenta
+    <br>• Documentos administrativos
+    <br><br>
+    ⏳ Próximamente: extracción automática de datos.`;
+  }
+
+  return `📎 Archivo recibido: <strong>${nombre}</strong>
+  <br><br>
+  Aún no puedo procesar este tipo de archivo.
+  <br>
+  Formatos soportados: Excel, CSV, PDF, imágenes (JPG, PNG)`;
+}
+
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Cerrar bot si se presiona ESC
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    const container = document.getElementById('botContainer');
+    const btn = document.getElementById('botWidgetBtn');
+    if (container.classList.contains('open')) {
+      container.classList.remove('open');
+      btn.classList.remove('open');
+    }
+  }
+});
+
+</script>
+
 </body>
 </html>
