@@ -2944,7 +2944,12 @@ function guardarVenta() {
   const notas       = document.getElementById('v-notas').value.trim();
   const quincenaPago     = document.getElementById('v-quincena').value;
   const llamadaGrabada   = document.getElementById('v-llamada-grabada').checked;
-  const agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'') : '';
+  let agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'').trim() : '';
+  // Normalizar nombre del agente de grabación para que coincida exactamente con el registro
+  if(agenteGrabacion) {
+    const agenteObj = appData.agentes.find(a=>a.nombre.trim().toLowerCase()===agenteGrabacion.toLowerCase());
+    if(agenteObj) agenteGrabacion = agenteObj.nombre;
+  }
   const comisionGrabacion= llamadaGrabada ? 2 : 0; // Siempre $2 por llamada grabada
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
   if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Marca "Llamada grabada" Y selecciona el agente en el dropdown 📞','error'); return; }
