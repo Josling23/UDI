@@ -91,6 +91,19 @@ tr:hover td{background:#EAF0FB}
 .filters input:focus,.filters select:focus{border-color:#009FDB}
 .filters input{min-width:180px}
 
+/* LOGIN PAGE */
+.login-page{position:fixed;inset:0;background:linear-gradient(135deg,#1a0008,#3a0a14);display:flex;align-items:center;justify-content:center;z-index:2000}
+.login-container{background:#fff;border-radius:16px;padding:40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+.login-container h1{font-size:28px;font-weight:900;color:#33475B;margin-bottom:8px;text-align:center}
+.login-container p{font-size:13px;color:#7C98B6;text-align:center;margin-bottom:28px}
+.login-form{display:flex;flex-direction:column;gap:16px}
+.login-form label{font-size:12px;font-weight:700;color:#33475B;text-transform:uppercase;letter-spacing:0.5px}
+.login-form input{background:#fff;border:2px solid #CBD6E2;padding:12px;border-radius:8px;font-size:14px;outline:none;transition:all 0.2s}
+.login-form input:focus{border-color:#009FDB;box-shadow:0 0 0 3px rgba(0,159,219,0.1)}
+.login-form button{background:linear-gradient(135deg,#009FDB,#0057A8);color:#fff;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.login-form button:hover{background:linear-gradient(135deg,#007FC0,#004A9A);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,87,168,0.3)}
+.login-error{color:#F2545B;font-size:12px;text-align:center;padding:8px;background:#FFF5F5;border-radius:6px;display:none}
+
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(51,71,91,0.5);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
@@ -1580,7 +1593,54 @@ const fbAuth = firebase.auth();
 const fbDB   = firebase.database();
 
 let currentUser = null;   // Firebase user object
-let currentRole = null;   // 'owner' | 'jose' | 'oriana'
+let currentRole = null;   // 'admin' | 'hq' | 'top' | 'salud' (now based on email)
+
+// ============================================================
+// USER ROLES & PERMISSIONS
+// ============================================================
+// Maps email addresses to their allowed areas
+const USERS_CONFIG = {
+  'interjosling@hotmail.com': {
+    nombre: 'Josling',
+    areas: ['admin', 'hq', 'top', 'salud'],
+    fullAccess: true
+  },
+  'usadistributor024@gmail.com': {
+    nombre: 'David',
+    areas: ['salud'],
+    fullAccess: false
+  },
+  'udicreditrepair@gmail.com': {
+    nombre: 'Oriana',
+    areas: ['admin', 'salud'],
+    fullAccess: false
+  },
+  // Astrid - placeholder until email is created
+  'astrid@usadistributor.com': {
+    nombre: 'Astrid',
+    areas: ['salud'],
+    fullAccess: false
+  },
+  // José Piña - placeholder until email is created
+  'josepi@usadistributor.com': {
+    nombre: 'José Piña',
+    areas: ['admin', 'hq', 'salud'],
+    fullAccess: false
+  }
+};
+
+// Helper function to get user permissions from email
+function getUserPermissions(email) {
+  const email_lower = (email || '').toLowerCase();
+  return USERS_CONFIG[email_lower] || null;
+}
+
+// Helper function to check if user can access an area
+function userCanAccessArea(email, area) {
+  const perms = getUserPermissions(email);
+  if (!perms) return false;
+  return perms.areas.includes(area);
+}
 
 // ============================================================
 // DATA
@@ -4237,20 +4297,28 @@ function mostrarLogin() {
 }
 
 function mostrarAreas() {
-  // Construir botones según rol
-  const puedeAdmin  = (currentRole !== 'david');
-  const puedeHQ     = (currentRole === 'owner' || currentRole === 'jose');
-  const puedeTop    = (currentRole === 'owner');
-  const puedeSalud  = true; // owner, jose, oriana, david
+  // Construir botones según permisos del usuario
+  const email = currentUser ? currentUser.email : '';
+  const perms = getUserPermissions(email);
 
-  const email = currentUser ? currentUser.email.split('@')[0] : '';
-  document.getElementById('area-user-badge').textContent = '👤 ' + email;
+  if (!perms) {
+    showNotif('⚠️ No tienes acceso autorizado', 'error');
+    return;
+  }
+
+  const puedeAdmin  = perms.areas.includes('admin');
+  const puedeHQ     = perms.areas.includes('hq');
+  const puedeTop    = perms.areas.includes('top');
+  const puedeSalud  = perms.areas.includes('salud');
+
+  const userDisplay = perms.nombre || email.split('@')[0];
+  document.getElementById('area-user-badge').textContent = '👤 ' + userDisplay;
 
   const btnStyle = `flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center`;
   const hoverOn  = `this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'`;
   const hoverOff = `this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.2)'`;
 
-  // Orden: Administración | TOP (centro) | HEADQUARTERS
+  // Orden: Administración | TOP (centro) | HEADQUARTERS | SALUD
   let btns = '';
   if(puedeAdmin) btns += `
     <button onclick="abrirArea('admin')" style="${btnStyle}" onmouseover="${hoverOn}" onmouseout="${hoverOff}">
@@ -4290,6 +4358,13 @@ function mostrarAreas() {
 }
 
 function abrirArea(area) {
+  // Verificar permisos
+  const email = currentUser ? currentUser.email : '';
+  if (!userCanAccessArea(email, area)) {
+    showNotif('⚠️ No tienes permiso para acceder a este área', 'error');
+    return;
+  }
+
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'flex';
   document.getElementById('sidebar-nav-admin').style.display = area==='admin'  ? 'block' : 'none';
@@ -4322,12 +4397,30 @@ async function loginFirebase() {
   const errEl = document.getElementById('login-error');
   const btnEl = document.getElementById('login-btn');
   const spinEl = document.getElementById('login-spinner');
+
   errEl.style.display = 'none';
-  if(!email || !pass) { errEl.textContent='Ingresa correo y contraseña'; errEl.style.display='block'; return; }
+
+  if(!email || !pass) {
+    errEl.textContent='Ingresa correo y contraseña';
+    errEl.style.display='block';
+    return;
+  }
+
+  // Verificar que el email esté registrado antes de intentar login
+  if (!getUserPermissions(email)) {
+    errEl.textContent='Tu correo no está autorizado para acceder';
+    errEl.style.display='block';
+    return;
+  }
+
   btnEl.disabled = true;
   spinEl.style.display = 'block';
+
   try {
     await fbAuth.signInWithEmailAndPassword(email, pass);
+    // Limpiar formulario
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-pass').value = '';
     // onAuthStateChanged se encarga del resto
   } catch(e) {
     const msgs = {
@@ -4345,18 +4438,27 @@ async function loginFirebase() {
 }
 
 async function cerrarSesion() {
-  if(currentUser) await fbAuth.signOut().catch(()=>{});
+  try {
+    if(currentUser) {
+      await fbAuth.signOut();
+    }
+  } catch(e) {
+    console.warn('Error al cerrar sesión:', e);
+  }
+
   currentUser = null;
   currentRole = null;
   pinMode = false;
   sessionStorage.removeItem('pinIngresado');
+
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'none';
   document.getElementById('sidebar-nav-admin').style.display = 'none';
   document.getElementById('sidebar-nav-hq').style.display    = 'none';
   document.getElementById('sidebar-nav-top').style.display   = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
-  mostrarAreas(); // Volver directamente a áreas, no a login
+
+  // onAuthStateChanged se encargará de mostrar la pantalla de login
   showNotif('🔒 Sesión cerrada');
 }
 
@@ -4443,35 +4545,96 @@ async function obtenerRol(uid) {
   return null; // Sin acceso
 }
 
-// Inicialización sin login — acceso directo al dashboard
-// Top controla todo y asigna PINs a otras sesiones
-setTimeout(async () => {
-  try {
-    currentUser = { email: 'top' };
-    currentRole = 'owner';
-    // Cargar datos (con timeout)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Load timeout')), 3000)
-    );
+// ============================================================
+// INICIALIZACIÓN DE USUARIOS PREDETERMINADOS
+// ============================================================
+async function inicializarUsuariosDefault() {
+  const usuariosDefault = [
+    { email: 'interjosling@hotmail.com', pass: 'JoslingUDI2024!', nombre: 'Josling (Admin Full)' },
+    { email: 'usadistributor024@gmail.com', pass: 'David2024!', nombre: 'David (Salud)' },
+    { email: 'udicreditrepair@gmail.com', pass: 'Oriana2024!', nombre: 'Oriana (Admin+Salud)' },
+  ];
+
+  // Crear una segunda instancia de Firebase para no interferir con la autenticación actual
+  const secondApp = firebase.initializeApp(firebaseConfig, 'secondApp_' + Date.now());
+  const secondAuth = secondApp.auth();
+
+  for (const u of usuariosDefault) {
     try {
-      await Promise.race([cargar(), timeoutPromise]);
+      // Verificar si el usuario ya existe
+      await secondAuth.fetchSignInMethodsForEmail(u.email);
+      const methods = await secondAuth.fetchSignInMethodsForEmail(u.email);
+      if (methods.length === 0) {
+        // Usuario no existe, crearlo
+        await secondAuth.createUserWithEmailAndPassword(u.email, u.pass);
+        console.log('✅ Usuario creado:', u.email);
+      } else {
+        console.log('ℹ️ Usuario ya existe:', u.email);
+      }
     } catch(e) {
-      console.warn('Cargar timeout/error, continuando sin datos previos:', e);
+      if (e.code === 'auth/email-already-in-use') {
+        console.log('ℹ️ Usuario ya existe:', u.email);
+      } else if (e.code === 'auth/invalid-email') {
+        console.log('⚠️ Email inválido:', u.email);
+      } else {
+        console.warn('Error creando usuario:', e.message);
+      }
     }
-    ejecutarMigraciones();
-    // Mostrar pantalla de selección de áreas
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('area-screen').style.display = 'flex';
-    document.getElementById('app-wrap').style.display = 'none';
-    document.getElementById('area-user-badge').textContent = '👤 Top';
-    // Construir botones
-    mostrarAreas();
-    showNotif('✅ Dashboard listo');
-  } catch(e) {
-    console.error('Init error:', e);
-    mostrarAreas(); // Mostrar áreas de todas formas
   }
-}, 500);
+
+  try {
+    await secondAuth.signOut();
+    secondApp.delete();
+  } catch(e) {}
+}
+
+// Ejecutar inicialización al cargar (async)
+setTimeout(() => {
+  inicializarUsuariosDefault().catch(e => console.warn('Init usuarios error:', e));
+}, 1000);
+
+// ============================================================
+// FIREBASE AUTH STATE LISTENER
+// ============================================================
+fbAuth.onAuthStateChanged(async (user) => {
+  if (user) {
+    // Usuario autenticado
+    currentUser = user;
+
+    // Verificar si tiene acceso autorizado
+    const perms = getUserPermissions(user.email);
+    if (!perms) {
+      showNotif('⚠️ Tu correo no está autorizado para acceder', 'error');
+      await fbAuth.signOut();
+      mostrarLogin();
+      return;
+    }
+
+    // Cargar datos de Firebase antes de mostrar áreas
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Load timeout')), 3000)
+      );
+      try {
+        await Promise.race([cargar(), timeoutPromise]);
+      } catch(e) {
+        console.warn('Cargar timeout/error, continuando sin datos previos:', e);
+      }
+      ejecutarMigraciones();
+      // Mostrar pantalla de selección de áreas
+      mostrarAreas();
+      showNotif(`✅ ¡Hola ${perms.nombre}!`);
+    } catch(e) {
+      console.error('Auth init error:', e);
+      mostrarAreas(); // Mostrar áreas de todas formas
+    }
+  } else {
+    // Usuario no autenticado
+    currentUser = null;
+    currentRole = null;
+    mostrarLogin();
+  }
+});
 
 // ============================================================
 // GESTIÓN DE USUARIOS (página Usuarios — solo owner)
