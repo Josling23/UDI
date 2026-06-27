@@ -5418,6 +5418,28 @@ function renderTopROI() {
   const selMes = document.getElementById('top-mes-sel')?.value ?? (meses[meses.length-1]||'');
   const selQ = document.getElementById('top-q-sel')?.value ?? '';
 
+  function calcNominaQuincena(mes, q) {
+    // Calcular nómina total para una quincena específica
+    // Incluye: sueldo base + comisiones + bonos + extras
+    let totalNomina = 0;
+
+    appData.agentes.forEach(a => {
+      const key = getQuincenaKey(a.nombre, mes, q);
+      const basico = (a.sueldoQuincenal || 0);
+      const comisiones = getComisionesQuincena(a, mes, q);
+      const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
+      const prest = getExtra('prest', a.nombre, mes+'Q'+q);
+      const desc = getExtra('desc', a.nombre, mes+'Q'+q);
+
+      const subtotal = basico + comisiones + bonos + prest - desc;
+      if (subtotal > 0 || appData.quincenas[key]) {
+        totalNomina += subtotal;
+      }
+    });
+
+    return totalNomina;
+  }
+
   function calcROI(mes, quincena) {
     const msLista = mes ? [mes] : meses;
     let pagado = msLista.reduce((s,m)=>s
@@ -5469,6 +5491,15 @@ function renderTopROI() {
 
   const d = calcROI(selMes);
 
+  // Calcular nómina pagada por quincena si se selecciona una específica
+  let nominaPagada = d.nomina;
+  if (selQ && selQ !== '' && selMes) {
+    nominaPagada = calcNominaQuincena(selMes, parseInt(selQ));
+  } else if (selMes) {
+    // Si no hay quincena seleccionada pero hay mes, sumar ambas quincenas
+    nominaPagada = calcNominaQuincena(selMes, 1) + calcNominaQuincena(selMes, 2);
+  }
+
   // Aplicar divisor si selecciona quincena específica (divide entre 2)
   const divisor = selQ && selQ !== '' ? 2 : 1;
   const dAdjustado = {
@@ -5480,6 +5511,7 @@ function renderTopROI() {
     totalGastos: d.totalGastos / divisor,
     totalEgresos: d.totalEgresos / divisor,
     utilidad: d.utilidad / divisor,
+    nominaPagada: nominaPagada, // Este NO se divide, es el valor exacto de la quincena
     roi: d.pagado > 0 ? ((d.utilidad/divisor) / (d.pagado/divisor) * 100) : 0
   };
 
@@ -5556,11 +5588,15 @@ function renderTopROI() {
             <div style="font-size:16px;font-weight:800;color:#00BDA5">${fmt(roi.pagado)}</div>
           </div>
           <div style="background:#FFE5E5;border-radius:8px;padding:10px;border-left:4px solid #F2545B">
-            <div style="font-size:9px;font-weight:700;color:#B51C1C;text-transform:uppercase">💸 Gastado</div>
-            <div style="font-size:16px;font-weight:800;color:#F2545B">${fmt(roi.totalEgresos)}</div>
+            <div style="font-size:9px;font-weight:700;color:#B51C1C;text-transform:uppercase">💳 Pagado Nómina${tipoFiltro}</div>
+            <div style="font-size:16px;font-weight:800;color:#F2545B">${fmt(roi.nominaPagada)}</div>
+          </div>
+          <div style="background:#FFE5E5;border-radius:8px;padding:10px;border-left:4px solid #F2545B">
+            <div style="font-size:9px;font-weight:700;color:#B51C1C;text-transform:uppercase">💸 Otros Gastos${tipoFiltro}</div>
+            <div style="font-size:16px;font-weight:800;color:#F2545B">${fmt(roi.totalGastos)}</div>
           </div>
           <div style="background:#F0FDF4;border-radius:8px;padding:10px;border-left:4px solid #00BDA5">
-            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">📊 Neto</div>
+            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">📊 Neto${tipoFiltro}</div>
             <div style="font-size:16px;font-weight:800;color:${roi.utilidad>=0?'#00BDA5':'#E04048'}">${fmt(roi.utilidad)}</div>
           </div>
           <div style="background:#FFFBE8;border-radius:8px;padding:10px;border-left:4px solid #D4A017">
