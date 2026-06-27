@@ -5416,10 +5416,11 @@ function renderTopROI() {
   const meses = getMeses();
   if(!appData.pagosRecibidos) appData.pagosRecibidos = {};
   const selMes = document.getElementById('top-mes-sel')?.value ?? (meses[meses.length-1]||'');
+  const selQ = document.getElementById('top-q-sel')?.value ?? '';
 
-  function calcROI(mes) {
+  function calcROI(mes, quincena) {
     const msLista = mes ? [mes] : meses;
-    const pagado = msLista.reduce((s,m)=>s
+    let pagado = msLista.reduce((s,m)=>s
       + parseFloat(appData.pagosRecibidos[m]||0)
       + (appData.ingresos||[]).filter(i=>i.mes===m).reduce((ss,i)=>ss+parseFloat(i.monto||0),0)
     ,0);
@@ -5468,6 +5469,20 @@ function renderTopROI() {
 
   const d = calcROI(selMes);
 
+  // Aplicar divisor si selecciona quincena específica (divide entre 2)
+  const divisor = selQ && selQ !== '' ? 2 : 1;
+  const dAdjustado = {
+    ...d,
+    pagado: d.pagado / divisor,
+    comAgentes: d.comAgentes / divisor,
+    comGerSup: d.comGerSup / divisor,
+    nomina: d.nomina / divisor,
+    totalGastos: d.totalGastos / divisor,
+    totalEgresos: d.totalEgresos / divisor,
+    utilidad: d.utilidad / divisor,
+    roi: d.pagado > 0 ? ((d.utilidad/divisor) / (d.pagado/divisor) * 100) : 0
+  };
+
   // Tabla resumen por mes (todos)
   const filasHist = meses.map(m=>{
     const r = calcROI(m);
@@ -5479,8 +5494,6 @@ function renderTopROI() {
       <td style="text-align:right"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.roi>=20?'#E8F9F7':r.roi>=0?'#FFFBE8':'#FFF0F0'};color:${r.roi>=20?'#00A492':r.roi>=0?'#D4A017':'#E04048'}">${r.roi.toFixed(1)}%</span></td>
     </tr>`;
   }).join('');
-
-  const selQ = document.getElementById('top-q-sel')?.value ?? '';
 
   document.getElementById('top-roi').innerHTML = `
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
@@ -5533,21 +5546,26 @@ function renderTopROI() {
 
       <!-- Quick Metrics for selected month -->
       ${selMes ? (()=>{
-        const roi = calcROI(selMes);
+        const roi = dAdjustado;
         const expenseRatio = roi.pagado > 0 ? (roi.totalEgresos / roi.pagado) * 100 : 0;
         const ratioColor = expenseRatio < 50 ? '#00BDA5' : expenseRatio < 70 ? '#D4A017' : '#E04048';
+        const tipoFiltro = selQ && selQ !== '' ? ` (Q${selQ})` : '';
         return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px">
           <div style="background:#F0FDF4;border-radius:8px;padding:10px;border-left:4px solid #00BDA5">
-            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">ROI</div>
-            <div style="font-size:16px;font-weight:800;color:#00BDA5">${roi.roi.toFixed(1)}%</div>
+            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">💰 Ganado${tipoFiltro}</div>
+            <div style="font-size:16px;font-weight:800;color:#00BDA5">${fmt(roi.pagado)}</div>
           </div>
-          <div style="background:#FFFBE8;border-radius:8px;padding:10px;border-left:4px solid #D4A017">
-            <div style="font-size:9px;font-weight:700;color:#8B7500;text-transform:uppercase">Expense Ratio</div>
-            <div style="font-size:16px;font-weight:800;color:#D4A017">${expenseRatio.toFixed(1)}%</div>
+          <div style="background:#FFE5E5;border-radius:8px;padding:10px;border-left:4px solid #F2545B">
+            <div style="font-size:9px;font-weight:700;color:#B51C1C;text-transform:uppercase">💸 Gastado</div>
+            <div style="font-size:16px;font-weight:800;color:#F2545B">${fmt(roi.totalEgresos)}</div>
           </div>
           <div style="background:#F0FDF4;border-radius:8px;padding:10px;border-left:4px solid #00BDA5">
-            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">Utilidad</div>
+            <div style="font-size:9px;font-weight:700;color:#008570;text-transform:uppercase">📊 Neto</div>
             <div style="font-size:16px;font-weight:800;color:${roi.utilidad>=0?'#00BDA5':'#E04048'}">${fmt(roi.utilidad)}</div>
+          </div>
+          <div style="background:#FFFBE8;border-radius:8px;padding:10px;border-left:4px solid #D4A017">
+            <div style="font-size:9px;font-weight:700;color:#8B7500;text-transform:uppercase">📈 ROI</div>
+            <div style="font-size:16px;font-weight:800;color:#D4A017">${roi.roi.toFixed(1)}%</div>
           </div>
         </div>`;
       })() : ''}
