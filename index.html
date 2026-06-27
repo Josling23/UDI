@@ -5074,6 +5074,190 @@ function openVentaHQ() {
 }
 
 // ============================================================
+// FUNCIONES DE DESCARGA - REPORTES EXCEL/CSV
+// ============================================================
+
+// Descargar CSV genérico
+function descargarCSV(filename, rows, headers) {
+  let csv = headers.join(',') + '\n';
+  rows.forEach(row => {
+    const cells = row.map(cell => {
+      const str = String(cell || '').trim();
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    });
+    csv += cells.join(',') + '\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Descargar Excel simple usando XLSX
+function descargarExcel(filename, sheetName, headers, rows) {
+  const ws_data = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, filename);
+}
+
+// Reporte: Ventas por Agente
+function descargarVentasAgentes(mes, quincena) {
+  const meses = getMeses();
+  const mesFiltro = mes || meses[meses.length-1];
+
+  let ventas = appData.ventas.filter(v => v.mes === mesFiltro);
+
+  if (quincena) {
+    ventas = ventas.filter(v => {
+      const pp = getPeríodoPago(v);
+      return pp.q === parseInt(quincena);
+    });
+  }
+
+  const headers = ['Fecha', 'Agente', 'Producto', 'Categoría', 'Cantidad', 'Comisión/u', 'Total', 'Cliente', 'Cuenta', 'Mes', 'Quincena'];
+  const rows = ventas.map(v => [
+    v.fecha || '',
+    v.agente || '',
+    v.productoId || '',
+    v.categoria || '',
+    v.cantidad || 0,
+    v.comision || 0,
+    (v.cantidad || 0) * (v.comision || 0),
+    v.cliente || '',
+    v.cuenta || '',
+    v.mes || '',
+    getPeríodoPago(v).q || ''
+  ]);
+
+  descargarExcel(`Ventas_Agentes_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Ventas', headers, rows);
+  showNotif(`✅ Descargado: ${rows.length} ventas`);
+}
+
+// Reporte: Comisiones Pagadas
+function descargarComisiones(mes, quincena) {
+  const meses = getMeses();
+  const mesFiltro = mes || meses[meses.length-1];
+
+  const headers = ['Agente', 'Rol', 'Comisiones', 'Sueldo Base', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
+  const rows = [];
+
+  appData.agentes.forEach(a => {
+    if (a.soloHQ) return; // Excluir HQ
+
+    const nombreLow = (a.nombre||'').trim().toLowerCase();
+    let q1 = 1, q2 = 2;
+
+    if (quincena && quincena !== 'ambas') {
+      q1 = q2 = parseInt(quincena);
+    }
+
+    for (let q of [q1, q2]) {
+      if (quincena && quincena !== 'ambas' && q !== parseInt(quincena)) continue;
+
+      const com = getComisionesQuincena(a, mesFiltro, q);
+      const basico = (a.sueldoQuincenal||0);
+      const bonos = getExtra('bono', a.nombre, mesFiltro+'Q'+q);
+      const prest = getExtra('prest', a.nombre, mesFiltro+'Q'+q);
+      const desc = getExtra('desc', a.nombre, mesFiltro+'Q'+q);
+      const total = com + basico + bonos + prest - desc;
+
+      if (com > 0 || basico > 0 || bonos > 0 || prest > 0 || desc > 0) {
+        rows.push([
+          a.nombre || '',
+          a.rol || 'agente',
+          com,
+          basico,
+          bonos,
+          prest,
+          desc,
+          total
+        ]);
+      }
+    }
+  });
+
+  descargarExcel(`Comisiones_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Comisiones', headers, rows);
+  showNotif(`✅ Descargado: ${rows.length} registros de comisiones`);
+}
+
+// Reporte: Ingresos Detallados
+function descargarIngresos(mes) {
+  const meses = getMeses();
+  const mesFiltro = mes || meses[meses.length-1];
+  const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro);
+
+  const headers = ['Fecha', 'Fuente', 'Descripción', 'Monto', 'Mes'];
+  const rows = ings.map(i => [
+    i.fecha || '',
+    i.fuente || '',
+    i.descripcion || '',
+    i.monto || 0,
+    i.mes || ''
+  ]);
+
+  descargarCSV(`Ingresos_${mesFiltro}.csv`, rows, headers);
+  showNotif(`✅ Descargado: ${rows.length} ingresos`);
+}
+
+// Reporte: Gastos Detallados
+function descargarGastos(mes) {
+  const meses = getMeses();
+  const mesFiltro = mes || meses[meses.length-1];
+  const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro);
+
+  const headers = ['Fecha', 'Tipo', 'Descripción', 'Monto', 'Mes'];
+  const rows = gastos.map(g => [
+    g.fecha || '',
+    g.tipo || '',
+    g.descripcion || '',
+    g.monto || 0,
+    g.mes || ''
+  ]);
+
+  descargarCSV(`Gastos_${mesFiltro}.csv`, rows, headers);
+  showNotif(`✅ Descargado: ${rows.length} gastos`);
+}
+
+// Reporte: Resumen Financiero
+function descargarResumenFinanciero(mes, quincena) {
+  const meses = getMeses();
+  const mesFiltro = mes || meses[meses.length-1];
+
+  const headers = ['Período', 'Ingresos', 'Egresos', 'Utilidad', 'ROI %'];
+  const rows = [];
+
+  if (quincena && quincena !== 'ambas') {
+    // Una quincena específica
+    const q = parseInt(quincena);
+    const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0);
+    const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const utilidad = ings - gastos;
+    const roi = ings > 0 ? (utilidad / ings * 100) : 0;
+    rows.push([`${mesFiltro} - Q${q}`, ings, gastos, utilidad, roi.toFixed(2)]);
+  } else {
+    // Mes completo
+    const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0);
+    const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0);
+    const utilidad = ings - gastos;
+    const roi = ings > 0 ? (utilidad / ings * 100) : 0;
+    rows.push([mesFiltro, ings, gastos, utilidad, roi.toFixed(2)]);
+  }
+
+  descargarExcel(`Resumen_Financiero_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Resumen', headers, rows);
+  showNotif('✅ Resumen financiero descargado');
+}
+
+// ============================================================
 // HQ GERENTE GENERAL (PRIVADO)
 // ============================================================
 function renderHQGerente() {
@@ -5296,12 +5480,46 @@ function renderTopROI() {
     </tr>`;
   }).join('');
 
+  const selQ = document.getElementById('top-q-sel')?.value ?? '';
+
   document.getElementById('top-roi').innerHTML = `
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
       <select id="top-mes-sel" onchange="renderTopROI()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
         <option value="">📊 Todos los meses</option>
         ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
       </select>
+      <select id="top-q-sel" onchange="renderTopROI()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
+        <option value="">Q1 + Q2</option>
+        <option value="1" ${selQ==='1'?'selected':''}>Q1 (últim. día mes ant. + 1–14)</option>
+        <option value="2" ${selQ==='2'?'selected':''}>Q2 (días 15–penúlt.)</option>
+      </select>
+
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <div style="position:relative;display:inline-block">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('menu-descargar').style.display=document.getElementById('menu-descargar').style.display==='block'?'none':'block'" style="background:#fff;border:1px solid #009FDB;color:#0057A8">
+            📥 Descargar ▼
+          </button>
+          <div id="menu-descargar" style="display:none;position:absolute;top:100%;right:0;background:#fff;border:1px solid #CBD6E2;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:240px;margin-top:4px">
+            <div style="padding:8px">
+              <div onclick="descargarVentasAgentes('${selMes}','${selQ||'ambas'}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#0057A8;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+                📊 Ventas de Agentes
+              </div>
+              <div onclick="descargarComisiones('${selMes}','${selQ||'ambas'}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#00A492;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+                💰 Comisiones Pagadas
+              </div>
+              <div onclick="descargarIngresos('${selMes}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#009FDB;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+                📈 Ingresos Detallados
+              </div>
+              <div onclick="descargarGastos('${selMes}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#E04048;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+                💸 Gastos Detallados
+              </div>
+              <div onclick="descargarResumenFinanciero('${selMes}','${selQ||'ambas'}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#8B7500;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+                📋 Resumen Financiero
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Ingresos del mes -->
