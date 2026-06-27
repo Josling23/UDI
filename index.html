@@ -1630,6 +1630,7 @@ let appData = {
   finanzas: [],
   nextFinanzasId: 1,
   gastosNomina: {},
+  quincenasCerradas: {}, // Formato: { "Junio 2026-1": true, "Junio 2026-2": false }
 };
 
 function normalizarAppData() {
@@ -5074,6 +5075,45 @@ function openVentaHQ() {
 }
 
 // ============================================================
+// CONTROL DE QUINCENAS CERRADAS
+// ============================================================
+
+function getKeyQuincenaCerrada(mes, quincena) {
+  return `${mes}-${quincena}`;
+}
+
+function estaQuincenaCerrada(mes, quincena) {
+  if (!mes || !quincena) return false;
+  const key = getKeyQuincenaCerrada(mes, quincena);
+  return appData.quincenasCerradas && appData.quincenasCerradas[key] === true;
+}
+
+function cerrarQuincena(mes, quincena) {
+  if (!appData.quincenasCerradas) appData.quincenasCerradas = {};
+  const key = getKeyQuincenaCerrada(mes, quincena);
+  appData.quincenasCerradas[key] = true;
+  guardar();
+  showNotif(`🔒 Quincena cerrada: ${mes} Q${quincena}`);
+}
+
+function reabrirQuincena(mes, quincena) {
+  if (!appData.quincenasCerradas) appData.quincenasCerradas = {};
+  const key = getKeyQuincenaCerrada(mes, quincena);
+  appData.quincenasCerradas[key] = false;
+  delete appData.quincenasCerradas[key];
+  guardar();
+  showNotif(`🔓 Quincena reabierta: ${mes} Q${quincena}`);
+}
+
+function validarQuincenaNoEsteeCerrada(mes, quincena) {
+  if (estaQuincenaCerrada(mes, quincena)) {
+    showNotif('🔒 Esta quincena está cerrada. No se pueden hacer cambios.', 'error');
+    return false;
+  }
+  return true;
+}
+
+// ============================================================
 // FUNCIONES DE DESCARGA - REPORTES EXCEL/CSV
 // ============================================================
 
@@ -5255,6 +5295,61 @@ function descargarResumenFinanciero(mes, quincena) {
 
   descargarExcel(`Resumen_Financiero_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Resumen', headers, rows);
   showNotif('✅ Resumen financiero descargado');
+}
+
+// Reporte: Informe Completo de Quincena (todo en uno)
+function descargarResumenQuincena(mes, quincena) {
+  if (!mes || !quincena) {
+    showNotif('⚠️ Selecciona mes y quincena', 'error');
+    return;
+  }
+
+  const q = parseInt(quincena);
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Resumen Financiero
+  const finHeaders = ['Período', 'Ganado', 'Pagado Nómina', 'Otros Gastos', 'Neto', 'ROI %'];
+  const nominaPagada = calcNominaQuincena(mes, q);
+  const ings = (appData.ingresos||[]).filter(i => i.mes === mes).reduce((s,i)=>s+parseFloat(i.monto||0),0) / 2;
+  const gastos = (appData.gastos||[]).filter(g => g.mes === mes).reduce((s,g)=>s+parseFloat(g.monto||0),0) / 2;
+  const neto = ings - nominaPagada - gastos;
+  const roi = ings > 0 ? (neto / ings * 100) : 0;
+  const finRows = [[`${mes} Q${q}`, ings, nominaPagada, gastos, neto, roi.toFixed(2)]];
+  const wsF = XLSX.utils.aoa_to_sheet([finHeaders, ...finRows]);
+  XLSX.utils.book_append_sheet(wb, wsF, 'Resumen');
+
+  // Sheet 2: Ventas de Agentes
+  const ventasHeaders = ['Fecha', 'Agente', 'Producto', 'Cantidad', 'Comisión/u', 'Total'];
+  const ventasRows = [];
+  appData.ventas.forEach(v => {
+    const pp = getPeríodoPago(v);
+    if (v.mes === mes && pp.q === q) {
+      ventasRows.push([v.fecha, v.agente, v.productoId, v.cantidad, v.comision, (v.cantidad||0)*(v.comision||0)]);
+    }
+  });
+  const wsV = XLSX.utils.aoa_to_sheet([ventasHeaders, ...ventasRows]);
+  XLSX.utils.book_append_sheet(wb, wsV, 'Ventas');
+
+  // Sheet 3: Comisiones Pagadas
+  const comHeaders = ['Agente', 'Sueldo', 'Comisiones', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
+  const comRows = [];
+  appData.agentes.forEach(a => {
+    if (a.soloHQ) return;
+    const basico = (a.sueldoQuincenal||0);
+    const comisiones = getComisionesQuincena(a, mes, q);
+    const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
+    const prest = getExtra('prest', a.nombre, mes+'Q'+q);
+    const desc = getExtra('desc', a.nombre, mes+'Q'+q);
+    const total = basico + comisiones + bonos + prest - desc;
+    if (total > 0) {
+      comRows.push([a.nombre, basico, comisiones, bonos, prest, desc, total]);
+    }
+  });
+  const wsC = XLSX.utils.aoa_to_sheet([comHeaders, ...comRows]);
+  XLSX.utils.book_append_sheet(wb, wsC, 'Comisiones');
+
+  XLSX.writeFile(wb, `Informe_Quincena_${mes}_Q${q}.xlsx`);
+  showNotif(`✅ Informe ${mes} Q${q} descargado (3 sheets)`);
 }
 
 // ============================================================
@@ -5605,6 +5700,50 @@ function renderTopROI() {
           </div>
         </div>`;
       })() : ''}
+
+      <!-- CONTROL DE QUINCENAS CERRADAS -->
+      ${selMes ? (()=>{
+        const q1Cerrada = estaQuincenaCerrada(selMes, 1);
+        const q2Cerrada = estaQuincenaCerrada(selMes, 2);
+        return `<div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1;background:#F0EDFF">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:12px;font-weight:700;color:#6A78D1">🔒 Control de Quincenas — ${selMes}
+              <span style="font-size:10px;font-weight:400;color:#99ACC2;margin-left:6px">Cierra quincenas para evitar cambios no deseados</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="background:${q1Cerrada?'#FFF0F0':'#F0FDF4'};border:2px solid ${q1Cerrada?'#F2545B':'#00BDA5'};border-radius:8px;padding:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#33475B">Q1 (1-14)</div>
+                  <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q1Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
+                </div>
+                <button class="btn ${q1Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q1Cerrada?`reabrirQuincena('${selMes}',1);renderTopROI()`:`cerrarQuincena('${selMes}',1);renderTopROI()`}">
+                  ${q1Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
+                </button>
+              </div>
+              <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',1)">
+                📥 Descargar informe Q1
+              </button>
+            </div>
+            <div style="background:${q2Cerrada?'#FFF0F0':'#F0FDF4'};border:2px solid ${q2Cerrada?'#F2545B':'#00BDA5'};border-radius:8px;padding:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#33475B">Q2 (15-fin)</div>
+                  <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q2Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
+                </div>
+                <button class="btn ${q2Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q2Cerrada?`reabrirQuincena('${selMes}',2);renderTopROI()`:`cerrarQuincena('${selMes}',2);renderTopROI()`}">
+                  ${q2Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
+                </button>
+              </div>
+              <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',2)">
+                📥 Descargar informe Q2
+              </button>
+            </div>
+          </div>
+        </div>`;
+      })() : ''}
+
       ${selMes ? (()=>{
         const ings = (appData.ingresos||[]).filter(i=>i.mes===selMes);
         const legado = parseFloat(appData.pagosRecibidos[selMes]||0);
