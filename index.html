@@ -1509,7 +1509,7 @@ const PRODUCTOS_CATALOG = [
   { id:'att-value',   cat:'mobility', nombre:'Value',                  comision:0,   excelCol:'Value'          },
   { id:'att-biz',     cat:'mobility', nombre:'Business',               comision:0,   excelCol:'BUSINESS'       },
   { id:'att-seg',     cat:'mobility', nombre:'SEG (AT&T Protect)',     comision:1,   excelCol:'SEG'            },
-  { id:'att-combo',   cat:'mobility', nombre:'Combo AT&T',             comision:8,   excelCol:'COMBOS'         },
+  { id:'att-combo',   cat:'mobility', nombre:'Combo AT&T',             comision:4,   excelCol:'COMBOS'         },
   // INTERNET — AT&T
   { id:'att-int-300', cat:'internet', nombre:'AT&T Internet 300 Mbps', comision:0,  empresa:'AT&T',       excelCol:'ATT INT 300'  },
   { id:'att-int-500', cat:'internet', nombre:'AT&T Internet 500 Mbps', comision:0,  empresa:'AT&T',       excelCol:'ATT INT 500'  },
@@ -1738,8 +1738,8 @@ async function cargar() {
     appData.meses = [mesAnterior, mesActual];
     appData.agentes = [
       { id:1, nombre:'Jose Piña', rol:'gerente', soloHQ:true, sueldoQuincenal:0, tel:'', email:'', activo:true,
-        comisionesPersonales:{ 'att-act8':2,'att-act10':2,'att-upgrade':1,'air':5,'lyca':1,'att-combo':2,'air-super':2,'lyca-super':1 },
-        comisionesDirectas:{ 'att-act8':5,'att-act10':8,'att-upgrade':3,'air':20,'lyca':5,'att-combo':5,'air-super':10,'lyca-super':5 },
+        comisionesPersonales:{ 'att-act8':2,'att-act10':2,'att-upgrade':1,'air':5,'lyca':1,'att-combo':1,'air-super':2,'lyca-super':1 },
+        comisionesDirectas:{ 'att-act8':5,'att-act10':8,'att-upgrade':3,'air':20,'lyca':5,'att-combo':2.5,'air-super':10,'lyca-super':5 },
         agentesSupervisa:[] },
     ];
     const hoyStr = hoy.toISOString().split('T')[0];
@@ -6915,7 +6915,7 @@ function migrarAgentes() {
         rol: ag.rol || 'agente',
         sueldoQuincenal: ag.sueldoQuincenal,
         tel: '', email: '', activo: true,
-        comisionesPersonales: ag.comPs || { 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':8,'att-seg':1 },
+        comisionesPersonales: ag.comPs || { 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':4,'att-seg':1 },
         agentesSupervisa: [],
         productosExtra: [],
       });
