@@ -4550,48 +4550,55 @@ async function obtenerRol(uid) {
 // ============================================================
 async function inicializarUsuariosDefault() {
   const usuariosDefault = [
-    { email: 'interjosling@hotmail.com', pass: 'JoslingUDI2024!', nombre: 'Josling (Admin Full)' },
-    { email: 'usadistributor024@gmail.com', pass: 'David2024!', nombre: 'David (Salud)' },
-    { email: 'udicreditrepair@gmail.com', pass: 'Oriana2024!', nombre: 'Oriana (Admin+Salud)' },
+    { email: 'interjosling@hotmail.com', pass: 'JoslingUDI2024!' },
+    { email: 'usadistributor024@gmail.com', pass: 'David2024!' },
+    { email: 'udicreditrepair@gmail.com', pass: 'Oriana2024!' },
   ];
 
   // Crear una segunda instancia de Firebase para no interferir con la autenticación actual
-  const secondApp = firebase.initializeApp(firebaseConfig, 'secondApp_' + Date.now());
-  const secondAuth = secondApp.auth();
-
-  for (const u of usuariosDefault) {
-    try {
-      // Verificar si el usuario ya existe
-      await secondAuth.fetchSignInMethodsForEmail(u.email);
-      const methods = await secondAuth.fetchSignInMethodsForEmail(u.email);
-      if (methods.length === 0) {
-        // Usuario no existe, crearlo
-        await secondAuth.createUserWithEmailAndPassword(u.email, u.pass);
-        console.log('✅ Usuario creado:', u.email);
-      } else {
-        console.log('ℹ️ Usuario ya existe:', u.email);
-      }
-    } catch(e) {
-      if (e.code === 'auth/email-already-in-use') {
-        console.log('ℹ️ Usuario ya existe:', u.email);
-      } else if (e.code === 'auth/invalid-email') {
-        console.log('⚠️ Email inválido:', u.email);
-      } else {
-        console.warn('Error creando usuario:', e.message);
-      }
-    }
-  }
+  let secondApp = null;
+  let secondAuth = null;
 
   try {
-    await secondAuth.signOut();
-    secondApp.delete();
-  } catch(e) {}
+    secondApp = firebase.initializeApp(firebaseConfig, 'secondApp_' + Date.now());
+    secondAuth = secondApp.auth();
+
+    for (const u of usuariosDefault) {
+      try {
+        // Intentar crear el usuario
+        await secondAuth.createUserWithEmailAndPassword(u.email, u.pass);
+        console.log('✅ Usuario creado:', u.email);
+      } catch(e) {
+        if (e.code === 'auth/email-already-in-use') {
+          console.log('ℹ️ Usuario ya existe:', u.email);
+        } else if (e.code === 'auth/invalid-email') {
+          console.log('⚠️ Email inválido:', u.email);
+        } else if (e.code === 'auth/weak-password') {
+          console.log('⚠️ Contraseña débil para:', u.email);
+        } else {
+          console.warn('Error creando usuario', u.email, ':', e.code, e.message);
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('Error inicializando segunda app:', e.message);
+  } finally {
+    // Limpiar segunda app
+    try {
+      if (secondAuth) await secondAuth.signOut();
+      if (secondApp) secondApp.delete();
+    } catch(e) {}
+  }
 }
 
-// Ejecutar inicialización al cargar (async)
-setTimeout(() => {
-  inicializarUsuariosDefault().catch(e => console.warn('Init usuarios error:', e));
-}, 1000);
+// Ejecutar inicialización al cargar (async) - después de cargar datos
+let _inicUsuariosCheckeado = false;
+function chequearInicUsuarios() {
+  if (!_inicUsuariosCheckeado) {
+    _inicUsuariosCheckeado = true;
+    inicializarUsuariosDefault().catch(e => console.warn('Init usuarios error:', e));
+  }
+}
 
 // ============================================================
 // FIREBASE AUTH STATE LISTENER
@@ -4608,6 +4615,11 @@ fbAuth.onAuthStateChanged(async (user) => {
       await fbAuth.signOut();
       mostrarLogin();
       return;
+    }
+
+    // Si es el admin, inicializar usuarios por defecto
+    if (user.email === 'interjosling@hotmail.com') {
+      chequearInicUsuarios();
     }
 
     // Cargar datos de Firebase antes de mostrar áreas
