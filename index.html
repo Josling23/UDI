@@ -329,6 +329,7 @@ tr:hover td{background:#EAF0FB}
   <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
     <div class="nav-section">🏛️ HEADQUARTERS</div>
     <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
+    <div class="nav-item" id="nav-hq-gerente" style="display:none" onclick="showPage('hq-gerente',this)"><span class="icon">🏢</span><span>Gerente General</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -549,6 +550,11 @@ tr:hover td{background:#EAF0FB}
     <!-- ===== HEADQUARTERS ===== -->
     <div class="page" id="page-hq">
       <div id="hq-content"></div>
+    </div>
+
+    <!-- ===== HEADQUARTERS - GERENTE GENERAL (PRIVADO) ===== -->
+    <div class="page" id="page-hq-gerente">
+      <div id="hq-gerente-content"></div>
     </div>
 
     <!-- ===== TOP ===== -->
@@ -1595,6 +1601,13 @@ function userCanAccessArea(email, area) {
   const perms = getUserPermissions(email);
   if (!perms) return false;
   return perms.areas.includes(area);
+}
+
+// Helper function to check if user can manage José Piña's profile
+function userCanManageJosePina(email) {
+  // Solo Josling (admin total) y José Piña mismo pueden ver/editar su perfil
+  const emailLower = (email || '').toLowerCase();
+  return emailLower === 'interjosling@hotmail.com' || emailLower === 'josepi@usadistributor.com';
 }
 
 // ============================================================
@@ -3147,8 +3160,17 @@ let editAgenteId = null;
 function renderAgentes() {
   populateAgente('filter-agente-page', true);
   const mes = mesActual();
+  const email = currentUser ? currentUser.email : '';
+  const canManageJP = userCanManageJosePina(email);
+
   // Separar por rol (excluir soloHQ — van solo a HEADQUARTERS)
-  const visibles    = appData.agentes.filter(a=>!a.soloHQ);
+  let visibles    = appData.agentes.filter(a=>!a.soloHQ);
+
+  // Filtrar José Piña si el usuario no puede manejarlo
+  if (!canManageJP) {
+    visibles = visibles.filter(a=>!(a.nombre||'').toLowerCase().includes('jose pina'));
+  }
+
   const gerentes    = visibles.filter(a=>a.rol==='gerente');
   const supervisors = visibles.filter(a=>a.rol==='supervisor');
   const subdealers  = visibles.filter(a=>a.rol==='subdealer'||a.rol==='subdealер');
@@ -4326,6 +4348,13 @@ function abrirArea(area) {
   document.getElementById('sidebar-nav-hq').style.display    = area==='hq'     ? 'block' : 'none';
   document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'block' : 'none';
   document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
+
+  // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
+  if (area === 'hq') {
+    const canManageJP = userCanManageJosePina(email);
+    document.getElementById('nav-hq-gerente').style.display = canManageJP ? 'flex' : 'none';
+  }
+
   if(area==='admin')  showPage('dashboard', document.getElementById('nav-dashboard'));
   else if(area==='hq')    showPage('hq', null);
   else if(area==='top')   showPage('top', null);
@@ -4723,7 +4752,14 @@ function guardarHQAgente() {
 // ============================================================
 function renderHQ() {
   const meses = getMeses();
-  const hqAgentes = appData.agentes.filter(a=>a.soloHQ);
+  const email = currentUser ? currentUser.email : '';
+  const canManageJP = userCanManageJosePina(email);
+
+  // Filtrar agentes HQ: si no puedes manejar José Piña, no lo veas en HQ
+  let hqAgentes = appData.agentes.filter(a=>a.soloHQ);
+  if (!canManageJP) {
+    hqAgentes = hqAgentes.filter(a=>!(a.nombre||'').toLowerCase().includes('jose pina'));
+  }
 
   if(!hqAgentes.length) {
     document.getElementById('hq-content').innerHTML = `
@@ -5035,6 +5071,131 @@ function openVentaHQ() {
   openVentaModal();
   if(hqA) setTimeout(()=>{ document.getElementById('v-agente').value=hqA.nombre; },50);
   showNotif('📝 Registra la venta directa de '+( hqA?.nombre||'HQ'));
+}
+
+// ============================================================
+// HQ GERENTE GENERAL (PRIVADO)
+// ============================================================
+function renderHQGerente() {
+  const email = currentUser ? currentUser.email : '';
+  const canManage = userCanManageJosePina(email);
+
+  if (!canManage) {
+    document.getElementById('hq-gerente-content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:56px;margin-bottom:16px">🔒</div>
+        <div style="font-size:18px;font-weight:800;color:#F2545B">Acceso Denegado</div>
+        <div style="font-size:13px;color:#99ACC2;margin-top:8px">Esta sección es privada y solo accessible por el Gerente General y el Admin.</div>
+      </div>`;
+    return;
+  }
+
+  const josePina = appData.agentes.find(a=>(a.nombre||'').toLowerCase().includes('jose pina'));
+
+  if (!josePina) {
+    document.getElementById('hq-gerente-content').innerHTML = `
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:56px;margin-bottom:16px">🏢</div>
+        <div style="font-size:18px;font-weight:800;color:#33475B">Gerente General</div>
+        <div style="font-size:13px;color:#99ACC2;margin-bottom:28px">No hay perfil de Gerente General creado aún.</div>
+      </div>`;
+    return;
+  }
+
+  const meses = getMeses();
+  const selMes = document.getElementById('hqg-mes-sel')?.value ?? (meses[meses.length-1]||'');
+  const selQ   = document.getElementById('hqg-q-sel')?.value ?? '';
+
+  const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">🏢 Gerente General</h2>
+        <div style="font-size:11px;color:#99ACC2">Perfil privado — Solo visible para Gerente General y Admin Total</div>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="openHQConfig(${josePina.id})">✏️ Editar Perfil</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+      <select id="hqg-mes-sel" onchange="renderHQGerente()" style="${sFiltro};min-width:150px">
+        <option value="">📅 Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <select id="hqg-q-sel" onchange="renderHQGerente()" style="${sFiltro}">
+        <option value="">Q1 + Q2</option>
+        <option value="1" ${selQ==='1'?'selected':''}>Q1 (últim. día mes ant. + días 1–14)</option>
+        <option value="2" ${selQ==='2'?'selected':''}>Q2 (días 15–penúlt.)</option>
+      </select>
+      <button onclick="document.getElementById('hqg-mes-sel').value='';document.getElementById('hqg-q-sel').value='';renderHQGerente()"
+        style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
+    </div>`;
+
+  // Usar la misma lógica de renderHQ() para mostrar el perfil
+  const msFiltro = selMes ? [selMes] : meses;
+  let qFiltro = [1,2];
+  if(selQ === '1') qFiltro = [1];
+  else if(selQ === '2') qFiltro = [2];
+
+  const comTotal = msFiltro.reduce((s,m)=>
+    s + qFiltro.reduce((sq,q)=>sq+getComisionesQuincena(josePina,m,q),0), 0);
+
+  const basicoTot = msFiltro.reduce((s,m)=>
+    s + qFiltro.reduce((sq,q)=>{
+      const sueldoUSD = getExtra('sueldousd', josePina.nombre, m+'Q'+q);
+      return sq + (josePina.sueldoQuincenal||0) + sueldoUSD;
+    },0), 0);
+
+  const bonosTot = msFiltro.reduce((s,m)=>
+    s + qFiltro.reduce((sq,q)=>sq+getExtra('bono',josePina.nombre,m+'Q'+q),0), 0);
+  const prestTot = msFiltro.reduce((s,m)=>
+    s + qFiltro.reduce((sq,q)=>sq+getExtra('prest',josePina.nombre,m+'Q'+q),0), 0);
+  const descTot  = msFiltro.reduce((s,m)=>
+    s + qFiltro.reduce((sq,q)=>sq+getExtra('desc',josePina.nombre,m+'Q'+q),0), 0);
+  const netTotal = comTotal+basicoTot+bonosTot+prestTot-descTot;
+
+  const comPs    = josePina.comisionesPersonales||{};
+  const comDirs  = josePina.comisionesDirectas||{};
+  const supervisa= josePina.agentesSupervisa||[];
+
+  const prodsConSup = PRODUCTOS_CATALOG.filter(p=>comPs[p.id]!==undefined);
+  const prodsConDir = PRODUCTOS_CATALOG.filter(p=>comDirs[p.id]!==undefined);
+
+  html += `
+    <div style="background:linear-gradient(135deg,#006644,#00BDA5);border-radius:12px;padding:20px;margin-bottom:18px;color:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <div style="font-size:18px;font-weight:900">👤 ${josePina.nombre}</div>
+          <div style="font-size:11px;opacity:0.7;margin-top:2px">${ROL_LABELS[josePina.rol||'gerente']} · Quincenal: ${josePina.sueldoQuincenal>0?fmt(josePina.sueldoQuincenal):'Solo comisión'}${josePina.tel?` · 📞 ${josePina.tel}`:''}</div>
+          ${supervisa.length?`<div style="font-size:10px;opacity:0.6;margin-top:3px">Supervisa: <b>${supervisa.join(', ')}</b></div>`:''}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        ${prodsConSup.length?`<div>
+          <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">👥 Com. de Agentes</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${prodsConSup.map(p=>`<span style="font-size:10px;background:rgba(255,255,255,0.12);border-radius:5px;padding:2px 8px;font-weight:700">${p.nombre}: ${fmt(comPs[p.id])}</span>`).join('')}
+          </div>
+        </div>`:''}
+        ${prodsConDir.length?`<div>
+          <div style="font-size:9px;opacity:0.5;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">⭐ Com. Venta Directa</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${prodsConDir.map(p=>`<span style="font-size:10px;background:rgba(167,243,208,0.2);border:1px solid rgba(167,243,208,0.4);border-radius:5px;padding:2px 8px;font-weight:700">${p.nombre}: ${fmt(comDirs[p.id])}</span>`).join('')}
+          </div>
+        </div>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;border-top:1px solid rgba(255,255,255,0.2);padding-top:14px">
+        <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Comisiones</div><div style="font-size:20px;font-weight:800;color:#A7F3D0">${fmt(comTotal)}</div></div>
+        <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTot>0?fmt(basicoTot):'—'}</div></div>
+        <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Bonos</div><div style="font-size:20px;font-weight:800">${bonosTot>0?fmt(bonosTot):'—'}</div></div>
+        <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Descuentos</div><div style="font-size:20px;font-weight:800;color:#FCA5A5">${descTot>0?'−'+fmt(descTot):'—'}</div></div>
+        <div style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
+          <div style="font-size:9px;opacity:0.7;text-transform:uppercase">TOTAL A PAGAR</div>
+          <div style="font-size:22px;font-weight:900">${fmt(netTotal)}</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('hq-gerente-content').innerHTML = html;
 }
 
 // ============================================================
