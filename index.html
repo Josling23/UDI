@@ -238,77 +238,32 @@ tr:hover td{background:#EAF0FB}
   </div>
   <!-- Formulario de login -->
   <div id="login-form-box" style="background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.15);border-radius:18px;padding:28px 28px 24px;width:100%;max-width:360px">
-    <!-- Tabs -->
-    <div style="display:flex;gap:4px;margin-bottom:22px;background:rgba(0,0,0,0.2);border-radius:10px;padding:4px">
-      <button id="tab-cuenta" onclick="switchLoginTab('cuenta')"
-        style="flex:1;padding:8px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;background:#8B1A1A;color:#fff">
-        🔐 Cuenta
-      </button>
-      <button id="tab-pin" onclick="switchLoginTab('pin')"
-        style="flex:1;padding:8px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;background:transparent;color:rgba(255,255,255,0.5)">
-        🔢 PIN
-      </button>
+    <div style="color:rgba(255,255,255,0.6);font-size:13px;text-align:center;margin-bottom:22px">Ingresa con tu cuenta autorizada</div>
+
+    <div style="margin-bottom:14px">
+      <input type="email" id="login-email" placeholder="Correo electrónico"
+        style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:13px;outline:none;font-family:inherit"
+        onfocus="this.style.borderColor='#FF6B6B'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
     </div>
 
-    <!-- Panel Cuenta -->
-    <div id="panel-cuenta">
-      <div style="color:rgba(255,255,255,0.6);font-size:13px;text-align:center;margin-bottom:18px">Ingresa con tu cuenta autorizada</div>
-      <div style="margin-bottom:14px">
-        <input type="email" id="login-email" placeholder="Correo electrónico"
-          style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:13px;outline:none;font-family:inherit"
-          onfocus="this.style.borderColor='#FF6B6B'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
-          onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
-      </div>
-      <div style="margin-bottom:20px">
-        <input type="password" id="login-pass" placeholder="Contraseña"
-          style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:13px;outline:none;font-family:inherit"
-          onfocus="this.style.borderColor='#FF6B6B'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
-          onkeydown="if(event.key==='Enter')loginFirebase()">
-      </div>
-      <div id="login-error" style="color:#FF6B6B;font-size:12px;text-align:center;margin-bottom:12px;display:none"></div>
-      <button onclick="loginFirebase()" id="login-btn"
-        style="width:100%;background:linear-gradient(135deg,#8B1A1A,#A52020);color:#fff;border:none;padding:12px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s"
-        onmouseover="this.style.background='linear-gradient(135deg,#a52020,#c02828)'"
-        onmouseout="this.style.background='linear-gradient(135deg,#8B1A1A,#A52020)'">
-        🔐 Iniciar Sesión
-      </button>
-      <div id="login-spinner" style="display:none;text-align:center;margin-top:14px;color:rgba(255,255,255,0.5);font-size:12px">⏳ Conectando...</div>
+    <div style="margin-bottom:20px">
+      <input type="password" id="login-pass" placeholder="Contraseña"
+        style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:13px;outline:none;font-family:inherit"
+        onfocus="this.style.borderColor='#FF6B6B'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
+        onkeydown="if(event.key==='Enter')loginFirebase()">
     </div>
 
-    <!-- Panel PIN -->
-    <div id="panel-pin" style="display:none">
-      <div style="color:rgba(255,255,255,0.6);font-size:13px;text-align:center;margin-bottom:18px">Selecciona tu área e ingresa el PIN</div>
-      <!-- Área buttons -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-        <button onclick="selPinArea('admin',this)"
-          style="padding:10px 8px;border:2px solid rgba(255,255,255,0.15);border-radius:9px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s"
-          id="pin-btn-admin">📋 Administración</button>
-        <button onclick="selPinArea('top',this)"
-          style="padding:10px 8px;border:2px solid rgba(255,215,0,0.2);border-radius:9px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s"
-          id="pin-btn-top">⭐ TOP</button>
-        <button onclick="selPinArea('hq',this)"
-          style="padding:10px 8px;border:2px solid rgba(255,255,255,0.15);border-radius:9px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s"
-          id="pin-btn-hq">🏛️ HQ</button>
-        <button onclick="selPinArea('salud',this)"
-          style="padding:10px 8px;border:2px solid rgba(0,189,165,0.3);border-radius:9px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s"
-          id="pin-btn-salud">💚 Salud</button>
-      </div>
-      <input type="hidden" id="pin-area-sel" value="">
-      <!-- PIN input -->
-      <div style="margin-bottom:16px">
-        <input type="password" id="pin-input" placeholder="Ingresa tu PIN" inputmode="numeric"
-          style="width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);color:#fff;padding:11px 14px;border-radius:9px;font-size:18px;outline:none;font-family:inherit;text-align:center;letter-spacing:6px"
-          onfocus="this.style.borderColor='#FFD700'" onblur="this.style.borderColor='rgba(255,255,255,0.2)'"
-          onkeydown="if(event.key==='Enter')loginConPin()">
-      </div>
-      <div id="pin-error" style="color:#FF6B6B;font-size:12px;text-align:center;margin-bottom:10px;display:none"></div>
-      <button onclick="loginConPin()" id="pin-btn"
-        style="width:100%;background:linear-gradient(135deg,#4a2080,#7b3fa0);color:#fff;border:none;padding:12px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s"
-        onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-        🔢 Entrar con PIN
-      </button>
-      <div id="pin-spinner" style="display:none;text-align:center;margin-top:14px;color:rgba(255,255,255,0.5);font-size:12px">⏳ Verificando...</div>
-    </div>
+    <div id="login-error" style="color:#FF6B6B;font-size:12px;text-align:center;margin-bottom:12px;display:none"></div>
+
+    <button onclick="loginFirebase()" id="login-btn"
+      style="width:100%;background:linear-gradient(135deg,#8B1A1A,#A52020);color:#fff;border:none;padding:12px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s"
+      onmouseover="this.style.background='linear-gradient(135deg,#a52020,#c02828)'"
+      onmouseout="this.style.background='linear-gradient(135deg,#8B1A1A,#A52020)'">
+      🔐 Iniciar Sesión
+    </button>
+
+    <div id="login-spinner" style="display:none;text-align:center;margin-top:14px;color:rgba(255,255,255,0.5);font-size:12px">⏳ Conectando...</div>
   </div>
   <div style="color:rgba(255,255,255,0.2);font-size:10px;margin-top:32px">© USA Distributor Inc · Kissimmee, FL · 1-800-757-2821</div>
 </div>
@@ -4448,8 +4403,6 @@ async function cerrarSesion() {
 
   currentUser = null;
   currentRole = null;
-  pinMode = false;
-  sessionStorage.removeItem('pinIngresado');
 
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'none';
@@ -4462,70 +4415,7 @@ async function cerrarSesion() {
   showNotif('🔒 Sesión cerrada');
 }
 
-// ── PIN login ────────────────────────────────────────────────
-let pinMode = false;
-let _pinAreaSel = '';
-
-function switchLoginTab(tab) {
-  const esCuenta = tab === 'cuenta';
-  document.getElementById('panel-cuenta').style.display = esCuenta ? 'block' : 'none';
-  document.getElementById('panel-pin').style.display    = esCuenta ? 'none'  : 'block';
-  document.getElementById('tab-cuenta').style.background = esCuenta ? '#8B1A1A' : 'transparent';
-  document.getElementById('tab-cuenta').style.color      = esCuenta ? '#fff' : 'rgba(255,255,255,0.5)';
-  document.getElementById('tab-pin').style.background    = esCuenta ? 'transparent' : 'rgba(123,63,160,0.7)';
-  document.getElementById('tab-pin').style.color         = esCuenta ? 'rgba(255,255,255,0.5)' : '#fff';
-}
-
-function selPinArea(area, el) {
-  _pinAreaSel = area;
-  document.querySelectorAll('[id^="pin-btn-"]').forEach(b => {
-    b.style.background = 'rgba(255,255,255,0.05)';
-    b.style.color = 'rgba(255,255,255,0.6)';
-  });
-  el.style.background = 'rgba(123,63,160,0.4)';
-  el.style.color = '#fff';
-  document.getElementById('pin-input').focus();
-}
-
-async function loginConPin() {
-  const area = _pinAreaSel;
-  const pin  = document.getElementById('pin-input').value.trim();
-  const errEl  = document.getElementById('pin-error');
-  const spinEl = document.getElementById('pin-spinner');
-  const btnEl  = document.getElementById('pin-btn');
-  errEl.style.display = 'none';
-  if (!area) { errEl.textContent = 'Selecciona un área primero.'; errEl.style.display = 'block'; return; }
-  if (!pin)  { errEl.textContent = 'Ingresa el PIN.'; errEl.style.display = 'block'; return; }
-  btnEl.disabled = true;
-  spinEl.style.display = 'block';
-  try {
-    const snap = await fbDB.ref('pins/' + area).get();
-    if (!snap.exists() || String(snap.val()) !== pin) {
-      errEl.textContent = 'PIN incorrecto.';
-      errEl.style.display = 'block';
-      btnEl.disabled = false;
-      spinEl.style.display = 'none';
-      document.getElementById('pin-input').value = '';
-      return;
-    }
-    // PIN correcto - guardar en sessionStorage
-    const roleMap = { admin:'pin-admin', hq:'pin-hq', salud:'pin-salud', top:'pin-top' };
-    currentRole = roleMap[area] || 'pin-admin';
-    currentUser = null;
-    pinMode = true;
-    sessionStorage.setItem('pinIngresado', JSON.stringify({ area, pin, timestamp: Date.now() }));
-    document.getElementById('login-screen').style.display = 'none';
-    // Cargar datos de Firebase antes de abrir el área
-    await cargar();
-    ejecutarMigraciones();
-    abrirArea(area);
-  } catch(e) {
-    errEl.textContent = 'Error al verificar PIN. Intenta de nuevo.';
-    errEl.style.display = 'block';
-    btnEl.disabled = false;
-    spinEl.style.display = 'none';
-  }
-}
+// PIN login: DEPRECADO - usando solo email/password ahora
 
 // Obtener rol del usuario desde Firebase
 async function obtenerRol(uid) {
@@ -7672,23 +7562,8 @@ document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
 // Inicialización: saltarse login y ir directo a áreas
 // Si hay PIN guardado en sessionStorage, usarlo automáticamente
 window.addEventListener('load', async () => {
-  const pinGuardado = sessionStorage.getItem('pinIngresado');
-
-  if (pinGuardado) {
-    // Hay un PIN guardado - usar automáticamente sin pedir de nuevo
-    try {
-      const { area, pin } = JSON.parse(pinGuardado);
-      _pinAreaSel = area;
-      document.getElementById('pin-input').value = pin;
-      await loginConPin(); // Entrar automáticamente con el PIN guardado
-    } catch(e) {
-      console.log('Error usando PIN guardado:', e);
-      mostrarAreas(); // Si falla, mostrar selección de áreas
-    }
-  } else {
-    // No hay PIN guardado - mostrar selección de áreas
-    mostrarAreas();
-  }
+  // onAuthStateChanged se encargará de manejar el estado de autenticación
+  // Si hay usuario autenticado, mostrará areas; si no, mostrará login
 });
 
 </script>
