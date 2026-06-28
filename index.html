@@ -6533,22 +6533,23 @@ function renderTopRSI() {
   };
 
   const isRSIPaid = (venta) => {
-    const key = `${venta.cliente||''}||${venta.productoId||''}||${venta.fecha||''}`;
+    const key = `${venta.cliente||''}||${venta.fecha||''}`;
     return appData.rsIPagos.includes(key);
   };
 
-  // Agrupar ventas por cliente, producto, fecha
+  // Agrupar ventas por cliente + fecha (sin producto)
   const ventasMap = {};
   (appData.ventas||[]).forEach(v => {
-    const key = `${v.cliente||''}||${v.productoId||''}||${v.fecha||''}`;
+    const key = `${v.cliente||''}||${v.fecha||''}`;
     if(!ventasMap[key]) {
-      ventasMap[key] = { cliente: v.cliente, producto: v.productoId, fecha: v.fecha, ventas: [], paidByRSI: isRSIPaid(v) };
+      ventasMap[key] = { cliente: v.cliente, fecha: v.fecha, ventas: [], paidByRSI: isRSIPaid(v) };
     }
     ventasMap[key].ventas.push(v);
   });
 
   const ventasRows = Object.values(ventasMap).map(group => {
     const agentes = [...new Set(group.ventas.map(v=>v.agente))].join(', ');
+    const productos = [...new Set(group.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
     const totalComision = group.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
     const statusColor = group.paidByRSI ? '#00BDA5' : '#F2545B';
     const statusEmoji = group.paidByRSI ? '✅' : '❌';
@@ -6556,13 +6557,13 @@ function renderTopRSI() {
 
     return `<tr>
       <td style="font-weight:600">${group.cliente||'—'}</td>
-      <td>${group.producto||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
       <td>${group.fecha||'—'}</td>
       <td>${agentes}</td>
       <td style="text-align:right;font-weight:700;color:#009FDB">$${totalComision.toFixed(2)}</td>
       <td style="text-align:center;color:${statusColor};font-weight:700">${statusEmoji} ${statusText}</td>
       <td style="text-align:center">
-        <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${group.producto}','${group.fecha}')" style="padding:3px 6px;font-size:9px">✕</button>
+        <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${group.fecha}')" style="padding:3px 6px;font-size:9px">✕</button>
       </td>
     </tr>`;
   });
@@ -6574,7 +6575,7 @@ function renderTopRSI() {
       <div style="margin-bottom:16px">
         <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega directamente del Excel de RS&I (copia las filas completas)</label>
         <textarea id="rsi-input-data" style="width:100%;min-height:100px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Pega aquí las filas del reporte de RS&I"></textarea>
-        <div style="font-size:10px;color:#99ACC2;margin-top:6px">ℹ️ Soporta: Formato Excel tab-separated O Cliente|Producto|Fecha</div>
+        <div style="font-size:10px;color:#99ACC2;margin-top:6px">ℹ️ Extrae: Cliente (col 1) + Fecha Pago (col 9)</div>
       </div>
 
       <button class="btn btn-primary" onclick="(() => {
@@ -6591,23 +6592,21 @@ function renderTopRSI() {
             parts = line.split('|').map(p=>p.trim());
           }
 
-          let cliente, producto, fecha;
+          let cliente, fecha;
 
-          // Formato Excel: Cliente (col 0) | Producto (col 4) | Fecha Pago (col 7)
-          if(parts.length >= 8) {
+          // Formato Excel: Cliente (col 0) | Fecha Pago (col 8 - índice 8)
+          if(parts.length >= 9) {
             cliente = parts[0];
-            producto = parts[4];
-            fecha = parts[7]; // FECHA PAGO
+            fecha = parts[8]; // FECHA PAGO (columna 9)
           }
-          // Formato simple: Cliente | Producto | Fecha
-          else if(parts.length >= 3) {
+          // Formato simple: Cliente | Fecha
+          else if(parts.length >= 2) {
             cliente = parts[0];
-            producto = parts[1];
-            fecha = parts[2];
+            fecha = parts[1];
           }
 
-          if(cliente && producto && fecha) {
-            const key = cliente + '||' + producto + '||' + fecha;
+          if(cliente && fecha) {
+            const key = cliente + '||' + fecha;
             if(!appData.rsIPagos.includes(key)) {
               appData.rsIPagos.push(key);
               processed++;
@@ -6616,7 +6615,7 @@ function renderTopRSI() {
         });
         guardar();
         textarea.value = '';
-        showNotif('✅ Marcadas ' + processed + ' ventas nuevas de RS&I como pagadas');
+        showNotif('✅ Marcadas ' + processed + ' clientes de RS&I como pagados');
         renderTopRSI();
       })()" style="margin-bottom:16px">📥 Procesar Datos</button>
 
@@ -6647,12 +6646,12 @@ function renderTopRSI() {
   `;
 }
 
-function eliminarRSIPago(cliente, producto, fecha) {
-  const key = cliente + '||' + producto + '||' + fecha;
+function eliminarRSIPago(cliente, fecha) {
+  const key = cliente + '||' + fecha;
   appData.rsIPagos = (appData.rsIPagos||[]).filter(k=>k!==key);
   guardar();
   renderTopRSI();
-  showNotif('🗑️ Venta desmarcada como pagada');
+  showNotif('🗑️ Cliente desmarcado como pagado');
 }
 
 function renderTopChargebacks() {
