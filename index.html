@@ -337,7 +337,11 @@ tr:hover td{background:#EAF0FB}
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
-    <div class="nav-item" onclick="showPage('bravo-dashboard',this)"><span class="icon">🏪</span><span>Bravo</span></div>
+    <div class="nav-section">🏪 BRAVO</div>
+    <div class="nav-item" onclick="showPage('bravo-dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
+    <div class="nav-item" onclick="showPage('bravo-registros',this)"><span class="icon">📋</span><span>Registros Diarios</span></div>
+    <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
+    <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -587,6 +591,10 @@ tr:hover td{background:#EAF0FB}
 
     <div class="page" id="page-bravo-roi">
       <div id="bravo-roi-content"></div>
+    </div>
+
+    <div class="page" id="page-bravo-caja">
+      <div id="bravo-caja-content"></div>
     </div>
 
     <!-- ====================================================== -->
@@ -1496,6 +1504,7 @@ tr:hover td{background:#EAF0FB}
         <button class="bravo-tab" data-tab="reparaciones" onclick="bravoCambiarTab('reparaciones')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">🔧 Reparaciones</button>
         <button class="bravo-tab" data-tab="combos" onclick="bravoCambiarTab('combos')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">📦 Combos</button>
         <button class="bravo-tab" data-tab="telefonos" onclick="bravoCambiarTab('telefonos')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">📲 Teléfonos</button>
+        <button class="bravo-tab" data-tab="douglas" onclick="bravoCambiarTab('douglas')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">👤 Actividades Douglas</button>
       </div>
 
       <!-- TAB: ACCESORIOS -->
@@ -1737,6 +1746,48 @@ tr:hover td{background:#EAF0FB}
         </div>
       </div>
 
+      <!-- TAB: ACTIVIDADES DOUGLAS -->
+      <div id="tab-douglas" class="bravo-tab-content" style="display:none">
+        <h4 style="margin-bottom:12px;color:#33475B">📝 Registrar Actividades de Douglas</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Tipo de Actividad *</label>
+            <select id="bravo-douglas-tipo" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+              <option value="">— Selecciona —</option>
+              <option value="flyers">🗞️ Flyers Entregados</option>
+              <option value="publicidad">📢 Publicidad Enviada</option>
+              <option value="leads-llamados">📞 Leads Llamados</option>
+              <option value="leads-contactados">✅ Leads Contactados</option>
+              <option value="clientes-telefono">📱 Clientes Verificados Teléfono</option>
+              <option value="clientes-internet">🌐 Clientes Verificados Internet</option>
+              <option value="fraudes">⚠️ Fraudes Directos</option>
+              <option value="aprobados-inicial">💰 Clientes Aprobados con Inicial</option>
+              <option value="presupuestos">📋 Presupuestos de Reparación</option>
+              <option value="soporte-vendedores">🤝 Soporte a Vendedores</option>
+              <option value="soporte-lycas">📱 Soporte con Lycas</option>
+              <option value="portabilidad">↔️ Datos de Portabilidad</option>
+              <option value="conferencia">☎️ Llamadas en Conferencia</option>
+              <option value="pago-facturas">💳 Ayuda a Pagar Facturas</option>
+              <option value="inventario">📦 Inventario Agregado</option>
+              <option value="viajes">🚗 Viajes a Kissimmee/Diomedes</option>
+              <option value="fedex">📮 Paquetes FedEx/Correo</option>
+              <option value="otro">📝 Otra Actividad</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Cantidad</label>
+            <input type="number" id="bravo-douglas-cantidad" min="1" value="1" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <textarea id="bravo-douglas-notas" placeholder="Notas (opcional)" style="flex:1;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:60px;font-family:inherit"></textarea>
+          <button class="btn btn-success btn-sm" onclick="bravoAgregarActividad()" style="height:fit-content">➕ Agregar</button>
+        </div>
+        <div id="bravo-douglas-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
+          <div style="color:#99ACC2;font-size:12px">Sin actividades registradas</div>
+        </div>
+      </div>
+
       <!-- RESUMEN -->
       <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:14px;margin-top:20px">
         <h4 style="color:#0057A8;margin-bottom:10px;font-size:12px;font-weight:700">📊 Resumen del Registro</h4>
@@ -1934,7 +1985,8 @@ let appData = {
   bravo: {
     reportesDiarios: [],
     nextDiarioId: 1,
-    gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }
+    gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 },
+    caja: []
   }
 };
 
@@ -1961,10 +2013,11 @@ function normalizarAppData() {
   if(!appData.gastosNomina) appData.gastosNomina = {};
   if(!appData.quincenasCerradas) appData.quincenasCerradas = {};
   if(!appData.auditLog) appData.auditLog = [];
-  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 } };
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
   if(!appData.bravo.reportesDiarios) appData.bravo.reportesDiarios = [];
   if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
   if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
+  if(!appData.bravo.caja) appData.bravo.caja = [];
 
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
@@ -2490,6 +2543,7 @@ const PAGE_TITLES = {
   'bravo-dashboard':'🏪 Bravo — Dashboard',
   'bravo-registros':'🏪 Bravo — Registros Diarios',
   'bravo-roi':'🏪 Bravo — ROI',
+  'bravo-caja':'💵 Caja Chica — Bravo',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-clientes':'💚 Salud — Clientes',
   'salud-agentes':'💚 Salud — Agentes',
@@ -2522,6 +2576,7 @@ function renderPage(name) {
   if(name==='bravo-dashboard') bravoDashboard();
   if(name==='bravo-registros') bravoRegistros();
   if(name==='bravo-roi') bravoROI();
+  if(name==='bravo-caja') bravoCaja();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-clientes') saludRenderClientes();
   if(name==='salud-agentes') saludRenderAgentes();
@@ -9231,7 +9286,8 @@ let bravoRegistroTemp = {
   lycas: [],
   reparaciones: [],
   combos: [],
-  telefonos: []
+  telefonos: [],
+  actividades: []
 };
 
 // Abrir formulario de registro diario
@@ -9242,7 +9298,8 @@ function abrirFormularioRegistroDiario() {
     lycas: [],
     reparaciones: [],
     combos: [],
-    telefonos: []
+    telefonos: [],
+    actividades: []
   };
   document.getElementById('bravo-fecha').value = bravoRegistroTemp.fecha;
   document.getElementById('modal-bravo-titulo').textContent = '➕ Nuevo Registro Diario - Bravo';
@@ -9253,6 +9310,7 @@ function abrirFormularioRegistroDiario() {
   document.getElementById('bravo-reparaciones-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin reparaciones agregadas</div>';
   document.getElementById('bravo-combos-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin combos agregados</div>';
   document.getElementById('bravo-telefonos-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin teléfonos agregados</div>';
+  document.getElementById('bravo-douglas-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin actividades registradas</div>';
 
   // Cambiar a primera pestaña
   bravoCambiarTab('accesorios');
@@ -9505,6 +9563,66 @@ function bravoRenderListaTelefonos() {
   `).join('');
 }
 
+// Agregar Actividad de Douglas
+function bravoAgregarActividad() {
+  const tipo = document.getElementById('bravo-douglas-tipo').value;
+  const cantidad = parseInt(document.getElementById('bravo-douglas-cantidad').value) || 1;
+  const notas = document.getElementById('bravo-douglas-notas').value;
+
+  if(!tipo) { showNotif('⚠️ Selecciona un tipo de actividad','error'); return; }
+
+  bravoRegistroTemp.actividades.push({
+    tipo, cantidad, notas
+  });
+
+  // Limpiar formulario
+  document.getElementById('bravo-douglas-tipo').value = '';
+  document.getElementById('bravo-douglas-cantidad').value = '1';
+  document.getElementById('bravo-douglas-notas').value = '';
+
+  bravoRenderListaActividades();
+  showNotif('✅ Actividad agregada');
+}
+
+function bravoRenderListaActividades() {
+  const lista = document.getElementById('bravo-douglas-lista');
+  if(bravoRegistroTemp.actividades.length === 0) {
+    lista.innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin actividades registradas</div>';
+    return;
+  }
+
+  const tiposLabels = {
+    'flyers': '🗞️ Flyers Entregados',
+    'publicidad': '📢 Publicidad Enviada',
+    'leads-llamados': '📞 Leads Llamados',
+    'leads-contactados': '✅ Leads Contactados',
+    'clientes-telefono': '📱 Clientes Verificados Teléfono',
+    'clientes-internet': '🌐 Clientes Verificados Internet',
+    'fraudes': '⚠️ Fraudes Directos',
+    'aprobados-inicial': '💰 Clientes Aprobados',
+    'presupuestos': '📋 Presupuestos de Reparación',
+    'soporte-vendedores': '🤝 Soporte a Vendedores',
+    'soporte-lycas': '📱 Soporte con Lycas',
+    'portabilidad': '↔️ Datos de Portabilidad',
+    'conferencia': '☎️ Llamadas en Conferencia',
+    'pago-facturas': '💳 Ayuda a Pagar Facturas',
+    'inventario': '📦 Inventario Agregado',
+    'viajes': '🚗 Viajes',
+    'fedex': '📮 Paquetes FedEx/Correo',
+    'otro': '📝 Otra Actividad'
+  };
+
+  lista.innerHTML = bravoRegistroTemp.actividades.map((act, i) => `
+    <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:12px;flex:1">
+        <div style="font-weight:600;color:#33475B">${tiposLabels[act.tipo] || act.tipo}</div>
+        <div style="font-size:10px;color:#7C98B6">Cantidad: ${act.cantidad}${act.notas ? ' | ' + act.notas : ''}</div>
+      </div>
+      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.actividades.splice(${i},1);bravoRenderListaActividades()">✕</button>
+    </div>
+  `).join('');
+}
+
 // Actualizar resumen
 function bravoActualizarResumen() {
   document.getElementById('bravo-count-acc').textContent = bravoRegistroTemp.accesorios.length;
@@ -9554,8 +9672,10 @@ function bravoGuardarRegistro() {
     reparaciones: bravoRegistroTemp.reparaciones,
     combos: bravoRegistroTemp.combos,
     telefonos: bravoRegistroTemp.telefonos,
+    actividades: bravoRegistroTemp.actividades,
     gananciaTotal,
     productosCount: bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length,
+    actividadesCount: bravoRegistroTemp.actividades.length,
     categoria: 'Múltiple',
     timestamp: new Date().toISOString()
   };
@@ -9567,6 +9687,112 @@ function bravoGuardarRegistro() {
   closeModal('modal-bravo-registro');
   bravoDashboard();
   showNotif('✅ Registro guardado exitosamente');
+}
+
+// Caja Chica
+function bravoCaja() {
+  if(!validarAccesoBravo()) return;
+  if(!appData.bravo.caja) appData.bravo.caja = [];
+
+  const hoy = new Date().toISOString().split('T')[0];
+  const cajaHoy = appData.bravo.caja.find(c => c.fecha === hoy);
+
+  const mesActual = new Date().getMonth() + 1;
+  const añoActual = new Date().getFullYear();
+  const cajaMes = (appData.bravo.caja||[]).filter(c => {
+    const d = new Date(c.fecha);
+    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
+  });
+
+  const totalEntradas = cajaMes.reduce((s, c) => s + (c.totalEntradas || 0), 0);
+  const totalSalidas = cajaMes.reduce((s, c) => s + (c.totalSalidas || 0), 0);
+  const saldoNet = totalEntradas - totalSalidas;
+
+  document.getElementById('bravo-caja-content').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>💵 Caja Chica - Bravo</h2>
+        <button class="btn btn-primary btn-sm" onclick="abrirCajaChicaHoy()">➕ Registrar Caja</button>
+      </div>
+
+      <div class="cards">
+        <div class="card green">
+          <label>📈 Total Entradas Hoy</label>
+          <div class="val">${cajaHoy ? '$' + fmt(cajaHoy.totalEntradas || 0) : '—'}</div>
+        </div>
+        <div class="card orange">
+          <label>📉 Total Salidas Hoy</label>
+          <div class="val">${cajaHoy ? '$' + fmt(cajaHoy.totalSalidas || 0) : '—'}</div>
+        </div>
+        <div class="card blue">
+          <label>💰 Saldo Hoy</label>
+          <div class="val">${cajaHoy ? '$' + fmt((cajaHoy.totalEntradas || 0) - (cajaHoy.totalSalidas || 0)) : '—'}</div>
+        </div>
+        <div class="card purple">
+          <label>📊 Saldo Mes</label>
+          <div class="val">${'$' + fmt(saldoNet)}</div>
+          <div class="sub">Entradas: $${fmt(totalEntradas)} | Salidas: $${fmt(totalSalidas)}</div>
+        </div>
+      </div>
+
+      <div class="section" style="margin-top:20px">
+        <div class="section-header">
+          <h2>📋 Histórico de Caja</h2>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Caja Inicial</th>
+                <th>Entradas</th>
+                <th>Salidas</th>
+                <th>Caja Final</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="bravo-caja-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const body = document.getElementById('bravo-caja-body');
+  const historico = (appData.bravo.caja||[]).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  body.innerHTML = historico.length ? historico.map((c, i) => `
+    <tr>
+      <td>${c.fecha}</td>
+      <td style="color:#7C98B6">$${fmt(c.cajaInicial || 0)}</td>
+      <td style="color:#00BDA5;font-weight:600">+$${fmt(c.totalEntradas || 0)}</td>
+      <td style="color:#E04048;font-weight:600">−$${fmt(c.totalSalidas || 0)}</td>
+      <td style="color:#00BDA5;font-weight:700">$${fmt((c.cajaInicial || 0) + (c.totalEntradas || 0) - (c.totalSalidas || 0))}</td>
+      <td>
+        <button class="btn btn-ghost btn-xs" onclick="editarCajaChica(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarCajaChica(${i})">✕</button>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="6" class="tbl-empty">Sin registros</td></tr>';
+}
+
+// Abrir modal para registrar caja chica
+function abrirCajaChicaHoy() {
+  showNotif('🚧 Modal en construcción','info');
+}
+
+// Editar caja
+function editarCajaChica(idx) {
+  showNotif('🚧 Edición en construcción','info');
+}
+
+// Eliminar caja
+function eliminarCajaChica(idx) {
+  if(!confirm('¿Eliminar este registro de caja?')) return;
+  appData.bravo.caja = (appData.bravo.caja||[]).filter((_, i) => i !== idx);
+  guardar();
+  bravoCaja();
+  showNotif('🗑️ Registro eliminado');
 }
 
 // Editar registro
