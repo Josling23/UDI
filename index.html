@@ -5220,11 +5220,15 @@ function descargarVentasAgentes(mes, quincena) {
 
   let ventas = appData.ventas.filter(v => v.mes === mesFiltro);
 
-  if (quincena) {
-    ventas = ventas.filter(v => {
-      const pp = getPeríodoPago(v);
-      return pp.q === parseInt(quincena);
-    });
+  // Filtrar por quincena solo si no es 'ambas'
+  if (quincena && quincena !== 'ambas') {
+    const q = parseInt(quincena);
+    if (!isNaN(q)) {
+      ventas = ventas.filter(v => {
+        const pp = getPeríodoPago(v);
+        return pp.q === q;
+      });
+    }
   }
 
   const headers = ['Fecha', 'Agente', 'Producto', 'Categoría', 'Cantidad', 'Comisión/u', 'Total', 'Cliente', 'Cuenta', 'Mes', 'Quincena'];
@@ -5242,7 +5246,8 @@ function descargarVentasAgentes(mes, quincena) {
     getPeríodoPago(v).q || ''
   ]);
 
-  descargarExcel(`Ventas_Agentes_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Ventas', headers, rows);
+  const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
+  descargarExcel(`Ventas_Agentes_${mesFiltro}_${sufijo}.xlsx`, 'Ventas', headers, rows);
   showNotif(`✅ Descargado: ${rows.length} ventas`);
 }
 
@@ -5251,22 +5256,22 @@ function descargarComisiones(mes, quincena) {
   const meses = getMeses();
   const mesFiltro = mes || meses[meses.length-1];
 
-  const headers = ['Agente', 'Rol', 'Comisiones', 'Sueldo Base', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
+  const headers = ['Agente', 'Rol', 'Quincena', 'Comisiones', 'Sueldo Base', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
   const rows = [];
 
   appData.agentes.forEach(a => {
     if (a.soloHQ) return; // Excluir HQ
 
-    const nombreLow = (a.nombre||'').trim().toLowerCase();
-    let q1 = 1, q2 = 2;
-
+    // Determinar qué quincenas procesar
+    let quinc = [1, 2];
     if (quincena && quincena !== 'ambas') {
-      q1 = q2 = parseInt(quincena);
+      const q = parseInt(quincena);
+      if (!isNaN(q)) {
+        quinc = [q];
+      }
     }
 
-    for (let q of [q1, q2]) {
-      if (quincena && quincena !== 'ambas' && q !== parseInt(quincena)) continue;
-
+    quinc.forEach(q => {
       const com = getComisionesQuincena(a, mesFiltro, q);
       const basico = (a.sueldoQuincenal||0);
       const bonos = getExtra('bono', a.nombre, mesFiltro+'Q'+q);
@@ -5278,6 +5283,7 @@ function descargarComisiones(mes, quincena) {
         rows.push([
           a.nombre || '',
           a.rol || 'agente',
+          q,
           com,
           basico,
           bonos,
@@ -5286,10 +5292,11 @@ function descargarComisiones(mes, quincena) {
           total
         ]);
       }
-    }
+    });
   });
 
-  descargarExcel(`Comisiones_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Comisiones', headers, rows);
+  const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
+  descargarExcel(`Comisiones_${mesFiltro}_${sufijo}.xlsx`, 'Comisiones', headers, rows);
   showNotif(`✅ Descargado: ${rows.length} registros de comisiones`);
 }
 
@@ -5336,27 +5343,32 @@ function descargarResumenFinanciero(mes, quincena) {
   const meses = getMeses();
   const mesFiltro = mes || meses[meses.length-1];
 
-  const headers = ['Período', 'Ingresos', 'Egresos', 'Utilidad', 'ROI %'];
+  const headers = ['Período', 'Ingresos', 'Nómina Pagada', 'Otros Gastos', 'Utilidad', 'ROI %'];
   const rows = [];
 
   if (quincena && quincena !== 'ambas') {
     // Una quincena específica
     const q = parseInt(quincena);
-    const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0);
-    const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const utilidad = ings - gastos;
-    const roi = ings > 0 ? (utilidad / ings * 100) : 0;
-    rows.push([`${mesFiltro} - Q${q}`, ings, gastos, utilidad, roi.toFixed(2)]);
+    if (!isNaN(q)) {
+      const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0) / 2;
+      const nomina = calcNominaQuincena(mesFiltro, q);
+      const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0) / 2;
+      const utilidad = ings - nomina - gastos;
+      const roi = ings > 0 ? (utilidad / ings * 100) : 0;
+      rows.push([`${mesFiltro} - Q${q}`, ings.toFixed(2), nomina.toFixed(2), gastos.toFixed(2), utilidad.toFixed(2), roi.toFixed(2)]);
+    }
   } else {
-    // Mes completo
+    // Mes completo (ambas quincenas)
     const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0);
+    const nomina = (calcNominaQuincena(mesFiltro, 1) || 0) + (calcNominaQuincena(mesFiltro, 2) || 0);
     const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const utilidad = ings - gastos;
+    const utilidad = ings - nomina - gastos;
     const roi = ings > 0 ? (utilidad / ings * 100) : 0;
-    rows.push([mesFiltro, ings, gastos, utilidad, roi.toFixed(2)]);
+    rows.push([mesFiltro, ings.toFixed(2), nomina.toFixed(2), gastos.toFixed(2), utilidad.toFixed(2), roi.toFixed(2)]);
   }
 
-  descargarExcel(`Resumen_Financiero_${mesFiltro}_${quincena||'completo'}.xlsx`, 'Resumen', headers, rows);
+  const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
+  descargarExcel(`Resumen_Financiero_${mesFiltro}_${sufijo}.xlsx`, 'Resumen', headers, rows);
   showNotif('✅ Resumen financiero descargado');
 }
 
