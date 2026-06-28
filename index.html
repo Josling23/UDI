@@ -6547,26 +6547,29 @@ function renderTopRSI() {
     ventasMap[key].ventas.push(v);
   });
 
-  const ventasRows = Object.values(ventasMap).map(group => {
+  // Separar en pagados y pendientes
+  const ventasArray = Object.values(ventasMap);
+  const pagados = ventasArray.filter(g => g.paidByRSI);
+  const pendientes = ventasArray.filter(g => !g.paidByRSI);
+
+  const renderGroup = (group) => {
     const agentes = [...new Set(group.ventas.map(v=>v.agente))].join(', ');
     const productos = [...new Set(group.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
     const totalComision = group.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
-    const statusColor = group.paidByRSI ? '#00BDA5' : '#F2545B';
-    const statusEmoji = group.paidByRSI ? '✅' : '❌';
-    const statusText = group.paidByRSI ? 'PAGADO' : 'PENDIENTE';
-
     return `<tr>
       <td style="font-weight:600">${group.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
       <td>${group.fecha||'—'}</td>
       <td>${agentes}</td>
       <td style="text-align:right;font-weight:700;color:#009FDB">$${totalComision.toFixed(2)}</td>
-      <td style="text-align:center;color:${statusColor};font-weight:700">${statusEmoji} ${statusText}</td>
       <td style="text-align:center">
         <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${group.fecha}')" style="padding:3px 6px;font-size:9px">✕</button>
       </td>
     </tr>`;
-  });
+  };
+
+  const pagadosRows = pagados.map(renderGroup).join('');
+  const pendientesRows = pendientes.map(renderGroup).join('');
 
   document.getElementById('top-rsi').innerHTML = `
     <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff">
@@ -6619,28 +6622,46 @@ function renderTopRSI() {
         renderTopRSI();
       })()" style="margin-bottom:16px">📥 Procesar Datos</button>
 
-      <h3 style="font-size:13px;font-weight:700;color:#33475B;margin-top:20px;margin-bottom:12px">Estado de Ventas</h3>
-      <div class="tbl-wrap" style="max-height:400px;overflow-y:auto">
+      <h3 style="font-size:13px;font-weight:700;color:#33475B;margin-top:20px;margin-bottom:12px">✅ PAGADOS POR RS&I (${pagados.length})</h3>
+      <div class="tbl-wrap" style="max-height:300px;overflow-y:auto;margin-bottom:20px">
         <table style="width:100%">
           <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Producto</th>
-              <th>Fecha</th>
-              <th>Vendedor(es)</th>
-              <th>Comisión</th>
-              <th>RS&I</th>
-              <th></th>
+            <tr style="background:#E8F9F7">
+              <th style="color:#00A492">Cliente</th>
+              <th style="color:#00A492">Producto</th>
+              <th style="color:#00A492">Fecha</th>
+              <th style="color:#00A492">Vendedor(es)</th>
+              <th style="color:#00A492">Comisión</th>
+              <th style="color:#00A492"></th>
             </tr>
           </thead>
           <tbody>
-            ${ventasRows.length > 0 ? ventasRows.join('') : '<tr><td colspan="7" style="text-align:center;color:#99ACC2;padding:20px">No hay ventas registradas</td></tr>'}
+            ${pagadosRows.length > 0 ? pagadosRows : '<tr><td colspan="6" style="text-align:center;color:#99ACC2;padding:20px">Sin pagos registrados aún</td></tr>'}
           </tbody>
         </table>
       </div>
 
-      <div style="margin-top:16px;padding:12px;background:#EAF7FB;border-radius:8px;font-size:11px;color:#0057A8;border-left:4px solid #009FDB">
-        <strong>📊 Resumen:</strong> ${Object.values(ventasMap).filter(v=>v.paidByRSI).length} pagadas de RS&I / ${Object.values(ventasMap).length} total
+      <h3 style="font-size:13px;font-weight:700;color:#33475B;margin-bottom:12px">❌ PENDIENTES DE PAGO (${pendientes.length})</h3>
+      <div class="tbl-wrap" style="max-height:300px;overflow-y:auto;margin-bottom:20px">
+        <table style="width:100%">
+          <thead>
+            <tr style="background:#FFF0F0">
+              <th style="color:#E04048">Cliente</th>
+              <th style="color:#E04048">Producto</th>
+              <th style="color:#E04048">Fecha</th>
+              <th style="color:#E04048">Vendedor(es)</th>
+              <th style="color:#E04048">Comisión</th>
+              <th style="color:#E04048"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pendientesRows.length > 0 ? pendientesRows : '<tr><td colspan="6" style="text-align:center;color:#99ACC2;padding:20px">¡Todos pagados! 🎉</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="padding:12px;background:#EAF7FB;border-radius:8px;font-size:11px;color:#0057A8;border-left:4px solid #009FDB">
+        <strong>📊 Resumen:</strong> ${pagados.length} pagadas ✅ | ${pendientes.length} pendientes ❌ | ${ventasArray.length} total
       </div>
     </div>
   `;
