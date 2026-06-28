@@ -476,7 +476,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total</th><th>Cliente</th><th>💳 RS&I</th><th>✕</th></tr></thead>
+            <thead><tr><th>#</th><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total</th><th>Cliente</th><th>✕</th></tr></thead>
             <tbody id="agente-ventas-body"></tbody>
           </table>
         </div>
@@ -3328,13 +3328,6 @@ function renderAgenteVentas() {
     : appData.ventas;
   list = [...list].sort((a,b)=>b.id-a.id);
   document.getElementById('agente-ventas-body').innerHTML = list.length ? list.map((v,i)=>{
-    const rsIPagosKey = (v.cliente||'') + '||' + (v.productoId||'') + '||' + (v.fecha||'');
-    const isRSIPaid = (appData.rsIPagos||[]).includes(rsIPagosKey);
-    const rsiBg = isRSIPaid ? '#E8F9F7' : '#FFF0F0';
-    const rsiColor = isRSIPaid ? '#00A492' : '#E04048';
-    const rsiEmoji = isRSIPaid ? '✅' : '❌';
-    const rsiText = isRSIPaid ? 'PAGADO' : 'PENDIENTE';
-
     // Verificar si la quincena está cerrada
     const periodo = getPeríodoPago(v);
     const estaCerrada = estaQuincenaCerrada(periodo.mes, periodo.q);
@@ -3351,10 +3344,9 @@ function renderAgenteVentas() {
     <td style="color:#7C98B6">${fmt(getComision(v))}</td>
     <td style="font-weight:700;color:#00BDA5">${fmt(getComision(v)*v.cantidad)}</td>
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
-    <td style="text-align:center;background:${rsiBg};border-radius:6px;color:${rsiColor};font-weight:700;font-size:11px;padding:4px 8px">${rsiEmoji} ${rsiText}</td>
     <td style="text-align:center">${btnEliminar}</td>
   </tr>`;
-  }).join('') : '<tr><td colspan="10" class="tbl-empty">Sin ventas</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="tbl-empty">Sin ventas</td></tr>';
 }
 
 function onRolChange() {
