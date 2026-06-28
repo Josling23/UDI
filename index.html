@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <!-- XLSX Library for Excel file processing -->
-<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* === HUBSPOT PALETTE === */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2144,6 +2144,30 @@ function getComisionesQuincenaDesglose(a, mes, q) {
 
   return { ventas, grabaciones, supervision };
 }
+
+// Calcular nómina total para una quincena específica
+function calcNominaQuincena(mes, q) {
+  // Calcular nómina total para una quincena específica
+  // Incluye: sueldo base + comisiones + bonos + extras
+  let totalNomina = 0;
+
+  appData.agentes.forEach(a => {
+    const key = getQuincenaKey(a.nombre, mes, q);
+    const basico = (a.sueldoQuincenal || 0);
+    const comisiones = getComisionesQuincena(a, mes, q);
+    const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
+    const prest = getExtra('prest', a.nombre, mes+'Q'+q);
+    const desc = getExtra('desc', a.nombre, mes+'Q'+q);
+
+    const subtotal = basico + comisiones + bonos + prest - desc;
+    if (subtotal > 0 || appData.quincenas[key]) {
+      totalNomina += subtotal;
+    }
+  });
+
+  return totalNomina;
+}
+
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
 
@@ -5688,28 +5712,6 @@ function renderTopROI() {
   if(!appData.pagosRecibidos) appData.pagosRecibidos = {};
   const selMes = document.getElementById('top-mes-sel')?.value ?? (meses[meses.length-1]||'');
   const selQ = document.getElementById('top-q-sel')?.value ?? '';
-
-  function calcNominaQuincena(mes, q) {
-    // Calcular nómina total para una quincena específica
-    // Incluye: sueldo base + comisiones + bonos + extras
-    let totalNomina = 0;
-
-    appData.agentes.forEach(a => {
-      const key = getQuincenaKey(a.nombre, mes, q);
-      const basico = (a.sueldoQuincenal || 0);
-      const comisiones = getComisionesQuincena(a, mes, q);
-      const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
-      const prest = getExtra('prest', a.nombre, mes+'Q'+q);
-      const desc = getExtra('desc', a.nombre, mes+'Q'+q);
-
-      const subtotal = basico + comisiones + bonos + prest - desc;
-      if (subtotal > 0 || appData.quincenas[key]) {
-        totalNomina += subtotal;
-      }
-    });
-
-    return totalNomina;
-  }
 
   function calcROI(mes, quincena) {
     const msLista = mes ? [mes] : meses;
