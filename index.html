@@ -2685,9 +2685,6 @@ function renderPendientesPagoAtt(listaVentas) {
       <td style="font-size:11px">${g.fecha||'—'}</td>
       <td style="font-size:11px">${g.vendedor||'—'}</td>
       <td style="text-align:right;font-weight:700;color:#E04048">$${totalComision.toFixed(2)}</td>
-      <td style="text-align:center">
-        <button class="btn btn-xs btn-success" onclick="marcarPagadoAtt('${g.cliente}','${g.fecha}')" style="padding:3px 8px;font-size:10px;background:#00BDA5;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600">✓ Pagado</button>
-      </td>
     </tr>`;
   }).join('');
 
@@ -2698,6 +2695,9 @@ function renderPendientesPagoAtt(listaVentas) {
         <span style="font-size:18px">⚠️</span>
         PAGOS PENDIENTES DE AT&T — ${pendientes.length} cliente(s)
       </h3>
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:12px;background:#fff;padding:8px;border-radius:6px;border-left:3px solid #7C98B6">
+        💡 Marca estos pagos desde la sección <strong>💳 Pago AT&T</strong> en el Top
+      </div>
       <div class="tbl-wrap" style="max-height:250px;overflow-y:auto">
         <table style="width:100%">
           <thead>
@@ -2707,7 +2707,6 @@ function renderPendientesPagoAtt(listaVentas) {
               <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Fecha</th>
               <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Vendedor</th>
               <th style="color:#E04048;text-align:right;padding:8px;font-weight:700;font-size:11px">Comisión</th>
-              <th style="color:#E04048;text-align:center;padding:8px;font-weight:700;font-size:11px">Acción</th>
             </tr>
           </thead>
           <tbody>
@@ -2717,17 +2716,6 @@ function renderPendientesPagoAtt(listaVentas) {
       </div>
     </div>
   `;
-}
-
-function marcarPagadoAtt(cliente, fecha) {
-  const key = cliente + '||' + fecha;
-  if(!appData.rsIPagos) appData.rsIPagos = [];
-  if(!appData.rsIPagos.includes(key)) {
-    appData.rsIPagos.push(key);
-    guardar();
-    showNotif('✅ Cliente marcado como pagado');
-    renderVentas();
-  }
 }
 
 let _lineaCount = 0;
