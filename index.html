@@ -6572,29 +6572,51 @@ function renderTopRSI() {
       <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:14px">💳 Marcar Pagos de RS&I</h3>
 
       <div style="margin-bottom:16px">
-        <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega datos: Cliente | Producto | Fecha</label>
-        <textarea id="rsi-input-data" style="width:100%;min-height:80px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:12px;resize:vertical" placeholder="ARMANDO DE JESUS AGUIRRE|iPhone 17 Pro|6/23/2026&#10;ROBERTO PALMA|Samsung Galaxy|6/23/2026"></textarea>
+        <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega directamente del Excel de RS&I (copia las filas completas)</label>
+        <textarea id="rsi-input-data" style="width:100%;min-height:100px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Pega aquí las filas del reporte de RS&I"></textarea>
+        <div style="font-size:10px;color:#99ACC2;margin-top:6px">ℹ️ Soporta: Formato Excel tab-separated O Cliente|Producto|Fecha</div>
       </div>
 
       <button class="btn btn-primary" onclick="(() => {
         const textarea = document.getElementById('rsi-input-data');
         const lines = textarea.value.trim().split('\\n').filter(l=>l.trim());
         if(lines.length === 0) { showNotif('⚠️ Pega datos de RS&I', 'error'); return; }
+        let processed = 0;
         lines.forEach(line => {
-          const parts = line.split('|').map(p=>p.trim());
-          if(parts.length >= 3) {
-            const cliente = parts[0];
-            const producto = parts[1];
-            const fecha = parts[2];
+          // Intentar parsear con tab primero (Excel format)
+          let parts = line.split('\\t').map(p=>p.trim());
+
+          // Si solo hay 1 parte, intentar con pipe
+          if(parts.length === 1) {
+            parts = line.split('|').map(p=>p.trim());
+          }
+
+          let cliente, producto, fecha;
+
+          // Formato Excel: Cliente (col 0) | Producto (col 4) | Fecha Pago (col 7)
+          if(parts.length >= 8) {
+            cliente = parts[0];
+            producto = parts[4];
+            fecha = parts[7]; // FECHA PAGO
+          }
+          // Formato simple: Cliente | Producto | Fecha
+          else if(parts.length >= 3) {
+            cliente = parts[0];
+            producto = parts[1];
+            fecha = parts[2];
+          }
+
+          if(cliente && producto && fecha) {
             const key = cliente + '||' + producto + '||' + fecha;
             if(!appData.rsIPagos.includes(key)) {
               appData.rsIPagos.push(key);
+              processed++;
             }
           }
         });
         guardar();
         textarea.value = '';
-        showNotif('✅ Marcadas ' + lines.length + ' ventas de RS&I como pagadas');
+        showNotif('✅ Marcadas ' + processed + ' ventas nuevas de RS&I como pagadas');
         renderTopRSI();
       })()" style="margin-bottom:16px">📥 Procesar Datos</button>
 
