@@ -4408,12 +4408,15 @@ function volverAreas() {
   document.getElementById('sidebar-nav-hq').style.display    = 'none';
   document.getElementById('sidebar-nav-top').style.display   = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
-  if (pinMode) {
-    pinMode = false; currentRole = null;
+
+  // Verificar que currentUser existe
+  if (!currentUser) {
     mostrarLogin();
-  } else {
-    mostrarAreas();
+    return;
   }
+
+  // Mostrar la pantalla de selección de áreas
+  mostrarAreas();
 }
 
 async function loginFirebase() {
