@@ -5180,6 +5180,45 @@ function validarQuincenaNoEsteeCerrada(mes, quincena) {
 // FUNCIONES DE DESCARGA - REPORTES EXCEL/CSV
 // ============================================================
 
+// Wrapper functions que obtienen los valores del DOM directamente
+function descargarVentasClick() {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  const q = document.getElementById('top-q-sel')?.value || 'ambas';
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  descargarVentasAgentes(mes, q);
+  document.getElementById('menu-descargar').style.display = 'none';
+}
+
+function descargarComisionesClick() {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  const q = document.getElementById('top-q-sel')?.value || 'ambas';
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  descargarComisiones(mes, q);
+  document.getElementById('menu-descargar').style.display = 'none';
+}
+
+function descargarIngresosClick() {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  descargarIngresos(mes);
+  document.getElementById('menu-descargar').style.display = 'none';
+}
+
+function descargarGastosClick() {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  descargarGastos(mes);
+  document.getElementById('menu-descargar').style.display = 'none';
+}
+
+function descargarResumenClick() {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  const q = document.getElementById('top-q-sel')?.value || 'ambas';
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  descargarResumenFinanciero(mes, q);
+  document.getElementById('menu-descargar').style.display = 'none';
+}
+
 // Descargar CSV genérico
 function descargarCSV(filename, rows, headers) {
   let csv = headers.join(',') + '\n';
@@ -5716,19 +5755,19 @@ function renderTopROI() {
           </button>
           <div id="menu-descargar" style="display:none;position:absolute;top:100%;right:0;background:#fff;border:1px solid #CBD6E2;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:240px;margin-top:4px">
             <div style="padding:8px">
-              <div onclick="descargarVentasAgentes('${selMes}','${selQ||'ambas'}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#0057A8;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+              <div onclick="descargarVentasClick()" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#0057A8;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
                 📊 Ventas de Agentes
               </div>
-              <div onclick="descargarComisiones('${selMes}','${selQ||'ambas'}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#00A492;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+              <div onclick="descargarComisionesClick()" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#00A492;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
                 💰 Comisiones Pagadas
               </div>
-              <div onclick="descargarIngresos('${selMes}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#009FDB;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+              <div onclick="descargarIngresosClick()" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#009FDB;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
                 📈 Ingresos Detallados
               </div>
-              <div onclick="descargarGastos('${selMes}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#E04048;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+              <div onclick="descargarGastosClick()" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#E04048;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
                 💸 Gastos Detallados
               </div>
-              <div onclick="descargarResumenFinanciero('${selMes}','${selQ||'ambas'}');document.getElementById('menu-descargar').style.display='none'" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#8B7500;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
+              <div onclick="descargarResumenClick()" style="padding:8px 12px;cursor:pointer;border-radius:5px;font-size:12px;color:#8B7500;hover:background:#F5F8FA" onmouseover="this.style.background='#F5F8FA'" onmouseout="this.style.background='transparent'">
                 📋 Resumen Financiero
               </div>
             </div>
