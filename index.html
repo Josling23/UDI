@@ -4385,10 +4385,10 @@ function abrirArea(area) {
 
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'flex';
-  document.getElementById('sidebar-nav-admin').style.display = area==='admin'  ? 'block' : 'none';
-  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'     ? 'block' : 'none';
-  document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'block' : 'none';
-  document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
+  document.getElementById('sidebar-nav-admin').style.display = area==='admin'  ? 'flex' : 'none';
+  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'     ? 'flex' : 'none';
+  document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'flex' : 'none';
+  document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'flex' : 'none';
 
   // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
   if (area === 'hq') {
