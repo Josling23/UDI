@@ -323,8 +323,9 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span></div>
-    <div id="menu-cambiar-area" style="display:none;padding-left:10px;border-left:2px solid rgba(255,100,100,0.3);margin:4px 0"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
+      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
+    </div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
@@ -332,8 +333,9 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
     <div class="nav-item" id="nav-hq-gerente" style="display:none" onclick="showPage('hq-gerente',this)"><span class="icon">🏢</span><span>Gerente General</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span></div>
-    <div id="menu-cambiar-area" style="display:none;padding-left:10px;border-left:2px solid rgba(255,100,100,0.3);margin:4px 0"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
+      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
+    </div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
@@ -341,8 +343,9 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span></div>
-    <div id="menu-cambiar-area" style="display:none;padding-left:10px;border-left:2px solid rgba(255,100,100,0.3);margin:4px 0"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
+      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
+    </div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <nav class="sidebar-nav" id="sidebar-nav-salud" style="display:none">
@@ -356,8 +359,9 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('salud-pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span></div>
-    <div id="menu-cambiar-area" style="display:none;padding-left:10px;border-left:2px solid rgba(255,100,100,0.3);margin:4px 0"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
+      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
+    </div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <div class="sidebar-footer">Dealer #594193 · USA Distributor</div>
@@ -4390,30 +4394,30 @@ function construirMenuCambiarArea() {
   const puedeTop    = perms.areas.includes('top');
   const puedeSalud  = perms.areas.includes('salud');
 
-  // Construir opciones como items del sidebar
+  // Construir opciones del menú
   let opciones = '';
 
   if (puedeAdmin) {
-    opciones += `<div class="nav-item" onclick="cambiarArea('admin');toggleMenuCambiarArea()">
-      <span class="icon">📋</span><span>Administración</span>
+    opciones += `<div onclick="cambiarArea('admin')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#fff;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(255,255,255,0.1);this.style.borderLeftColor='#009FDB'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
+      📋 Administración
     </div>`;
   }
 
   if (puedeTop) {
-    opciones += `<div class="nav-item" style="color:#FFD700" onclick="cambiarArea('top');toggleMenuCambiarArea()">
-      <span class="icon">⭐</span><span>TOP</span>
+    opciones += `<div onclick="cambiarArea('top')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#FFD700;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(255,215,0,0.1);this.style.borderLeftColor='#FFD700'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
+      ⭐ TOP
     </div>`;
   }
 
   if (puedeHQ) {
-    opciones += `<div class="nav-item" onclick="cambiarArea('hq');toggleMenuCambiarArea()">
-      <span class="icon">🏛️</span><span>HEADQUARTERS</span>
+    opciones += `<div onclick="cambiarArea('hq')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#fff;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(255,255,255,0.1);this.style.borderLeftColor='#009FDB'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
+      🏛️ HEADQUARTERS
     </div>`;
   }
 
   if (puedeSalud) {
-    opciones += `<div class="nav-item" style="color:#00BDA5" onclick="cambiarArea('salud');toggleMenuCambiarArea()">
-      <span class="icon">💚</span><span>SALUD & DENTAL</span>
+    opciones += `<div onclick="cambiarArea('salud')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#00BDA5;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(0,189,165,0.1);this.style.borderLeftColor='#00BDA5'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
+      💚 SALUD & DENTAL
     </div>`;
   }
 
