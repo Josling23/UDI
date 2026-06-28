@@ -2978,6 +2978,17 @@ function onProductoChange() {}
 function updateVentaPreview() {}
 
 function guardarVenta() {
+  // Validar que la quincena no esté cerrada (si es edición)
+  if(editVentaId !== null) {
+    const originalVenta = appData.ventas.find(x=>x.id===editVentaId);
+    if(originalVenta) {
+      const periodoOrig = getPeríodoPago(originalVenta);
+      if(!validarQuincenaNoEsteeCerrada(periodoOrig.mes, periodoOrig.q)) {
+        return;
+      }
+    }
+  }
+
   const agente      = document.getElementById('v-agente').value;
   const fecha       = document.getElementById('v-fecha').value;
   const cliente     = document.getElementById('v-cliente').value.trim();
@@ -3146,6 +3157,16 @@ function ventaInlineEdit(id, field, value, prodSelect) {
 
 function eliminarVenta(id) {
   if(!confirm('¿Eliminar esta venta?')) return;
+
+  // Validar que la quincena no esté cerrada
+  const venta = appData.ventas.find(v=>v.id===id);
+  if(venta) {
+    const periodo = getPeríodoPago(venta);
+    if(!validarQuincenaNoEsteeCerrada(periodo.mes, periodo.q)) {
+      return;
+    }
+  }
+
   appData.ventas = appData.ventas.filter(v=>v.id!==id);
   guardar();
   renderVentas();
@@ -3626,6 +3647,11 @@ function renderResumen() {
 // PAGOS AGENTES (QUINCENAS)
 // ============================================================
 function toggleQuincena(agenteNombre, mes, q) {
+  // Validar que la quincena no esté cerrada
+  if(!validarQuincenaNoEsteeCerrada(mes, q)) {
+    return;
+  }
+
   const key = getQuincenaKey(agenteNombre, mes, q);
   if(appData.quincenas[key]) {
     delete appData.quincenas[key];
@@ -3667,6 +3693,17 @@ function basicoCOPCell(a, mesQ, basico) {
 // Keys para campos extra por agente/mes
 function getExtraKey(tipo, agente, mes) { return `${tipo}||${agente.trim().toLowerCase()}||${mes}`; }
 function setExtra(tipo, agente, mes, valor) {
+  // Validar que la quincena no esté cerrada
+  // mes viene en formato como "Junio 2026Q1" o "Junio 2026Q2"
+  const qMatch = mes.match(/Q([12])$/);
+  if(qMatch) {
+    const mesNombre = mes.substring(0, mes.length - 2); // "Junio 2026"
+    const quincena = parseInt(qMatch[1]);
+    if(!validarQuincenaNoEsteeCerrada(mesNombre, quincena)) {
+      return;
+    }
+  }
+
   const k = getExtraKey(tipo, agente, mes);
   // Para bonodesc y otros strings, guardar como texto
   if(tipo === 'bonodesc' || tipo === 'desc-motivo') {
