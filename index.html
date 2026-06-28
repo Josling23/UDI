@@ -6875,38 +6875,7 @@ async function guardarPin(area) {
 // ADMINISTRACIÓN — RENDER
 // ============================================================
 function renderAdmin() {
-  // Calcular pendientes de pago RS&I
-  const ventasMap = {};
-  (appData.ventas||[]).forEach(v => {
-    const key = `${v.cliente||''}||${v.fecha||''}`;
-    if(!ventasMap[key]) {
-      ventasMap[key] = { cliente: v.cliente, fecha: v.fecha, ventas: [], paidByRSI: (appData.rsIPagos||[]).includes(key) };
-    }
-    ventasMap[key].ventas.push(v);
-  });
-  const pendientes = Object.values(ventasMap).filter(g => !g.paidByRSI);
-
-  const alertaHTML = pendientes.length > 0 ? `
-    <div style="background:#FFF0F0;border-left:4px solid #F2545B;padding:16px;border-radius:8px;margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span style="font-size:24px">⚠️</span>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#E04048">${pendientes.length} CLIENTES PENDIENTES DE PAGO RS&I</div>
-          <div style="font-size:11px;color:#B51C1C">Revisa que estén correctamente ingresados o reclámalos a RS&I</div>
-        </div>
-      </div>
-      <div style="background:#fff;border-radius:6px;padding:10px;max-height:200px;overflow-y:auto">
-        ${pendientes.map(p => `
-          <div style="padding:6px;font-size:11px;border-bottom:1px solid #F5F8FA;color:#33475B">
-            📌 <strong>${p.cliente}</strong> - ${p.fecha} (${p.ventas.length} venta${p.ventas.length>1?'s':''})
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  ` : '';
-
   document.getElementById('admin-content').innerHTML = `
-    ${alertaHTML}
     <div style="margin-bottom:20px">
       <h2 style="font-size:18px;font-weight:800;color:#33475B">💸 Gastos & Nómina</h2>
       <div style="font-size:11px;color:#99ACC2">Ingresa los datos mensuales. Los cambios se reflejan automáticamente en TOP</div>
