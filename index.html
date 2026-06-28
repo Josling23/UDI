@@ -5257,98 +5257,136 @@ function descargarCSV(filename, rows, headers) {
 
 // Descargar Excel simple usando XLSX
 function descargarExcel(filename, sheetName, headers, rows) {
-  const ws_data = [headers, ...rows];
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, filename);
+  try {
+    if (!headers || !rows) {
+      showNotif('⚠️ No hay datos para descargar', 'error');
+      return;
+    }
+    const ws_data = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, filename);
+    showNotif(`✅ ${filename} descargado correctamente`);
+  } catch (error) {
+    console.error('Error en descargarExcel:', error);
+    showNotif(`❌ Error al descargar: ${error.message}`, 'error');
+  }
 }
 
 // Reporte: Ventas por Agente
 function descargarVentasAgentes(mes, quincena) {
-  const meses = getMeses();
-  const mesFiltro = mes || meses[meses.length-1];
+  try {
+    const meses = getMeses();
+    const mesFiltro = mes || meses[meses.length-1];
 
-  let ventas = appData.ventas.filter(v => v.mes === mesFiltro);
-
-  // Filtrar por quincena solo si no es 'ambas'
-  if (quincena && quincena !== 'ambas') {
-    const q = parseInt(quincena);
-    if (!isNaN(q)) {
-      ventas = ventas.filter(v => {
-        const pp = getPeríodoPago(v);
-        return pp.q === q;
-      });
+    if (!mesFiltro) {
+      showNotif('⚠️ No hay mes disponible', 'error');
+      return;
     }
+
+    let ventas = (appData.ventas || []).filter(v => v.mes === mesFiltro);
+
+    // Filtrar por quincena solo si no es 'ambas'
+    if (quincena && quincena !== 'ambas') {
+      const q = parseInt(quincena);
+      if (!isNaN(q)) {
+        ventas = ventas.filter(v => {
+          const pp = getPeríodoPago(v);
+          return pp.q === q;
+        });
+      }
+    }
+
+    if (ventas.length === 0) {
+      showNotif(`⚠️ No hay ventas en ${mesFiltro}`, 'warning');
+      return;
+    }
+
+    const headers = ['Fecha', 'Agente', 'Producto', 'Categoría', 'Cantidad', 'Comisión/u', 'Total', 'Cliente', 'Cuenta', 'Mes', 'Quincena'];
+    const rows = ventas.map(v => [
+      v.fecha || '',
+      v.agente || '',
+      v.productoId || '',
+      v.categoria || '',
+      v.cantidad || 0,
+      v.comision || 0,
+      (v.cantidad || 0) * (v.comision || 0),
+      v.cliente || '',
+      v.cuenta || '',
+      v.mes || '',
+      getPeríodoPago(v).q || ''
+    ]);
+
+    const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
+    descargarExcel(`Ventas_Agentes_${mesFiltro}_${sufijo}.xlsx`, 'Ventas', headers, rows);
+  } catch (error) {
+    console.error('Error en descargarVentasAgentes:', error);
+    showNotif(`❌ Error: ${error.message}`, 'error');
   }
-
-  const headers = ['Fecha', 'Agente', 'Producto', 'Categoría', 'Cantidad', 'Comisión/u', 'Total', 'Cliente', 'Cuenta', 'Mes', 'Quincena'];
-  const rows = ventas.map(v => [
-    v.fecha || '',
-    v.agente || '',
-    v.productoId || '',
-    v.categoria || '',
-    v.cantidad || 0,
-    v.comision || 0,
-    (v.cantidad || 0) * (v.comision || 0),
-    v.cliente || '',
-    v.cuenta || '',
-    v.mes || '',
-    getPeríodoPago(v).q || ''
-  ]);
-
-  const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
-  descargarExcel(`Ventas_Agentes_${mesFiltro}_${sufijo}.xlsx`, 'Ventas', headers, rows);
-  showNotif(`✅ Descargado: ${rows.length} ventas`);
 }
 
 // Reporte: Comisiones Pagadas
 function descargarComisiones(mes, quincena) {
-  const meses = getMeses();
-  const mesFiltro = mes || meses[meses.length-1];
+  try {
+    const meses = getMeses();
+    const mesFiltro = mes || meses[meses.length-1];
 
-  const headers = ['Agente', 'Rol', 'Quincena', 'Comisiones', 'Sueldo Base', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
-  const rows = [];
-
-  appData.agentes.forEach(a => {
-    if (a.soloHQ) return; // Excluir HQ
-
-    // Determinar qué quincenas procesar
-    let quinc = [1, 2];
-    if (quincena && quincena !== 'ambas') {
-      const q = parseInt(quincena);
-      if (!isNaN(q)) {
-        quinc = [q];
-      }
+    if (!mesFiltro) {
+      showNotif('⚠️ No hay mes disponible', 'error');
+      return;
     }
 
-    quinc.forEach(q => {
-      const com = getComisionesQuincena(a, mesFiltro, q);
-      const basico = (a.sueldoQuincenal||0);
-      const bonos = getExtra('bono', a.nombre, mesFiltro+'Q'+q);
-      const prest = getExtra('prest', a.nombre, mesFiltro+'Q'+q);
-      const desc = getExtra('desc', a.nombre, mesFiltro+'Q'+q);
-      const total = com + basico + bonos + prest - desc;
+    const headers = ['Agente', 'Rol', 'Quincena', 'Comisiones', 'Sueldo Base', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
+    const rows = [];
 
-      if (com > 0 || basico > 0 || bonos > 0 || prest > 0 || desc > 0) {
-        rows.push([
-          a.nombre || '',
-          a.rol || 'agente',
-          q,
-          com,
-          basico,
-          bonos,
-          prest,
-          desc,
-          total
-        ]);
+    (appData.agentes || []).forEach(a => {
+      if (a.soloHQ) return; // Excluir HQ
+
+      // Determinar qué quincenas procesar
+      let quinc = [1, 2];
+      if (quincena && quincena !== 'ambas') {
+        const q = parseInt(quincena);
+        if (!isNaN(q)) {
+          quinc = [q];
+        }
       }
-    });
-  });
 
-  const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
-  descargarExcel(`Comisiones_${mesFiltro}_${sufijo}.xlsx`, 'Comisiones', headers, rows);
-  showNotif(`✅ Descargado: ${rows.length} registros de comisiones`);
+      quinc.forEach(q => {
+        const com = getComisionesQuincena(a, mesFiltro, q);
+        const basico = (a.sueldoQuincenal||0);
+        const bonos = getExtra('bono', a.nombre, mesFiltro+'Q'+q);
+        const prest = getExtra('prest', a.nombre, mesFiltro+'Q'+q);
+        const desc = getExtra('desc', a.nombre, mesFiltro+'Q'+q);
+        const total = com + basico + bonos + prest - desc;
+
+        if (com > 0 || basico > 0 || bonos > 0 || prest > 0 || desc > 0) {
+          rows.push([
+            a.nombre || '',
+            a.rol || 'agente',
+            q,
+            com,
+            basico,
+            bonos,
+            prest,
+            desc,
+            total
+          ]);
+        }
+      });
+    });
+
+    if (rows.length === 0) {
+      showNotif(`⚠️ No hay comisiones en ${mesFiltro}`, 'warning');
+      return;
+    }
+
+    const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
+    descargarExcel(`Comisiones_${mesFiltro}_${sufijo}.xlsx`, 'Comisiones', headers, rows);
+  } catch (error) {
+    console.error('Error en descargarComisiones:', error);
+    showNotif(`❌ Error: ${error.message}`, 'error');
+  }
 }
 
 // Reporte: Ingresos Detallados
@@ -5391,36 +5429,50 @@ function descargarGastos(mes) {
 
 // Reporte: Resumen Financiero
 function descargarResumenFinanciero(mes, quincena) {
-  const meses = getMeses();
-  const mesFiltro = mes || meses[meses.length-1];
+  try {
+    const meses = getMeses();
+    const mesFiltro = mes || meses[meses.length-1];
 
-  const headers = ['Período', 'Ingresos', 'Nómina Pagada', 'Otros Gastos', 'Utilidad', 'ROI %'];
-  const rows = [];
+    if (!mesFiltro) {
+      showNotif('⚠️ No hay mes disponible', 'error');
+      return;
+    }
 
-  if (quincena && quincena !== 'ambas') {
-    // Una quincena específica
-    const q = parseInt(quincena);
-    if (!isNaN(q)) {
-      const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0) / 2;
-      const nomina = calcNominaQuincena(mesFiltro, q);
-      const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0) / 2;
+    const headers = ['Período', 'Ingresos', 'Nómina Pagada', 'Otros Gastos', 'Utilidad', 'ROI %'];
+    const rows = [];
+
+    if (quincena && quincena !== 'ambas') {
+      // Una quincena específica
+      const q = parseInt(quincena);
+      if (!isNaN(q)) {
+        const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0) / 2;
+        const nomina = calcNominaQuincena(mesFiltro, q);
+        const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0) / 2;
+        const utilidad = ings - nomina - gastos;
+        const roi = ings > 0 ? (utilidad / ings * 100) : 0;
+        rows.push([`${mesFiltro} - Q${q}`, ings.toFixed(2), nomina.toFixed(2), gastos.toFixed(2), utilidad.toFixed(2), roi.toFixed(2)]);
+      }
+    } else {
+      // Mes completo (ambas quincenas)
+      const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0);
+      const nomina = (calcNominaQuincena(mesFiltro, 1) || 0) + (calcNominaQuincena(mesFiltro, 2) || 0);
+      const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0);
       const utilidad = ings - nomina - gastos;
       const roi = ings > 0 ? (utilidad / ings * 100) : 0;
-      rows.push([`${mesFiltro} - Q${q}`, ings.toFixed(2), nomina.toFixed(2), gastos.toFixed(2), utilidad.toFixed(2), roi.toFixed(2)]);
+      rows.push([mesFiltro, ings.toFixed(2), nomina.toFixed(2), gastos.toFixed(2), utilidad.toFixed(2), roi.toFixed(2)]);
     }
-  } else {
-    // Mes completo (ambas quincenas)
-    const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro).reduce((s,i)=>s+parseFloat(i.monto||0),0);
-    const nomina = (calcNominaQuincena(mesFiltro, 1) || 0) + (calcNominaQuincena(mesFiltro, 2) || 0);
-    const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro).reduce((s,g)=>s+parseFloat(g.monto||0),0);
-    const utilidad = ings - nomina - gastos;
-    const roi = ings > 0 ? (utilidad / ings * 100) : 0;
-    rows.push([mesFiltro, ings.toFixed(2), nomina.toFixed(2), gastos.toFixed(2), utilidad.toFixed(2), roi.toFixed(2)]);
-  }
 
-  const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
-  descargarExcel(`Resumen_Financiero_${mesFiltro}_${sufijo}.xlsx`, 'Resumen', headers, rows);
-  showNotif('✅ Resumen financiero descargado');
+    if (rows.length === 0) {
+      showNotif('⚠️ No hay datos para el resumen', 'warning');
+      return;
+    }
+
+    const sufijo = quincena === 'ambas' ? 'completo' : `Q${quincena}`;
+    descargarExcel(`Resumen_Financiero_${mesFiltro}_${sufijo}.xlsx`, 'Resumen', headers, rows);
+  } catch (error) {
+    console.error('Error en descargarResumenFinanciero:', error);
+    showNotif(`❌ Error: ${error.message}`, 'error');
+  }
 }
 
 // Reporte: Informe Completo de Quincena (todo en uno)
