@@ -3335,7 +3335,14 @@ function renderAgenteVentas() {
     const rsiEmoji = isRSIPaid ? '✅' : '❌';
     const rsiText = isRSIPaid ? 'PAGADO' : 'PENDIENTE';
 
-    return `<tr>
+    // Verificar si la quincena está cerrada
+    const periodo = getPeríodoPago(v);
+    const estaCerrada = estaQuincenaCerrada(periodo.mes, periodo.q);
+    const btnEliminar = estaCerrada
+      ? `<span style="color:#F2545B;font-weight:700;font-size:11px">🔒 CERRADA</span>`
+      : `<button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id});renderAgentes()">✕</button>`;
+
+    return `<tr style="opacity:${estaCerrada ? '0.7' : '1'}">
     <td style="color:#99ACC2">${i+1}</td>
     <td>${v.fecha}</td>
     <td style="font-weight:600">${getProdNombre(v.productoId)}</td>
@@ -3345,7 +3352,7 @@ function renderAgenteVentas() {
     <td style="font-weight:700;color:#00BDA5">${fmt(getComision(v)*v.cantidad)}</td>
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
     <td style="text-align:center;background:${rsiBg};border-radius:6px;color:${rsiColor};font-weight:700;font-size:11px;padding:4px 8px">${rsiEmoji} ${rsiText}</td>
-    <td><button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id});renderAgentes()">✕</button></td>
+    <td style="text-align:center">${btnEliminar}</td>
   </tr>`;
   }).join('') : '<tr><td colspan="10" class="tbl-empty">Sin ventas</td></tr>';
 }
@@ -3763,33 +3770,71 @@ function getExtra(tipo, agente, mes) {
 
 function extraInput(tipo, agente, mes, color, placeholder) {
   const val = getExtra(tipo, agente, mes);
-  return `<input type="number" min="0" step="0.01" value="${val||''}" placeholder="${placeholder}"
-    style="width:78px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:${color};outline:none;text-align:right"
+  // Verificar si la quincena está cerrada
+  const qMatch = mes.match(/Q([12])$/);
+  let estaCerrada = false;
+  if(qMatch) {
+    const mesNombre = mes.substring(0, mes.length - 2);
+    const quincena = parseInt(qMatch[1]);
+    estaCerrada = estaQuincenaCerrada(mesNombre, quincena);
+  }
+  const disabled = estaCerrada ? 'disabled' : '';
+  const bgColor = estaCerrada ? '#F5F8FA' : '#fff';
+  const opacity = estaCerrada ? '0.6' : '1';
+  const cursor = estaCerrada ? 'not-allowed' : 'text';
+  return `<input type="number" min="0" step="0.01" value="${val||''}" placeholder="${placeholder}" ${disabled}
+    style="width:78px;background:${bgColor};border:1.5px solid ${estaCerrada ? '#CBD6E2' : color};border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:${color};outline:none;text-align:right;opacity:${opacity};cursor:${cursor}"
     onchange="setExtra('${tipo}','${agente.replace(/'/g,"\\'")}','${mes}',this.value);renderPagos()"
-    onfocus="this.style.borderColor='${color}'" onblur="this.style.borderColor='#CBD6E2'">`;
+    onfocus="this.style.borderColor='${color}'" onblur="this.style.borderColor='${estaCerrada ? '#CBD6E2' : '#CBD6E2'}'"
+    title="${estaCerrada ? '🔒 Quincena cerrada' : ''}">`;
 }
 
 function extraInputHQ(tipo, agente, mes, color, placeholder) {
   const val = getExtra(tipo, agente, mes);
-  return `<input type="number" min="0" step="0.01" value="${val||''}" placeholder="${placeholder}"
-    style="width:78px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:${color};outline:none;text-align:right"
+  // Verificar si la quincena está cerrada
+  const qMatch = mes.match(/Q([12])$/);
+  let estaCerrada = false;
+  if(qMatch) {
+    const mesNombre = mes.substring(0, mes.length - 2);
+    const quincena = parseInt(qMatch[1]);
+    estaCerrada = estaQuincenaCerrada(mesNombre, quincena);
+  }
+  const disabled = estaCerrada ? 'disabled' : '';
+  const bgColor = estaCerrada ? '#F5F8FA' : '#fff';
+  const opacity = estaCerrada ? '0.6' : '1';
+  const cursor = estaCerrada ? 'not-allowed' : 'text';
+  return `<input type="number" min="0" step="0.01" value="${val||''}" placeholder="${placeholder}" ${disabled}
+    style="width:78px;background:${bgColor};border:1.5px solid ${estaCerrada ? '#CBD6E2' : color};border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:${color};outline:none;text-align:right;opacity:${opacity};cursor:${cursor}"
     onchange="setExtra('${tipo}','${agente.replace(/'/g,"\\'")}','${mes}',this.value);renderHQ()"
-    onfocus="this.style.borderColor='${color}'" onblur="this.style.borderColor='#CBD6E2'">`;
+    onfocus="this.style.borderColor='${color}'" onblur="this.style.borderColor='${estaCerrada ? '#CBD6E2' : '#CBD6E2'}'"
+    title="${estaCerrada ? '🔒 Quincena cerrada' : ''}">`;
 }
 
 // Input de bono con descripción
 function bonoInputConDesc(agente, mes, renderFunc) {
   const val = getExtra('bono', agente, mes);
   const desc = getExtra('bonodesc', agente, mes);
-  return `<div style="display:flex;gap:4px;align-items:center">
-    <input type="number" min="0" step="0.01" value="${val||''}" placeholder="0.00"
-      style="width:65px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:#6A78D1;outline:none;text-align:right"
+  // Verificar si la quincena está cerrada
+  const qMatch = mes.match(/Q([12])$/);
+  let estaCerrada = false;
+  if(qMatch) {
+    const mesNombre = mes.substring(0, mes.length - 2);
+    const quincena = parseInt(qMatch[1]);
+    estaCerrada = estaQuincenaCerrada(mesNombre, quincena);
+  }
+  const disabled = estaCerrada ? 'disabled' : '';
+  const bgColor = estaCerrada ? '#F5F8FA' : '#fff';
+  const opacity = estaCerrada ? '0.6' : '1';
+  const cursor = estaCerrada ? 'not-allowed' : 'text';
+  return `<div style="display:flex;gap:4px;align-items:center;opacity:${opacity}">
+    <input type="number" min="0" step="0.01" value="${val||''}" placeholder="0.00" ${disabled}
+      style="width:65px;background:${bgColor};border:1.5px solid ${estaCerrada ? '#CBD6E2' : '#6A78D1'};border-radius:6px;padding:4px 7px;font-size:12px;font-weight:600;color:#6A78D1;outline:none;text-align:right;cursor:${cursor}"
       onchange="setExtra('bono','${agente.replace(/'/g,"\\'")}','${mes}',this.value);${renderFunc}()"
-      onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='#CBD6E2'" title="Monto del bono">
-    <input type="text" value="${desc||''}" placeholder="motivo"
-      style="width:90px;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 7px;font-size:11px;color:#6A78D1;outline:none"
+      onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='${estaCerrada ? '#CBD6E2' : '#CBD6E2'}'" title="${estaCerrada ? '🔒 Quincena cerrada' : 'Monto del bono'}">
+    <input type="text" value="${desc||''}" placeholder="motivo" ${disabled}
+      style="width:90px;background:${bgColor};border:1.5px solid ${estaCerrada ? '#CBD6E2' : '#6A78D1'};border-radius:6px;padding:4px 7px;font-size:11px;color:#6A78D1;outline:none;cursor:${cursor}"
       onchange="setExtra('bonodesc','${agente.replace(/'/g,"\\'")}','${mes}',this.value);${renderFunc}()"
-      onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='#CBD6E2'" title="Descripción del bono (ej: Activaciones, Meta alcanzada)">
+      onfocus="this.style.borderColor='#6A78D1'" onblur="this.style.borderColor='${estaCerrada ? '#CBD6E2' : '#CBD6E2'}'" title="${estaCerrada ? '🔒 Quincena cerrada' : 'Descripción del bono (ej: Activaciones, Meta alcanzada)'}">
   </div>`;
 }
 
