@@ -5690,15 +5690,18 @@ function renderTop() {
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('chargebacks',this)">🔴 Chargebacks</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('rsi',this)">💳 RS&I Pagos</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('config',this)">⚙️ Config</button>
       </div>
     </div>
     <div class="priv-section active" id="top-roi"></div>
     <div class="priv-section" id="top-chargebacks"></div>
+    <div class="priv-section" id="top-rsi"></div>
     <div class="priv-section" id="top-config"></div>
   `;
   renderTopROI();
   renderTopChargebacks();
+  renderTopRSI();
   renderTopConfig();
 }
 
@@ -6445,6 +6448,142 @@ function eliminarGasto(id) {
   if(!confirm('¿Eliminar este gasto?')) return;
   appData.gastos = (appData.gastos||[]).filter(g=>g.id!==id);
   guardar(); renderTopROI(); showNotif('🗑️ Gasto eliminado');
+}
+
+// ============================================================
+// RS&I PAGOS
+// ============================================================
+function renderTopRSI() {
+  if(!appData.rsIPagos) appData.rsIPagos = [];
+
+  const processRSIData = () => {
+    const textarea = document.getElementById('rsi-input-data');
+    const lines = textarea.value.trim().split('\n').filter(l=>l.trim());
+
+    if(lines.length === 0) {
+      showNotif('⚠️ Pega datos de RS&I', 'error');
+      return;
+    }
+
+    lines.forEach(line => {
+      const parts = line.split('|').map(p=>p.trim());
+      if(parts.length >= 3) {
+        const cliente = parts[0];
+        const producto = parts[1];
+        const fecha = parts[2];
+        const key = `${cliente}||${producto}||${fecha}`;
+
+        if(!appData.rsIPagos.includes(key)) {
+          appData.rsIPagos.push(key);
+        }
+      }
+    });
+
+    guardar();
+    textarea.value = '';
+    showNotif(`✅ Marcadas ${lines.length} ventas de RS&I como pagadas`);
+    renderTopRSI();
+  };
+
+  const isRSIPaid = (venta) => {
+    const key = `${venta.cliente||''}||${venta.productoId||''}||${venta.fecha||''}`;
+    return appData.rsIPagos.includes(key);
+  };
+
+  // Agrupar ventas por cliente, producto, fecha
+  const ventasMap = {};
+  (appData.ventas||[]).forEach(v => {
+    const key = `${v.cliente||''}||${v.productoId||''}||${v.fecha||''}`;
+    if(!ventasMap[key]) {
+      ventasMap[key] = { cliente: v.cliente, producto: v.productoId, fecha: v.fecha, ventas: [], paidByRSI: isRSIPaid(v) };
+    }
+    ventasMap[key].ventas.push(v);
+  });
+
+  const ventasRows = Object.values(ventasMap).map(group => {
+    const agentes = [...new Set(group.ventas.map(v=>v.agente))].join(', ');
+    const totalComision = group.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+    const statusColor = group.paidByRSI ? '#00BDA5' : '#F2545B';
+    const statusEmoji = group.paidByRSI ? '✅' : '❌';
+    const statusText = group.paidByRSI ? 'PAGADO' : 'PENDIENTE';
+
+    return `<tr>
+      <td style="font-weight:600">${group.cliente||'—'}</td>
+      <td>${group.producto||'—'}</td>
+      <td>${group.fecha||'—'}</td>
+      <td>${agentes}</td>
+      <td style="text-align:right;font-weight:700;color:#009FDB">$${totalComision.toFixed(2)}</td>
+      <td style="text-align:center;color:${statusColor};font-weight:700">${statusEmoji} ${statusText}</td>
+      <td style="text-align:center">
+        <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${group.producto}','${group.fecha}')" style="padding:3px 6px;font-size:9px">✕</button>
+      </td>
+    </tr>`;
+  });
+
+  document.getElementById('top-rsi').innerHTML = `
+    <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff">
+      <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:14px">💳 Marcar Pagos de RS&I</h3>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega datos: Cliente | Producto | Fecha</label>
+        <textarea id="rsi-input-data" style="width:100%;min-height:80px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:12px;resize:vertical" placeholder="ARMANDO DE JESUS AGUIRRE|iPhone 17 Pro|6/23/2026&#10;ROBERTO PALMA|Samsung Galaxy|6/23/2026"></textarea>
+      </div>
+
+      <button class="btn btn-primary" onclick="(() => {
+        const textarea = document.getElementById('rsi-input-data');
+        const lines = textarea.value.trim().split('\\n').filter(l=>l.trim());
+        if(lines.length === 0) { showNotif('⚠️ Pega datos de RS&I', 'error'); return; }
+        lines.forEach(line => {
+          const parts = line.split('|').map(p=>p.trim());
+          if(parts.length >= 3) {
+            const cliente = parts[0];
+            const producto = parts[1];
+            const fecha = parts[2];
+            const key = cliente + '||' + producto + '||' + fecha;
+            if(!appData.rsIPagos.includes(key)) {
+              appData.rsIPagos.push(key);
+            }
+          }
+        });
+        guardar();
+        textarea.value = '';
+        showNotif('✅ Marcadas ' + lines.length + ' ventas de RS&I como pagadas');
+        renderTopRSI();
+      })()" style="margin-bottom:16px">📥 Procesar Datos</button>
+
+      <h3 style="font-size:13px;font-weight:700;color:#33475B;margin-top:20px;margin-bottom:12px">Estado de Ventas</h3>
+      <div class="tbl-wrap" style="max-height:400px;overflow-y:auto">
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Producto</th>
+              <th>Fecha</th>
+              <th>Vendedor(es)</th>
+              <th>Comisión</th>
+              <th>RS&I</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ventasRows.length > 0 ? ventasRows.join('') : '<tr><td colspan="7" style="text-align:center;color:#99ACC2;padding:20px">No hay ventas registradas</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:16px;padding:12px;background:#EAF7FB;border-radius:8px;font-size:11px;color:#0057A8;border-left:4px solid #009FDB">
+        <strong>📊 Resumen:</strong> ${Object.values(ventasMap).filter(v=>v.paidByRSI).length} pagadas de RS&I / ${Object.values(ventasMap).length} total
+      </div>
+    </div>
+  `;
+}
+
+function eliminarRSIPago(cliente, producto, fecha) {
+  const key = cliente + '||' + producto + '||' + fecha;
+  appData.rsIPagos = (appData.rsIPagos||[]).filter(k=>k!==key);
+  guardar();
+  renderTopRSI();
+  showNotif('🗑️ Venta desmarcada como pagada');
 }
 
 function renderTopChargebacks() {
