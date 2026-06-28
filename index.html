@@ -6179,19 +6179,22 @@ function renderTop() {
         <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">⭐ TOP</h2>
         <div style="font-size:11px;color:#99ACC2">ROI & Finanzas — Solo tú tienes acceso</div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('bravo',this)">🏪 Bravo</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('chargebacks',this)">🔴 Chargebacks</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('rsi',this)">💳 RS&I Pagos</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('config',this)">⚙️ Config</button>
       </div>
     </div>
     <div class="priv-section active" id="top-roi"></div>
+    <div class="priv-section" id="top-bravo"></div>
     <div class="priv-section" id="top-chargebacks"></div>
     <div class="priv-section" id="top-rsi"></div>
     <div class="priv-section" id="top-config"></div>
   `;
   renderTopROI();
+  renderTopBravo();
   renderTopChargebacks();
   renderTopRSI();
   renderTopConfig();
@@ -7141,6 +7144,96 @@ function eliminarRSIPago(cliente, fecha) {
   guardar();
   renderTopRSI();
   showNotif('🗑️ Cliente desmarcado como pagado');
+}
+
+function renderTopBravo() {
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
+
+  const mesActual = new Date().getMonth() + 1;
+  const añoActual = new Date().getFullYear();
+
+  const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
+    const d = new Date(r.fecha);
+    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
+  });
+
+  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0);
+  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 1300;
+  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 585;
+
+  // Calcular viernes del mes
+  const viernes = new Date(añoActual, mesActual - 1, 1);
+  let countViernes = 0;
+  while(viernes.getMonth() + 1 === mesActual && viernes.getFullYear() === añoActual) {
+    if(viernes.getDay() === 5) countViernes++;
+    viernes.setDate(viernes.getDate() + 1);
+  }
+
+  const sueldoTotal = sueldoSemanal * countViernes;
+  const gastosTotales = rentaMensual + sueldoTotal;
+  const gananciaNeta = gananciaMes - gastosTotales;
+  const porcentajeCobertura = (gananciaMes / gastosTotales * 100).toFixed(1);
+
+  // Desglose por categoría
+  const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
+  const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0);
+  const reparacionesMes = reportesMes.reduce((s, r) => s + (r.reparaciones ? r.reparaciones.length : 0), 0);
+  const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
+  const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
+
+  document.getElementById('top-bravo').innerHTML = `
+    <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff;margin-bottom:20px">
+      <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:16px">🏪 Resumen de Bravo</h3>
+
+      <div class="cards" style="margin-bottom:20px">
+        <div class="card green">
+          <label>💰 Ganancia Bruta Mes</label>
+          <div class="val">${fmt(gananciaMes)}</div>
+          <div class="sub">${reportesMes.length} días registrados</div>
+        </div>
+        <div class="card orange">
+          <label>💸 Gastos Fijos Mes</label>
+          <div class="val">${fmt(gastosTotales)}</div>
+          <div class="sub">Renta ($${rentaMensual}) + Sueldo ($${sueldoTotal})</div>
+        </div>
+        <div class="card blue">
+          <label>💵 Ganancia NETA</label>
+          <div class="val" style="color:${gananciaNeta >= 0 ? '#00BDA5' : '#E04048'}">${fmt(Math.abs(gananciaNeta))}</div>
+          <div class="sub">${gananciaNeta >= 0 ? '✅ Rentable' : '❌ En pérdida'}</div>
+        </div>
+        <div class="card purple">
+          <label>🎯 Cobertura de Gastos</label>
+          <div class="val">${porcentajeCobertura}%</div>
+          <div class="sub">${gananciaMes >= gastosTotales ? '✅ Cubre costos' : `❌ Falta $${fmt(gastosTotales - gananciaMes)}`}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB">
+          <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción Mes</div>
+          <div style="font-size:11px;color:#7C98B6">
+            <div>🏷️ Accesorios: <span style="font-weight:600;color:#33475B">${accesoriosMes}</span></div>
+            <div>📱 Lycas: <span style="font-weight:600;color:#33475B">${lycasMes}</span></div>
+            <div>🔧 Reparaciones: <span style="font-weight:600;color:#33475B">${reparacionesMes}</span></div>
+            <div>📦 Combos: <span style="font-weight:600;color:#33475B">${combosMes}</span></div>
+            <div>📲 Teléfonos: <span style="font-weight:600;color:#33475B">${telefonosMes}</span></div>
+          </div>
+        </div>
+        <div style="background:#EAF7FB;border-radius:8px;padding:12px;border-left:3px solid #0057A8">
+          <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📈 Promedio Diario</div>
+          <div style="font-size:11px;color:#7C98B6">
+            <div>Ganancia: <span style="font-weight:600;color:#00BDA5">$${fmt(reportesMes.length > 0 ? gananciaMes / reportesMes.length : 0)}</span></div>
+            <div>Productos: <span style="font-weight:600;color:#33475B">${reportesMes.length > 0 ? ((accesoriosMes + lycasMes + reparacionesMes + combosMes + telefonosMes) / reportesMes.length).toFixed(1) : 0}</span></div>
+            <div>Total Registrados: <span style="font-weight:600;color:#33475B">${reportesMes.length}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:center">
+        <button class="btn btn-primary btn-sm" onclick="showPage('bravo-dashboard')">👀 Ver Dashboard Completo</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderTopChargebacks() {
@@ -9281,6 +9374,7 @@ function bravoROI() {
 
 // Estructura de datos temporal para el formulario
 let bravoRegistroTemp = {
+  id: null,
   fecha: new Date().toISOString().split('T')[0],
   accesorios: [],
   lycas: [],
@@ -9290,19 +9384,28 @@ let bravoRegistroTemp = {
   actividades: []
 };
 
-// Abrir formulario de registro diario
-function abrirFormularioRegistroDiario() {
-  bravoRegistroTemp = {
-    fecha: new Date().toISOString().split('T')[0],
-    accesorios: [],
-    lycas: [],
-    reparaciones: [],
-    combos: [],
-    telefonos: [],
-    actividades: []
-  };
+// Abrir formulario de registro diario (nuevo o editar)
+function abrirFormularioRegistroDiario(id=null) {
+  if(id) {
+    const registro = appData.bravo.reportesDiarios.find(r => r.id === id);
+    if(!registro) { showNotif('⚠️ Registro no encontrado','error'); return; }
+    bravoRegistroTemp = JSON.parse(JSON.stringify(registro));
+    document.getElementById('modal-bravo-titulo').textContent = '✏️ Editar Registro Diario - Bravo';
+  } else {
+    bravoRegistroTemp = {
+      id: null,
+      fecha: new Date().toISOString().split('T')[0],
+      accesorios: [],
+      lycas: [],
+      reparaciones: [],
+      combos: [],
+      telefonos: [],
+      actividades: []
+    };
+    document.getElementById('modal-bravo-titulo').textContent = '➕ Nuevo Registro Diario - Bravo';
+  }
+
   document.getElementById('bravo-fecha').value = bravoRegistroTemp.fecha;
-  document.getElementById('modal-bravo-titulo').textContent = '➕ Nuevo Registro Diario - Bravo';
 
   // Limpiar todas las listas
   document.getElementById('bravo-accesorios-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin accesorios agregados</div>';
@@ -9311,6 +9414,14 @@ function abrirFormularioRegistroDiario() {
   document.getElementById('bravo-combos-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin combos agregados</div>';
   document.getElementById('bravo-telefonos-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin teléfonos agregados</div>';
   document.getElementById('bravo-douglas-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin actividades registradas</div>';
+
+  // Renderizar listas si es edición
+  bravoRenderListaAccesorios();
+  bravoRenderListaLycas();
+  bravoRenderListaReparaciones();
+  bravoRenderListaCombos();
+  bravoRenderListaTelefonos();
+  bravoRenderListaActividades();
 
   // Cambiar a primera pestaña
   bravoCambiarTab('accesorios');
@@ -9680,13 +9791,57 @@ function bravoGuardarRegistro() {
     timestamp: new Date().toISOString()
   };
 
-  appData.bravo.reportesDiarios.push(registro);
-  appData.bravo.nextDiarioId++;
+  if(bravoRegistroTemp.id) {
+    // EDITAR REGISTRO EXISTENTE
+    const idx = appData.bravo.reportesDiarios.findIndex(r => r.id === bravoRegistroTemp.id);
+    if(idx === -1) { showNotif('⚠️ Registro no encontrado','error'); return; }
 
-  guardar();
-  closeModal('modal-bravo-registro');
-  bravoDashboard();
-  showNotif('✅ Registro guardado exitosamente');
+    appData.bravo.reportesDiarios[idx] = {
+      id: bravoRegistroTemp.id,
+      fecha,
+      accesorios: bravoRegistroTemp.accesorios,
+      lycas: bravoRegistroTemp.lycas,
+      reparaciones: bravoRegistroTemp.reparaciones,
+      combos: bravoRegistroTemp.combos,
+      telefonos: bravoRegistroTemp.telefonos,
+      actividades: bravoRegistroTemp.actividades,
+      gananciaTotal,
+      productosCount: bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length,
+      actividadesCount: bravoRegistroTemp.actividades.length,
+      categoria: 'Múltiple',
+      timestamp: appData.bravo.reportesDiarios[idx].timestamp
+    };
+
+    guardar();
+    closeModal('modal-bravo-registro');
+    bravoRegistros();
+    showNotif('✅ Registro actualizado');
+  } else {
+    // CREAR NUEVO REGISTRO
+    const registro = {
+      id: appData.bravo.nextDiarioId,
+      fecha,
+      accesorios: bravoRegistroTemp.accesorios,
+      lycas: bravoRegistroTemp.lycas,
+      reparaciones: bravoRegistroTemp.reparaciones,
+      combos: bravoRegistroTemp.combos,
+      telefonos: bravoRegistroTemp.telefonos,
+      actividades: bravoRegistroTemp.actividades,
+      gananciaTotal,
+      productosCount: bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length,
+      actividadesCount: bravoRegistroTemp.actividades.length,
+      categoria: 'Múltiple',
+      timestamp: new Date().toISOString()
+    };
+
+    appData.bravo.reportesDiarios.push(registro);
+    appData.bravo.nextDiarioId++;
+
+    guardar();
+    closeModal('modal-bravo-registro');
+    bravoDashboard();
+    showNotif('✅ Registro guardado exitosamente');
+  }
 }
 
 // Caja Chica
@@ -9797,7 +9952,7 @@ function eliminarCajaChica(idx) {
 
 // Editar registro
 function editarRegistroDiario(id) {
-  showNotif('🚧 Edición en construcción','info');
+  abrirFormularioRegistroDiario(id);
 }
 
 // Eliminar registro
