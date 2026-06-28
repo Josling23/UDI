@@ -5219,6 +5219,18 @@ function descargarResumenClick() {
   document.getElementById('menu-descargar').style.display = 'none';
 }
 
+function cerrarQuincenaClick(q) {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  cerrarQuincena(mes, q);
+}
+
+function reabrirQuincenaClick(q) {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
+  reabrirQuincena(mes, q);
+}
+
 // Descargar CSV genérico
 function descargarCSV(filename, rows, headers) {
   let csv = headers.join(',') + '\n';
@@ -5832,7 +5844,7 @@ function renderTopROI() {
                   <div style="font-size:12px;font-weight:700;color:#33475B">Q1 (1-14)</div>
                   <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q1Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
                 </div>
-                <button class="btn ${q1Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q1Cerrada?`reabrirQuincena('${selMes}',1);renderTopROI()`:`cerrarQuincena('${selMes}',1);renderTopROI()`}">
+                <button class="btn ${q1Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q1Cerrada?`reabrirQuincenaClick(1)`:`cerrarQuincenaClick(1)`}">
                   ${q1Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
                 </button>
               </div>
@@ -5846,7 +5858,7 @@ function renderTopROI() {
                   <div style="font-size:12px;font-weight:700;color:#33475B">Q2 (15-fin)</div>
                   <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q2Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
                 </div>
-                <button class="btn ${q2Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q2Cerrada?`reabrirQuincena('${selMes}',2);renderTopROI()`:`cerrarQuincena('${selMes}',2);renderTopROI()`}">
+                <button class="btn ${q2Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q2Cerrada?`reabrirQuincenaClick(2)`:`cerrarQuincenaClick(2)`}">
                   ${q2Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
                 </button>
               </div>
