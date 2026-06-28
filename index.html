@@ -476,7 +476,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total</th><th>Cliente</th><th>✕</th></tr></thead>
+            <thead><tr><th>#</th><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total</th><th>Cliente</th><th>Vendedor</th><th>RS&I</th><th>✕</th></tr></thead>
             <tbody id="agente-ventas-body"></tbody>
           </table>
         </div>
@@ -3335,6 +3335,13 @@ function renderAgenteVentas() {
       ? `<span style="color:#F2545B;font-weight:700;font-size:11px">🔒 CERRADA</span>`
       : `<button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id});renderAgentes()">✕</button>`;
 
+    // Verificar estado de RS&I
+    const rsIKey = `${v.cliente||''}||${v.fecha||''}`;
+    const esPagadoRSI = (appData.rsIPagos||[]).includes(rsIKey);
+    const rsiColor = esPagadoRSI ? '#00BDA5' : '#F2545B';
+    const rsiEmoji = esPagadoRSI ? '✅' : '⚠️';
+    const rsiText = esPagadoRSI ? 'PAGADO' : 'PENDIENTE';
+
     return `<tr style="opacity:${estaCerrada ? '0.7' : '1'}">
     <td style="color:#99ACC2">${i+1}</td>
     <td>${v.fecha}</td>
@@ -3344,9 +3351,11 @@ function renderAgenteVentas() {
     <td style="color:#7C98B6">${fmt(getComision(v))}</td>
     <td style="font-weight:700;color:#00BDA5">${fmt(getComision(v)*v.cantidad)}</td>
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
+    <td style="font-weight:600;color:#33475B">${v.agente||'—'}</td>
+    <td style="text-align:center;background:${esPagadoRSI ? '#E8F9F7' : '#FFF0F0'};border-radius:6px;color:${rsiColor};font-weight:700;font-size:11px;padding:4px 8px">${rsiEmoji} ${rsiText}</td>
     <td style="text-align:center">${btnEliminar}</td>
   </tr>`;
-  }).join('') : '<tr><td colspan="9" class="tbl-empty">Sin ventas</td></tr>';
+  }).join('') : '<tr><td colspan="11" class="tbl-empty">Sin ventas</td></tr>';
 }
 
 function onRolChange() {
