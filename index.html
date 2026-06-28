@@ -323,9 +323,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
-      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
-    </div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <nav class="sidebar-nav" id="sidebar-nav-hq" style="display:none">
@@ -333,9 +331,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item active" onclick="showPage('hq',this)"><span class="icon">💼</span><span>Pagos & Comisiones</span></div>
     <div class="nav-item" id="nav-hq-gerente" style="display:none" onclick="showPage('hq-gerente',this)"><span class="icon">🏢</span><span>Gerente General</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
-      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
-    </div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
@@ -343,9 +339,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
-      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
-    </div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <nav class="sidebar-nav" id="sidebar-nav-salud" style="display:none">
@@ -359,9 +353,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('salud-pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
-    <div class="nav-item" style="color:rgba(255,100,100,0.7);position:relative" onclick="toggleMenuCambiarArea()"><span class="icon">🔀</span><span>Ir a Área</span>
-      <div id="menu-cambiar-area" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:#1a0008;border:1px solid rgba(255,255,255,0.1);border-radius:8px;margin-bottom:8px;z-index:1000;box-shadow:0 -4px 12px rgba(0,0,0,0.3)"></div>
-    </div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
   <div class="sidebar-footer">Dealer #594193 · USA Distributor</div>
@@ -4383,50 +4375,6 @@ function mostrarAreas() {
   document.getElementById('app-wrap').style.display     = 'none';
 }
 
-function construirMenuCambiarArea() {
-  const email = currentUser ? currentUser.email : '';
-  const perms = getUserPermissions(email);
-
-  if (!perms) return;
-
-  const puedeAdmin  = perms.areas.includes('admin');
-  const puedeHQ     = perms.areas.includes('hq');
-  const puedeTop    = perms.areas.includes('top');
-  const puedeSalud  = perms.areas.includes('salud');
-
-  // Construir opciones del menú
-  let opciones = '';
-
-  if (puedeAdmin) {
-    opciones += `<div onclick="cambiarArea('admin')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#fff;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(255,255,255,0.1);this.style.borderLeftColor='#009FDB'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
-      📋 Administración
-    </div>`;
-  }
-
-  if (puedeTop) {
-    opciones += `<div onclick="cambiarArea('top')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#FFD700;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(255,215,0,0.1);this.style.borderLeftColor='#FFD700'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
-      ⭐ TOP
-    </div>`;
-  }
-
-  if (puedeHQ) {
-    opciones += `<div onclick="cambiarArea('hq')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#fff;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(255,255,255,0.1);this.style.borderLeftColor='#009FDB'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
-      🏛️ HEADQUARTERS
-    </div>`;
-  }
-
-  if (puedeSalud) {
-    opciones += `<div onclick="cambiarArea('salud')" style="padding:10px 14px;cursor:pointer;border-radius:6px;font-size:12px;color:#00BDA5;transition:all 0.15s;border-left:3px solid transparent" onmouseover="this.style.background='rgba(0,189,165,0.1);this.style.borderLeftColor='#00BDA5'" onmouseout="this.style.background='transparent';this.style.borderLeftColor='transparent'">
-      💚 SALUD & DENTAL
-    </div>`;
-  }
-
-  const menu = document.getElementById('menu-cambiar-area');
-  if (menu) {
-    menu.innerHTML = opciones;
-  }
-}
-
 function abrirArea(area) {
   // Verificar permisos
   const email = currentUser ? currentUser.email : '';
@@ -4437,13 +4385,10 @@ function abrirArea(area) {
 
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'flex';
-  document.getElementById('sidebar-nav-admin').style.display = area==='admin'  ? 'flex' : 'none';
-  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'     ? 'flex' : 'none';
-  document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'flex' : 'none';
-  document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'flex' : 'none';
-
-  // Construir menú de áreas disponibles
-  construirMenuCambiarArea();
+  document.getElementById('sidebar-nav-admin').style.display = area==='admin'  ? 'block' : 'none';
+  document.getElementById('sidebar-nav-hq').style.display    = area==='hq'     ? 'block' : 'none';
+  document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'block' : 'none';
+  document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
 
   // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
   if (area === 'hq') {
@@ -4457,56 +4402,18 @@ function abrirArea(area) {
   else if(area==='salud') { migrarDatosSaludReales().then(()=>cargarSalud()).then(()=>showPage('salud-dashboard', null)); }
 }
 
-function cambiarArea(area) {
-  const email = currentUser ? currentUser.email : '';
-  if (!userCanAccessArea(email, area)) {
-    showNotif('⚠️ No tienes permiso para acceder a este área', 'error');
-    return;
-  }
-
-  // Ocultar todos los sidebars
+function volverAreas() {
+  document.getElementById('app-wrap').style.display = 'none';
   document.getElementById('sidebar-nav-admin').style.display = 'none';
   document.getElementById('sidebar-nav-hq').style.display    = 'none';
   document.getElementById('sidebar-nav-top').style.display   = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
-
-  // Mostrar el sidebar del área seleccionada
-  document.getElementById('sidebar-nav-' + area).style.display = 'flex';
-
-  // Ocultar menú si está abierto
-  const menuCambiar = document.getElementById('menu-cambiar-area');
-  if (menuCambiar) menuCambiar.style.display = 'none';
-
-  // Mostrar la página dashboard del área si es necesario
-  if (area === 'admin') showPage('dashboard');
-  else if (area === 'top') showPage('top');
-  else if (area === 'hq') showPage('hq');
-  else if (area === 'salud') showPage('salud-dashboard');
-
-  showNotif(`✅ Entrando a ${area.toUpperCase()}...`);
-}
-
-function toggleMenuCambiarArea() {
-  const menu = document.getElementById('menu-cambiar-area');
-  if (!menu) return;
-  menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-}
-
-function cerrarSesion() {
-  firebase.auth().signOut().then(() => {
-    currentUser = null;
-    currentRole = null;
-    pinMode = false;
-    document.getElementById('app-wrap').style.display = 'none';
-    document.getElementById('sidebar-nav-admin').style.display = 'none';
-    document.getElementById('sidebar-nav-hq').style.display    = 'none';
-    document.getElementById('sidebar-nav-top').style.display   = 'none';
-    document.getElementById('sidebar-nav-salud').style.display = 'none';
+  if (pinMode) {
+    pinMode = false; currentRole = null;
     mostrarLogin();
-    showNotif('✅ Sesión cerrada');
-  }).catch(err => {
-    showNotif('❌ Error al cerrar sesión: ' + err.message, 'error');
-  });
+  } else {
+    mostrarAreas();
+  }
 }
 
 async function loginFirebase() {
