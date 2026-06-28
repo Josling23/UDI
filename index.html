@@ -6576,9 +6576,9 @@ function renderTopRSI() {
       <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:14px">💳 Marcar Pagos de RS&I</h3>
 
       <div style="margin-bottom:16px">
-        <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega nombres, Excel completo, o Cliente|Fecha</label>
-        <textarea id="rsi-input-data" style="width:100%;min-height:100px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Opción 1: Solo nombres (un por línea)&#10;Opción 2: Excel tab-separated (filas completas)&#10;Opción 3: Cliente|Fecha"></textarea>
-        <div style="font-size:10px;color:#99ACC2;margin-top:6px">ℹ️ Auto-detecta: nombres simples | Excel | Cliente|Fecha</div>
+        <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega nombres de clientes (uno por línea)</label>
+        <textarea id="rsi-input-data" style="width:100%;min-height:100px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:11px;resize:vertical" placeholder="ARMANDO&#10;ROBERTO&#10;EVELING&#10;OSWALDO"></textarea>
+        <div style="font-size:10px;color:#99ACC2;margin-top:6px">ℹ️ Busca por nombre parcial - marca TODAS las ventas con ese cliente</div>
       </div>
 
       <button class="btn btn-primary" onclick="(() => {
@@ -6623,11 +6623,12 @@ function renderTopRSI() {
                 processed++;
               }
             } else {
-              // Si no hay fecha, marcar TODAS las ventas con este cliente
+              // Si no hay fecha, marcar TODAS las ventas que contengan este nombre (búsqueda parcial)
               const clienteLower = cliente.toLowerCase().trim();
               (appData.ventas||[]).forEach(v => {
                 const ventaClienteLower = (v.cliente||'').toLowerCase().trim();
-                if(ventaClienteLower === clienteLower) {
+                // Busca si el nombre del cliente CONTIENE lo que pegaste
+                if(ventaClienteLower.includes(clienteLower)) {
                   const key = v.cliente + '||' + v.fecha;
                   if(!appData.rsIPagos.includes(key)) {
                     appData.rsIPagos.push(key);
