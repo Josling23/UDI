@@ -337,6 +337,7 @@ tr:hover td{background:#EAF0FB}
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
+    <div class="nav-item" onclick="showPage('bravo-dashboard',this)"><span class="icon">🏪</span><span>Bravo</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -571,6 +572,21 @@ tr:hover td{background:#EAF0FB}
     <!-- ===== USUARIOS (solo owner) ===== -->
     <div class="page" id="page-usuarios">
       <div id="usuarios-content"></div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- BRAVO PAGES (Accounting & Production)                   -->
+    <!-- ====================================================== -->
+    <div class="page" id="page-bravo-dashboard">
+      <div id="bravo-dashboard-content"></div>
+    </div>
+
+    <div class="page" id="page-bravo-registros">
+      <div id="bravo-registros-content"></div>
+    </div>
+
+    <div class="page" id="page-bravo-roi">
+      <div id="bravo-roi-content"></div>
     </div>
 
     <!-- ====================================================== -->
@@ -1633,6 +1649,11 @@ let appData = {
   gastosNomina: {},
   quincenasCerradas: {}, // Formato: { "Junio 2026-1": true, "Junio 2026-2": false }
   auditLog: [], // Array de eventos: { timestamp, user, action, mes, quincena }
+  bravo: {
+    reportesDiarios: [],
+    nextDiarioId: 1,
+    gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }
+  }
 };
 
 function normalizarAppData() {
@@ -1658,6 +1679,10 @@ function normalizarAppData() {
   if(!appData.gastosNomina) appData.gastosNomina = {};
   if(!appData.quincenasCerradas) appData.quincenasCerradas = {};
   if(!appData.auditLog) appData.auditLog = [];
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 } };
+  if(!appData.bravo.reportesDiarios) appData.bravo.reportesDiarios = [];
+  if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
+  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
 
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
@@ -2180,6 +2205,9 @@ const PAGE_TITLES = {
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
+  'bravo-dashboard':'🏪 Bravo — Dashboard',
+  'bravo-registros':'🏪 Bravo — Registros Diarios',
+  'bravo-roi':'🏪 Bravo — ROI',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-clientes':'💚 Salud — Clientes',
   'salud-agentes':'💚 Salud — Agentes',
@@ -2209,6 +2237,9 @@ function renderPage(name) {
   if(name==='admin') renderAdmin();
   if(name==='usuarios') renderUsuarios();
   if(name==='campanas') attRenderCampanas();
+  if(name==='bravo-dashboard') bravoDashboard();
+  if(name==='bravo-registros') bravoRegistros();
+  if(name==='bravo-roi') bravoROI();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-clientes') saludRenderClientes();
   if(name==='salud-agentes') saludRenderAgentes();
@@ -8677,6 +8708,258 @@ document.getElementById('topbar-date').textContent = hoy.toLocaleDateString('es-
 document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
   ' <button class="btn btn-ghost btn-sm" onclick="agregarMes()">➕ Mes</button>'
 );
+
+// ============================================================
+// BRAVO MODULE - Accounting & Production Tracking
+// ============================================================
+
+// Validar que el usuario es admin
+function validarAccesoBravo() {
+  const permisos = getUserRol();
+  if(!permisos || (permisos.indexOf('admin') === -1 && permisos.indexOf('gerente') === -1)) {
+    showNotif('⚠️ No tienes acceso a Bravo','error');
+    showPage('dashboard');
+    return false;
+  }
+  return true;
+}
+
+// Dashboard de Bravo - Vista principal
+function bravoDashboard() {
+  if(!validarAccesoBravo()) return;
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 } };
+
+  const hoy = new Date().toISOString().split('T')[0];
+  const reporteHoy = appData.bravo.reportesDiarios.find(r => r.fecha === hoy);
+
+  const gananciaHoy = reporteHoy ? (reporteHoy.gananciaTotal || 0) : 0;
+  const mesActual = new Date().getMonth() + 1;
+  const añoActual = new Date().getFullYear();
+  const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
+    const d = new Date(r.fecha);
+    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
+  });
+  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0);
+
+  document.getElementById('bravo-dashboard-content').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>🏪 Dashboard de Bravo</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
+          <button class="btn btn-success btn-sm" onclick="showPage('bravo-registros',document.querySelector('[onclick=\\'showPage(\\'bravo-registros\\')\\']'))" >📋 Ver Registros</button>
+          <button class="btn btn-info btn-sm" onclick="showPage('bravo-roi',document.querySelector('[onclick=\\'showPage(\\'bravo-roi\\')\\']'))">📊 Ver ROI</button>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card green">
+          <label>💰 Ganancia Hoy</label>
+          <div class="val">${fmt(gananciaHoy)}</div>
+          <div class="sub">${new Date().toLocaleDateString('es-US', {month: 'short', day: 'numeric'})}</div>
+        </div>
+        <div class="card blue">
+          <label>📈 Ganancia Este Mes</label>
+          <div class="val">${fmt(gananciaMes)}</div>
+          <div class="sub">${reportesMes.length} días registrados</div>
+        </div>
+        <div class="card orange">
+          <label>💵 Gastos Fijos Mensuales</label>
+          <div class="val">${fmt(appData.bravo.gastosFijos.rentaMensual)}</div>
+          <div class="sub">Renta: $1,300</div>
+        </div>
+        <div class="card purple">
+          <label>📊 Ganancia Neta (Después Gastos)</label>
+          <div class="val">${fmt(Math.max(0, gananciaMes - (appData.bravo.gastosFijos.rentaMensual + (appData.bravo.gastosFijos.sueldoSemanal * 4))))}</div>
+          <div class="sub">Sin sueldo Douglas</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h2>⚡ Últimos 5 Registros</h2>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Categoría Principal</th>
+                <th>Productos</th>
+                <th>Ganancia</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(appData.bravo.reportesDiarios||[]).sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 5).map(r => `
+                <tr>
+                  <td>${r.fecha}</td>
+                  <td>${r.categoria || '—'}</td>
+                  <td>${r.productosCount || 0} productos</td>
+                  <td style="font-weight:700;color:#00BDA5">${fmt(r.gananciaTotal || 0)}</td>
+                  <td>
+                    <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.id})">✏️</button>
+                    <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario(${r.id})">✕</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Registros Diarios
+function bravoRegistros() {
+  if(!validarAccesoBravo()) return;
+  document.getElementById('bravo-registros-content').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>📋 Registros Diarios de Bravo</h2>
+        <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fecha</th>
+              <th>Accesorios</th>
+              <th>Lycas</th>
+              <th>Reparaciones</th>
+              <th>Combos</th>
+              <th>Teléfonos</th>
+              <th>Ganancia Total</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="bravo-registros-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  const body = document.getElementById('bravo-registros-body');
+  const registros = (appData.bravo.reportesDiarios||[]).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  body.innerHTML = registros.length ? registros.map((r, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.fecha}</td>
+      <td>${r.accesorios ? r.accesorios.length : 0}</td>
+      <td>${r.lycas ? r.lycas.length : 0}</td>
+      <td>${r.reparaciones ? r.reparaciones.length : 0}</td>
+      <td>${r.combos ? r.combos.length : 0}</td>
+      <td>${r.telefonos ? r.telefonos.length : 0}</td>
+      <td style="font-weight:700;color:#00BDA5">${fmt(r.gananciaTotal || 0)}</td>
+      <td>
+        <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario(${r.id})">✕</button>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="9" class="tbl-empty">Sin registros</td></tr>';
+}
+
+// ROI de Bravo
+function bravoROI() {
+  if(!validarAccesoBravo()) return;
+
+  const mesActual = new Date().getMonth() + 1;
+  const añoActual = new Date().getFullYear();
+  const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
+    const d = new Date(r.fecha);
+    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
+  });
+
+  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0);
+  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 1300;
+  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 585;
+  const viernes = new Date(añoActual, mesActual - 1, 1);
+  let countViernes = 0;
+  while(viernes.getMonth() + 1 === mesActual && viernes.getFullYear() === añoActual) {
+    if(viernes.getDay() === 5) countViernes++;
+    viernes.setDate(viernes.getDate() + 1);
+  }
+  const sueldoTotal = sueldoSemanal * countViernes;
+  const gastosTotales = rentaMensual + sueldoTotal;
+  const gananciaNeta = gananciaMes - gastosTotales;
+  const puntoEquilibrio = gastosTotales;
+  const porcentajeCobertura = (gananciaMes / puntoEquilibrio * 100).toFixed(1);
+
+  document.getElementById('bravo-roi-content').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>📊 ROI de Bravo</h2>
+      </div>
+
+      <div class="cards">
+        <div class="card green">
+          <label>💰 Ganancia Bruta del Mes</label>
+          <div class="val">${fmt(gananciaMes)}</div>
+          <div class="sub">${reportesMes.length} días</div>
+        </div>
+        <div class="card orange">
+          <label>💸 Gastos Fijos del Mes</label>
+          <div class="val">${fmt(gastosTotales)}</div>
+          <div class="sub">Renta + Sueldo Douglas (${countViernes} viernes)</div>
+        </div>
+        <div class="card blue">
+          <label>💵 Ganancia NETA</label>
+          <div class="val" style="color:${gananciaNeta >= 0 ? '#00BDA5' : '#E04048'}">${fmt(Math.abs(gananciaNeta))}</div>
+          <div class="sub">${gananciaNeta >= 0 ? '✅ Rentable' : '❌ En pérdida'}</div>
+        </div>
+        <div class="card purple">
+          <label>🎯 Cobertura de Gastos</label>
+          <div class="val">${porcentajeCobertura}%</div>
+          <div class="sub">${gananciaMes >= puntoEquilibrio ? '✅ Punto de equilibrio alcanzado' : `❌ Falta $${fmt(puntoEquilibrio - gananciaMes)}`}</div>
+        </div>
+      </div>
+
+      <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:16px;margin-top:18px">
+        <h3 style="font-size:13px;font-weight:700;color:#0057A8;margin-bottom:12px">📈 Desglose Financiero</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px">
+          <div>
+            <span style="color:#7C98B6">Renta mensual:</span>
+            <span style="float:right;font-weight:700;color:#33475B">${fmt(rentaMensual)}</span>
+          </div>
+          <div>
+            <span style="color:#7C98B6">Sueldo Douglas (${countViernes} viernes):</span>
+            <span style="float:right;font-weight:700;color:#33475B">${fmt(sueldoTotal)}</span>
+          </div>
+          <div style="border-top:1px solid #CBD6E2;padding-top:8px">
+            <span style="font-weight:700;color:#0057A8">Total Gastos:</span>
+            <span style="float:right;font-weight:700;color:#0057A8">${fmt(gastosTotales)}</span>
+          </div>
+          <div style="border-top:1px solid #CBD6E2;padding-top:8px">
+            <span style="font-weight:700;color:#00BDA5">Ganancia Neta:</span>
+            <span style="float:right;font-weight:700;color:#00BDA5">${fmt(gananciaNeta)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Abrir formulario de registro diario
+function abrirFormularioRegistroDiario() {
+  showNotif('🚧 Formulario en construcción','info');
+}
+
+// Editar registro
+function editarRegistroDiario(id) {
+  showNotif('🚧 Edición en construcción','info');
+}
+
+// Eliminar registro
+function eliminarRegistroDiario(id) {
+  if(!confirm('¿Eliminar este registro diario?')) return;
+  appData.bravo.reportesDiarios = (appData.bravo.reportesDiarios||[]).filter(r => r.id !== id);
+  guardar();
+  bravoRegistros();
+  showNotif('🗑️ Registro eliminado');
+}
 
 // Inicialización: saltarse login y ir directo a áreas
 // Si hay PIN guardado en sessionStorage, usarlo automáticamente
