@@ -449,6 +449,7 @@ tr:hover td{background:#EAF0FB}
             <button onclick="asignarQuincenaFiltradas('')" style="background:#F5F8FA;color:#7C98B6;border:1px solid #CBD6E2;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer" title="Restaurar cálculo automático (días 1-14→Q2, días 15+→Q1 sig. mes)">⚡ Restaurar Auto</button>
           </div>
         </div>
+        <div id="pendientes-pago-att"></div>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th>📞 Grabación</th><th>Notas</th><th>Acc.</th></tr></thead>
@@ -476,7 +477,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>#</th><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total</th><th>Cliente</th><th>Vendedor</th><th>Pago AT&T</th><th>✕</th></tr></thead>
+            <thead><tr><th>#</th><th>Fecha</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total</th><th>Cliente</th><th>✕</th></tr></thead>
             <tbody id="agente-ventas-body"></tbody>
           </table>
         </div>
@@ -2639,6 +2640,94 @@ function renderVentas() {
     </td>
   </tr>`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
 
+  // Renderizar el cuadro de clientes con pagos pendientes de AT&T
+  renderPendientesPagoAtt(list);
+}
+
+function renderPendientesPagoAtt(listaVentas) {
+  if(!appData.rsIPagos) appData.rsIPagos = [];
+
+  // Agrupar ventas por cliente||fecha
+  const ventasMap = {};
+  listaVentas.forEach(v => {
+    const key = (v.cliente||'') + '||' + (v.fecha||'');
+    if(!ventasMap[key]) {
+      ventasMap[key] = {
+        cliente: v.cliente,
+        fecha: v.fecha,
+        vendedor: v.agente,
+        ventas: [],
+        esPagado: appData.rsIPagos.includes(key)
+      };
+    }
+    ventasMap[key].ventas.push(v);
+  });
+
+  // Obtener solo los pendientes (no pagados)
+  const pendientes = Object.values(ventasMap).filter(g => !g.esPagado);
+
+  // Si no hay pendientes, mostrar el cuadro vacío
+  const container = document.getElementById('pendientes-pago-att');
+  if(!container) return;
+
+  if(pendientes.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // Generar filas de la tabla
+  const filasHTML = pendientes.map(g => {
+    const productos = [...new Set(g.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
+    const totalComision = g.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+    return `<tr>
+      <td style="font-weight:600;color:#E04048">${g.cliente||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
+      <td style="font-size:11px">${g.fecha||'—'}</td>
+      <td style="font-size:11px">${g.vendedor||'—'}</td>
+      <td style="text-align:right;font-weight:700;color:#E04048">$${totalComision.toFixed(2)}</td>
+      <td style="text-align:center">
+        <button class="btn btn-xs btn-success" onclick="marcarPagadoAtt('${g.cliente}','${g.fecha}')" style="padding:3px 8px;font-size:10px;background:#00BDA5;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600">✓ Pagado</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Renderizar el cuadro completo
+  container.innerHTML = `
+    <div style="border:1px solid #F2545B;border-radius:10px;padding:16px;background:#FFF5F5;margin-bottom:18px">
+      <h3 style="font-size:13px;font-weight:700;color:#E04048;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">⚠️</span>
+        PAGOS PENDIENTES DE AT&T — ${pendientes.length} cliente(s)
+      </h3>
+      <div class="tbl-wrap" style="max-height:250px;overflow-y:auto">
+        <table style="width:100%">
+          <thead>
+            <tr style="background:#FFF0F0">
+              <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Cliente</th>
+              <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Producto</th>
+              <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Fecha</th>
+              <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Vendedor</th>
+              <th style="color:#E04048;text-align:right;padding:8px;font-weight:700;font-size:11px">Comisión</th>
+              <th style="color:#E04048;text-align:center;padding:8px;font-weight:700;font-size:11px">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filasHTML}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function marcarPagadoAtt(cliente, fecha) {
+  const key = cliente + '||' + fecha;
+  if(!appData.rsIPagos) appData.rsIPagos = [];
+  if(!appData.rsIPagos.includes(key)) {
+    appData.rsIPagos.push(key);
+    guardar();
+    showNotif('✅ Cliente marcado como pagado');
+    renderVentas();
+  }
 }
 
 let _lineaCount = 0;
@@ -3335,13 +3424,6 @@ function renderAgenteVentas() {
       ? `<span style="color:#F2545B;font-weight:700;font-size:11px">🔒 CERRADA</span>`
       : `<button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id});renderAgentes()">✕</button>`;
 
-    // Verificar estado de pago por AT&T
-    const pagoATTKey = `${v.cliente||''}||${v.fecha||''}`;
-    const esPagadoAT = (appData.rsIPagos||[]).includes(pagoATTKey);
-    const attColor = esPagadoAT ? '#00BDA5' : '#F2545B';
-    const attEmoji = esPagadoAT ? '✅' : '❌';
-    const attText = esPagadoAT ? 'PAGADO' : 'NO PAGADO';
-
     return `<tr style="opacity:${estaCerrada ? '0.7' : '1'}">
     <td style="color:#99ACC2">${i+1}</td>
     <td>${v.fecha}</td>
@@ -3351,11 +3433,9 @@ function renderAgenteVentas() {
     <td style="color:#7C98B6">${fmt(getComision(v))}</td>
     <td style="font-weight:700;color:#00BDA5">${fmt(getComision(v)*v.cantidad)}</td>
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
-    <td style="font-weight:600;color:#33475B">${v.agente||'—'}</td>
-    <td style="text-align:center;background:${esPagadoAT ? '#E8F9F7' : '#FFF0F0'};border-radius:6px;color:${attColor};font-weight:700;font-size:11px;padding:4px 8px">${attEmoji} ${attText}</td>
     <td style="text-align:center">${btnEliminar}</td>
   </tr>`;
-  }).join('') : '<tr><td colspan="11" class="tbl-empty">Sin ventas</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="tbl-empty">Sin ventas</td></tr>';
 }
 
 function onRolChange() {
