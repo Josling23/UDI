@@ -6624,8 +6624,10 @@ function renderTopRSI() {
               }
             } else {
               // Si no hay fecha, marcar TODAS las ventas con este cliente
+              const clienteLower = cliente.toLowerCase().trim();
               (appData.ventas||[]).forEach(v => {
-                if((v.cliente||'').toLowerCase() === cliente.toLowerCase()) {
+                const ventaClienteLower = (v.cliente||'').toLowerCase().trim();
+                if(ventaClienteLower === clienteLower) {
                   const key = v.cliente + '||' + v.fecha;
                   if(!appData.rsIPagos.includes(key)) {
                     appData.rsIPagos.push(key);
