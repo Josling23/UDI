@@ -4403,17 +4403,12 @@ function abrirArea(area) {
 }
 
 function volverAreas() {
+  // Ocultar la aplicación
   document.getElementById('app-wrap').style.display = 'none';
   document.getElementById('sidebar-nav-admin').style.display = 'none';
-  document.getElementById('sidebar-nav-hq').style.display    = 'none';
-  document.getElementById('sidebar-nav-top').style.display   = 'none';
+  document.getElementById('sidebar-nav-hq').style.display = 'none';
+  document.getElementById('sidebar-nav-top').style.display = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
-
-  // Verificar que currentUser existe
-  if (!currentUser) {
-    mostrarLogin();
-    return;
-  }
 
   // Mostrar la pantalla de selección de áreas
   mostrarAreas();
