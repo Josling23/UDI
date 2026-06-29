@@ -9161,10 +9161,9 @@ document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
 
 // Validar que el usuario es admin
 function validarAccesoBravo() {
-  const permisos = getUserRol();
-  if(!permisos || (permisos.indexOf('admin') === -1 && permisos.indexOf('gerente') === -1)) {
+  const email = currentUser ? currentUser.email : '';
+  if(!userCanAccessArea(email, 'bravo')) {
     showNotif('⚠️ No tienes acceso a Bravo','error');
-    showPage('dashboard');
     return false;
   }
   return true;
