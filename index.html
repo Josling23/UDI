@@ -337,12 +337,18 @@ tr:hover td{background:#EAF0FB}
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
+    <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
+
+  <nav class="sidebar-nav" id="sidebar-nav-bravo" style="display:none">
     <div class="nav-section">🏪 BRAVO</div>
-    <div class="nav-item" onclick="showPage('bravo-dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
+    <div class="nav-item active" onclick="showPage('bravo-dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('bravo-registros',this)"><span class="icon">📋</span><span>Registros Diarios</span></div>
     <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
     <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
-    <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -1913,7 +1919,7 @@ let currentRole = null;   // 'admin' | 'hq' | 'top' | 'salud' (now based on emai
 const USERS_CONFIG = {
   'interjosling@hotmail.com': {
     nombre: 'Josling',
-    areas: ['admin', 'hq', 'top', 'salud'],
+    areas: ['admin', 'hq', 'top', 'bravo', 'salud'],
     fullAccess: true
   },
   'usadistributor024@gmail.com': {
@@ -1923,7 +1929,7 @@ const USERS_CONFIG = {
   },
   'udicreditrepair@gmail.com': {
     nombre: 'Oriana',
-    areas: ['admin', 'salud'],
+    areas: ['admin', 'bravo', 'salud'],
     fullAccess: false
   },
   // Astrid - placeholder until email is created
@@ -1935,7 +1941,7 @@ const USERS_CONFIG = {
   // José Piña - placeholder until email is created
   'josepi@usadistributor.com': {
     nombre: 'José Piña',
-    areas: ['admin', 'hq', 'salud'],
+    areas: ['admin', 'hq', 'bravo', 'salud'],
     fullAccess: false
   }
 };
@@ -4843,6 +4849,7 @@ function mostrarAreas() {
   const puedeAdmin  = perms.areas.includes('admin');
   const puedeHQ     = perms.areas.includes('hq');
   const puedeTop    = perms.areas.includes('top');
+  const puedeBravo  = perms.areas.includes('bravo');
   const puedeSalud  = perms.areas.includes('salud');
 
   const userDisplay = perms.nombre || email.split('@')[0];
@@ -4878,6 +4885,12 @@ function mostrarAreas() {
       <div style="color:#fff;font-size:15px;font-weight:800">HEADQUARTERS</div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Pagos · Comisiones<br>Gerente General</div>
     </button>`;
+  if(puedeBravo) btns += `
+    <button onclick="abrirArea('bravo')" style="${btnStyle};border-color:rgba(255,127,80,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,127,80,0.4)'">
+      <div style="font-size:34px;margin-bottom:8px">🏪</div>
+      <div style="color:#FF7A59;font-size:15px;font-weight:800">BRAVO</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Registro Diario · ROI<br>Caja Chica</div>
+    </button>`;
   if(puedeSalud) btns += `
     <button onclick="abrirArea('salud')" style="${btnStyle};border-color:rgba(0,189,165,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(0,189,165,0.4)'">
       <div style="font-size:34px;margin-bottom:8px">💚</div>
@@ -4905,6 +4918,7 @@ function abrirArea(area) {
   document.getElementById('sidebar-nav-hq').style.display    = area==='hq'     ? 'block' : 'none';
   document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'block' : 'none';
   document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
+  document.getElementById('sidebar-nav-bravo').style.display = area==='bravo'  ? 'block' : 'none';
 
   // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
   if (area === 'hq') {
@@ -4916,6 +4930,7 @@ function abrirArea(area) {
   else if(area==='hq')    showPage('hq', null);
   else if(area==='top')   showPage('top', null);
   else if(area==='salud') { migrarDatosSaludReales().then(()=>cargarSalud()).then(()=>showPage('salud-dashboard', null)); }
+  else if(area==='bravo') { showPage('bravo-dashboard', null); }
 }
 
 function volverAreas() {
@@ -4925,6 +4940,7 @@ function volverAreas() {
   document.getElementById('sidebar-nav-hq').style.display = 'none';
   document.getElementById('sidebar-nav-top').style.display = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
+  document.getElementById('sidebar-nav-bravo').style.display = 'none';
 
   // Mostrar la pantalla de selección de áreas
   mostrarAreas();
