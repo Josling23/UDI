@@ -9159,6 +9159,372 @@ document.getElementById('resumen-mes-sel').insertAdjacentHTML('afterend',
 // BRAVO MODULE - Accounting & Production Tracking
 // ============================================================
 
+// Función para importar datos de junio de Bravo
+function importarDatosJunio() {
+  if(!validarAccesoBravo()) return;
+
+  const datosJunio = [
+    {
+      fecha: "2026-06-01",
+      reparaciones: [
+        {tipo: "Pantalla Samsung A14", equipo: "Samsung A14", categoria: "Pantalla", precio: 50, costo: 0},
+        {tipo: "Pantalla Samsung A54", equipo: "Samsung A54", categoria: "Pantalla", precio: 65, costo: 0},
+        {tipo: "Pantalla Motorola", equipo: "Motorola", categoria: "Pantalla", precio: 77, costo: 17.62}
+      ],
+      douglas: [
+        {tipo: "Compra de Lycas", cantidad: 21, notas: "Agregadas al sistema"},
+        {tipo: "Pago de Lycas", cantidad: 21, notas: "Pago de $181 a Oriana"},
+        {tipo: "Reparación", cantidad: 1, notas: "Se buscó repuesto para Motorola"}
+      ]
+    },
+    {
+      fecha: "2026-06-02",
+      accesorios: [
+        {nombre: "Funda iPhone 17 Pro Max", cantidad: 1, precio: 15, costo: 4, metodo: "Tarjeta"},
+        {nombre: "Cargador de carro", cantidad: 1, precio: 20, costo: 3, metodo: "Efectivo"}
+      ],
+      reparaciones: [
+        {tipo: "Pantalla Motorola", equipo: "Motorola", categoria: "Pantalla", precio: 70, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Portabilidades", cantidad: 21, notas: "Se consiguieron los datos"},
+        {tipo: "Soporte ATT", cantidad: 2, notas: "Ayudó a pagar facturas"},
+        {tipo: "Administración", cantidad: 1, notas: "Elaboró resumen mensual"},
+        {tipo: "Flyers", cantidad: 1, notas: "Se entregaron"},
+        {tipo: "Excel", cantidad: 1, notas: "Creó sistema para reparaciones"}
+      ]
+    },
+    {
+      fecha: "2026-06-03",
+      lycas: [
+        {tipo: "Lyca", cliente: "Cliente final", precio: 30, costo: 8.50, metodo: "Efectivo"},
+        {tipo: "Lyca", cliente: "Cristian", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      combos: [
+        {descripcion: "Combo personalizado", precio: 84, costo: 0, comision: 0, metodo: "PayPal"}
+      ],
+      reparaciones: [
+        {tipo: "Pantalla", equipo: "No especificado", categoria: "Pantalla", precio: 0, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Leads", cantidad: 0, notas: "Contactados"},
+        {tipo: "ATT", cantidad: 1, notas: "Cambio a Premium Diego"},
+        {tipo: "FedEx", cantidad: 1, notas: "Devolver pantalla dañada"}
+      ]
+    },
+    {
+      fecha: "2026-06-04",
+      accesorios: [
+        {nombre: "Taco de carga", cantidad: 1, precio: 10, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Cable de carga", cantidad: 1, precio: 10, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Power Bank", cantidad: 1, precio: 15, costo: 3, metodo: "Tarjeta"}
+      ],
+      reparaciones: [
+        {tipo: "Pantalla", equipo: "iPhone", categoria: "Pantalla", precio: 88, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Leads", cantidad: 0, notas: "Clientes contactados"},
+        {tipo: "FedEx", cantidad: 1, notas: "Devolución de pantalla"},
+        {tipo: "Correo", cantidad: 1, notas: "Entrega de combo"}
+      ]
+    },
+    {
+      fecha: "2026-06-05",
+      lycas: [
+        {tipo: "Lyca", cliente: "Carlos", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      reparaciones: [
+        {tipo: "Pantalla iPhone 15 Plus", equipo: "iPhone 15 Plus", categoria: "Pantalla", precio: 107, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Pago de renta", cantidad: 1, notas: "$1,300"},
+        {tipo: "Garantía iPad", cantidad: 1, notas: "Reparación en Kissimmee"},
+        {tipo: "Flyers", cantidad: 1, notas: "Entregados"}
+      ]
+    },
+    {
+      fecha: "2026-06-08",
+      accesorios: [
+        {nombre: "Vidrio iPhone 17 Pro Max", cantidad: 1, precio: 15, costo: 3, metodo: "Efectivo"},
+        {nombre: "Protector cámara 17 Pro Max", cantidad: 1, precio: 10, costo: 1, metodo: "Efectivo"},
+        {nombre: "Funda iPhone 16 Pro Max", cantidad: 1, precio: 20, costo: 4, metodo: "Efectivo"},
+        {nombre: "Vidrio iPhone 16 Pro Max", cantidad: 1, precio: 15, costo: 3, metodo: "Efectivo"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "Dreik", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      reparaciones: [
+        {tipo: "Pantalla iPhone 15 Plus", equipo: "iPhone 15 Plus", categoria: "Pantalla", precio: 0, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Leads", cantidad: 0, notas: "Contactados"},
+        {tipo: "Flyers", cantidad: 1, notas: "Entregados"}
+      ]
+    },
+    {
+      fecha: "2026-06-09",
+      accesorios: [
+        {nombre: "Vidrio iPhone 16 Plus", cantidad: 1, precio: 15, costo: 3, metodo: "Tarjeta"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "Cliente Bravo", precio: 30, costo: 8.50, metodo: "Tarjeta"}
+      ],
+      reparaciones: [
+        {tipo: "Pantalla iPhone 15 Plus", equipo: "iPhone 15 Plus", categoria: "Pantalla", precio: 117, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Inventario", cantidad: 1, notas: "Vidrios pendientes en Amazon"},
+        {tipo: "Flyers", cantidad: 1, notas: "Entregados"}
+      ]
+    },
+    {
+      fecha: "2026-06-11",
+      accesorios: [
+        {nombre: "Taco de carga", cantidad: 1, precio: 10, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Cable de carga", cantidad: 1, precio: 10, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Vidrio 17 Pro Max", cantidad: 1, precio: 15, costo: 3, metodo: "Efectivo"},
+        {nombre: "Funda 17 Pro Max", cantidad: 1, precio: 20, costo: 4, metodo: "Efectivo"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "Oriana", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      telefonos: [
+        {modelo: "Samsung S23 Ultra", costo: 0, precio: 80, tipo: "Usado", metodo: "Pendiente"}
+      ],
+      douglas: [
+        {tipo: "Compra inventario", cantidad: 21, notas: "Pantallas iPhone"},
+        {tipo: "Flyers", cantidad: 1, notas: "Mejorados"}
+      ]
+    },
+    {
+      fecha: "2026-06-12",
+      accesorios: [
+        {nombre: "Vidrio templado", cantidad: 1, precio: 15, costo: 3, metodo: "Efectivo"},
+        {nombre: "Funda 17 Pro Max", cantidad: 1, precio: 20, costo: 4, metodo: "Efectivo"}
+      ],
+      reparaciones: [
+        {tipo: "Samsung", equipo: "Samsung", categoria: "Pantalla", precio: 40, costo: 0},
+        {tipo: "Samsung S23 Ultra", equipo: "Samsung S23 Ultra", categoria: "Pantalla", precio: 93, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"}
+      ]
+    },
+    {
+      fecha: "2026-06-16",
+      accesorios: [
+        {nombre: "Funda S23 Ultra", cantidad: 1, precio: 20, costo: 4, metodo: "Efectivo"},
+        {nombre: "Vidrio S23 Ultra", cantidad: 1, precio: 10, costo: 3, metodo: "Efectivo"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "Karine", precio: 50, costo: 0, metodo: "Zelle"},
+        {tipo: "Lyca", cliente: "Carlos Perdomo", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      reparaciones: [
+        {tipo: "Samsung S23 Ultra", equipo: "Samsung S23 Ultra", categoria: "Pantalla", precio: 93, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Recarga Lyca", cantidad: 1, notas: "Crédito call center"}
+      ]
+    },
+    {
+      fecha: "2026-06-17",
+      accesorios: [
+        {nombre: "Vidrio iPhone 14 Pro Max", cantidad: 1, precio: 15, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Power Bank", cantidad: 1, precio: 15, costo: 3, metodo: "Tarjeta"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "María", precio: 50, costo: 0, metodo: "Zelle"},
+        {tipo: "Lyca", cliente: "Carlos", precio: 50, costo: 0, metodo: "Zelle"},
+        {tipo: "Lyca", cliente: "Cliente final", precio: 30, costo: 8.50, metodo: "Efectivo"},
+        {tipo: "Lyca", cliente: "Cliente final", precio: 30, costo: 8.50, metodo: "Efectivo"}
+      ],
+      reparaciones: [
+        {tipo: "Tapa iPhone 15 Plus", equipo: "iPhone 15 Plus", categoria: "Tapa", precio: 60, costo: 0}
+      ],
+      douglas: [
+        {tipo: "Internet", cantidad: 1, notas: "Spectrum pendiente"}
+      ]
+    },
+    {
+      fecha: "2026-06-18",
+      lycas: [
+        {tipo: "Lyca", cliente: "Claudia", precio: 50, costo: 0, metodo: "Zelle"},
+        {tipo: "Lyca", cliente: "Leidy", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      douglas: [
+        {tipo: "Publicidad", cantidad: 1, notas: "Enviada"},
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"},
+        {tipo: "Venta ATT", cantidad: 1, notas: "Apoyo a Leidy"},
+        {tipo: "Internet", cantidad: 1, notas: "Spectrum no completado"}
+      ]
+    },
+    {
+      fecha: "2026-06-19",
+      combos: [
+        {descripcion: "2 Combos + AirPods Pro 3", precio: 105, costo: 0, comision: 0, metodo: "Zelle"}
+      ],
+      reparaciones: [
+        {tipo: "Limpieza de pin", equipo: "No especificado", categoria: "Puerto", precio: 50, costo: 0}
+      ],
+      telefonos: [
+        {modelo: "AirPods Pro 3", costo: 0, precio: 50, tipo: "Nuevo", metodo: "Pendiente"}
+      ],
+      douglas: [
+        {tipo: "Presupuestos", cantidad: 0, notas: "Reparaciones"}
+      ]
+    },
+    {
+      fecha: "2026-06-22",
+      lycas: [
+        {tipo: "Lyca", cliente: "Claudia", precio: 50, costo: 0, metodo: "Zelle"},
+        {tipo: "Lyca", cliente: "Carlos", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      combos: [
+        {descripcion: "Combo + AirPods Pro 3", precio: 105, costo: 0, comision: 0, metodo: "Zelle"}
+      ],
+      douglas: [
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"},
+        {tipo: "Publicidad", cantidad: 1, notas: "Enviada"},
+        {tipo: "Internet", cantidad: 0, notas: "Verificaciones EarthLink"},
+        {tipo: "Presupuestos", cantidad: 0, notas: "Reparaciones"}
+      ]
+    },
+    {
+      fecha: "2026-06-23",
+      accesorios: [
+        {nombre: "Funda Samsung S25 Ultra", cantidad: 1, precio: 15, costo: 4, metodo: "Efectivo"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "Cliente final", precio: 30, costo: 8.50, metodo: "Tarjeta"},
+        {tipo: "Lyca", cliente: "Cliente final", precio: 30, costo: 8.50, metodo: "Efectivo"}
+      ],
+      douglas: [
+        {tipo: "Publicidad", cantidad: 1, notas: "Enviada"},
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"},
+        {tipo: "Inventario", cantidad: 1, notas: "Llegaron vidrios y cables"}
+      ]
+    },
+    {
+      fecha: "2026-06-24",
+      lycas: [
+        {tipo: "Lyca", cliente: "Paola", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      douglas: [
+        {tipo: "Publicidad", cantidad: 1, notas: "Enviada"},
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"},
+        {tipo: "Internet", cantidad: 1, notas: "Cliente Spectrum sin opción"}
+      ]
+    },
+    {
+      fecha: "2026-06-25",
+      accesorios: [
+        {nombre: "Vidrio templado blanco", cantidad: 1, precio: 10, costo: 3, metodo: "Efectivo"}
+      ],
+      telefonos: [
+        {modelo: "AirPods", costo: 0, precio: 30, tipo: "Nuevo", metodo: "Tarjeta"}
+      ],
+      douglas: [
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"},
+        {tipo: "Publicidad", cantidad: 1, notas: "Enviada"}
+      ]
+    },
+    {
+      fecha: "2026-06-26",
+      accesorios: [
+        {nombre: "Vidrio iPhone 17 Pro Max", cantidad: 1, precio: 15, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Vidrio iPhone 11", cantidad: 1, precio: 10, costo: 3, metodo: "Tarjeta"},
+        {nombre: "Funda iPhone 11", cantidad: 1, precio: 15, costo: 4, metodo: "Tarjeta"},
+        {nombre: "Funda iPhone 14", cantidad: 1, precio: 20, costo: 4, metodo: "Efectivo"},
+        {nombre: "Funda iPhone 15 Pro Max", cantidad: 1, precio: 15, costo: 4, metodo: "Tarjeta"}
+      ],
+      lycas: [
+        {tipo: "Lyca", cliente: "Leidy", precio: 50, costo: 0, metodo: "Zelle"}
+      ],
+      douglas: [
+        {tipo: "Internet Spectrum", cantidad: 1, notas: "Venta realizada"},
+        {tipo: "Flyers", cantidad: 0, notas: "Entregados"},
+        {tipo: "Soporte", cantidad: 2, notas: "Ayuda pago plan y venta internet"}
+      ]
+    }
+  ];
+
+  let nextId = (appData.bravo?.nextDiarioId || 1);
+
+  datosJunio.forEach(reporte => {
+    // Calcular ganancia total
+    let gananciaTotal = 0;
+    let productosCount = 0;
+
+    if (reporte.accesorios) {
+      reporte.accesorios.forEach(acc => {
+        gananciaTotal += (acc.precio - acc.costo) * acc.cantidad;
+        productosCount += acc.cantidad;
+      });
+    }
+
+    if (reporte.reparaciones) {
+      reporte.reparaciones.forEach(rep => {
+        gananciaTotal += (rep.precio - rep.costo);
+        productosCount++;
+      });
+    }
+
+    if (reporte.lycas) {
+      reporte.lycas.forEach(lyca => {
+        gananciaTotal += (lyca.precio - lyca.costo);
+        productosCount++;
+      });
+    }
+
+    if (reporte.combos) {
+      reporte.combos.forEach(combo => {
+        gananciaTotal += (combo.precio - combo.costo - combo.comision);
+        productosCount++;
+      });
+    }
+
+    if (reporte.telefonos) {
+      reporte.telefonos.forEach(tel => {
+        gananciaTotal += (tel.precio - tel.costo);
+        productosCount++;
+      });
+    }
+
+    const categoriasPrincipal = [];
+    if (reporte.accesorios?.length) categoriasPrincipal.push('Accesorios');
+    if (reporte.reparaciones?.length) categoriasPrincipal.push('Reparaciones');
+    if (reporte.lycas?.length) categoriasPrincipal.push('Lycas');
+    if (reporte.combos?.length) categoriasPrincipal.push('Combos');
+    if (reporte.telefonos?.length) categoriasPrincipal.push('Teléfonos');
+
+    const nuevoReporte = {
+      id: nextId++,
+      fecha: reporte.fecha,
+      categoria: categoriasPrincipal.join(' + '),
+      accesorios: reporte.accesorios || [],
+      reparaciones: reporte.reparaciones || [],
+      lycas: reporte.lycas || [],
+      combos: reporte.combos || [],
+      telefonos: reporte.telefonos || [],
+      douglas: reporte.douglas || [],
+      gananciaTotal: Math.round(gananciaTotal * 100) / 100,
+      productosCount: productosCount,
+      timestamp: new Date(reporte.fecha).getTime()
+    };
+
+    appData.bravo.reportesDiarios.push(nuevoReporte);
+  });
+
+  appData.bravo.nextDiarioId = nextId;
+
+  // Guardar en Firebase
+  guardarEnFirebase('bravo', appData.bravo);
+
+  showNotif('✅ ' + datosJunio.length + ' reportes de junio importados correctamente', 'success');
+  bravoDashboard();
+}
+
 // Validar que el usuario es admin
 function validarAccesoBravo() {
   const email = currentUser ? currentUser.email : '';
@@ -9190,10 +9556,11 @@ function bravoDashboard() {
     <div class="section">
       <div class="section-header">
         <h2>🏪 Dashboard de Bravo</h2>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
           <button class="btn btn-success btn-sm" onclick="showPage('bravo-registros',document.querySelector('[onclick=\\'showPage(\\'bravo-registros\\')\\']'))" >📋 Ver Registros</button>
           <button class="btn btn-info btn-sm" onclick="showPage('bravo-roi',document.querySelector('[onclick=\\'showPage(\\'bravo-roi\\')\\']'))">📊 Ver ROI</button>
+          <button class="btn btn-orange btn-sm" onclick="importarDatosJunio()">📥 Importar Junio</button>
         </div>
       </div>
 
