@@ -1938,8 +1938,8 @@ const USERS_CONFIG = {
     areas: ['salud'],
     fullAccess: false
   },
-  // José Piña - placeholder until email is created
-  'josepi@usadistributor.com': {
+  // José Piña
+  'gsteven0912@gmail.com': {
     nombre: 'José Piña',
     areas: ['admin', 'hq', 'bravo', 'salud'],
     fullAccess: false
@@ -1963,7 +1963,7 @@ function userCanAccessArea(email, area) {
 function userCanManageJosePina(email) {
   // Solo Josling (admin total) y José Piña mismo pueden ver/editar su perfil
   const emailLower = (email || '').toLowerCase();
-  return emailLower === 'interjosling@hotmail.com' || emailLower === 'josepi@usadistributor.com';
+  return emailLower === 'interjosling@hotmail.com' || emailLower === 'gsteven0912@gmail.com';
 }
 
 // ============================================================
