@@ -4447,11 +4447,10 @@ function renderPagos() {
   // If filtroQ is '' or unset, qVis stays as [1,2]
 
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
-  // También excluir José Piña si estamos en Admin (solo visible en TOP y HQ)
-  const esAdmin = currentRole === 'admin';
+  // Excluir José Piña de Admin (solo visible en TOP y HQ)
   const filtroJosePina = (a) => {
-    if (!esAdmin) return true; // Si no es admin, mostrar todos
     const nombre = (a.nombre || '').trim().toLowerCase();
+    // Excluir si es José Piña
     return !(nombre.includes('jose') && nombre.includes('piña'));
   };
   const todos = [
