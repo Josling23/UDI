@@ -4437,6 +4437,9 @@ function renderPagos() {
   const mesAct = filtroMes || meses[meses.length-1] || mesActual();
   const qAct = filtroQ ? parseInt(filtroQ) : (hoy <= 15 ? 1 : 2);
   let totalAPagar = 0;
+  let totalComisiones = 0;
+  let totalBasico = 0;
+  let totalBonos = 0;
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
@@ -4459,6 +4462,10 @@ function renderPagos() {
     const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
     const pagado = appData.quincenas[getQuincenaKey(a.nombre, mesAct, qAct)];
     totalAPagar += pagado ? 0 : total;
+    // Acumular totales de nómina
+    totalComisiones += comQ + comGrab;
+    totalBasico += basico;
+    totalBonos += bonos;
     return `<div style="background:#fff;border-radius:10px;padding:14px 16px;border:2px solid ${pagado?'#86EFAC':ROL_COLORS[rol]||'#CBD6E2'};min-width:190px;flex:1">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
@@ -4533,21 +4540,6 @@ function renderPagos() {
       </div>
     </div>`;
   }).join('');
-
-  // Calcular totales simples de la nómina de la quincena elegida
-  let totalComisiones = 0;
-  let totalBasico = 0;
-  let totalBonos = 0;
-
-  ordenados.forEach(a=>{
-    const comQ = getComisionesQuincena(a, mesAct, qAct);
-    const basico = a.sueldoQuincenal || 0;
-    const bonos = getExtra('bono', a.nombre, mesAct+'Q'+qAct);
-
-    totalComisiones += comQ;
-    totalBasico += basico;
-    totalBonos += bonos;
-  });
 
   const totalNomina = totalComisiones + totalBasico + totalBonos;
 
