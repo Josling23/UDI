@@ -2072,6 +2072,9 @@ function activarListenerAppData() {
     if (_syncIgnoreNext) { _syncIgnoreNext = false; return; }
     const raw = snap.val();
     appData = { ...appData, ...raw };
+    // Asegurar que José Piña está marcado como soloHQ
+    const josePina = appData.agentes?.find(a => a.nombre && a.nombre.trim().toLowerCase() === 'jose piña');
+    if (josePina) josePina.soloHQ = true;
     normalizarAppData();
     localStorage.setItem('attVND_v1', JSON.stringify(appData));
     // Re-renderizar la página activa si ya estamos dentro de un área
@@ -2112,6 +2115,9 @@ async function cargar() {
     if (snap.exists()) {
       const raw = snap.val();
       appData = { ...appData, ...raw };
+      // Asegurar que José Piña está marcado como soloHQ
+      const josePina = appData.agentes?.find(a => a.nombre && a.nombre.trim().toLowerCase() === 'jose piña');
+      if (josePina) josePina.soloHQ = true;
       normalizarAppData();
       localStorage.setItem('attVND_v1', JSON.stringify(appData));
       activarListenerAppData();
@@ -2125,6 +2131,9 @@ async function cargar() {
   if (s) {
     const parsed = JSON.parse(s);
     appData = { ...appData, ...parsed };
+    // Asegurar que José Piña está marcado como soloHQ
+    const josePina = appData.agentes?.find(a => a.nombre && a.nombre.trim().toLowerCase() === 'jose piña');
+    if (josePina) josePina.soloHQ = true;
     normalizarAppData();
   }
   activarListenerAppData();
