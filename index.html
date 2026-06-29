@@ -4534,57 +4534,49 @@ function renderPagos() {
     </div>`;
   }).join('');
 
-  // Calcular totales por categoría
-  let totalComisiones = 0, totalBasico = 0, totalBonos = 0, totalDescuentos = 0, totalPrestamos = 0;
+  // Calcular totales simples de la nómina de la quincena elegida
+  let totalComisiones = 0;
+  let totalBasico = 0;
+  let totalBonos = 0;
+
   ordenados.forEach(a=>{
     const comQ = getComisionesQuincena(a, mesAct, qAct);
-    const nombreLow = (a.nombre||'').trim().toLowerCase();
-    const grabRows = appData.ventas.filter(v=>{
-      if(!v.esGrabacion && !v._esGrabacion) return false;
-      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
-      const pp = getPeríodoPago(v);
-      return pp.mes===mesAct && pp.q===qAct;
-    });
-    const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-    const basico = a.sueldoQuincenal||0;
+    const basico = a.sueldoQuincenal || 0;
     const bonos = getExtra('bono', a.nombre, mesAct+'Q'+qAct);
-    const desc = getExtra('desc', a.nombre, mesAct+'Q'+qAct);
-    const prest = getExtra('prest', a.nombre, mesAct+'Q'+qAct);
-    const pagado = appData.quincenas[getQuincenaKey(a.nombre, mesAct, qAct)];
 
-    if(!pagado) {
-      totalComisiones += comQ + comGrab;
-      totalBasico += basico;
-      totalBonos += bonos;
-      totalDescuentos += desc;
-      totalPrestamos += prest;
-    }
+    totalComisiones += comQ;
+    totalBasico += basico;
+    totalBonos += bonos;
   });
+
+  const totalNomina = totalComisiones + totalBasico + totalBonos;
 
   document.getElementById('pagos-content').innerHTML =
     renderBonosActivacion(mesAct, ordenados) +
     `<div style="margin-bottom:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <h3 style="font-size:15px;font-weight:800;color:#33475B">💳 Resumen de Pago — ${mesAct} Q${qAct} <span style="font-size:11px;font-weight:400;color:#99ACC2">(${qAct===1?'últim. día mes ant. + días 1–14':'días 15–penúlt.'})</span></h3>
+        <h3 style="font-size:15px;font-weight:800;color:#33475B">💳 Nómina — ${mesAct} Q${qAct} <span style="font-size:11px;font-weight:400;color:#99ACC2">(${qAct===1?'últim. día mes ant. + días 1–14':'días 15–penúlt.'})</span></h3>
       </div>
 
-      <!-- RESUMEN DE TOTALES POR CATEGORÍA -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px">
-        <div style="background:#E8F9F7;border-radius:10px;padding:14px 16px;border:2px solid #00BDA5">
-          <div style="font-size:10px;font-weight:700;color:#00A492;text-transform:uppercase;margin-bottom:6px">💵 Total Comisiones</div>
-          <div style="font-size:22px;font-weight:800;color:#00BDA5">${fmt(totalComisiones)}</div>
+      <!-- RESUMEN NÓMINA DE LA QUINCENA -->
+      <div style="background:#fff;border:2px solid #009FDB;border-radius:12px;padding:18px;margin-bottom:20px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">💰 Comisiones Ventas</div>
+            <div style="font-size:26px;font-weight:800;color:#009FDB">${fmt(totalComisiones)}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">💼 Sueldo Base</div>
+            <div style="font-size:26px;font-weight:800;color:#FF7A59">${fmt(totalBasico)}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">🎁 Bonos</div>
+            <div style="font-size:26px;font-weight:800;color:#6A78D1">${fmt(totalBonos)}</div>
+          </div>
         </div>
-        <div style="background:#FFF3EE;border-radius:10px;padding:14px 16px;border:2px solid #FF7A59">
-          <div style="font-size:10px;font-weight:700;color:#E66E50;text-transform:uppercase;margin-bottom:6px">💼 Total Básico</div>
-          <div style="font-size:22px;font-weight:800;color:#FF7A59">${fmt(totalBasico)}</div>
-        </div>
-        <div style="background:#F0EDFF;border-radius:10px;padding:14px 16px;border:2px solid #6A78D1">
-          <div style="font-size:10px;font-weight:700;color:#5A63B8;text-transform:uppercase;margin-bottom:6px">🎁 Total Bonos</div>
-          <div style="font-size:22px;font-weight:800;color:#6A78D1">${fmt(totalBonos)}</div>
-        </div>
-        <div style="background:#F4F5FF;border-radius:10px;padding:14px 16px;border:2px solid #009FDB">
-          <div style="font-size:10px;font-weight:700;color:#0080C0;text-transform:uppercase;margin-bottom:6px">📊 Total General</div>
-          <div style="font-size:22px;font-weight:800;color:#009FDB">${fmt(totalAPagar)}</div>
+        <div style="border-top:2px solid #F0F2F5;padding-top:14px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:#33475B">TOTAL A PAGAR QUINCENA:</span>
+          <span style="font-size:32px;font-weight:900;color:#00BDA5">${fmt(totalNomina)}</span>
         </div>
       </div>
 
