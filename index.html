@@ -5495,10 +5495,10 @@ function renderHQ() {
   const email = currentUser ? currentUser.email : '';
   const canManageJP = userCanManageJosePina(email);
 
-  // Filtrar agentes HQ: si no puedes manejar José Piña, no lo veas en HQ
-  let hqAgentes = appData.agentes.filter(a=>a.soloHQ);
+  // SOLO mostrar José Piña en HQ
+  let hqAgentes = appData.agentes.filter(a=>a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
   if (!canManageJP) {
-    hqAgentes = hqAgentes.filter(a=>!(a.nombre||'').toLowerCase().includes('jose pina'));
+    hqAgentes = [];
   }
 
   if(!hqAgentes.length) {
