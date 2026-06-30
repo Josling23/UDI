@@ -5491,26 +5491,9 @@ function guardarHQAgente() {
 // HEADQUARTERS — RENDER
 // ============================================================
 function renderHQ() {
-  const meses = getMeses();
-  const email = currentUser ? currentUser.email : '';
-  const canManageJP = userCanManageJosePina(email);
-
-  // Filtrar agentes HQ: si no puedes manejar José Piña, no lo veas en HQ
-  let hqAgentes = appData.agentes.filter(a=>a.soloHQ);
-  if (!canManageJP) {
-    hqAgentes = hqAgentes.filter(a=>!(a.nombre||'').toLowerCase().includes('jose pina'));
-  }
-
-  if(!hqAgentes.length) {
-    document.getElementById('hq-content').innerHTML = `
-      <div style="text-align:center;padding:60px 20px">
-        <div style="font-size:56px;margin-bottom:16px">🏛️</div>
-        <div style="font-size:18px;font-weight:800;color:#33475B;margin-bottom:8px">HEADQUARTERS</div>
-        <div style="font-size:13px;color:#99ACC2;margin-bottom:28px">Crea el perfil del Gerente General para empezar a registrar sus pagos y comisiones.</div>
-        <button class="btn btn-success" style="font-size:14px;padding:12px 28px" onclick="openHQConfig()">➕ Crear Perfil de Gerente General</button>
-      </div>`;
-    return;
-  }
+  // Solo mostrar a José Piña en HQ
+  renderHQGerente();
+}
 
   const selMes = document.getElementById('hq-mes-sel')?.value ?? (meses[meses.length-1]||'');
   const selQ   = document.getElementById('hq-q-sel')?.value ?? '';
