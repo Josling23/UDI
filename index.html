@@ -4776,8 +4776,8 @@ function renderPagos() {
         if(ventasQuincena.length > 0) {
           const filasHTML = ventasQuincena.map(v=>{
             const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
-            return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px">
-              <td style="padding:4px 8px;color:#33475B">${v.cliente||'—'}</td>
+            return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:${v.cliente?'transparent':'#FFF0F0'}">
+              <td style="padding:4px 8px;color:#33475B;font-weight:${v.cliente?'400':'700'};background:${v.cliente?'transparent':'#FEE2E2'};border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}</td>
               <td style="padding:4px 8px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">${v.cantidad||1}</td>
               <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</td>
