@@ -6307,7 +6307,12 @@ function renderHQGerente() {
     s + qFiltro.reduce((sq,q)=>sq+getExtra('prest',josePina.nombre,m+'Q'+q),0), 0);
   const descTot  = msFiltro.reduce((s,m)=>
     s + qFiltro.reduce((sq,q)=>sq+getExtra('desc',josePina.nombre,m+'Q'+q),0), 0);
-  const netTotal = comTotal+basicoTot+bonosTot+prestTot-descTot;
+  const deAntTot = msFiltro.reduce((s,m)=>
+    s + qFiltro.reduce((sq,q)=>{
+      const prev = getPrevQuincena(getMeses(), m, q);
+      return sq + (prev ? getPend(josePina.nombre, prev.mes, prev.q) : 0);
+    },0), 0);
+  const netTotal = comTotal+basicoTot+bonosTot+prestTot+deAntTot-descTot;
 
   const comPs    = josePina.comisionesPersonales||{};
   const comDirs  = josePina.comisionesDirectas||{};
@@ -6344,6 +6349,7 @@ function renderHQGerente() {
         <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Básico</div><div style="font-size:20px;font-weight:800">${basicoTot>0?fmt(basicoTot):'—'}</div></div>
         <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Bonos</div><div style="font-size:20px;font-weight:800">${bonosTot>0?fmt(bonosTot):'—'}</div></div>
         <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Préstamos</div><div style="font-size:20px;font-weight:800">${prestTot>0?fmt(prestTot):'—'}</div></div>
+        <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">De Q.Ant.</div><div style="font-size:20px;font-weight:800">${deAntTot>0?fmt(deAntTot):'—'}</div></div>
         <div><div style="font-size:9px;opacity:0.6;text-transform:uppercase">Descuentos</div><div style="font-size:20px;font-weight:800;color:#FCA5A5">${descTot>0?'−'+fmt(descTot):'—'}</div></div>
         <div style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
           <div style="font-size:9px;opacity:0.7;text-transform:uppercase">TOTAL A PAGAR</div>
