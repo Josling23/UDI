@@ -3634,6 +3634,110 @@ function guardarVenta() {
   console.log('✅ Guardado completado');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// FUNCIONES PARA REGISTRO DE VENTAS DE JOSÉ PIÑA (HQ)
+// ═══════════════════════════════════════════════════════════════
+
+function guardarVentaJosePina() {
+  const fecha = document.getElementById('hqg-venta-fecha').value;
+  const cliente = document.getElementById('hqg-venta-cliente').value.trim();
+  const productoId = document.getElementById('hqg-venta-producto').value;
+  const cantidad = parseInt(document.getElementById('hqg-venta-cantidad').value) || 1;
+  const comision = parseFloat(document.getElementById('hqg-venta-comision').value) || 0;
+  const notas = document.getElementById('hqg-venta-notas').value.trim();
+
+  // Validaciones
+  if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+  if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
+  if(!productoId) { showNotif('⚠️ Selecciona un producto','error'); return; }
+  if(cantidad <= 0) { showNotif('⚠️ La cantidad debe ser mayor a 0','error'); return; }
+
+  // Encontrar a José Piña
+  const josePina = appData.agentes.find(a => a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+  if(!josePina) { showNotif('❌ No se encontró el perfil de José Piña','error'); return; }
+
+  // Crear el registro de venta
+  const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  const mes = fecha.substring(0,7);
+  const newVenta = {
+    id: maxId + 1,
+    fecha: fecha,
+    agente: josePina.nombre,
+    cliente: cliente,
+    cuenta: '',
+    mes: mes,
+    campana: '',
+    quincenaPago: '',
+    productoId: productoId,
+    categoria: 'venta-manual',
+    cantidad: cantidad,
+    comision: comision,
+    notas: notas ? '💼 HQ: '+notas : '💼 Registrado desde HQ',
+    llamadaGrabada: false
+  };
+
+  appData.ventas.push(newVenta);
+  guardar();
+
+  // Limpiar formulario
+  document.getElementById('hqg-venta-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('hqg-venta-cliente').value = '';
+  document.getElementById('hqg-venta-producto').value = '';
+  document.getElementById('hqg-venta-cantidad').value = '1';
+  document.getElementById('hqg-venta-comision').value = '0';
+  document.getElementById('hqg-venta-notas').value = '';
+  document.getElementById('hqg-venta-form').style.display = 'none';
+
+  showNotif(`✅ Venta registrada para ${cliente} — Comisión: $${fmt(comision)}`);
+  actualizarListaVentasHQ();
+  try { renderHQGerente(); } catch(e) { console.error('Error en renderHQGerente:', e); }
+  try { renderPagos(); } catch(e) { console.error('Error en renderPagos:', e); }
+}
+
+function actualizarListaVentasHQ() {
+  const josePina = appData.agentes.find(a => a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+  if(!josePina) return;
+
+  const nombreLow = (josePina.nombre||'').trim().toLowerCase();
+  const ventasJP = appData.ventas
+    .filter(v => (v.agente||'').trim().toLowerCase() === nombreLow && !v.esGrabacion)
+    .sort((a,b) => new Date(b.fecha) - new Date(a.fecha))
+    .slice(0, 10); // Últimas 10 ventas
+
+  const listContainer = document.getElementById('hqg-ventas-list');
+  if(!listContainer) return;
+
+  if(ventasJP.length === 0) {
+    listContainer.innerHTML = '<div style="color:#99ACC2;font-size:12px;padding:12px;text-align:center">No hay ventas registradas</div>';
+    return;
+  }
+
+  let html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  ventasJP.forEach(v => {
+    const prod = PRODUCTOS_CATALOG.find(p => p.id === v.productoId);
+    const prodNombre = prod ? prod.nombre : v.productoId;
+    const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
+    const fechaObj = new Date(v.fecha);
+    const fechaStr = fechaObj.toLocaleDateString('es-ES', { day:'2-digit', month:'short' });
+
+    html += `
+      <div style="background:#fff;border-radius:8px;padding:10px 12px;border-left:3px solid #0EA5E9;display:flex;justify-content:space-between;align-items:center">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:#33475B">${v.cliente}</div>
+          <div style="font-size:11px;color:#7C98B6">${prodNombre} × ${v.cantidad}</div>
+          <div style="font-size:10px;color:#99ACC2;margin-top:2px">${fechaStr}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;color:#0EA5E9">$${comTotal.toFixed(2)}</div>
+          <div style="font-size:10px;color:#99ACC2">Comisión</div>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+
+  listContainer.innerHTML = html;
+}
+
 function ventaInlineEdit(id, field, value, prodSelect) {
   const v = appData.ventas.find(x=>x.id===id);
   if(!v) return;
@@ -4465,6 +4569,29 @@ function renderPagos() {
   const mesAct = filtroMes || meses[meses.length-1] || mesActual();
   const qAct = filtroQ ? parseInt(filtroQ) : (hoy <= 15 ? 1 : 2);
   let totalNominaQuincena = 0;
+
+  // ── Calcular Inversión-Activa (José Piña) ──
+  const josePinaTotal = (() => {
+    const jp = appData.agentes.find(a => a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+    if(!jp) return 0;
+    const comQ   = getComisionesQuincena(jp, mesAct, qAct);
+    const nombreLow = (jp.nombre||'').trim().toLowerCase();
+    const grabRows = appData.ventas.filter(v=>{
+      if(!v.esGrabacion && !v._esGrabacion) return false;
+      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+      const pp = getPeríodoPago(v);
+      return pp.mes===mesAct && pp.q===qAct;
+    });
+    const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+    const basico = jp.sueldoQuincenal||0;
+    const bonos  = getExtra('bono',  jp.nombre, mesAct+'Q'+qAct);
+    const prest  = getExtra('prest', jp.nombre, mesAct+'Q'+qAct);
+    const desc   = getExtra('desc',  jp.nombre, mesAct+'Q'+qAct);
+    const prev   = getPrevQuincena(meses, mesAct, qAct);
+    const deAnt  = prev ? getPend(jp.nombre, prev.mes, prev.q) : 0;
+    const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
+    return total;
+  })();
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
@@ -4574,6 +4701,17 @@ function renderPagos() {
       </div>
 
       <div style="display:flex;flex-wrap:wrap;gap:12px">${resumenCards}</div>
+      ${josePinaTotal > 0 ? `
+      <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);border:2px solid #D97706;color:#fff">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;opacity:0.9;letter-spacing:0.5px">💼 Inversión-Activa</div>
+            <div style="font-size:11px;opacity:0.8;margin-top:2px">Gerente General — Q${qAct}</div>
+          </div>
+          <div style="font-size:28px;font-weight:900">${fmt(josePinaTotal)}</div>
+        </div>
+      </div>
+      ` : ''}
     </div>
     <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 18px;margin-bottom:18px;font-size:12px;color:#0057A8">
       <b>Detalle completo por quincena ↓</b> &nbsp;·&nbsp;
@@ -6210,9 +6348,64 @@ function renderHQGerente() {
           <div style="font-size:22px;font-weight:900">${fmt(netTotal)}</div>
         </div>
       </div>
-    </div>`;
+    </div>
+
+    <!-- SECCIÓN DE REGISTRO DE VENTAS PARA JOSÉ PIÑA -->
+    <div style="background:#F0F9FF;border:2px solid #0EA5E9;border-radius:12px;padding:20px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="font-size:16px;font-weight:900;color:#0369A1">📝 Registro de Ventas</h3>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('hqg-venta-form').style.display=document.getElementById('hqg-venta-form').style.display==='none'?'block':'none'" style="background:#0EA5E9;color:#fff;font-weight:700">
+          ${document.getElementById('hqg-venta-form')?.style?.display==='block'?'▲ Contraer':'▼ Expandir'}
+        </button>
+      </div>
+      <div id="hqg-venta-form" style="display:none;background:#fff;border-radius:10px;padding:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">📅 Fecha *</label>
+            <input type="date" id="hqg-venta-fecha" value="${new Date().toISOString().split('T')[0]}" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">👤 Cliente *</label>
+            <input type="text" id="hqg-venta-cliente" placeholder="Nombre del cliente" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">📦 Producto *</label>
+            <select id="hqg-venta-producto" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
+              <option value="">— Selecciona un producto —</option>
+              ${PRODUCTOS_CATALOG.map(p=>`<option value="${p.id}">${p.nombre} ($${p.precio.toFixed(2)})</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+          <div>
+            <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">📊 Cantidad *</label>
+            <input type="number" id="hqg-venta-cantidad" min="1" value="1" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">💰 Comisión ($) *</label>
+            <input type="number" id="hqg-venta-comision" step="0.01" min="0" value="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
+          </div>
+          <div>
+            <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">📝 Notas (opcional)</label>
+            <input type="text" id="hqg-venta-notas" placeholder="Ej. Nota adicional" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-success" onclick="guardarVentaJosePina()" style="flex:1;font-weight:700">✅ Guardar Venta</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('hqg-venta-form').style.display='none'" style="flex:0.5;font-weight:700">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTA DE ÚLTIMAS VENTAS -->
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;padding:16px">
+      <h3 style="font-size:14px;font-weight:900;color:#33475B;margin-bottom:12px">📋 Últimas Ventas Registradas</h3>
+      <div id="hqg-ventas-list" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+    `;
 
   document.getElementById('hq-gerente-content').innerHTML = html;
+  actualizarListaVentasHQ();
 }
 
 // ============================================================
