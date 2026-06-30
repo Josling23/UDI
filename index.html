@@ -3460,7 +3460,7 @@ function openVentaModal(id=null) {
     agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision });
   } else {
     document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('v-agente').value = appData.agentes.find(a=>!a.soloHQ&&(!a.rol||a.rol==='agente'))?.nombre||appData.agentes[0]?.nombre||'';
+    document.getElementById('v-agente').value = ''; // Dejar en blanco - obligatorio seleccionar vendedor
     document.getElementById('v-cliente').value = '';
     document.getElementById('v-cuenta').value = '';
     const ms = getMeses(); document.getElementById('v-mes').value = ms[ms.length-1]||'';
