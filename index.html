@@ -4592,6 +4592,8 @@ function renderPagos() {
     const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
     return total;
   })();
+  // Agregar José Piña al total de nómina
+  totalNominaQuincena += josePinaTotal;
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
