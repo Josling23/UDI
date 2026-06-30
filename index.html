@@ -4447,18 +4447,10 @@ function renderPagos() {
   // If filtroQ is '' or unset, qVis stays as [1,2]
 
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
-  // Excluir José Piña SOLO en Admin (visible en TOP y HQ)
-  const esEnAdmin = document.getElementById('pagos-content') !== null;
-  const filtroJosePina = (a) => {
-    if (!esEnAdmin) return true; // No filtrar en TOP/HQ
-    const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    // Excluir si es José Piña en Admin
-    return !(nombre.includes('jose') && nombre.includes('pina'));
-  };
   const todos = [
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'&&filtroJosePina(a)),
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'&&filtroJosePina(a)),
-    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')&&filtroJosePina(a)),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
   ];
   const ordenados = filtroAgId ? todos.filter(a=>a.id===filtroAgId) : todos;
   // ── Resumen de pago quincena actual ──
