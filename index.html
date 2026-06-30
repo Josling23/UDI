@@ -4447,10 +4447,12 @@ function renderPagos() {
   // If filtroQ is '' or unset, qVis stays as [1,2]
 
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
-  // Excluir José Piña de Admin (solo visible en TOP y HQ)
+  // Excluir José Piña SOLO en Admin (visible en TOP y HQ)
+  const esEnAdmin = document.getElementById('pagos-content') !== null;
   const filtroJosePina = (a) => {
+    if (!esEnAdmin) return true; // No filtrar en TOP/HQ
     const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    // Excluir si es José Piña (normalizar acentos)
+    // Excluir si es José Piña en Admin
     return !(nombre.includes('jose') && nombre.includes('pina'));
   };
   const todos = [
