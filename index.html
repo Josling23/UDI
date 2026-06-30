@@ -3511,6 +3511,7 @@ function guardarVenta() {
   }
   const comisionGrabacion= llamadaGrabada ? 2 : 0; // Siempre $2 por llamada grabada
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
+  if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
   if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Marca "Llamada grabada" Y selecciona el agente en el dropdown 📞','error'); return; }
 
   // Recoger todas las líneas — VALIDAR QUE TODAS ESTÉN COMPLETAS
