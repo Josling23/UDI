@@ -2075,8 +2075,8 @@ function activarListenerAppData() {
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
       appData.agentes.forEach(a => {
-        const nombre = (a.nombre || '').trim().toLowerCase();
-        if (nombre.includes('jose') && nombre.includes('piña')) {
+        const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (nombre.includes('jose') && nombre.includes('pina')) {
           a.soloHQ = true;
         }
       });
@@ -2122,8 +2122,14 @@ async function cargar() {
       const raw = snap.val();
       appData = { ...appData, ...raw };
       // Asegurar que José Piña está marcado como soloHQ
-      const josePina = appData.agentes?.find(a => a.nombre && a.nombre.trim().toLowerCase() === 'jose piña');
-      if (josePina) josePina.soloHQ = true;
+      if (appData.agentes) {
+        appData.agentes.forEach(a => {
+          const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+          if (nombre.includes('jose') && nombre.includes('pina')) {
+            a.soloHQ = true;
+          }
+        });
+      }
       normalizarAppData();
       localStorage.setItem('attVND_v1', JSON.stringify(appData));
       activarListenerAppData();
@@ -2140,8 +2146,8 @@ async function cargar() {
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
       appData.agentes.forEach(a => {
-        const nombre = (a.nombre || '').trim().toLowerCase();
-        if (nombre.includes('jose') && nombre.includes('piña')) {
+        const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        if (nombre.includes('jose') && nombre.includes('pina')) {
           a.soloHQ = true;
         }
       });
