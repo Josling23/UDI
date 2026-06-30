@@ -4449,9 +4449,9 @@ function renderPagos() {
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
   // Excluir José Piña de Admin (solo visible en TOP y HQ)
   const filtroJosePina = (a) => {
-    const nombre = (a.nombre || '').trim().toLowerCase();
-    // Excluir si es José Piña
-    return !(nombre.includes('jose') && nombre.includes('piña'));
+    const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    // Excluir si es José Piña (normalizar acentos)
+    return !(nombre.includes('jose') && nombre.includes('pina'));
   };
   const todos = [
     ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'&&filtroJosePina(a)),
