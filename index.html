@@ -1468,6 +1468,21 @@ tr:hover td{background:#EAF0FB}
         👥 Gana comisión de ventas de estos agentes:
       </div>
       <div id="hqc-supervisa" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+
+      <!-- Tarifa especial por agente -->
+      <div style="font-size:10px;font-weight:700;color:#00A492;text-transform:uppercase;letter-spacing:1.2px;margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2;margin-bottom:8px">
+        💼 Tarifa Especial por Agente
+        <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — opcional, sobreescribe la comisión general de arriba solo para las ventas de ese agente (ej. subdealers con tarifa distinta)</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <select id="hqc-tarifa-agente-sel" onchange="hqcCargarTarifaAgente()" style="flex:1;min-width:180px;padding:7px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px"></select>
+      </div>
+      <div id="hqc-tarifa-comisiones" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" class="btn btn-success btn-sm" onclick="hqcGuardarTarifaAgente()">💾 Guardar tarifa para este agente</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="hqcQuitarTarifaAgente()">🗑️ Quitar tarifa especial</button>
+      </div>
+      <div id="hqc-tarifas-lista" style="font-size:11px;color:#7C98B6"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-hq-config')">Cancelar</button>
@@ -2346,6 +2361,20 @@ function getComision(v) {
   return getComisionParaAgente(v.productoId, v.agente);
 }
 
+// Comisión de supervisión que un gerente/supervisor gana por la venta de un
+// agente ESPECÍFICO que supervisa. Si configuró una tarifa especial para ese
+// agente (ej. un subdealer con tarifa distinta al resto), se usa esa; si no,
+// cae a la tarifa general de supervisión por producto del supervisor.
+function getComisionSupervisionPorAgente(supervisorNombre, ventaAgenteNombre, productoId) {
+  const sup = appData.agentes.find(x=>normNombre(x.nombre)===normNombre(supervisorNombre));
+  if(!sup) return 0;
+  const overrides = (sup.comisionesPorAgente||{})[normNombre(ventaAgenteNombre)];
+  if(overrides && overrides[productoId] !== undefined) {
+    return parseFloat(overrides[productoId])||0;
+  }
+  return getComisionParaAgente(productoId, supervisorNombre);
+}
+
 // Total de comisiones que un agente (o gerente/supervisor) gana en un mes
 function getExtrasComMes(agenteId, mes) {
   return (appData.ventasExtra||[])
@@ -2366,7 +2395,7 @@ function getComisionesMes(a, mes) {
     const deAgentes = supervisados.length
       ? appData.ventas
           .filter(v=>v.mes===mes && supervisados.includes(normNombre(v.agente)))
-          .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
+          .reduce((s,v)=>s + getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId)*v.cantidad, 0)
       : 0;
     return propias + deAgentes + extras;
   }
@@ -2479,7 +2508,7 @@ function getComisionesQuincena(a, mes, q) {
           if(!sups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
-        }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
+        }).reduce((s,v)=>s + getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId)*v.cantidad, 0)
       : 0;
     return propias + deAgentes + extras;
   }
@@ -2532,7 +2561,7 @@ function getComisionesQuincenaDesglose(a, mes, q) {
           if(!sups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
-        }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
+        }).reduce((s,v)=>s + getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId)*v.cantidad, 0)
       : 0;
   }
 
@@ -2886,7 +2915,7 @@ function renderVentas() {
           if(v.mes !== fMes) return false;
           return supervisados.includes(normNombre(v.agente));
         });
-        const comSupervisa = ventasSupervisa.reduce((s,v)=>s + getComisionParaAgente(v.productoId, agente.nombre)*v.cantidad, 0);
+        const comSupervisa = ventasSupervisa.reduce((s,v)=>s + getComisionSupervisionPorAgente(agente.nombre, v.agente, v.productoId)*v.cantidad, 0);
         totalCom += comSupervisa;
       }
     }
@@ -4678,7 +4707,7 @@ function renderPagos() {
         Object.keys(porAgente).forEach(agNom=>{
           const ventas = porAgente[agNom];
           const comTotal = ventas.reduce((s,v)=>{
-            const rate = getComisionParaAgente(v.productoId, a.nombre);
+            const rate = getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId);
             return s + rate * (v.cantidad||1);
           }, 0);
 
@@ -5465,7 +5494,72 @@ function openHQConfig(id=null) {
   document.getElementById('hqc-email').value = a?.email||'';
   document.getElementById('hqc-comisiones').innerHTML = comFields;
   document.getElementById('hqc-supervisa').innerHTML = checkboxes;
+
+  // Tarifas especiales por agente — trabajan sobre una copia en memoria hasta
+  // que se guarde el perfil completo (mismo patrón que los demás campos).
+  _hqcTarifasPorAgente = JSON.parse(JSON.stringify(a?.comisionesPorAgente || {}));
+  _hqcOtrosAgentes = otros;
+  const selTarifa = document.getElementById('hqc-tarifa-agente-sel');
+  selTarifa.innerHTML = otros.length
+    ? otros.map(ag=>`<option value="${normNombre(ag.nombre)}" data-nombre="${ag.nombre}">${ag.nombre}</option>`).join('')
+    : '<option value="">No hay agentes registrados aún</option>';
+  hqcCargarTarifaAgente();
+  hqcRenderTarifasLista();
+
   document.getElementById('modal-hq-config').classList.add('open');
+}
+
+let _hqcTarifasPorAgente = {};
+let _hqcOtrosAgentes = [];
+
+function hqcCargarTarifaAgente() {
+  const sel = document.getElementById('hqc-tarifa-agente-sel');
+  const key = sel.value;
+  const overrides = _hqcTarifasPorAgente[key] || {};
+  document.getElementById('hqc-tarifa-comisiones').innerHTML = PRODUCTOS_CATALOG.map(p=>`
+    <div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2">
+      <div style="font-size:11px;font-weight:600;color:#33475B;margin-bottom:6px">${p.nombre}</div>
+      <input type="number" min="0" step="0.01" value="${overrides[p.id]!==undefined?overrides[p.id]:''}" placeholder="usar general"
+        data-prod-id="${p.id}" class="hq-prod-tarifa-especial"
+        style="width:100%;background:#fff;border:1.5px solid #D97706;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#D97706;outline:none;text-align:right"
+        onfocus="this.style.borderColor='#D97706'" onblur="this.style.borderColor='#D97706'">
+    </div>`).join('');
+}
+
+function hqcGuardarTarifaAgente(silent=false) {
+  const sel = document.getElementById('hqc-tarifa-agente-sel');
+  const key = sel?.value;
+  if(!key) return;
+  const tarifas = {};
+  document.querySelectorAll('.hq-prod-tarifa-especial').forEach(inp=>{
+    if(inp.value!=='') tarifas[inp.dataset.prodId] = parseFloat(inp.value)||0;
+  });
+  if(Object.keys(tarifas).length) {
+    _hqcTarifasPorAgente[key] = tarifas;
+    if(!silent) showNotif('✅ Tarifa especial guardada (recuerda 💾 Guardar el perfil para aplicarla)');
+  } else {
+    delete _hqcTarifasPorAgente[key];
+  }
+  hqcRenderTarifasLista();
+}
+
+function hqcQuitarTarifaAgente() {
+  const sel = document.getElementById('hqc-tarifa-agente-sel');
+  delete _hqcTarifasPorAgente[sel.value];
+  hqcCargarTarifaAgente();
+  hqcRenderTarifasLista();
+}
+
+function hqcRenderTarifasLista() {
+  const keys = Object.keys(_hqcTarifasPorAgente).filter(k=>_hqcTarifasPorAgente[k] && Object.keys(_hqcTarifasPorAgente[k]).length);
+  const cont = document.getElementById('hqc-tarifas-lista');
+  if(!keys.length) { cont.innerHTML = '<i>Ningún agente tiene tarifa especial configurada — todos usan la comisión general de arriba.</i>'; return; }
+  cont.innerHTML = '<b>Tarifas especiales configuradas:</b><br>' + keys.map(k=>{
+    const ag = _hqcOtrosAgentes.find(x=>normNombre(x.nombre)===k);
+    const nombre = ag ? ag.nombre : k;
+    const n = Object.keys(_hqcTarifasPorAgente[k]).length;
+    return `• ${nombre} (${n} producto${n>1?'s':''} con tarifa especial)`;
+  }).join('<br>');
 }
 
 function guardarHQAgente() {
@@ -5486,14 +5580,19 @@ function guardarHQAgente() {
   const agentesSupervisa = [];
   document.querySelectorAll('#hqc-supervisa input[type=checkbox]:checked').forEach(cb=>agentesSupervisa.push(cb.value));
 
+  // Volcar la tarifa especial del agente actualmente seleccionado (por si no
+  // se presionó "Guardar tarifa para este agente" antes de guardar el perfil)
+  hqcGuardarTarifaAgente(true);
+  const comisionesPorAgente = _hqcTarifasPorAgente;
+
   const editId = parseInt(document.getElementById('modal-hq-config').dataset.editId)||null;
   if(editId) {
     const a = appData.agentes.find(x=>x.id===editId);
-    if(a) Object.assign(a, { nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, soloHQ:true, activo:true });
+    if(a) Object.assign(a, { nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, comisionesPorAgente, soloHQ:true, activo:true });
     showNotif('✅ Datos actualizados');
   } else {
     const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
-    appData.agentes.push({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, soloHQ:true, activo:true });
+    appData.agentes.push({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, comisionesPorAgente, soloHQ:true, activo:true });
     if(!appData.nextId||appData.nextId<=maxId+1) appData.nextId=maxId+2;
     showNotif('✅ Perfil creado en HEADQUARTERS');
   }
@@ -5674,7 +5773,7 @@ function renderHQ() {
         const filasProd = prods.map(pid=>{
           const vs   = vv.filter(v=>v.productoId===pid);
           const qty  = vs.reduce((s,v)=>s+v.cantidad,0);
-          const rate = getComisionParaAgente(pid, a.nombre);
+          const rate = getComisionSupervisionPorAgente(a.nombre, agNombre, pid);
           const com  = rate * qty;
           subAg += com;
           const sinTarifa = rate === 0;
