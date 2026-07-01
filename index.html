@@ -7699,7 +7699,7 @@ function renderAdmin() {
         <h2>🔍 Exportar / Importar Ventas Filtradas</h2>
       </div>
       <div style="font-size:12px;color:#7C98B6;margin-bottom:14px">
-        Descarga solo las ventas que necesites (por vendedor, cliente, mes y quincena) en Excel. Puedes volver a subir ese mismo archivo para agregar ventas nuevas o actualizar las que ya existan (por ID) — a diferencia del Backup Completo, esto <b>no</b> reemplaza el resto de tus datos.
+        Descarga las ventas que necesites (por vendedor, cliente, mes y quincena) junto con el total pagado por producto y el desglose de pagos (básico, bonos, préstamos, descuentos y total). Puedes volver a subir ese mismo archivo para agregar ventas nuevas o actualizar las que ya existan (por ID) — a diferencia del Backup Completo, esto <b>no</b> reemplaza el resto de tus datos.
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px">
         <div>
@@ -7726,7 +7726,7 @@ function renderAdmin() {
       <div style="display:flex;gap:16px;flex-wrap:wrap">
         <div style="flex:1;min-width:240px;background:#EAF7FB;border:1.5px solid #009FDB;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#0057A8;margin-bottom:8px">⬇️ Descargar Filtrado</div>
-          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Excel solo con las ventas que cumplan los filtros de arriba.</div>
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Excel con 3 hojas: Ventas, Total pagado por Producto, y Pagos (básico, bonos, préstamos, descuentos y total) — todo según los filtros de arriba.</div>
           <button class="btn btn-primary" onclick="descargarVentasFiltradas()">⬇️ Descargar Ventas Filtradas</button>
         </div>
         <div style="flex:1;min-width:240px;background:#F4F5FF;border:1.5px solid #A5B4FC;border-radius:10px;padding:16px">
@@ -7865,7 +7865,10 @@ function descargarVentasFiltradas() {
   const ventas = (appData.ventas||[]).filter(v=>_ventaCumpleFiltro(v, f));
   if(!ventas.length) { showNotif('⚠️ No hay ventas que cumplan esos filtros', 'error'); return; }
 
-  const rows = ventas.map(v=>{
+  const wb = XLSX.utils.book_new();
+
+  // ── Hoja 1: Ventas ──
+  const rowsVentas = ventas.map(v=>{
     const pp = getPeríodoPago(v);
     return {
       ID: v.id, Fecha: v.fecha, Agente: v.agente, Cliente: v.cliente,
@@ -7874,9 +7877,66 @@ function descargarVentasFiltradas() {
       'Mes Pago': pp.mes, 'Quincena Pago': 'Q'+pp.q, Notas: v.notas||''
     };
   });
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Ventas Filtradas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsVentas), 'Ventas Filtradas');
+
+  // ── Hoja 2: Total pagado por producto ──
+  const porProdMap = {};
+  ventas.forEach(v=>{
+    if(!porProdMap[v.productoId]) porProdMap[v.productoId] = { Producto: getProdNombre(v.productoId), Cantidad: 0, 'Comisión Total': 0 };
+    porProdMap[v.productoId].Cantidad += (parseFloat(v.cantidad)||0);
+    porProdMap[v.productoId]['Comisión Total'] += (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
+  });
+  const rowsProd = Object.values(porProdMap).sort((a,b)=>b['Comisión Total']-a['Comisión Total']);
+  rowsProd.push({
+    Producto: 'TOTAL',
+    Cantidad: rowsProd.reduce((s,r)=>s+r.Cantidad,0),
+    'Comisión Total': rowsProd.reduce((s,r)=>s+r['Comisión Total'],0)
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsProd), 'Total por Producto');
+
+  // ── Hoja 3: Pagos — básico, bonos, préstamos, descuentos y total por agente/quincena ──
+  const mesesList = f.mes ? [f.mes] : getMeses();
+  const qList = f.q ? [parseInt(f.q)] : [1,2];
+  const agentesList = f.vendedor
+    ? appData.agentes.filter(a=>!a.soloHQ && normNombre(a.nombre)===normNombre(f.vendedor))
+    : appData.agentes.filter(a=>!a.soloHQ);
+
+  const rowsPagos = [];
+  agentesList.forEach(a=>{
+    const nombreLow = normNombre(a.nombre);
+    mesesList.forEach(mes=>{
+      qList.forEach(q=>{
+        const comQ = getComisionesQuincena(a, mes, q);
+        const grabRows = appData.ventas.filter(v=>{
+          if(!v.esGrabacion && !v._esGrabacion) return false;
+          if(normNombre(v.agente) !== nombreLow) return false;
+          const pp = getPeríodoPago(v);
+          return pp.mes===mes && pp.q===q;
+        });
+        const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+        const sueldoUSD = getExtra('sueldousd', a.nombre, mes+'Q'+q);
+        const basico = (a.sueldoQuincenal||0) + sueldoUSD;
+        const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
+        const prest = getExtra('prest', a.nombre, mes+'Q'+q);
+        const desc = getExtra('desc', a.nombre, mes+'Q'+q);
+        const prev = getPrevQuincena(getMeses(), mes, q);
+        const deAnt = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
+        const total = comQ + comGrab + basico + bonos + prest + deAnt - desc;
+        if(!comQ && !comGrab && !basico && !bonos && !prest && !desc && !deAnt) return; // omitir filas sin actividad
+        const pagado = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
+        rowsPagos.push({
+          Agente: a.nombre, Mes: mes, Quincena: 'Q'+q,
+          'Comisión Ventas': comQ, 'Comisión Grabaciones': comGrab,
+          'Básico': basico, Bonos: bonos, 'Préstamos': prest,
+          'De Q. Anterior': deAnt, Descuentos: desc,
+          'Total a Pagar': total, Pagado: pagado ? 'Sí' : 'No'
+        });
+      });
+    });
+  });
+  if(rowsPagos.length) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsPagos), 'Pagos');
+  }
 
   const partes = [];
   if(f.vendedor) partes.push(f.vendedor.replace(/[^a-zA-Z0-9]/g,''));
@@ -7884,7 +7944,7 @@ function descargarVentasFiltradas() {
   if(f.q) partes.push('Q'+f.q);
   const sufijo = partes.length ? '-'+partes.join('-') : '';
   XLSX.writeFile(wb, `ventas${sufijo}-${new Date().toISOString().split('T')[0]}.xlsx`);
-  showNotif(`✅ ${ventas.length} venta${ventas.length>1?'s':''} descargada${ventas.length>1?'s':''}`);
+  showNotif(`✅ ${ventas.length} venta${ventas.length>1?'s':''} descargada${ventas.length>1?'s':''} (con resumen por producto y pagos)`);
 }
 
 function manejarArchivoVentasFiltradas(event) {
