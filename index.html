@@ -4603,8 +4603,9 @@ function renderPagos() {
     const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
     return total;
   })();
-  // Agregar José Piña al total de nómina
-  totalNominaQuincena += josePinaTotal;
+  // Agregar José Piña (Inversión-Activa) solo al total general — no debe sumarse
+  // cuando se filtra a un agente individual, ya que ese total es solo de José.
+  if(!filtroAgId) totalNominaQuincena += josePinaTotal;
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
@@ -4714,7 +4715,7 @@ function renderPagos() {
       </div>
 
       <div style="display:flex;flex-wrap:wrap;gap:12px">${resumenCards}</div>
-      ${josePinaTotal > 0 ? `
+      ${(!filtroAgId && josePinaTotal > 0) ? `
       <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);border:2px solid #D97706;color:#fff">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
