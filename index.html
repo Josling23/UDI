@@ -7669,8 +7669,85 @@ function renderAdmin() {
       <div style="font-size:11px;color:#99ACC2">Ingresa los datos mensuales. Los cambios se reflejan automáticamente en TOP</div>
     </div>
     <div id="admin-gasto-nomina-table"></div>
+
+    <div class="section" style="margin-top:24px">
+      <div class="section-header">
+        <h2>💾 Backup y Restauración</h2>
+      </div>
+      <div style="font-size:12px;color:#7C98B6;margin-bottom:14px">
+        Descarga una copia completa de todos los datos de la app (ventas, clientes, comisiones, sueldos, gastos, ingresos, quincenas pagadas, etc.) para guardarla como respaldo. Si pierdes datos, puedes volver a subir ese mismo archivo aquí para recuperarlos.
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#059669;margin-bottom:8px">⬇️ Descargar Backup</div>
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Genera un archivo .json con todos los datos actuales de la app.</div>
+          <button class="btn btn-success" onclick="descargarBackupCompleto()">⬇️ Descargar Backup Completo</button>
+        </div>
+        <div style="flex:1;min-width:240px;background:#FFF3EE;border:1.5px solid #FDBA74;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#D97706;margin-bottom:8px">⬆️ Restaurar Backup</div>
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">⚠️ Reemplaza TODOS los datos actuales por los del archivo. No se puede deshacer.</div>
+          <input type="file" id="backup-file-input" accept=".json" style="background:#fff;border:2px dashed #F59E0B;padding:10px;border-radius:8px;width:100%;cursor:pointer;font-size:12px" onchange="manejarArchivoBackup(event)">
+        </div>
+      </div>
+    </div>
   `;
   renderAdminGastoNominaTable();
+}
+
+// ── BACKUP COMPLETO (descargar/restaurar todos los datos de la app) ─────────
+function descargarBackupCompleto() {
+  const fecha = new Date().toISOString().split('T')[0];
+  const backup = { _tipo:'backup_UDI', _version:1, _fecha:new Date().toISOString(), appData };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup-UDI-${fecha}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showNotif('✅ Backup descargado');
+}
+
+function manejarArchivoBackup(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(e.target.result);
+    } catch(err) {
+      showNotif('❌ El archivo no es un backup válido (JSON inválido)', 'error');
+      event.target.value = '';
+      return;
+    }
+    const datos = (parsed && parsed._tipo === 'backup_UDI') ? parsed.appData : parsed;
+    if(!datos || typeof datos !== 'object' || !Array.isArray(datos.ventas) || !Array.isArray(datos.agentes)) {
+      showNotif('❌ El archivo no tiene el formato esperado de backup', 'error');
+      event.target.value = '';
+      return;
+    }
+    const resumen = `${datos.ventas.length} ventas · ${datos.agentes.length} agentes · ${(datos.meses||[]).length} meses · ${(datos.gastos||[]).length} gastos · ${(datos.ingresos||[]).length} ingresos`;
+    const fechaBackup = parsed._fecha ? new Date(parsed._fecha).toLocaleString() : 'desconocida';
+    const ok = confirm(`⚠️ Esto REEMPLAZARÁ todos los datos actuales de la app con el contenido de este backup:\n\n${resumen}\n\nFecha del backup: ${fechaBackup}\n\nEsta acción no se puede deshacer. ¿Deseas continuar?`);
+    if(!ok) { event.target.value = ''; return; }
+    showNotif('⏳ Restaurando backup...', 'info');
+    _syncIgnoreNext = true;
+    fbDB.ref('appData').set(datos).then(()=>{
+      appData = datos;
+      normalizarAppData();
+      localStorage.setItem('attVND_v1', JSON.stringify(appData));
+      showNotif('✅ Backup restaurado — recargando...');
+      setTimeout(()=>location.reload(), 800);
+    }).catch(err=>{
+      console.error('Error restaurando backup:', err);
+      showNotif('❌ Error al restaurar el backup: '+err.message, 'error');
+      event.target.value = '';
+    });
+  };
+  reader.readAsText(file);
 }
 
 // ── Tabla Gastos & Nómina Unificada (Admin) ──────────────────────────────────────────
