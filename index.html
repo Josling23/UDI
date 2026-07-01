@@ -2362,10 +2362,10 @@ function getComisionesMes(a, mes) {
   const extras = getExtrasComMes(a.id, mes);
   // Gerentes/supervisores: también gana de agentes supervisados → usa tarifa DE SUPERVISIÓN (la pequeña)
   if(a.rol==='gerente'||a.rol==='supervisor') {
-    const supervisados = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+    const supervisados = (a.agentesSupervisa||[]).map(n=>normNombre(n));
     const deAgentes = supervisados.length
       ? appData.ventas
-          .filter(v=>v.mes===mes && supervisados.includes((v.agente||'').trim().toLowerCase()))
+          .filter(v=>v.mes===mes && supervisados.includes(normNombre(v.agente)))
           .reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
       : 0;
     return propias + deAgentes + extras;
@@ -2472,11 +2472,11 @@ function getComisionesQuincena(a, mes, q) {
 
   // Gerentes/supervisores: comisión de supervisión
   if(a.rol==='gerente'||a.rol==='supervisor') {
-    const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+    const sups = (a.agentesSupervisa||[]).map(n=>normNombre(n));
     const deAgentes = sups.length
       ? appData.ventas.filter(v=>{
           if(v.esGrabacion || v._esGrabacion) return false;
-          if(!sups.includes((v.agente||'').trim().toLowerCase())) return false;
+          if(!sups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
         }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
@@ -2525,11 +2525,11 @@ function getComisionesQuincenaDesglose(a, mes, q) {
   // Comisión de supervisión (solo para gerentes/supervisores)
   let supervision = 0;
   if(a.rol==='gerente'||a.rol==='supervisor') {
-    const sups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+    const sups = (a.agentesSupervisa||[]).map(n=>normNombre(n));
     supervision = sups.length
       ? appData.ventas.filter(v=>{
           if(v.esGrabacion) return false;
-          if(!sups.includes((v.agente||'').trim().toLowerCase())) return false;
+          if(!sups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
         }).reduce((s,v)=>s + getComisionParaAgente(v.productoId, a.nombre)*v.cantidad, 0)
@@ -2564,6 +2564,17 @@ function calcNominaQuincena(mes, q) {
 
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
+// Normaliza un nombre para comparaciones (minúsculas, sin tildes) — evita que
+// ventas de un vendedor supervisado no se emparejen por diferencias de acentos.
+function normNombre(s) { return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+// Mes a usar cuando no hay filtro seleccionado: el mes calendario actual si está
+// en la lista, si no el último de la lista (evita que meses futuros pre-cargados
+// por migrarMeses() opaquen al mes en curso).
+function mesPorDefecto() {
+  const ms = getMeses();
+  const act = mesActual();
+  return ms.includes(act) ? act : (ms[ms.length-1]||'');
+}
 
 // ============================================================
 // NAVIGATION
@@ -2869,11 +2880,11 @@ function renderVentas() {
   if(fAg && fMes) {
     const agente = appData.agentes.find(a=>a.id==fAg);
     if(agente && (agente.rol==='supervisor' || agente.rol==='gerente')) {
-      const supervisados = (agente.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+      const supervisados = (agente.agentesSupervisa||[]).map(n=>normNombre(n));
       if(supervisados.length > 0) {
         const ventasSupervisa = appData.ventas.filter(v=>{
           if(v.mes !== fMes) return false;
-          return supervisados.includes((v.agente||'').trim().toLowerCase());
+          return supervisados.includes(normNombre(v.agente));
         });
         const comSupervisa = ventasSupervisa.reduce((s,v)=>s + getComisionParaAgente(v.productoId, agente.nombre)*v.cantidad, 0);
         totalCom += comSupervisa;
@@ -4169,7 +4180,7 @@ function renderResumen() {
   const meses = getMeses();
   const curVal = sel.value;
   sel.innerHTML = meses.map(m=>`<option value="${m}" ${m===curVal?'selected':''}>${m}</option>`).join('');
-  const mes = sel.value || meses[meses.length-1] || '';
+  const mes = sel.value || mesPorDefecto();
   if(!mes) return;
 
   const ventas = appData.ventas.filter(v=>v.mes===mes);
@@ -4566,7 +4577,7 @@ function renderPagos() {
   const ordenados = filtroAgId ? todos.filter(a=>a.id===filtroAgId) : todos;
   // ── Resumen de pago quincena actual ──
   const hoy = new Date().getDate();
-  const mesAct = filtroMes || meses[meses.length-1] || mesActual();
+  const mesAct = filtroMes || mesPorDefecto();
   const qAct = filtroQ ? parseInt(filtroQ) : (hoy <= 15 ? 1 : 2);
   let totalNominaQuincena = 0;
 
@@ -4636,13 +4647,13 @@ function renderPagos() {
 
       <!-- ★ DESGLOSE DE SUPERVISIÓN SI APLICA -->
       ${(()=>{
-        const agSups = (a.agentesSupervisa||[]).map(n=>n.trim().toLowerCase());
+        const agSups = (a.agentesSupervisa||[]).map(n=>normNombre(n));
         if(a.rol!=='gerente' && a.rol!=='supervisor' || agSups.length===0) return '';
 
         // Filtrar ventas de supervisados en esta quincena
         const ventasSup = appData.ventas.filter(v=>{
           if(!v || v.esGrabacion || v._esGrabacion) return false;
-          if(!agSups.includes((v.agente||'').trim().toLowerCase())) return false;
+          if(!agSups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes===mesAct && pp.q===qAct;
         });
@@ -5512,7 +5523,7 @@ function renderHQ() {
     return;
   }
 
-  const selMes = document.getElementById('hq-mes-sel')?.value ?? (meses[meses.length-1]||'');
+  const selMes = document.getElementById('hq-mes-sel')?.value ?? mesPorDefecto();
   const selQ   = document.getElementById('hq-q-sel')?.value ?? '';
   const selAg  = document.getElementById('hq-ag-sel')?.value ?? '';
 
@@ -5623,7 +5634,7 @@ function renderHQ() {
       </div>`;
 
     // ── DESGLOSE COMISIONES POR AGENTE Y PRODUCTO ─────────────
-    const mesPara  = selMes || (meses[meses.length-1]||'');
+    const mesPara  = selMes || mesPorDefecto();
     // CRITICAL: Use same hardened filter logic for breakdown
     let qFiltroD = [1,2]; // Default: both quincenas
     if(selQ === '1') {
@@ -5632,8 +5643,8 @@ function renderHQ() {
       qFiltroD = [2]; // Only Q2
     }
     if(mesPara) {
-      const nombreLow = a.nombre.trim().toLowerCase();
-      const supervisadosLow = supervisa.map(n=>n.trim().toLowerCase());
+      const nombreLow = normNombre(a.nombre);
+      const supervisadosLow = supervisa.map(n=>normNombre(n));
       // Filtra ventas por período de pago (quincena calculada)
       function enPeriodoHQ(v) {
         return qFiltroD.some(q=>{
@@ -5641,8 +5652,8 @@ function renderHQ() {
           return pp.mes===mesPara && pp.q===q;
         });
       }
-      const ventasSup    = appData.ventas.filter(v=>supervisadosLow.includes((v.agente||'').trim().toLowerCase()) && enPeriodoHQ(v));
-      const ventasPropias= appData.ventas.filter(v=>(v.agente||'').trim().toLowerCase()===nombreLow && enPeriodoHQ(v));
+      const ventasSup    = appData.ventas.filter(v=>supervisadosLow.includes(normNombre(v.agente)) && enPeriodoHQ(v));
+      const ventasPropias= appData.ventas.filter(v=>normNombre(v.agente)===nombreLow && enPeriodoHQ(v));
 
       // Agrupar por agente → por producto
       let desglose = '';
@@ -5650,7 +5661,7 @@ function renderHQ() {
 
       // Sección por agente supervisado
       supervisa.forEach(agNombre=>{
-        const vv = ventasSup.filter(v=>(v.agente||'').trim().toLowerCase()===agNombre.trim().toLowerCase());
+        const vv = ventasSup.filter(v=>normNombre(v.agente)===normNombre(agNombre));
         if(!vv.length) return;
         const prods = [...new Set(vv.map(v=>v.productoId))];
         let subAg = 0;
@@ -5977,7 +5988,7 @@ function descargarExcel(filename, sheetName, headers, rows) {
 function descargarVentasAgentes(mes, quincena) {
   try {
     const meses = getMeses();
-    const mesFiltro = mes || meses[meses.length-1];
+    const mesFiltro = mes || mesPorDefecto();
 
     if (!mesFiltro) {
       showNotif('⚠️ No hay mes disponible', 'error');
@@ -6029,7 +6040,7 @@ function descargarVentasAgentes(mes, quincena) {
 function descargarComisiones(mes, quincena) {
   try {
     const meses = getMeses();
-    const mesFiltro = mes || meses[meses.length-1];
+    const mesFiltro = mes || mesPorDefecto();
 
     if (!mesFiltro) {
       showNotif('⚠️ No hay mes disponible', 'error');
@@ -6091,7 +6102,7 @@ function descargarComisiones(mes, quincena) {
 // Reporte: Ingresos Detallados
 function descargarIngresos(mes) {
   const meses = getMeses();
-  const mesFiltro = mes || meses[meses.length-1];
+  const mesFiltro = mes || mesPorDefecto();
   const ings = (appData.ingresos||[]).filter(i => i.mes === mesFiltro);
 
   const headers = ['Fecha', 'Fuente', 'Descripción', 'Monto', 'Mes'];
@@ -6110,7 +6121,7 @@ function descargarIngresos(mes) {
 // Reporte: Gastos Detallados
 function descargarGastos(mes) {
   const meses = getMeses();
-  const mesFiltro = mes || meses[meses.length-1];
+  const mesFiltro = mes || mesPorDefecto();
   const gastos = (appData.gastos||[]).filter(g => g.mes === mesFiltro);
 
   const headers = ['Fecha', 'Tipo', 'Descripción', 'Monto', 'Mes'];
@@ -6130,7 +6141,7 @@ function descargarGastos(mes) {
 function descargarResumenFinanciero(mes, quincena) {
   try {
     const meses = getMeses();
-    const mesFiltro = mes || meses[meses.length-1];
+    const mesFiltro = mes || mesPorDefecto();
 
     if (!mesFiltro) {
       showNotif('⚠️ No hay mes disponible', 'error');
@@ -6259,7 +6270,7 @@ function renderHQGerente() {
   }
 
   const meses = getMeses();
-  const selMes = document.getElementById('hqg-mes-sel')?.value ?? (meses[meses.length-1]||'');
+  const selMes = document.getElementById('hqg-mes-sel')?.value ?? mesPorDefecto();
   const selQ   = document.getElementById('hqg-q-sel')?.value ?? '';
 
   const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
@@ -6455,7 +6466,7 @@ function switchTopTab(id, el) {
 function renderTopROI() {
   const meses = getMeses();
   if(!appData.pagosRecibidos) appData.pagosRecibidos = {};
-  const selMes = document.getElementById('top-mes-sel')?.value ?? (meses[meses.length-1]||'');
+  const selMes = document.getElementById('top-mes-sel')?.value ?? mesPorDefecto();
   const selQ = document.getElementById('top-q-sel')?.value ?? '';
 
   function calcROI(mes, quincena) {
@@ -6941,7 +6952,7 @@ function renderTopROI() {
 
     ${(() => {
       // ── Rendimiento de Agentes ──
-      const mesRef = selMes || (meses[meses.length-1]||'');
+      const mesRef = selMes || mesPorDefecto();
       const agentesVis = appData.agentes.filter(a=>!a.soloHQ&&a.rol!=='subdealer'&&a.rol!=='subdealер');
       const conVentas = [], sinVentas = [];
       agentesVis.forEach(a=>{
