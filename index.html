@@ -3408,13 +3408,15 @@ function guardarImportacionExcel() {
 
   validRows.forEach(r=>{
     maxId++;
+    const [yyyy, mm] = (r.fecha||'').split('-');
+    const mesCalc = (yyyy && mm) ? mesStrDesdeNum(parseInt(yyyy), parseInt(mm)) : mesActual();
     const ventaObj = {
       id: maxId,
       fecha: r.fecha,
       agente: r.agente,
       cliente: r.cliente,
       cuenta: '',
-      mes: r.fecha.substring(0,7),
+      mes: mesCalc,
       campana: '',
       quincenaPago: '',
       categoria: r.categoria,
@@ -3669,7 +3671,8 @@ function guardarVentaJosePina() {
 
   // Crear el registro de venta
   const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
-  const mes = fecha.substring(0,7);
+  const [mesYyyy, mesMm] = fecha.split('-');
+  const mes = (mesYyyy && mesMm) ? mesStrDesdeNum(parseInt(mesYyyy), parseInt(mesMm)) : mesActual();
   const newVenta = {
     id: maxId + 1,
     fecha: fecha,
@@ -7690,8 +7693,53 @@ function renderAdmin() {
         </div>
       </div>
     </div>
+
+    <div class="section" style="margin-top:24px">
+      <div class="section-header">
+        <h2>🔍 Exportar / Importar Ventas Filtradas</h2>
+      </div>
+      <div style="font-size:12px;color:#7C98B6;margin-bottom:14px">
+        Descarga solo las ventas que necesites (por vendedor, cliente, mes y quincena) en Excel. Puedes volver a subir ese mismo archivo para agregar ventas nuevas o actualizar las que ya existan (por ID) — a diferencia del Backup Completo, esto <b>no</b> reemplaza el resto de tus datos.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px">
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#7C98B6;margin-bottom:4px;text-transform:uppercase">Vendedor</label>
+          <select id="bkf-vendedor" style="width:100%;padding:7px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px"></select>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#7C98B6;margin-bottom:4px;text-transform:uppercase">Cliente</label>
+          <input type="text" id="bkf-cliente" placeholder="Nombre del cliente" style="width:100%;padding:7px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#7C98B6;margin-bottom:4px;text-transform:uppercase">Mes</label>
+          <select id="bkf-mes" style="width:100%;padding:7px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px"></select>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:#7C98B6;margin-bottom:4px;text-transform:uppercase">Quincena</label>
+          <select id="bkf-quincena" style="width:100%;padding:7px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px">
+            <option value="">Q1 + Q2</option>
+            <option value="1">Q1 (últim. día mes ant. + días 1–14)</option>
+            <option value="2">Q2 (días 15–penúlt.)</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px;background:#EAF7FB;border:1.5px solid #009FDB;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#0057A8;margin-bottom:8px">⬇️ Descargar Filtrado</div>
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Excel solo con las ventas que cumplan los filtros de arriba.</div>
+          <button class="btn btn-primary" onclick="descargarVentasFiltradas()">⬇️ Descargar Ventas Filtradas</button>
+        </div>
+        <div style="flex:1;min-width:240px;background:#F4F5FF;border:1.5px solid #A5B4FC;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#4F46E5;margin-bottom:8px">⬆️ Subir / Actualizar</div>
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Sube ese Excel para agregar ventas nuevas o actualizar las que ya existan (por columna ID). No borra nada más.</div>
+          <input type="file" id="ventas-filtro-file-input" accept=".xlsx,.xls" style="background:#fff;border:2px dashed #6366F1;padding:10px;border-radius:8px;width:100%;cursor:pointer;font-size:12px" onchange="manejarArchivoVentasFiltradas(event)">
+        </div>
+      </div>
+    </div>
   `;
   renderAdminGastoNominaTable();
+  populateAgente('bkf-vendedor');
+  populateMes('bkf-mes');
 }
 
 // ── BACKUP COMPLETO EN EXCEL (descargar/restaurar todos los datos de la app) ─
@@ -7785,6 +7833,138 @@ function manejarArchivoBackup(event) {
       showNotif('❌ Error al restaurar el backup: '+err.message, 'error');
       event.target.value = '';
     });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── EXPORTAR / IMPORTAR VENTAS FILTRADAS (vendedor, cliente, mes, quincena) ──
+// A diferencia del backup completo, esto solo agrega/actualiza las ventas del
+// archivo (por columna ID) sin tocar el resto de appData.
+function _ventasFiltroActuales() {
+  return {
+    vendedor: document.getElementById('bkf-vendedor')?.value || '',
+    cliente:  (document.getElementById('bkf-cliente')?.value || '').trim().toLowerCase(),
+    mes:      document.getElementById('bkf-mes')?.value || '',
+    q:        document.getElementById('bkf-quincena')?.value || ''
+  };
+}
+
+function _ventaCumpleFiltro(v, f) {
+  if(f.vendedor && normNombre(v.agente) !== normNombre(f.vendedor)) return false;
+  if(f.cliente && !(v.cliente||'').toLowerCase().includes(f.cliente)) return false;
+  if(f.mes || f.q) {
+    const pp = getPeríodoPago(v);
+    if(f.mes && pp.mes !== f.mes) return false;
+    if(f.q && pp.q !== parseInt(f.q)) return false;
+  }
+  return true;
+}
+
+function descargarVentasFiltradas() {
+  const f = _ventasFiltroActuales();
+  const ventas = (appData.ventas||[]).filter(v=>_ventaCumpleFiltro(v, f));
+  if(!ventas.length) { showNotif('⚠️ No hay ventas que cumplan esos filtros', 'error'); return; }
+
+  const rows = ventas.map(v=>{
+    const pp = getPeríodoPago(v);
+    return {
+      ID: v.id, Fecha: v.fecha, Agente: v.agente, Cliente: v.cliente,
+      Categoría: v.categoria, Producto: getProdNombre(v.productoId),
+      Cantidad: v.cantidad, Comisión: v.comision,
+      'Mes Pago': pp.mes, 'Quincena Pago': 'Q'+pp.q, Notas: v.notas||''
+    };
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Ventas Filtradas');
+
+  const partes = [];
+  if(f.vendedor) partes.push(f.vendedor.replace(/[^a-zA-Z0-9]/g,''));
+  if(f.mes) partes.push(f.mes.replace(/\s/g,''));
+  if(f.q) partes.push('Q'+f.q);
+  const sufijo = partes.length ? '-'+partes.join('-') : '';
+  XLSX.writeFile(wb, `ventas${sufijo}-${new Date().toISOString().split('T')[0]}.xlsx`);
+  showNotif(`✅ ${ventas.length} venta${ventas.length>1?'s':''} descargada${ventas.length>1?'s':''}`);
+}
+
+function manejarArchivoVentasFiltradas(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let rows;
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:'array'});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet);
+    } catch(err) {
+      showNotif('❌ Error al leer el Excel: '+err.message, 'error');
+      event.target.value = '';
+      return;
+    }
+    if(!rows.length) { showNotif('⚠️ El archivo no tiene filas', 'error'); event.target.value = ''; return; }
+
+    const plan = []; // {tipo:'actualizar'|'nueva', id?, datos}
+    let errores = 0;
+
+    rows.forEach(row=>{
+      const id = parseInt(row.ID ?? row.Id ?? row.id) || null;
+      const fecha = String(row.Fecha || row.fecha || '').trim();
+      const agente = String(row.Agente || row.agente || '').trim();
+      const cliente = String(row.Cliente || row.cliente || '').trim();
+      const prodStr = String(row.Producto || row.producto || '').trim();
+      const cantidad = parseInt(row.Cantidad || row.cantidad || 1);
+      const comision = parseFloat(row['Comisión'] ?? row.Comision ?? row.comision ?? 0);
+      const notas = row.Notas || row.notas || '';
+
+      if(!fecha || !agente || !prodStr) { errores++; return; }
+      const agenteObj = appData.agentes.find(a=>normNombre(a.nombre)===normNombre(agente));
+      if(!agenteObj) { errores++; return; }
+      const prodLower = prodStr.toLowerCase();
+      const prod = PRODUCTOS_CATALOG.find(p=>
+        p.nombre.toLowerCase()===prodLower || p.id.toLowerCase()===prodLower || p.excelCol?.toLowerCase()===prodLower);
+      if(!prod) { errores++; return; }
+
+      const [yyyy, mm] = fecha.split('-');
+      const mesCalc = (yyyy && mm) ? mesStrDesdeNum(parseInt(yyyy), parseInt(mm)) : mesActual();
+      const datos = { fecha, agente, cliente, categoria:prod.cat, productoId:prod.id, cantidad, comision, mes:mesCalc, notas };
+
+      const existente = id ? appData.ventas.find(v=>v.id===id) : null;
+      plan.push(existente ? { tipo:'actualizar', id, datos } : { tipo:'nueva', datos });
+    });
+
+    const nuevos = plan.filter(p=>p.tipo==='nueva').length;
+    const actualizados = plan.filter(p=>p.tipo==='actualizar').length;
+
+    if(!plan.length) {
+      showNotif(`❌ No se pudo procesar ninguna fila (${errores} con error)`, 'error');
+      event.target.value = '';
+      return;
+    }
+
+    const ok = confirm(`Se agregarán ${nuevos} venta(s) nueva(s) y se actualizarán ${actualizados} existente(s)${errores?` (${errores} fila(s) con error se omitirán)`:''}.\n\nEsto NO afecta el resto de tus datos (agentes, gastos, etc). ¿Deseas continuar?`);
+    if(!ok) { event.target.value = ''; return; }
+
+    let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+    plan.forEach(p=>{
+      if(p.tipo==='actualizar') {
+        const v = appData.ventas.find(x=>x.id===p.id);
+        if(v) Object.assign(v, p.datos, { notas: p.datos.notas || v.notas });
+      } else {
+        maxId++;
+        appData.ventas.push({
+          id: maxId, cuenta:'', campana:'', quincenaPago:'', llamadaGrabada:false,
+          ...p.datos, notas: p.datos.notas || '📊 Importado desde Excel filtrado'
+        });
+      }
+    });
+
+    guardar();
+    showNotif(`✅ ${nuevos} venta(s) agregada(s), ${actualizados} actualizada(s)`);
+    event.target.value = '';
+    renderVentas();
+    renderAdmin();
   };
   reader.readAsArrayBuffer(file);
 }
