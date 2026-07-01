@@ -7675,18 +7675,18 @@ function renderAdmin() {
         <h2>💾 Backup y Restauración</h2>
       </div>
       <div style="font-size:12px;color:#7C98B6;margin-bottom:14px">
-        Descarga una copia completa de todos los datos de la app (ventas, clientes, comisiones, sueldos, gastos, ingresos, quincenas pagadas, etc.) para guardarla como respaldo. Si pierdes datos, puedes volver a subir ese mismo archivo aquí para recuperarlos.
+        Descarga una copia completa de todos los datos de la app (ventas, clientes, comisiones, sueldos, gastos, ingresos, quincenas pagadas, etc.) en un archivo Excel para guardarla como respaldo. Si pierdes datos, puedes volver a subir ese mismo archivo aquí para recuperarlos.
       </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap">
         <div style="flex:1;min-width:240px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#059669;margin-bottom:8px">⬇️ Descargar Backup</div>
-          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Genera un archivo .json con todos los datos actuales de la app.</div>
-          <button class="btn btn-success" onclick="descargarBackupCompleto()">⬇️ Descargar Backup Completo</button>
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Genera un archivo Excel (.xlsx) con hojas legibles (Ventas, Agentes, Gastos, Ingresos, Meses) más los datos completos necesarios para restaurar todo.</div>
+          <button class="btn btn-success" onclick="descargarBackupCompleto()">⬇️ Descargar Backup Completo (Excel)</button>
         </div>
         <div style="flex:1;min-width:240px;background:#FFF3EE;border:1.5px solid #FDBA74;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#D97706;margin-bottom:8px">⬆️ Restaurar Backup</div>
-          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">⚠️ Reemplaza TODOS los datos actuales por los del archivo. No se puede deshacer.</div>
-          <input type="file" id="backup-file-input" accept=".json" style="background:#fff;border:2px dashed #F59E0B;padding:10px;border-radius:8px;width:100%;cursor:pointer;font-size:12px" onchange="manejarArchivoBackup(event)">
+          <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">⚠️ Sube un Excel de backup generado por este mismo botón. Reemplaza TODOS los datos actuales. No se puede deshacer.</div>
+          <input type="file" id="backup-file-input" accept=".xlsx,.xls" style="background:#fff;border:2px dashed #F59E0B;padding:10px;border-radius:8px;width:100%;cursor:pointer;font-size:12px" onchange="manejarArchivoBackup(event)">
         </div>
       </div>
     </div>
@@ -7694,19 +7694,49 @@ function renderAdmin() {
   renderAdminGastoNominaTable();
 }
 
-// ── BACKUP COMPLETO (descargar/restaurar todos los datos de la app) ─────────
+// ── BACKUP COMPLETO EN EXCEL (descargar/restaurar todos los datos de la app) ─
+// El workbook incluye hojas legibles (Ventas, Agentes, Gastos, Ingresos, Meses)
+// para que se pueda abrir y revisar en Excel, más una hoja "_RAW_JSON" oculta
+// con el JSON completo de appData (partido en filas por el límite de Excel de
+// ~32k caracteres por celda) — es la que se usa para restaurar sin perder nada.
+const BACKUP_RAW_SHEET = '_RAW_JSON';
+const BACKUP_CHUNK_SIZE = 30000;
+
 function descargarBackupCompleto() {
   const fecha = new Date().toISOString().split('T')[0];
-  const backup = { _tipo:'backup_UDI', _version:1, _fecha:new Date().toISOString(), appData };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `backup-UDI-${fecha}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const wb = XLSX.utils.book_new();
+
+  const wsVentas = XLSX.utils.json_to_sheet((appData.ventas||[]).map(v=>({
+    Fecha:v.fecha, Agente:v.agente, Cliente:v.cliente, Producto:getProdNombre(v.productoId),
+    Cantidad:v.cantidad, Comision:v.comision, Mes:v.mes, Notas:v.notas||''
+  })));
+  XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas');
+
+  const wsAgentes = XLSX.utils.json_to_sheet((appData.agentes||[]).map(a=>({
+    Nombre:a.nombre, Rol:a.rol||'agente', SueldoQuincenal:a.sueldoQuincenal||0, Tel:a.tel||'', Email:a.email||'', Activo:a.activo!==false
+  })));
+  XLSX.utils.book_append_sheet(wb, wsAgentes, 'Agentes');
+
+  const wsGastos = XLSX.utils.json_to_sheet((appData.gastos||[]).map(g=>({
+    Fecha:g.fecha, Tipo:g.tipo, Descripcion:g.descripcion, Monto:g.monto, Mes:g.mes
+  })));
+  XLSX.utils.book_append_sheet(wb, wsGastos, 'Gastos');
+
+  const wsIngresos = XLSX.utils.json_to_sheet((appData.ingresos||[]).map(i=>({
+    Fecha:i.fecha, Fuente:i.fuente, Descripcion:i.descripcion, Monto:i.monto, Mes:i.mes
+  })));
+  XLSX.utils.book_append_sheet(wb, wsIngresos, 'Ingresos');
+
+  const wsMeses = XLSX.utils.json_to_sheet((appData.meses||[]).map(m=>({Mes:m})));
+  XLSX.utils.book_append_sheet(wb, wsMeses, 'Meses');
+
+  const raw = JSON.stringify({ _tipo:'backup_UDI', _version:1, _fecha:new Date().toISOString(), appData });
+  const chunks = [];
+  for(let i=0;i<raw.length;i+=BACKUP_CHUNK_SIZE) chunks.push({ chunk: raw.slice(i, i+BACKUP_CHUNK_SIZE) });
+  const wsRaw = XLSX.utils.json_to_sheet(chunks);
+  XLSX.utils.book_append_sheet(wb, wsRaw, BACKUP_RAW_SHEET);
+
+  XLSX.writeFile(wb, `backup-UDI-${fecha}.xlsx`);
   showNotif('✅ Backup descargado');
 }
 
@@ -7715,22 +7745,31 @@ function manejarArchivoBackup(event) {
   if(!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
-    let parsed;
+    let parsedMeta;
     try {
-      parsed = JSON.parse(e.target.result);
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:'array'});
+      if(!workbook.SheetNames.includes(BACKUP_RAW_SHEET)) {
+        showNotif('❌ Este Excel no es un backup válido (falta la hoja de datos completos)', 'error');
+        event.target.value = '';
+        return;
+      }
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[BACKUP_RAW_SHEET]);
+      const raw = rows.map(r=>r.chunk||'').join('');
+      parsedMeta = JSON.parse(raw);
     } catch(err) {
-      showNotif('❌ El archivo no es un backup válido (JSON inválido)', 'error');
+      showNotif('❌ Error al leer el Excel de backup: '+err.message, 'error');
       event.target.value = '';
       return;
     }
-    const datos = (parsed && parsed._tipo === 'backup_UDI') ? parsed.appData : parsed;
+    const datos = (parsedMeta && parsedMeta._tipo === 'backup_UDI') ? parsedMeta.appData : parsedMeta;
     if(!datos || typeof datos !== 'object' || !Array.isArray(datos.ventas) || !Array.isArray(datos.agentes)) {
       showNotif('❌ El archivo no tiene el formato esperado de backup', 'error');
       event.target.value = '';
       return;
     }
     const resumen = `${datos.ventas.length} ventas · ${datos.agentes.length} agentes · ${(datos.meses||[]).length} meses · ${(datos.gastos||[]).length} gastos · ${(datos.ingresos||[]).length} ingresos`;
-    const fechaBackup = parsed._fecha ? new Date(parsed._fecha).toLocaleString() : 'desconocida';
+    const fechaBackup = parsedMeta._fecha ? new Date(parsedMeta._fecha).toLocaleString() : 'desconocida';
     const ok = confirm(`⚠️ Esto REEMPLAZARÁ todos los datos actuales de la app con el contenido de este backup:\n\n${resumen}\n\nFecha del backup: ${fechaBackup}\n\nEsta acción no se puede deshacer. ¿Deseas continuar?`);
     if(!ok) { event.target.value = ''; return; }
     showNotif('⏳ Restaurando backup...', 'info');
@@ -7747,7 +7786,7 @@ function manejarArchivoBackup(event) {
       event.target.value = '';
     });
   };
-  reader.readAsText(file);
+  reader.readAsArrayBuffer(file);
 }
 
 // ── Tabla Gastos & Nómina Unificada (Admin) ──────────────────────────────────────────
