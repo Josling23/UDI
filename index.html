@@ -5656,8 +5656,10 @@ function renderHQ() {
           return pp.mes===mesPara && pp.q===q;
         });
       }
-      const ventasSup    = appData.ventas.filter(v=>supervisadosLow.includes(normNombre(v.agente)) && enPeriodoHQ(v));
-      const ventasPropias= appData.ventas.filter(v=>normNombre(v.agente)===nombreLow && enPeriodoHQ(v));
+      // Excluir grabaciones — igual que getComisionesQuincena(), que es la que
+      // calcula el total mostrado en la tarjeta de arriba (deben coincidir).
+      const ventasSup    = appData.ventas.filter(v=>!v.esGrabacion && !v._esGrabacion && supervisadosLow.includes(normNombre(v.agente)) && enPeriodoHQ(v));
+      const ventasPropias= appData.ventas.filter(v=>!v.esGrabacion && !v._esGrabacion && normNombre(v.agente)===nombreLow && enPeriodoHQ(v));
 
       // Agrupar por agente → por producto
       let desglose = '';
