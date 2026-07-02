@@ -11504,6 +11504,22 @@ function bravoAgregarAccesorio() {
   showNotif('✅ Accesorio agregado');
 }
 
+// Cargar un accesorio ya agregado de vuelta al formulario para editarlo
+function bravoEditarAccesorio(i) {
+  const item = bravoRegistroTemp.accesorios[i];
+  if(!item) return;
+  document.getElementById('bravo-acc-tipo').value = item.tipo || '';
+  document.getElementById('bravo-acc-cant').value = item.cantidad || 1;
+  document.getElementById('bravo-acc-precio').value = item.precio != null ? item.precio : '';
+  document.getElementById('bravo-acc-costo').value = item.costo != null ? item.costo : '';
+  document.getElementById('bravo-acc-metodo').value = item.metodo || 'efectivo';
+  document.getElementById('bravo-acc-notas').value = item.notas || '';
+  bravoRegistroTemp.accesorios.splice(i,1);
+  bravoRenderListaAccesorios();
+  bravoActualizarResumen();
+  showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
+}
+
 // Agregar Lyca
 function bravoAgregarLyca() {
   const tipo = document.getElementById('bravo-lyca-tipo').value;
@@ -11530,6 +11546,22 @@ function bravoAgregarLyca() {
   bravoActualizarResumen();
   bravoRenderListaLycas();
   showNotif('✅ Lyca agregada');
+}
+
+// Cargar una lyca ya agregada de vuelta al formulario para editarla
+function bravoEditarLyca(i) {
+  const item = bravoRegistroTemp.lycas[i];
+  if(!item) return;
+  document.getElementById('bravo-lyca-tipo').value = item.tipo || 'lyca-agente';
+  document.getElementById('bravo-lyca-cliente').value = item.cliente || '';
+  document.getElementById('bravo-lyca-precio').value = item.precio != null ? item.precio : '';
+  document.getElementById('bravo-lyca-costo').value = item.costo != null ? item.costo : '';
+  document.getElementById('bravo-lyca-metodo').value = item.metodo || 'efectivo';
+  document.getElementById('bravo-lyca-notas').value = item.notas || '';
+  bravoRegistroTemp.lycas.splice(i,1);
+  bravoRenderListaLycas();
+  bravoActualizarResumen();
+  showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
 }
 
 // Agregar Reparación
@@ -11561,6 +11593,22 @@ function bravoAgregarReparacion() {
   showNotif('✅ Reparación agregada');
 }
 
+// Cargar una reparación ya agregada de vuelta al formulario para editarla
+function bravoEditarReparacion(i) {
+  const item = bravoRegistroTemp.reparaciones[i];
+  if(!item) return;
+  document.getElementById('bravo-rep-equipo').value = item.equipo || '';
+  document.getElementById('bravo-rep-tipo').value = item.tipo || '';
+  document.getElementById('bravo-rep-precio').value = item.precio != null ? item.precio : '';
+  document.getElementById('bravo-rep-costo').value = item.costo != null ? item.costo : '';
+  document.getElementById('bravo-rep-estado').value = item.estado || 'entregada';
+  document.getElementById('bravo-rep-notas').value = item.notas || '';
+  bravoRegistroTemp.reparaciones.splice(i,1);
+  bravoRenderListaReparaciones();
+  bravoActualizarResumen();
+  showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
+}
+
 // Agregar Combo
 function bravoAgregarCombo() {
   const desc = document.getElementById('bravo-combo-desc').value;
@@ -11588,6 +11636,22 @@ function bravoAgregarCombo() {
   bravoActualizarResumen();
   bravoRenderListaCombos();
   showNotif('✅ Combo agregado');
+}
+
+// Cargar un combo ya agregado de vuelta al formulario para editarlo
+function bravoEditarCombo(i) {
+  const item = bravoRegistroTemp.combos[i];
+  if(!item) return;
+  document.getElementById('bravo-combo-desc').value = item.desc || '';
+  document.getElementById('bravo-combo-precio').value = item.precio != null ? item.precio : '';
+  document.getElementById('bravo-combo-costo').value = item.costo != null ? item.costo : '';
+  document.getElementById('bravo-combo-comision').value = item.comision != null ? item.comision : '';
+  document.getElementById('bravo-combo-metodo').value = item.metodo || 'efectivo';
+  document.getElementById('bravo-combo-notas').value = item.notas || '';
+  bravoRegistroTemp.combos.splice(i,1);
+  bravoRenderListaCombos();
+  bravoActualizarResumen();
+  showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
 }
 
 // Agregar Teléfono
@@ -11619,6 +11683,23 @@ function bravoAgregarTelefono() {
   showNotif('✅ Teléfono agregado');
 }
 
+// Cargar un teléfono ya agregado de vuelta al formulario para editarlo
+function bravoEditarTelefono(i) {
+  const item = bravoRegistroTemp.telefonos[i];
+  if(!item) return;
+  document.getElementById('bravo-tel-modelo').value = item.modelo || '';
+  document.getElementById('bravo-tel-modelo-sel').value = '';
+  document.getElementById('bravo-tel-costo').value = item.costo != null ? item.costo : '';
+  document.getElementById('bravo-tel-precio').value = item.precio != null ? item.precio : '';
+  document.getElementById('bravo-tel-tipo').value = item.tipo || 'desbloqueado';
+  document.getElementById('bravo-tel-metodo').value = item.metodo || 'efectivo';
+  document.getElementById('bravo-tel-notas').value = item.notas || '';
+  bravoRegistroTemp.telefonos.splice(i,1);
+  bravoRenderListaTelefonos();
+  bravoActualizarResumen();
+  showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
+}
+
 // Renderizar listas
 function bravoRenderListaAccesorios() {
   const lista = document.getElementById('bravo-accesorios-lista');
@@ -11634,7 +11715,10 @@ function bravoRenderListaAccesorios() {
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(acc.ganancia!=null ? acc.ganancia : ((acc.precio||0)-(acc.costo||0))*(acc.cantidad||1)).toFixed(2)}</div>
         ${acc.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${acc.notas}</div>` : ''}
       </div>
-      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.accesorios.splice(${i},1);bravoRenderListaAccesorios();bravoActualizarResumen()">✕</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-xs" onclick="bravoEditarAccesorio(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.accesorios.splice(${i},1);bravoRenderListaAccesorios();bravoActualizarResumen()">✕</button>
+      </div>
     </div>
   `).join('');
 }
@@ -11653,7 +11737,10 @@ function bravoRenderListaLycas() {
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(lyca.ganancia!=null ? lyca.ganancia : (lyca.precio||0)-(lyca.costo||0)).toFixed(2)}</div>
         ${lyca.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${lyca.notas}</div>` : ''}
       </div>
-      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.lycas.splice(${i},1);bravoRenderListaLycas();bravoActualizarResumen()">✕</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-xs" onclick="bravoEditarLyca(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.lycas.splice(${i},1);bravoRenderListaLycas();bravoActualizarResumen()">✕</button>
+      </div>
     </div>
   `).join('');
 }
@@ -11672,7 +11759,10 @@ function bravoRenderListaReparaciones() {
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(rep.ganancia!=null ? rep.ganancia : (rep.precio||0)-(rep.costo||0)).toFixed(2)}</div>
         ${rep.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${rep.notas}</div>` : ''}
       </div>
-      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.reparaciones.splice(${i},1);bravoRenderListaReparaciones();bravoActualizarResumen()">✕</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-xs" onclick="bravoEditarReparacion(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.reparaciones.splice(${i},1);bravoRenderListaReparaciones();bravoActualizarResumen()">✕</button>
+      </div>
     </div>
   `).join('');
 }
@@ -11691,7 +11781,10 @@ function bravoRenderListaCombos() {
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia Neta: $${(combo.ganancia!=null ? combo.ganancia : (combo.precio||0)-(combo.costo||0)-(combo.comision||0)).toFixed(2)}</div>
         ${combo.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${combo.notas}</div>` : ''}
       </div>
-      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.combos.splice(${i},1);bravoRenderListaCombos();bravoActualizarResumen()">✕</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-xs" onclick="bravoEditarCombo(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.combos.splice(${i},1);bravoRenderListaCombos();bravoActualizarResumen()">✕</button>
+      </div>
     </div>
   `).join('');
 }
@@ -11710,7 +11803,10 @@ function bravoRenderListaTelefonos() {
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(tel.ganancia!=null ? tel.ganancia : (tel.precio||0)-(tel.costo||0)).toFixed(2)}</div>
         ${tel.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${tel.notas}</div>` : ''}
       </div>
-      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.telefonos.splice(${i},1);bravoRenderListaTelefonos();bravoActualizarResumen()">✕</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-xs" onclick="bravoEditarTelefono(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.telefonos.splice(${i},1);bravoRenderListaTelefonos();bravoActualizarResumen()">✕</button>
+      </div>
     </div>
   `).join('');
 }
@@ -11734,6 +11830,18 @@ function bravoAgregarActividad() {
 
   bravoRenderListaActividades();
   showNotif('✅ Actividad agregada');
+}
+
+// Cargar una actividad ya agregada de vuelta al formulario para editarla
+function bravoEditarActividad(i) {
+  const item = bravoRegistroTemp.actividades[i];
+  if(!item) return;
+  document.getElementById('bravo-douglas-tipo').value = item.tipo || '';
+  document.getElementById('bravo-douglas-cantidad').value = item.cantidad || 1;
+  document.getElementById('bravo-douglas-notas').value = item.notas || '';
+  bravoRegistroTemp.actividades.splice(i,1);
+  bravoRenderListaActividades();
+  showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
 }
 
 function bravoRenderListaActividades() {
@@ -11770,7 +11878,10 @@ function bravoRenderListaActividades() {
         <div style="font-weight:600;color:#33475B">${tiposLabels[act.tipo] || act.tipo}</div>
         <div style="font-size:10px;color:#7C98B6">Cantidad: ${act.cantidad}${act.notas ? ' | ' + act.notas : ''}</div>
       </div>
-      <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.actividades.splice(${i},1);bravoRenderListaActividades()">✕</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-xs" onclick="bravoEditarActividad(${i})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.actividades.splice(${i},1);bravoRenderListaActividades()">✕</button>
+      </div>
     </div>
   `).join('');
 }
