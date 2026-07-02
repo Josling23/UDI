@@ -6678,6 +6678,15 @@ function renderTopROI() {
   if(roiHoy.pagado === 0) alertas.push(`⚠️ Aún no hay ingresos registrados para ${mesHoy}`);
   if(!estaQuincenaCerrada(mesHoy,1)) alertas.push(`⏳ Q1 de ${mesHoy} sin cerrar`);
   if(!estaQuincenaCerrada(mesHoy,2)) alertas.push(`⏳ Q2 de ${mesHoy} sin cerrar`);
+  // Chargeback del mes actual (misma lógica/umbrales que la pestaña Chargebacks)
+  (() => {
+    const CB_UMBRAL_WARN = 17;
+    const repHoy = (appData.rsiReportes||{})[mesHoy];
+    let cbVal = null;
+    if(repHoy && repHoy.bruto > 0) cbVal = ((repHoy.bruto - repHoy.neto) / repHoy.bruto) * 100;
+    else if((appData.chargebacks||{})[mesHoy] !== undefined) cbVal = parseFloat(appData.chargebacks[mesHoy]);
+    if(cbVal !== null && cbVal >= CB_UMBRAL_WARN) alertas.push(`🔴 Chargeback de ${mesHoy} en ${cbVal.toFixed(1)}% — nivel alto`);
+  })();
 
   const resumenEjecutivoHTML = `
     <div style="background:linear-gradient(135deg,#1a0008,#2a0008,#3a0a14);border-radius:16px;padding:22px;margin-bottom:20px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
@@ -7458,9 +7467,17 @@ function renderTopRSI() {
 
   document.getElementById('top-rsi').innerHTML = `
     <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff">
-      <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:14px">💳 Marcar Pagos de RS&I</h3>
+      <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:14px">💳 Pagos de RS&I</h3>
 
-      <div style="margin-bottom:16px">
+      <div style="padding:12px;background:#EAF7FB;border-radius:8px;font-size:12px;color:#0057A8;border-left:4px solid #009FDB;margin-bottom:18px;display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+        <span><strong style="font-size:16px">${pagados.length}</strong> pagadas ✅</span>
+        <span><strong style="font-size:16px;color:${pendientes.length?'#E04048':'#0057A8'}">${pendientes.length}</strong> pendientes ${pendientes.length?'❌':'🎉'}</span>
+        <span style="opacity:0.7">${ventasArray.length} total</span>
+      </div>
+
+      <details style="margin-bottom:18px">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#33475B">📥 Marcar ventas como pagadas por RS&I</summary>
+      <div style="margin:12px 0 16px">
         <label style="font-size:11px;font-weight:600;color:#7C98B6;text-transform:uppercase;display:block;margin-bottom:6px">Pega nombres de clientes (uno por línea)</label>
         <textarea id="rsi-input-data" style="width:100%;min-height:100px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-family:monospace;font-size:11px;resize:vertical" placeholder="ARMANDO&#10;ROBERTO&#10;EVELING&#10;OSWALDO"></textarea>
         <div style="font-size:10px;color:#99ACC2;margin-top:6px">ℹ️ Busca por nombre parcial - marca TODAS las ventas con ese cliente</div>
@@ -7528,26 +7545,8 @@ function renderTopRSI() {
         textarea.value = '';
         showNotif('✅ Marcadas ' + processed + ' ventas de RS&I como pagadas');
         renderTopRSI();
-      })()" style="margin-bottom:16px">📥 Procesar Datos</button>
-
-      <h3 style="font-size:13px;font-weight:700;color:#33475B;margin-top:20px;margin-bottom:12px">✅ PAGADOS POR RS&I (${pagados.length})</h3>
-      <div class="tbl-wrap" style="max-height:300px;overflow-y:auto;margin-bottom:20px">
-        <table style="width:100%">
-          <thead>
-            <tr style="background:#E8F9F7">
-              <th style="color:#00A492">Cliente</th>
-              <th style="color:#00A492">Producto</th>
-              <th style="color:#00A492">Fecha</th>
-              <th style="color:#00A492">Vendedor(es)</th>
-              <th style="color:#00A492">Comisión</th>
-              <th style="color:#00A492"></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${pagadosRows.length > 0 ? pagadosRows : '<tr><td colspan="6" style="text-align:center;color:#99ACC2;padding:20px">Sin pagos registrados aún</td></tr>'}
-          </tbody>
-        </table>
-      </div>
+      })()" style="margin-bottom:8px">📥 Procesar Datos</button>
+      </details>
 
       <h3 style="font-size:13px;font-weight:700;color:#33475B;margin-bottom:12px">❌ PENDIENTES DE PAGO (${pendientes.length})</h3>
       <div class="tbl-wrap" style="max-height:300px;overflow-y:auto;margin-bottom:20px">
@@ -7568,9 +7567,26 @@ function renderTopRSI() {
         </table>
       </div>
 
-      <div style="padding:12px;background:#EAF7FB;border-radius:8px;font-size:11px;color:#0057A8;border-left:4px solid #009FDB">
-        <strong>📊 Resumen:</strong> ${pagados.length} pagadas ✅ | ${pendientes.length} pendientes ❌ | ${ventasArray.length} total
-      </div>
+      <details>
+        <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#33475B">✅ PAGADOS POR RS&I (${pagados.length})</summary>
+        <div class="tbl-wrap" style="max-height:300px;overflow-y:auto;margin-top:12px">
+          <table style="width:100%">
+            <thead>
+              <tr style="background:#E8F9F7">
+                <th style="color:#00A492">Cliente</th>
+                <th style="color:#00A492">Producto</th>
+                <th style="color:#00A492">Fecha</th>
+                <th style="color:#00A492">Vendedor(es)</th>
+                <th style="color:#00A492">Comisión</th>
+                <th style="color:#00A492"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pagadosRows.length > 0 ? pagadosRows : '<tr><td colspan="6" style="text-align:center;color:#99ACC2;padding:20px">Sin pagos registrados aún</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </div>
   `;
 }
