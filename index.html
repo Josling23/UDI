@@ -6649,6 +6649,74 @@ function renderTopROI() {
     roi: d.pagado > 0 ? ((d.utilidad/divisor) / (d.pagado/divisor) * 100) : 0
   };
 
+  // ── RESUMEN EJECUTIVO — mes calendario actual real, siempre visible ──
+  const mesHoy = mesActual();
+  const idxHoy = meses.indexOf(mesHoy);
+  const mesAnteriorReal = idxHoy > 0 ? meses[idxHoy-1] : null;
+  const roiHoy = calcROI(mesHoy);
+  const roiAnteriorReal = mesAnteriorReal ? calcROI(mesAnteriorReal) : null;
+  const margenHoy = roiHoy.pagado > 0 ? (roiHoy.utilidad/roiHoy.pagado*100) : 0;
+  const salud = margenHoy >= 20
+    ? { emoji:'🟢', label:'Saludable',  color:'#00BDA5', bg:'#E8F9F7' }
+    : margenHoy >= 0
+    ? { emoji:'🟡', label:'Ajustada',   color:'#D4A017', bg:'#FFFBE8' }
+    : { emoji:'🔴', label:'En pérdida', color:'#E04048', bg:'#FFF0F0' };
+  const cambioUtilidad = (roiAnteriorReal && roiAnteriorReal.utilidad !== 0)
+    ? ((roiHoy.utilidad - roiAnteriorReal.utilidad) / Math.abs(roiAnteriorReal.utilidad) * 100) : null;
+  const cambioIngresos = (roiAnteriorReal && roiAnteriorReal.pagado > 0)
+    ? ((roiHoy.pagado - roiAnteriorReal.pagado) / roiAnteriorReal.pagado * 100) : null;
+  const tendChip = (val, invertirColor=false) => {
+    if(val===null) return '<span style="font-size:10px;color:#99ACC2">— sin mes anterior</span>';
+    const subio = val >= 0;
+    const bueno = invertirColor ? !subio : subio;
+    const color = bueno ? '#00BDA5' : '#E04048';
+    return `<span style="font-size:11px;font-weight:700;color:${color}">${subio?'▲':'▼'} ${Math.abs(val).toFixed(1)}% vs ${mesAnteriorReal}</span>`;
+  };
+  const alertas = [];
+  if(margenHoy < 30 && roiHoy.pagado > 0) alertas.push(`⚠️ Los gastos consumen ${(100-margenHoy).toFixed(0)}% de lo ganado en ${mesHoy}`);
+  if(cambioUtilidad !== null && cambioUtilidad < -15) alertas.push(`📉 La utilidad bajó ${Math.abs(cambioUtilidad).toFixed(0)}% vs ${mesAnteriorReal}`);
+  if(roiHoy.pagado === 0) alertas.push(`⚠️ Aún no hay ingresos registrados para ${mesHoy}`);
+  if(!estaQuincenaCerrada(mesHoy,1)) alertas.push(`⏳ Q1 de ${mesHoy} sin cerrar`);
+  if(!estaQuincenaCerrada(mesHoy,2)) alertas.push(`⏳ Q2 de ${mesHoy} sin cerrar`);
+
+  const resumenEjecutivoHTML = `
+    <div style="background:linear-gradient(135deg,#1a0008,#2a0008,#3a0a14);border-radius:16px;padding:22px;margin-bottom:20px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.6">Resumen Ejecutivo — ${mesHoy}</div>
+          <div style="font-size:20px;font-weight:900;margin-top:2px">Salud Financiera</div>
+        </div>
+        <div style="background:${salud.bg};color:${salud.color};padding:8px 16px;border-radius:20px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px">
+          ${salud.emoji} ${salud.label} <span style="font-weight:600;opacity:0.8">(margen ${margenHoy.toFixed(1)}%)</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💰 Caja (ingresos)</div>
+          <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(roiHoy.pagado)}</div>
+          ${tendChip(cambioIngresos)}
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💸 Egresos totales</div>
+          <div style="font-size:24px;font-weight:900;color:#FCA5A5">${fmt(roiHoy.totalEgresos)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📊 Utilidad Neta</div>
+          <div style="font-size:24px;font-weight:900;color:${roiHoy.utilidad>=0?'#7FE8D4':'#FCA5A5'}">${fmt(roiHoy.utilidad)}</div>
+          ${tendChip(cambioUtilidad)}
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📈 ROI</div>
+          <div style="font-size:24px;font-weight:900;color:#F5C26B">${roiHoy.roi.toFixed(1)}%</div>
+        </div>
+      </div>
+      ${alertas.length ? `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.15);display:flex;flex-direction:column;gap:6px">
+        ${alertas.map(a=>`<div style="font-size:12px;background:rgba(255,255,255,0.08);border-radius:6px;padding:6px 10px">${a}</div>`).join('')}
+      </div>` : `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.15);font-size:12px;opacity:0.75">✅ Sin alertas — todo en orden para ${mesHoy}</div>`}
+    </div>`;
+
   // Tabla resumen por mes (todos)
   const filasHist = meses.map(m=>{
     const r = calcROI(m);
@@ -6662,6 +6730,7 @@ function renderTopROI() {
   }).join('');
 
   document.getElementById('top-roi').innerHTML = `
+    ${resumenEjecutivoHTML}
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
       <select id="top-mes-sel" onchange="renderTopROI()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600">
         <option value="">📊 Todos los meses</option>
@@ -6869,9 +6938,9 @@ function renderTopROI() {
       const ytdEgresos = ytdMeses.reduce((s,m)=>s+calcROI(m).totalEgresos,0);
       const ytdUtilidad = ytdIngresos - ytdEgresos;
       const ytdRoi = ytdIngresos > 0 ? (ytdUtilidad/ytdIngresos)*100 : 0;
-      return `<div class="roi-card" style="margin-bottom:18px;opacity:0.95">
-        <h3>📆 YTD ${year} (${ytdMeses.length} meses)</h3>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px">
+      return `<details class="roi-card" style="margin-bottom:18px;opacity:0.95">
+        <summary style="cursor:pointer;font-weight:800;font-size:15px">📆 YTD ${year} (${ytdMeses.length} meses) — Utilidad: ${fmt(ytdUtilidad)} · ROI: ${ytdRoi.toFixed(1)}%</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:14px">
           <div class="roi-item"><label>Ingresos YTD</label><div class="val blue">${fmt(ytdIngresos)}</div></div>
           <div class="roi-item"><label>Egresos YTD</label><div class="val red">−${fmt(ytdEgresos)}</div></div>
           <div class="roi-item" style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
@@ -6881,7 +6950,7 @@ function renderTopROI() {
             <label>ROI YTD</label><div style="font-size:20px;font-weight:900;color:${ytdRoi>=20?'#00BDA5':ytdRoi>=0?'#D4A017':'#E04048'}">${ytdRoi.toFixed(1)}%</div>
           </div>
         </div>
-      </div>`;
+      </details>`;
     })()}
 
     <!-- Desglose de Gastos por tipo (si hay mes seleccionado) -->
@@ -6907,10 +6976,10 @@ function renderTopROI() {
           <div style="font-size:10px;color:#99ACC2">${pct.toFixed(1)}% del total</div>
         </div>`;
       }).join('');
-      return items ? `<div class="section" style="margin-bottom:18px;border-left:4px solid #F2545B">
-        <div style="font-size:12px;font-weight:700;color:#E04048;margin-bottom:12px">📊 Desglose de Gastos — ${selMes}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">${items}</div>
-      </div>` : '';
+      return items ? `<details class="section" style="margin-bottom:18px;border-left:4px solid #F2545B">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#E04048">📊 Desglose de Gastos — ${selMes} (${fmt(totalG)})</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">${items}</div>
+      </details>` : '';
     })() : ''}
 
     <!-- INFORMACIÓN FINANCIERA (desde Admin) -->
@@ -6923,9 +6992,13 @@ function renderTopROI() {
       const nomina = finanzas.filter(f=>f.tipo==='nomina').reduce((s,f)=>s+parseFloat(f.monto||0),0);
       const comisiones = finanzas.filter(f=>f.tipo==='comisiones_pagadas').reduce((s,f)=>s+parseFloat(f.monto||0),0);
 
-      return `<div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;font-weight:700;color:#6A78D1">📊 Información Financiera Registrada — ${selMes}</div>
+      return `<details class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1">
+        <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span style="font-size:12px;font-weight:700;color:#6A78D1">📊 Información Financiera Registrada (legado) — ${selMes}
+            <span style="font-size:10px;font-weight:400;color:#99ACC2"> — ya está incluida en Egresos totales de arriba, se muestra aparte solo para auditar el origen</span>
+          </span>
+        </summary>
+        <div style="display:flex;justify-content:flex-end;margin:10px 0 6px">
           <button class="btn btn-primary btn-sm" onclick="document.querySelectorAll('.priv-section.active')[0].style.display='none'; switchAdminTab('finanzas'); showPage('admin'); window.setTimeout(()=>switchAdminTab('finanzas'),100)" style="background:#6A78D1;border-color:#6A78D1">⚙️ Editar en Admin</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
@@ -6946,7 +7019,7 @@ function renderTopROI() {
             <div style="font-size:16px;font-weight:800;color:#00BDA5">${fmt(comisiones)}</div>
           </div>
         </div>
-      </div>`;
+      </details>`;
     })() : ''}
 
     <!-- AGENT PERFORMANCE & COST STRUCTURE -->
@@ -6969,8 +7042,9 @@ function renderTopROI() {
 
       const totalCost = costStructure.reduce((s,c)=>s+c.monto,0);
 
-      return `<div class="section" style="margin-bottom:18px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      return `<details class="section" style="margin-bottom:18px">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#33475B">💰 Top Agentes por Comisión & Estructura de Costos — ${selMes}</summary>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px">
           <div style="border-left:4px solid #009FDB;padding-left:12px">
             <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:10px">💰 Top Agentes por Comisión</div>
             <div style="display:flex;flex-direction:column;gap:8px">
@@ -6999,7 +7073,7 @@ function renderTopROI() {
             </div>
           </div>
         </div>
-      </div>`;
+      </details>`;
     })() : ''}
 
     <!-- Resumen Global (todos los meses) + mes seleccionado -->
@@ -7008,9 +7082,9 @@ function renderTopROI() {
       const mesesConDatos = meses.filter(m=>calcROI(m).pagado>0);
       const roiColor = c => c>=30?'#00BDA5':c>=15?'#D4A017':'#F2545B';
       return `
-      <div class="roi-card" style="margin-bottom:18px;background:linear-gradient(135deg,#1C1C3A,#2D2D5E)">
-        <h3 style="margin-bottom:14px">🌎 Resumen Global 2026 — ${mesesConDatos.length} meses</h3>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+      <details class="roi-card" style="margin-bottom:18px;background:linear-gradient(135deg,#1C1C3A,#2D2D5E)">
+        <summary style="cursor:pointer;font-weight:800;font-size:15px">🌎 Resumen Global 2026 — ${mesesConDatos.length} meses · Utilidad: ${fmt(dTotal.utilidad)} · ROI: ${dTotal.roi.toFixed(1)}%</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:14px">
           <div class="roi-item"><label>Total Ingresos</label><div class="val blue">${fmt(dTotal.pagado)}</div></div>
           <div class="roi-item"><label>Total Gastos</label><div class="val red">−${fmt(dTotal.totalEgresos)}</div></div>
           <div class="roi-item" style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
@@ -7030,10 +7104,10 @@ function renderTopROI() {
             <div style="font-weight:700;color:#009FDB;font-size:13px">${mesesConDatos.length?fmt(dTotal.utilidad/mesesConDatos.length):fmt(0)}</div>
           </div>
         </div>
-      </div>
-      ${selMes?`<div class="roi-card" style="margin-bottom:18px;opacity:0.9">
-        <h3>📅 ${selMes}</h3>
-        <div class="roi-grid">
+      </details>
+      ${selMes?`<details class="roi-card" style="margin-bottom:18px;opacity:0.9">
+        <summary style="cursor:pointer;font-weight:800;font-size:14px">📅 ${selMes} — Utilidad: ${fmt(d.utilidad)} · ROI: ${d.roi.toFixed(1)}%</summary>
+        <div class="roi-grid" style="margin-top:12px">
           <div class="roi-item"><label>Ingresos</label><div class="val blue">${fmt(d.pagado)}</div></div>
           <div class="roi-item"><label>Gastos</label><div class="val red">−${fmt(d.totalEgresos)}</div></div>
           <div class="roi-item" style="background:rgba(255,255,255,0.1);border-radius:8px;padding:10px">
@@ -7043,17 +7117,17 @@ function renderTopROI() {
             <label>ROI</label><div class="val ${d.roi>=0?'green':'red'}">${d.roi.toFixed(1)}%</div>
           </div>
         </div>
-      </div>`:''}`;
+      </details>`:''}`;
     })()}
 
     <!-- Historial por mes -->
-    <div class="section">
-      <div class="section-header"><h2>📅 Historial por Mes</h2></div>
-      <div class="tbl-wrap"><table>
+    <details class="section">
+      <summary style="cursor:pointer;font-size:14px;font-weight:800;color:#33475B">📅 Historial por Mes (${meses.length} meses)</summary>
+      <div class="tbl-wrap" style="margin-top:12px"><table>
         <thead><tr><th>Mes</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Total Egresos</th><th style="text-align:right">Utilidad</th><th style="text-align:right">ROI</th></tr></thead>
         <tbody>${filasHist||'<tr><td colspan="5" class="tbl-empty">Sin datos aún</td></tr>'}</tbody>
       </table></div>
-    </div>
+    </details>
 
     ${(() => {
       // ── Rendimiento de Agentes ──
@@ -7142,9 +7216,9 @@ function renderTopROI() {
       const currentAvg = allMeses.reduce((s,m)=>s+calcROI(m).pagado,0) / allMeses.length;
       const bufferPct = currentAvg > 0 ? ((currentAvg - breakEvenRevenue) / currentAvg) * 100 : 0;
 
-      return `<div class="roi-card" style="margin-bottom:18px">
-        <h3>🎯 Break-Even Analysis</h3>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+      return `<details class="roi-card" style="margin-bottom:18px">
+        <summary style="cursor:pointer;font-weight:800;font-size:14px">🎯 Break-Even Analysis — buffer ${bufferPct.toFixed(0)}%</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:14px">
           <div class="roi-item">
             <label>Fixed Costs/Month</label>
             <div class="val blue">${fmt(avgMonthlyFixed)}</div>
@@ -7165,7 +7239,7 @@ function renderTopROI() {
         <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:12px;margin-top:12px;font-size:11px;line-height:1.6;color:#B0C4DB">
           <strong>💡 Insight:</strong> Need minimum <strong>${fmt(breakEvenRevenue)}</strong>/month to cover fixed costs. Currently averaging <strong>${fmt(currentAvg)}</strong>/month with <strong>${bufferPct.toFixed(1)}%</strong> safety margin.
         </div>
-      </div>`;
+      </details>`;
     })()}
 
     <!-- REVENUE BY SOURCE -->
@@ -7180,9 +7254,9 @@ function renderTopROI() {
       const sources = Object.entries(bySource).sort((a,b)=>b[1]-a[1]);
       if (!sources.length) return '';
       const totalRevenue = sources.reduce((s,x)=>s+x[1],0);
-      return `<div class="section" style="margin-bottom:18px;border-left:4px solid #009FDB">
-        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:12px">🥧 Ingresos por Fuente — ${selMes}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+      return `<details class="section" style="margin-bottom:18px;border-left:4px solid #009FDB">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;color:#0057A8">🥧 Ingresos por Fuente — ${selMes} (${fmt(totalRevenue)})</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px">
           ${sources.map(([source, amount])=>{
             const pct = totalRevenue>0?(amount/totalRevenue)*100:0;
             return `<div style="background:#F5F8FA;border-radius:8px;padding:10px;border-left:4px solid #009FDB">
@@ -7195,7 +7269,7 @@ function renderTopROI() {
             </div>`;
           }).join('')}
         </div>
-      </div>`;
+      </details>`;
     })() : ''}`
 }
 
