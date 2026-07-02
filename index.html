@@ -1815,11 +1815,21 @@ tr:hover td{background:#EAF0FB}
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Precio Cobrado ($) *</label>
-            <input type="number" id="bravo-rep-precio" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <input type="number" id="bravo-rep-precio" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px" oninput="bravoCalcularRestaRep()">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Costo Repuesto ($)</label>
             <input type="number" id="bravo-rep-costo" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Abono ($) <span style="font-weight:400;color:#99ACC2">— si el cliente paga parte ahora</span></label>
+            <input type="number" id="bravo-rep-abono" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px" oninput="bravoCalcularRestaRep()">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Resta por Cobrar ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+            <input type="number" id="bravo-rep-resta" step="0.01" readonly style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;background:#F5F8FA;color:#7C98B6">
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
@@ -2256,6 +2266,20 @@ function normalizarAppData() {
   if(!appData.bravo.nextReparacionId) appData.bravo.nextReparacionId = 1;
   if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
   if(!appData.bravo.nextLineaLycaId) appData.bravo.nextLineaLycaId = 1;
+
+  // Reparar ids duplicados o faltantes en reportesDiarios (puede pasar
+  // por condiciones de carrera al sincronizar con Firebase) — si no, el
+  // botón de Editar no encuentra el registro y falla en silencio.
+  if(appData.bravo.reportesDiarios.length) {
+    const idsVistos = new Set();
+    let maxId = appData.bravo.nextDiarioId || 1;
+    appData.bravo.reportesDiarios.forEach(r => {
+      if(r.id == null || idsVistos.has(r.id)) r.id = maxId++;
+      idsVistos.add(r.id);
+      if(r.id >= maxId) maxId = r.id + 1;
+    });
+    appData.bravo.nextDiarioId = maxId;
+  }
 
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
@@ -11411,9 +11435,16 @@ let bravoRegistroTemp = {
 
 // Abrir formulario de registro diario (nuevo o editar)
 function abrirFormularioRegistroDiario(id=null) {
-  if(id) {
-    const registro = appData.bravo.reportesDiarios.find(r => r.id === id);
-    if(!registro) { showNotif('⚠️ Registro no encontrado','error'); return; }
+  if(id != null) {
+    // Comparación tolerante: por si el id llegó como string o número
+    // distinto tras una sincronización (evita fallar en silencio).
+    let registro = appData.bravo.reportesDiarios.find(r => r.id === id);
+    if(!registro) registro = appData.bravo.reportesDiarios.find(r => String(r.id) === String(id));
+    if(!registro) {
+      showNotif('⚠️ No se encontró ese registro — refresca la página e intenta de nuevo','error');
+      alert('No se pudo abrir ese registro para editar. Por favor refresca la página (Ctrl+Shift+R) y vuelve a intentar. Si el problema continúa, avísame.');
+      return;
+    }
     bravoRegistroTemp = JSON.parse(JSON.stringify(registro));
     document.getElementById('modal-bravo-titulo').textContent = '✏️ Editar Registro Diario - Bravo';
   } else {
@@ -11564,21 +11595,30 @@ function bravoEditarLyca(i) {
   showNotif('✏️ Edita los datos y presiona Agregar para guardar los cambios','info');
 }
 
+// Calcula la Resta por Cobrar (Precio - Abono) en vivo
+function bravoCalcularRestaRep() {
+  const precio = parseFloat(document.getElementById('bravo-rep-precio')?.value) || 0;
+  const abono = parseFloat(document.getElementById('bravo-rep-abono')?.value) || 0;
+  document.getElementById('bravo-rep-resta').value = Math.max(0, precio - abono).toFixed(2);
+}
+
 // Agregar Reparación
 function bravoAgregarReparacion() {
   const equipo = document.getElementById('bravo-rep-equipo').value;
   const tipo = document.getElementById('bravo-rep-tipo').value;
   const precio = parseFloat(document.getElementById('bravo-rep-precio').value) || 0;
   const costo = parseFloat(document.getElementById('bravo-rep-costo').value) || 0;
+  const abono = parseFloat(document.getElementById('bravo-rep-abono').value) || 0;
   const estado = document.getElementById('bravo-rep-estado').value;
   const notas = document.getElementById('bravo-rep-notas').value.trim();
 
   if(!equipo || !tipo || !precio) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
   const ganancia = precio - costo;
+  const resta = Math.max(0, precio - abono);
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, estado, ganancia, notas
+    equipo, tipo, precio, costo, abono, resta, estado, ganancia, notas
   });
 
   // Limpiar formulario
@@ -11586,6 +11626,8 @@ function bravoAgregarReparacion() {
   document.getElementById('bravo-rep-tipo').value = '';
   document.getElementById('bravo-rep-precio').value = '';
   document.getElementById('bravo-rep-costo').value = '';
+  document.getElementById('bravo-rep-abono').value = '';
+  document.getElementById('bravo-rep-resta').value = '';
   document.getElementById('bravo-rep-notas').value = '';
 
   bravoActualizarResumen();
@@ -11601,8 +11643,10 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-tipo').value = item.tipo || '';
   document.getElementById('bravo-rep-precio').value = item.precio != null ? item.precio : '';
   document.getElementById('bravo-rep-costo').value = item.costo != null ? item.costo : '';
+  document.getElementById('bravo-rep-abono').value = item.abono != null ? item.abono : '';
   document.getElementById('bravo-rep-estado').value = item.estado || 'entregada';
   document.getElementById('bravo-rep-notas').value = item.notas || '';
+  bravoCalcularRestaRep();
   bravoRegistroTemp.reparaciones.splice(i,1);
   bravoRenderListaReparaciones();
   bravoActualizarResumen();
@@ -11756,6 +11800,7 @@ function bravoRenderListaReparaciones() {
       <div style="font-size:12px;flex:1">
         <div style="font-weight:600;color:#33475B">${rep.equipo||'—'} - ${rep.tipo||'—'}</div>
         <div style="font-size:10px;color:#7C98B6">Estado: ${rep.estado||'—'} | Precio: $${(rep.precio||0).toFixed(2)} | Costo: $${(rep.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#7C98B6">Abono: $${(rep.abono||0).toFixed(2)}${(rep.resta||0)>0 ? ` | <span style="color:#D4A017;font-weight:600">Resta por cobrar: $${(rep.resta||0).toFixed(2)}</span>` : ' | <span style="color:#00BDA5;font-weight:600">Pagado completo</span>'}</div>
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(rep.ganancia!=null ? rep.ganancia : (rep.precio||0)-(rep.costo||0)).toFixed(2)}</div>
         ${rep.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${rep.notas}</div>` : ''}
       </div>
