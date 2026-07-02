@@ -11087,6 +11087,35 @@ function bravoReparaciones() {
   bravoRenderReparacionesTabla();
 }
 
+// Reparaciones agregadas rápidamente desde el Registro Diario (pestaña
+// "Reparaciones" del modal) — viven anidadas dentro de cada reportesDiarios
+// y nunca se guardan en appData.bravo.reparaciones. Se combinan aquí solo
+// para mostrarlas juntas; no se duplican en ningún total de ganancia
+// (gananciaDelMes ya las suma vía reportesDiarios.gananciaTotal).
+function bravoReparacionesDesdeRegistros() {
+  const out = [];
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    (reg.reparaciones||[]).forEach(item => {
+      out.push({
+        origen: 'registro',
+        registroId: reg.id,
+        cliente: item.notas || `${item.equipo||'—'} - ${item.tipo||'—'}`,
+        telefono: '',
+        costoRepuesto: item.costo||0,
+        totalCosto: item.precio||0,
+        abono: item.abono||0,
+        resta: item.resta||0,
+        ganancia: item.ganancia!=null ? item.ganancia : (item.precio||0)-(item.costo||0),
+        estado: item.estado,
+        fecha: reg.fecha,
+        pago: '',
+        mes: reg.mes,
+      });
+    });
+  });
+  return out;
+}
+
 function bravoRenderReparacionesTabla() {
   const filtroMes = document.getElementById('rep-f-mes')?.value || '';
   const filtroFecha = document.getElementById('rep-f-fecha')?.value || '';
@@ -11094,7 +11123,9 @@ function bravoRenderReparacionesTabla() {
   const filtroPago = document.getElementById('rep-f-pago')?.value || '';
   const filtroBusqueda = (document.getElementById('rep-f-busqueda')?.value || '').trim().toLowerCase();
 
-  const filtradas = (appData.bravo.reparaciones||[]).filter(r=>{
+  const todas = [...(appData.bravo.reparaciones||[]), ...bravoReparacionesDesdeRegistros()];
+
+  const filtradas = todas.filter(r=>{
     if(filtroMes && r.mes!==filtroMes) return false;
     if(filtroFecha && r.fecha!==filtroFecha) return false;
     if(filtroEstado && r.estado!==filtroEstado) return false;
@@ -11121,7 +11152,7 @@ function bravoRenderReparacionesTabla() {
 
   document.getElementById('bravo-rep-tbody').innerHTML = filtradas.length ? filtradas.map(r=>`
     <tr style="${(r.resta||0)>0?'background:#FFF5F5':''}">
-      <td style="font-weight:600">${r.cliente||'—'}</td>
+      <td style="font-weight:600">${r.cliente||'—'}${r.origen==='registro'?' <span style="font-size:9px;font-weight:700;color:#7C98B6;background:#E5F0FF;padding:1px 6px;border-radius:10px">📋 Registro Diario</span>':''}</td>
       <td style="color:#7C98B6;font-size:11px">${r.telefono||'—'}</td>
       <td style="text-align:right">${fmt(r.costoRepuesto||0)}</td>
       <td style="text-align:right;font-weight:600;color:#0057A8">${fmt(getTotalCosto(r))}</td>
@@ -11133,8 +11164,10 @@ function bravoRenderReparacionesTabla() {
       <td style="font-size:11px">${REP_PAGO_LABELS[r.pago]||r.pago||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${r.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick="abrirModalReparacion(${r.id})">✏️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarReparacion(${r.id})">✕</button>
+        ${r.origen==='registro'
+          ? `<button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.registroId})" title="Editar desde el Registro Diario">✏️</button>`
+          : `<button class="btn btn-ghost btn-xs" onclick="abrirModalReparacion(${r.id})">✏️</button>
+             <button class="btn btn-danger btn-xs" onclick="eliminarReparacion(${r.id})">✕</button>`}
       </td>
     </tr>`).join('') : '<tr><td colspan="12" class="tbl-empty">Sin reparaciones registradas</td></tr>';
 
