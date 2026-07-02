@@ -4876,12 +4876,19 @@ function renderPagos() {
         let ventasDesglose = '';
         if(ventasQuincena.length > 0) {
           const filasHTML = ventasQuincena.map(v=>{
-            const comTotal = (parseFloat(v.comision)||0) * (v.cantidad||1);
+            // Misma lógica de respaldo que getComisionesQuincena(): si la venta
+            // se guardó con comisión $0 (ej. catálogo con tarifa $0 por defecto),
+            // se usa la tarifa directa configurada del agente/catálogo — para que
+            // este desglose coincida con el Total a Pagar de arriba.
+            const qty = parseFloat(v.cantidad)||1;
+            const stored = parseFloat(v.comision);
+            const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
+            const comTotal = Math.max(rate, 0) * qty;
             return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:${v.cliente?'transparent':'#FFF0F0'}">
               <td style="padding:4px 8px;color:#33475B;font-weight:${v.cliente?'400':'700'};background:${v.cliente?'transparent':'#FEE2E2'};border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}</td>
               <td style="padding:4px 8px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
-              <td style="padding:4px 8px;color:#33475B;text-align:right">${v.cantidad||1}</td>
-              <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:600">$${(parseFloat(v.comision)||0).toFixed(2)}</td>
+              <td style="padding:4px 8px;color:#33475B;text-align:right">${qty}</td>
+              <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:600">$${Math.max(rate,0).toFixed(2)}</td>
               <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:700">$${comTotal.toFixed(2)}</td>
             </tr>`;
           }).join('');
@@ -8135,11 +8142,16 @@ function descargarVentasFiltradas() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsVentas), 'Ventas Filtradas');
 
   // ── Hoja 2: Total pagado por producto ──
+  // Misma tarifa de respaldo que getComisionesQuincena(): si la venta se
+  // guardó con comisión $0, usa la tarifa directa configurada del agente/catálogo.
   const porProdMap = {};
   ventas.forEach(v=>{
     if(!porProdMap[v.productoId]) porProdMap[v.productoId] = { Producto: getProdNombre(v.productoId), Cantidad: 0, 'Comisión Total': 0 };
-    porProdMap[v.productoId].Cantidad += (parseFloat(v.cantidad)||0);
-    porProdMap[v.productoId]['Comisión Total'] += (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
+    const qty = parseFloat(v.cantidad)||1;
+    const stored = parseFloat(v.comision);
+    const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, v.agente);
+    porProdMap[v.productoId].Cantidad += qty;
+    porProdMap[v.productoId]['Comisión Total'] += Math.max(rate,0) * qty;
   });
   const rowsProd = Object.values(porProdMap).sort((a,b)=>b['Comisión Total']-a['Comisión Total']);
   rowsProd.push({
