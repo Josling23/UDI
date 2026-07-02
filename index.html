@@ -2080,6 +2080,7 @@ function normalizarAppData() {
   if(!appData.nextExtraId) appData.nextExtraId = 1;
   if(!appData.otrosInternet) appData.otrosInternet = [];
   if(!appData.nextOIId)    appData.nextOIId = 1;
+  if(!appData.comisiones) appData.comisiones = {};
   if(!appData.campanas)    appData.campanas = [];
   if(!appData.nextCampId)  appData.nextCampId = 1;
   if(!appData.finanzas)    appData.finanzas = [];
@@ -2381,7 +2382,13 @@ function getCatalogoCompleto() {
   const custom = (appData.otrosInternet||[]).map(p=>({
     id:p.id, cat:'otros-internet', nombre:p.nombre, velocidad:p.velocidad||'', comision:p.comision||0
   }));
-  return PRODUCTOS_CATALOG.concat(custom);
+  // Aplica los overrides de comisión base guardados en Productos & Com.
+  // (appData.comisiones) por encima de la tarifa fija del catálogo.
+  const overrides = appData.comisiones || {};
+  const base = PRODUCTOS_CATALOG.map(p =>
+    overrides[p.id] !== undefined ? { ...p, comision: parseFloat(overrides[p.id])||0 } : p
+  );
+  return base.concat(custom);
 }
 function getCatalogCom(productoId) {
   const prod = getCatalogoCompleto().find(p=>p.id===productoId);
