@@ -1521,13 +1521,17 @@ tr:hover td{background:#EAF0FB}
       <div class="form-grid">
         <div class="form-group"><label>Cliente *</label><input type="text" id="rep-cliente" placeholder="Nombre del cliente"></div>
         <div class="form-group"><label>Teléfono</label><input type="text" id="rep-telefono" placeholder="(407) 000-0000"></div>
-        <div class="form-group"><label>Costo del Repuesto ($)</label><input type="number" id="rep-costo" step="0.01" min="0" placeholder="0.00" oninput="calcularRestaReparacion()"></div>
-        <div class="form-group"><label>Abono ($)</label><input type="number" id="rep-abono" step="0.01" min="0" placeholder="0.00" oninput="calcularRestaReparacion()"></div>
+        <div class="form-group"><label>Costo del Repuesto ($)</label><input type="number" id="rep-costo" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()"></div>
+        <div class="form-group"><label>Total Cobrado por la Reparación ($)</label><input type="number" id="rep-totalcosto" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()"></div>
+        <div class="form-group"><label>Abono ($)</label><input type="number" id="rep-abono" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()"></div>
         <div class="form-group">
-          <label>Resta por Pagar ($) <a href="javascript:void(0)" onclick="calcularRestaReparacion()" style="font-size:10px;font-weight:600;color:#009FDB;text-decoration:none">⚡ calcular</a></label>
-          <input type="number" id="rep-resta" step="0.01" min="0" placeholder="0.00">
+          <label>Resta por Pagar ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+          <input type="number" id="rep-resta" step="0.01" min="0" placeholder="0.00" readonly style="background:#F5F8FA;color:#7C98B6">
         </div>
-        <div class="form-group"><label>Total Ganancia ($)</label><input type="number" id="rep-ganancia" step="0.01" min="0" placeholder="0.00" oninput="calcularRestaReparacion()"></div>
+        <div class="form-group">
+          <label>Total Ganancia ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+          <input type="number" id="rep-ganancia" step="0.01" min="0" placeholder="0.00" readonly style="background:#F5F8FA;color:#7C98B6">
+        </div>
         <div class="form-group">
           <label>Estado</label>
           <select id="rep-estado">
@@ -10538,28 +10542,33 @@ const REP_ESTADO_LABELS = { recibido:'📥 Recibido', pendiente:'⏳ Pendiente',
 const REP_ESTADO_COLORS = { recibido:'#009FDB', pendiente:'#D4A017', entregado:'#00BDA5' };
 const REP_PAGO_LABELS   = { cash:'💵 Cash', zelle:'📲 Zelle', punto:'💳 Punto' };
 
-function calcularRestaReparacion() {
+function calcularReparacionAuto() {
   const costo = parseFloat(document.getElementById('rep-costo')?.value) || 0;
+  const totalCosto = parseFloat(document.getElementById('rep-totalcosto')?.value) || 0;
   const abono = parseFloat(document.getElementById('rep-abono')?.value) || 0;
-  const ganancia = parseFloat(document.getElementById('rep-ganancia')?.value) || 0;
-  const resta = Math.max(0, (costo + ganancia) - abono);
+  const ganancia = totalCosto - costo;
+  const resta = Math.max(0, totalCosto - abono);
+  document.getElementById('rep-ganancia').value = ganancia.toFixed(2);
   document.getElementById('rep-resta').value = resta.toFixed(2);
 }
 
 function abrirModalReparacion(id=null) {
   if(!validarAccesoBravo()) return;
   const r = id ? (appData.bravo.reparaciones||[]).find(x=>x.id===id) : null;
+  // Compatibilidad con reparaciones guardadas antes de agregar "Total Cobrado":
+  // se reconstruye a partir de Costo del Repuesto + Ganancia ya guardados.
+  const totalCosto = r ? (r.totalCosto!=null ? r.totalCosto : (r.costoRepuesto||0)+(r.ganancia||0)) : null;
   document.getElementById('modal-bravo-reparacion').dataset.editId = id||'';
   document.getElementById('modal-bravo-reparacion-title').textContent = id ? '✏️ Editar Reparación' : '🔧 Nueva Reparación';
   document.getElementById('rep-cliente').value = r?.cliente||'';
   document.getElementById('rep-telefono').value = r?.telefono||'';
   document.getElementById('rep-costo').value = r?.costoRepuesto!=null ? r.costoRepuesto : '';
+  document.getElementById('rep-totalcosto').value = totalCosto!=null ? totalCosto : '';
   document.getElementById('rep-abono').value = r?.abono!=null ? r.abono : '';
-  document.getElementById('rep-resta').value = r?.resta!=null ? r.resta : '';
-  document.getElementById('rep-ganancia').value = r?.ganancia!=null ? r.ganancia : '';
   document.getElementById('rep-estado').value = r?.estado||'recibido';
   document.getElementById('rep-fecha').value = r?.fecha || new Date().toISOString().split('T')[0];
   document.getElementById('rep-pago').value = r?.pago||'cash';
+  calcularReparacionAuto();
   document.getElementById('modal-bravo-reparacion').classList.add('open');
 }
 
@@ -10572,13 +10581,18 @@ function guardarReparacion() {
   const [yyyy, mm] = fecha.split('-');
   const mes = (yyyy && mm) ? mesStrDesdeNum(parseInt(yyyy), parseInt(mm)) : mesActual();
 
+  const costoRepuesto = parseFloat(document.getElementById('rep-costo').value) || 0;
+  const totalCosto    = parseFloat(document.getElementById('rep-totalcosto').value) || 0;
+  const abono         = parseFloat(document.getElementById('rep-abono').value) || 0;
+
   const datos = {
     cliente,
     telefono: document.getElementById('rep-telefono').value.trim(),
-    costoRepuesto: parseFloat(document.getElementById('rep-costo').value) || 0,
-    abono: parseFloat(document.getElementById('rep-abono').value) || 0,
-    resta: parseFloat(document.getElementById('rep-resta').value) || 0,
-    ganancia: parseFloat(document.getElementById('rep-ganancia').value) || 0,
+    costoRepuesto,
+    totalCosto,
+    abono,
+    resta: Math.max(0, totalCosto - abono),
+    ganancia: totalCosto - costoRepuesto,
     estado: document.getElementById('rep-estado').value,
     fecha, mes,
     pago: document.getElementById('rep-pago').value
@@ -10649,7 +10663,7 @@ function bravoReparaciones() {
         <thead>
           <tr>
             <th>Cliente</th><th>Teléfono</th>
-            <th style="text-align:right">Costo</th><th style="text-align:right">Abono</th>
+            <th style="text-align:right">Costo Repuesto</th><th style="text-align:right">Total Cobrado</th><th style="text-align:right">Abono</th>
             <th style="text-align:right">Resta</th><th style="text-align:right">Ganancia</th>
             <th style="text-align:center">Estado</th><th>Fecha</th><th>Pago</th><th>Mes</th><th></th>
           </tr>
@@ -10676,17 +10690,20 @@ function bravoRenderReparacionesTabla() {
     return true;
   }).sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
 
-  const totalCosto    = filtradas.reduce((s,r)=>s+(r.costoRepuesto||0),0);
-  const totalAbono    = filtradas.reduce((s,r)=>s+(r.abono||0),0);
-  const totalResta    = filtradas.reduce((s,r)=>s+(r.resta||0),0);
-  const totalGanancia = filtradas.reduce((s,r)=>s+(r.ganancia||0),0);
+  const getTotalCosto = r => r.totalCosto!=null ? r.totalCosto : (r.costoRepuesto||0)+(r.ganancia||0);
+
+  const totalCosto      = filtradas.reduce((s,r)=>s+(r.costoRepuesto||0),0);
+  const totalCobrado    = filtradas.reduce((s,r)=>s+getTotalCosto(r),0);
+  const totalAbono      = filtradas.reduce((s,r)=>s+(r.abono||0),0);
+  const totalResta      = filtradas.reduce((s,r)=>s+(r.resta||0),0);
+  const totalGanancia   = filtradas.reduce((s,r)=>s+(r.ganancia||0),0);
   const conRestaPendiente = filtradas.filter(r=>(r.resta||0)>0).length;
 
   document.getElementById('bravo-rep-cards').innerHTML = `
     <div class="card blue"><label>💰 Ganancia Total</label><div class="val">${fmt(totalGanancia)}</div><div class="sub">${filtradas.length} reparación${filtradas.length!==1?'es':''}</div></div>
+    <div class="card navy"><label>🧾 Total Cobrado</label><div class="val">${fmt(totalCobrado)}</div></div>
     <div class="card orange"><label>🔩 Costo Repuestos</label><div class="val">${fmt(totalCosto)}</div></div>
     <div class="card ${conRestaPendiente?'red':'teal'}"><label>⚠️ Resta por Cobrar</label><div class="val">${fmt(totalResta)}</div><div class="sub">${conRestaPendiente} cliente${conRestaPendiente!==1?'s':''} con saldo pendiente</div></div>
-    <div class="card purple"><label>💵 Abonado</label><div class="val">${fmt(totalAbono)}</div></div>
   `;
 
   document.getElementById('bravo-rep-tbody').innerHTML = filtradas.length ? filtradas.map(r=>`
@@ -10694,6 +10711,7 @@ function bravoRenderReparacionesTabla() {
       <td style="font-weight:600">${r.cliente||'—'}</td>
       <td style="color:#7C98B6;font-size:11px">${r.telefono||'—'}</td>
       <td style="text-align:right">${fmt(r.costoRepuesto||0)}</td>
+      <td style="text-align:right;font-weight:600;color:#0057A8">${fmt(getTotalCosto(r))}</td>
       <td style="text-align:right">${fmt(r.abono||0)}</td>
       <td style="text-align:right;font-weight:700;color:${(r.resta||0)>0?'#E04048':'#99ACC2'}">${(r.resta||0)>0?fmt(r.resta):'—'}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(r.ganancia||0)}</td>
@@ -10705,12 +10723,13 @@ function bravoRenderReparacionesTabla() {
         <button class="btn btn-ghost btn-xs" onclick="abrirModalReparacion(${r.id})">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarReparacion(${r.id})">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="11" class="tbl-empty">Sin reparaciones registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="12" class="tbl-empty">Sin reparaciones registradas</td></tr>';
 
   document.getElementById('bravo-rep-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
       <td colspan="2">TOTAL (${filtradas.length})</td>
       <td style="text-align:right">${fmt(totalCosto)}</td>
+      <td style="text-align:right;color:#0057A8">${fmt(totalCobrado)}</td>
       <td style="text-align:right">${fmt(totalAbono)}</td>
       <td style="text-align:right;color:${totalResta>0?'#E04048':'#33475B'}">${fmt(totalResta)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
