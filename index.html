@@ -348,6 +348,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item active" onclick="showPage('bravo-dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('bravo-registros',this)"><span class="icon">📋</span><span>Registros Diarios</span></div>
     <div class="nav-item" onclick="showPage('bravo-reparaciones',this)"><span class="icon">🔧</span><span>Reparaciones</span></div>
+    <div class="nav-item" onclick="showPage('bravo-lyca',this)"><span class="icon">📱</span><span>Líneas Lyca</span></div>
     <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
     <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
@@ -601,6 +602,10 @@ tr:hover td{background:#EAF0FB}
 
     <div class="page" id="page-bravo-reparaciones">
       <div id="bravo-reparaciones-content"></div>
+    </div>
+
+    <div class="page" id="page-bravo-lyca">
+      <div id="bravo-lyca-content"></div>
     </div>
 
     <div class="page" id="page-bravo-roi">
@@ -1609,6 +1614,46 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - LÍNEAS LYCA ===== -->
+<div class="modal-overlay" id="modal-bravo-lyca">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="modal-bravo-lyca-title">📱 Nueva Línea Lyca</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-lyca')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Compañía</label><input type="text" id="lyca-compania" value="LYCA" placeholder="LYCA"></div>
+        <div class="form-group"><label>Código de Área</label><input type="text" id="lyca-area" placeholder="FLORIDA"></div>
+        <div class="form-group"><label>Número de Teléfono *</label><input type="text" id="lyca-telefono" placeholder="407-000-0000"></div>
+        <div class="form-group"><label>PIN de Transferencia</label><input type="text" id="lyca-pin" placeholder="0000"></div>
+        <div class="form-group"><label>Número de Cuenta</label><input type="text" id="lyca-cuenta" placeholder="20280707001"></div>
+        <div class="form-group"><label>Código Postal</label><input type="text" id="lyca-postal" placeholder="32835"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Cliente <span style="color:#99ACC2;font-weight:400;font-size:9px">— déjalo en blanco si sigue Disponible</span></label><input type="text" id="lyca-cliente" placeholder="Nombre del cliente"></div>
+        <div class="form-group"><label>Costo ($)</label><input type="number" id="lyca-costo" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
+        <div class="form-group"><label>Pago ($)</label><input type="number" id="lyca-pago" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
+        <div class="form-group">
+          <label>Ganancia ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+          <input type="number" id="lyca-ganancia" step="0.01" readonly style="background:#F5F8FA;color:#7C98B6">
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="lyca-estado">
+            <option value="disponible">📦 Disponible</option>
+            <option value="pendiente">⏳ Pendiente</option>
+            <option value="vendida">✅ Vendida</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Mes</label><select id="lyca-mes"></select></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-lyca')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarLineaLyca()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - REGISTRO DIARIO ===== -->
 <div class="modal-overlay" id="modal-bravo-registro">
   <div class="modal" style="max-width:1000px;max-height:95vh;overflow-y:auto">
@@ -2147,6 +2192,8 @@ function normalizarAppData() {
   if(!appData.bravo.caja) appData.bravo.caja = [];
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
   if(!appData.bravo.nextReparacionId) appData.bravo.nextReparacionId = 1;
+  if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
+  if(!appData.bravo.nextLineaLycaId) appData.bravo.nextLineaLycaId = 1;
 
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
@@ -2734,6 +2781,7 @@ const PAGE_TITLES = {
   'bravo-dashboard':'🏪 Bravo — Dashboard',
   'bravo-registros':'🏪 Bravo — Registros Diarios',
   'bravo-reparaciones':'🔧 Bravo — Reparaciones',
+  'bravo-lyca':'📱 Bravo — Líneas Lyca',
   'bravo-roi':'🏪 Bravo — ROI',
   'bravo-caja':'💵 Caja Chica — Bravo',
   'salud-dashboard':'💚 Salud — Dashboard',
@@ -2768,6 +2816,7 @@ function renderPage(name) {
   if(name==='bravo-dashboard') bravoDashboard();
   if(name==='bravo-registros') bravoRegistros();
   if(name==='bravo-reparaciones') bravoReparaciones();
+  if(name==='bravo-lyca') bravoLineasLyca();
   if(name==='bravo-roi') bravoROI();
   if(name==='bravo-caja') bravoCaja();
   if(name==='salud-dashboard') saludRenderDashboard();
@@ -7838,7 +7887,12 @@ function renderTopBravo() {
   });
   const gananciaReparacionesMes = repTicketsMes.reduce((s, r) => s + (r.ganancia || 0), 0);
 
-  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + gananciaReparacionesMes;
+  // Líneas Lyca (sección dedicada) del mes actual
+  const mesActualStrTop = MESES_ES[mesActual-1] + ' ' + añoActual;
+  const lycaLineasMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStrTop);
+  const gananciaLycaMes = lycaLineasMes.reduce((s, l) => s + (l.ganancia || 0), 0);
+
+  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + gananciaReparacionesMes + gananciaLycaMes;
   const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 1300;
   const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 585;
 
@@ -7857,7 +7911,7 @@ function renderTopBravo() {
 
   // Desglose por categoría
   const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
-  const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0);
+  const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
   const reparacionesMes = reportesMes.reduce((s, r) => s + (r.reparaciones ? r.reparaciones.length : 0), 0) + repTicketsMes.length;
   const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
   const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
@@ -10568,17 +10622,86 @@ function bravoDashboard() {
 
   const mesActual = new Date().getMonth() + 1;
   const añoActual = new Date().getFullYear();
+  const mesActualStr = MESES_ES[mesActual-1] + ' ' + añoActual;
+  const mesAnteriorNum = mesActual===1 ? 12 : mesActual-1;
+  const añoAnteriorNum = mesActual===1 ? añoActual-1 : añoActual;
+
+  function gananciaDelMes(mes, año) {
+    const rep = (appData.bravo.reportesDiarios||[]).filter(r=>{ const d=new Date(r.fecha); return d.getMonth()+1===mes && d.getFullYear()===año; })
+      .reduce((s,r)=>s+(r.gananciaTotal||0),0);
+    const tickets = (appData.bravo.reparaciones||[]).filter(r=>{ const d=new Date(r.fecha); return d.getMonth()+1===mes && d.getFullYear()===año; })
+      .reduce((s,r)=>s+(r.ganancia||0),0);
+    const lyca = (appData.bravo.lineasLyca||[]).filter(l=>l.mes===(MESES_ES[mes-1]+' '+año))
+      .reduce((s,l)=>s+(l.ganancia||0),0);
+    return rep + tickets + lyca;
+  }
+
   const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
     const d = new Date(r.fecha);
     return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
   });
   const repTicketsHoy = (appData.bravo.reparaciones||[]).filter(r => r.fecha === hoy);
-  const repTicketsMes = (appData.bravo.reparaciones||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
-  });
+  const lycaMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStr);
   const gananciaHoy = (reporteHoy ? (reporteHoy.gananciaTotal || 0) : 0) + repTicketsHoy.reduce((s,r)=>s+(r.ganancia||0),0);
-  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + repTicketsMes.reduce((s,r)=>s+(r.ganancia||0),0);
+  const gananciaMes = gananciaDelMes(mesActual, añoActual);
+  const gananciaMesAnterior = gananciaDelMes(mesAnteriorNum, añoAnteriorNum);
+
+  const gastosFijosMes = (appData.bravo.gastosFijos.rentaMensual||0) + ((appData.bravo.gastosFijos.sueldoSemanal||0) * 4);
+  const gananciaNetaReal = gananciaMes - gastosFijosMes;
+  const margenMes = gananciaMes > 0 ? (gananciaNetaReal / gananciaMes * 100) : (gananciaNetaReal >= 0 ? 100 : -100);
+  const salud = margenMes >= 20
+    ? { emoji:'🟢', label:'Saludable',  color:'#00BDA5', bg:'#E8F9F7' }
+    : margenMes >= 0
+    ? { emoji:'🟡', label:'Ajustada',   color:'#D4A017', bg:'#FFFBE8' }
+    : { emoji:'🔴', label:'En pérdida', color:'#E04048', bg:'#FFF0F0' };
+  const cambioMes = gananciaMesAnterior !== 0
+    ? ((gananciaMes - gananciaMesAnterior) / Math.abs(gananciaMesAnterior) * 100) : null;
+
+  const lineasDisponibles = (appData.bravo.lineasLyca||[]).filter(l=>l.estado==='disponible').length;
+  const restaPendienteTotal = (appData.bravo.reparaciones||[]).filter(r=>(r.resta||0)>0);
+
+  const alertasBravo = [];
+  if(lineasDisponibles<=5) alertasBravo.push(`📱 Solo quedan ${lineasDisponibles} línea${lineasDisponibles!==1?'s':''} Lyca disponibles — considera pedir más stock`);
+  if(restaPendienteTotal.length) alertasBravo.push(`🔧 ${restaPendienteTotal.length} reparación${restaPendienteTotal.length!==1?'es':''} con saldo pendiente de cobrar (${fmt(restaPendienteTotal.reduce((s,r)=>s+(r.resta||0),0))})`);
+  if(cambioMes !== null && cambioMes < -15) alertasBravo.push(`📉 La ganancia bajó ${Math.abs(cambioMes).toFixed(0)}% vs el mes anterior`);
+  if(gananciaNetaReal < 0) alertasBravo.push(`⚠️ Este mes no cubre los gastos fijos (renta + sueldo)`);
+
+  const resumenEjecutivoBravoHTML = `
+    <div style="background:linear-gradient(135deg,#1a0008,#2a0008,#3a0a14);border-radius:16px;padding:22px;margin-bottom:20px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.6">Resumen Ejecutivo — ${mesActualStr}</div>
+          <div style="font-size:20px;font-weight:900;margin-top:2px">Salud de Bravo</div>
+        </div>
+        <div style="background:${salud.bg};color:${salud.color};padding:8px 16px;border-radius:20px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px">
+          ${salud.emoji} ${salud.label} <span style="font-weight:600;opacity:0.8">(margen ${margenMes.toFixed(0)}%)</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💰 Ganancia Hoy</div>
+          <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(gananciaHoy)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📈 Ganancia del Mes</div>
+          <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(gananciaMes)}</div>
+          ${cambioMes===null ? '<span style="font-size:10px;color:#99ACC2">— sin mes anterior</span>' : `<span style="font-size:11px;font-weight:700;color:${cambioMes>=0?'#7FE8D4':'#FCA5A5'}">${cambioMes>=0?'▲':'▼'} ${Math.abs(cambioMes).toFixed(0)}% vs mes anterior</span>`}
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💸 Gastos Fijos</div>
+          <div style="font-size:24px;font-weight:900;color:#FCA5A5">${fmt(gastosFijosMes)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📊 Ganancia Neta</div>
+          <div style="font-size:24px;font-weight:900;color:${gananciaNetaReal>=0?'#7FE8D4':'#FCA5A5'}">${fmt(gananciaNetaReal)}</div>
+        </div>
+      </div>
+      ${alertasBravo.length ? `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.15);display:flex;flex-direction:column;gap:6px">
+        ${alertasBravo.map(a=>`<div style="font-size:12px;background:rgba(255,255,255,0.08);border-radius:6px;padding:6px 10px">${a}</div>`).join('')}
+      </div>` : `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.15);font-size:12px;opacity:0.75">✅ Sin alertas — todo en orden</div>`}
+    </div>`;
 
   document.getElementById('bravo-dashboard-content').innerHTML = `
     <div class="section">
@@ -10592,6 +10715,8 @@ function bravoDashboard() {
         </div>
       </div>
 
+      ${resumenEjecutivoBravoHTML}
+
       <div class="cards">
         <div class="card green">
           <label>💰 Ganancia Hoy</label>
@@ -10601,7 +10726,7 @@ function bravoDashboard() {
         <div class="card blue">
           <label>📈 Ganancia Este Mes</label>
           <div class="val">${fmt(gananciaMes)}</div>
-          <div class="sub">${reportesMes.length} días registrados</div>
+          <div class="sub">${reportesMes.length} días registrados · ${lycaMes.length} líneas Lyca</div>
         </div>
         <div class="card orange">
           <label>💵 Gastos Fijos Mensuales</label>
@@ -10903,6 +11028,191 @@ function bravoRenderReparacionesTabla() {
       <td style="text-align:right;color:${totalResta>0?'#E04048':'#33475B'}">${fmt(totalResta)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
       <td colspan="5"></td>
+    </tr>` : '';
+}
+
+// ============================================================
+// BRAVO — LÍNEAS LYCA (inventario y ventas de líneas)
+// ============================================================
+const LYCA_ESTADO_LABELS = { disponible:'📦 Disponible', pendiente:'⏳ Pendiente', vendida:'✅ Vendida' };
+const LYCA_ESTADO_COLORS = { disponible:'#009FDB', pendiente:'#D4A017', vendida:'#00BDA5' };
+
+function calcularGananciaLyca() {
+  const costo = parseFloat(document.getElementById('lyca-costo')?.value) || 0;
+  const pago = parseFloat(document.getElementById('lyca-pago')?.value) || 0;
+  document.getElementById('lyca-ganancia').value = (pago - costo).toFixed(2);
+}
+
+function abrirModalLineaLyca(id=null) {
+  if(!validarAccesoBravo()) return;
+  const l = id ? (appData.bravo.lineasLyca||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-bravo-lyca').dataset.editId = id||'';
+  document.getElementById('modal-bravo-lyca-title').textContent = id ? '✏️ Editar Línea Lyca' : '📱 Nueva Línea Lyca';
+  document.getElementById('lyca-compania').value = l?.compania || 'LYCA';
+  document.getElementById('lyca-area').value = l?.area || '';
+  document.getElementById('lyca-telefono').value = l?.telefono || '';
+  document.getElementById('lyca-pin').value = l?.pin || '';
+  document.getElementById('lyca-cuenta').value = l?.cuenta || '';
+  document.getElementById('lyca-postal').value = l?.postal || '';
+  document.getElementById('lyca-cliente').value = l?.cliente || '';
+  document.getElementById('lyca-costo').value = l?.costo!=null ? l.costo : '';
+  document.getElementById('lyca-pago').value = l?.pago!=null ? l.pago : '';
+  document.getElementById('lyca-estado').value = l?.estado || 'disponible';
+  populateMes('lyca-mes', false);
+  document.getElementById('lyca-mes').value = l?.mes || mesPorDefecto();
+  calcularGananciaLyca();
+  document.getElementById('modal-bravo-lyca').classList.add('open');
+}
+
+function guardarLineaLyca() {
+  const telefono = document.getElementById('lyca-telefono').value.trim();
+  if(!telefono) { showNotif('⚠️ Ingresa el número de teléfono','error'); return; }
+  const costo = parseFloat(document.getElementById('lyca-costo').value) || 0;
+  const pago = parseFloat(document.getElementById('lyca-pago').value) || 0;
+
+  const datos = {
+    compania: document.getElementById('lyca-compania').value.trim() || 'LYCA',
+    area: document.getElementById('lyca-area').value.trim(),
+    telefono,
+    pin: document.getElementById('lyca-pin').value.trim(),
+    cuenta: document.getElementById('lyca-cuenta').value.trim(),
+    postal: document.getElementById('lyca-postal').value.trim(),
+    cliente: document.getElementById('lyca-cliente').value.trim(),
+    costo, pago,
+    ganancia: pago - costo,
+    estado: document.getElementById('lyca-estado').value,
+    mes: document.getElementById('lyca-mes').value
+  };
+
+  if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
+  const editId = parseInt(document.getElementById('modal-bravo-lyca').dataset.editId)||null;
+  if(editId) {
+    const l = appData.bravo.lineasLyca.find(x=>x.id===editId);
+    if(l) Object.assign(l, datos);
+    showNotif('✅ Línea actualizada');
+  } else {
+    const id = appData.bravo.nextLineaLycaId || 1;
+    appData.bravo.lineasLyca.push({ id, ...datos });
+    appData.bravo.nextLineaLycaId = id + 1;
+    showNotif('✅ Línea guardada');
+  }
+  guardar();
+  closeModal('modal-bravo-lyca');
+  bravoLineasLyca();
+}
+
+function eliminarLineaLyca(id) {
+  if(!confirm('¿Eliminar esta línea?')) return;
+  appData.bravo.lineasLyca = (appData.bravo.lineasLyca||[]).filter(l=>l.id!==id);
+  guardar();
+  bravoRenderLineasLycaTabla();
+  showNotif('🗑️ Línea eliminada');
+}
+
+function bravoLineasLyca() {
+  if(!validarAccesoBravo()) return;
+  if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
+
+  const mesesDisponibles = [...new Set((appData.bravo.lineasLyca||[]).map(l=>l.mes).filter(Boolean))]
+    .sort((a,b)=>{
+      const pa=a.split(' '), pb=b.split(' ');
+      return (parseInt(pa[1])-parseInt(pb[1])) || (MESES_ES.indexOf(pa[0])-MESES_ES.indexOf(pb[0]));
+    });
+
+  document.getElementById('bravo-lyca-content').innerHTML = `
+    <div class="section-header" style="margin-bottom:16px">
+      <h2>📱 Líneas Lyca</h2>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalLineaLyca()">➕ Nueva Línea</button>
+    </div>
+
+    <div class="cards" id="bravo-lyca-cards" style="margin-bottom:18px"></div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+      <input type="text" id="lyca-f-busqueda" placeholder="🔎 Buscar cliente o teléfono..." oninput="bravoRenderLineasLycaTabla()" style="flex:1;min-width:160px;background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px;outline:none">
+      <select id="lyca-f-mes" onchange="bravoRenderLineasLycaTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+        <option value="">📅 Todos los meses</option>
+        ${mesesDisponibles.map(m=>`<option value="${m}">${m}</option>`).join('')}
+      </select>
+      <select id="lyca-f-estado" onchange="bravoRenderLineasLycaTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+        <option value="">Todos los estados</option>
+        ${Object.keys(LYCA_ESTADO_LABELS).map(k=>`<option value="${k}">${LYCA_ESTADO_LABELS[k]}</option>`).join('')}
+      </select>
+      <button onclick="document.getElementById('lyca-f-busqueda').value='';document.getElementById('lyca-f-mes').value='';document.getElementById('lyca-f-estado').value='';bravoRenderLineasLycaTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th>
+            <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Ganancia</th>
+            <th style="text-align:center">Estado</th><th>Mes</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="bravo-lyca-tbody"></tbody>
+        <tfoot id="bravo-lyca-tfoot"></tfoot>
+      </table>
+    </div>
+  `;
+  bravoRenderLineasLycaTabla();
+}
+
+function bravoRenderLineasLycaTabla() {
+  const filtroMes = document.getElementById('lyca-f-mes')?.value || '';
+  const filtroEstado = document.getElementById('lyca-f-estado')?.value || '';
+  const filtroBusqueda = (document.getElementById('lyca-f-busqueda')?.value || '').trim().toLowerCase();
+
+  const todas = appData.bravo.lineasLyca || [];
+  const filtradas = todas.filter(l=>{
+    if(filtroMes && l.mes!==filtroMes) return false;
+    if(filtroEstado && l.estado!==filtroEstado) return false;
+    if(filtroBusqueda && !((l.cliente||'').toLowerCase().includes(filtroBusqueda) || (l.telefono||'').toLowerCase().includes(filtroBusqueda))) return false;
+    return true;
+  });
+
+  // Stock disponible SIEMPRE cuenta sobre el total (sin filtrar), para que la
+  // alerta de inventario no dependa de qué filtro tengas puesto.
+  const disponiblesTotal = todas.filter(l=>l.estado==='disponible').length;
+
+  const totalCosto = filtradas.reduce((s,l)=>s+(l.costo||0),0);
+  const totalPago = filtradas.reduce((s,l)=>s+(l.pago||0),0);
+  const totalGanancia = filtradas.reduce((s,l)=>s+(l.ganancia||0),0);
+  const vendidas = filtradas.filter(l=>l.estado==='vendida').length;
+
+  document.getElementById('bravo-lyca-cards').innerHTML = `
+    <div class="card ${disponiblesTotal<=5?'red':'teal'}"><label>📦 Disponibles en Stock</label><div class="val">${disponiblesTotal}</div><div class="sub">${disponiblesTotal<=5?'⚠️ Stock bajo — considera pedir más':'Total actual, sin filtrar'}</div></div>
+    <div class="card blue"><label>✅ Vendidas</label><div class="val">${vendidas}</div><div class="sub">${filtradas.length} en este filtro</div></div>
+    <div class="card green"><label>💰 Ganancia</label><div class="val">${fmt(totalGanancia)}</div></div>
+    <div class="card purple"><label>🧾 Total Cobrado</label><div class="val">${fmt(totalPago)}</div></div>
+  `;
+
+  document.getElementById('bravo-lyca-tbody').innerHTML = filtradas.length ? filtradas.map(l=>`
+    <tr>
+      <td style="font-weight:600">${l.telefono||'—'}</td>
+      <td>${l.cliente||'<span style="color:#CBD6E2">—</span>'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.compania||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.area||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.pin||'—'}</td>
+      <td style="font-size:10px;color:#99ACC2">${l.cuenta||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.postal||'—'}</td>
+      <td style="text-align:right">${fmt(l.costo||0)}</td>
+      <td style="text-align:right">${fmt(l.pago||0)}</td>
+      <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(l.ganancia||0)}</td>
+      <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${LYCA_ESTADO_COLORS[l.estado]}22;color:${LYCA_ESTADO_COLORS[l.estado]||'#7C98B6'}">${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}</span></td>
+      <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="13" class="tbl-empty">Sin líneas registradas</td></tr>';
+
+  document.getElementById('bravo-lyca-tfoot').innerHTML = filtradas.length ? `
+    <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
+      <td colspan="7">TOTAL (${filtradas.length})</td>
+      <td style="text-align:right">${fmt(totalCosto)}</td>
+      <td style="text-align:right">${fmt(totalPago)}</td>
+      <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
+      <td colspan="3"></td>
     </tr>` : '';
 }
 
