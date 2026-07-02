@@ -11447,6 +11447,16 @@ function abrirFormularioRegistroDiario(id=null) {
       return;
     }
     bravoRegistroTemp = JSON.parse(JSON.stringify(registro));
+    // Blindaje: registros antiguos (p.ej. de la migración de Junio) pueden
+    // no tener alguno de estos arrays (o tenerlo con otro nombre, como
+    // "douglas" en vez de "actividades") — sin esto, .length revienta
+    // silenciosamente antes de llegar a abrir el modal.
+    if(!Array.isArray(bravoRegistroTemp.accesorios)) bravoRegistroTemp.accesorios = [];
+    if(!Array.isArray(bravoRegistroTemp.lycas)) bravoRegistroTemp.lycas = [];
+    if(!Array.isArray(bravoRegistroTemp.reparaciones)) bravoRegistroTemp.reparaciones = [];
+    if(!Array.isArray(bravoRegistroTemp.combos)) bravoRegistroTemp.combos = [];
+    if(!Array.isArray(bravoRegistroTemp.telefonos)) bravoRegistroTemp.telefonos = [];
+    if(!Array.isArray(bravoRegistroTemp.actividades)) bravoRegistroTemp.actividades = Array.isArray(registro.douglas) ? registro.douglas : [];
     document.getElementById('modal-bravo-titulo').textContent = '✏️ Editar Registro Diario - Bravo';
   } else {
     bravoRegistroTemp = {
