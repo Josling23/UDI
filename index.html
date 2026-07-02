@@ -1727,6 +1727,10 @@ tr:hover td{background:#EAF0FB}
               <button class="btn btn-success btn-sm" onclick="bravoAgregarAccesorio()" style="flex:1">➕ Agregar</button>
             </div>
           </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+            <textarea id="bravo-acc-notas" placeholder="Ej: color, detalle del cliente, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
+          </div>
         </div>
         <div id="bravo-accesorios-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin accesorios agregados</div>
@@ -1772,6 +1776,10 @@ tr:hover td{background:#EAF0FB}
           <div style="display:flex;gap:8px;align-items:flex-end">
             <button class="btn btn-success btn-sm" onclick="bravoAgregarLyca()" style="flex:1">➕ Agregar</button>
           </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+          <textarea id="bravo-lyca-notas" placeholder="Ej: número de teléfono, detalle del cliente, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
         </div>
         <div id="bravo-lycas-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin lycas agregadas</div>
@@ -1828,6 +1836,10 @@ tr:hover td{background:#EAF0FB}
             <button class="btn btn-success btn-sm" onclick="bravoAgregarReparacion()" style="flex:1">➕ Agregar</button>
           </div>
         </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+          <textarea id="bravo-rep-notas" placeholder="Ej: nombre del cliente, teléfono, detalle del problema, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
+        </div>
         <div id="bravo-reparaciones-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin reparaciones agregadas</div>
         </div>
@@ -1869,6 +1881,10 @@ tr:hover td{background:#EAF0FB}
             <button class="btn btn-success btn-sm" onclick="bravoAgregarCombo()" style="flex:1">➕ Agregar</button>
           </div>
         </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+          <textarea id="bravo-combo-notas" placeholder="Ej: detalle del combo, cliente, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
+        </div>
         <div id="bravo-combos-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin combos agregados</div>
         </div>
@@ -1880,7 +1896,42 @@ tr:hover td{background:#EAF0FB}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
           <div>
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Modelo *</label>
-            <input type="text" id="bravo-tel-modelo" placeholder="Ej: iPhone 15 Pro Max" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <select id="bravo-tel-modelo-sel" onchange="if(this.value) document.getElementById('bravo-tel-modelo').value=this.value;" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;margin-bottom:6px">
+              <option value="">— Elegir modelo común o escribir abajo —</option>
+              <optgroup label="iPhone">
+                <option>iPhone 11</option>
+                <option>iPhone 12</option>
+                <option>iPhone 12 Pro</option>
+                <option>iPhone 13</option>
+                <option>iPhone 13 Pro</option>
+                <option>iPhone 14</option>
+                <option>iPhone 14 Pro</option>
+                <option>iPhone 14 Pro Max</option>
+                <option>iPhone 15</option>
+                <option>iPhone 15 Pro</option>
+                <option>iPhone 15 Pro Max</option>
+                <option>iPhone 16</option>
+                <option>iPhone 16 Pro</option>
+                <option>iPhone 16 Pro Max</option>
+                <option>iPhone 17</option>
+                <option>iPhone 17 Pro</option>
+                <option>iPhone 17 Pro Max</option>
+              </optgroup>
+              <optgroup label="Samsung">
+                <option>Samsung Galaxy A14</option>
+                <option>Samsung Galaxy A54</option>
+                <option>Samsung Galaxy S23</option>
+                <option>Samsung Galaxy S24</option>
+                <option>Samsung Galaxy S24 Ultra</option>
+                <option>Samsung Galaxy S25</option>
+                <option>Samsung Galaxy S25 Ultra</option>
+              </optgroup>
+              <optgroup label="Otras marcas">
+                <option>Motorola</option>
+                <option>Google Pixel</option>
+              </optgroup>
+            </select>
+            <input type="text" id="bravo-tel-modelo" placeholder="O escribe aquí el modelo" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Costo ($) *</label>
@@ -1912,6 +1963,10 @@ tr:hover td{background:#EAF0FB}
           <div style="display:flex;gap:8px;align-items:flex-end">
             <button class="btn btn-success btn-sm" onclick="bravoAgregarTelefono()" style="flex:1">➕ Agregar</button>
           </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+          <textarea id="bravo-tel-notas" placeholder="Ej: IMEI, color, cliente, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
         </div>
         <div id="bravo-telefonos-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin teléfonos agregados</div>
@@ -11427,13 +11482,14 @@ function bravoAgregarAccesorio() {
   const precio = parseFloat(document.getElementById('bravo-acc-precio').value) || 0;
   const costo = parseFloat(document.getElementById('bravo-acc-costo').value) || 0;
   const metodo = document.getElementById('bravo-acc-metodo').value;
+  const notas = document.getElementById('bravo-acc-notas').value.trim();
 
   if(!tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
   const ganancia = (precio - costo) * cantidad;
 
   bravoRegistroTemp.accesorios.push({
-    tipo, cantidad, precio, costo, metodo, ganancia
+    tipo, cantidad, precio, costo, metodo, ganancia, notas
   });
 
   // Limpiar formulario
@@ -11441,6 +11497,7 @@ function bravoAgregarAccesorio() {
   document.getElementById('bravo-acc-cant').value = '1';
   document.getElementById('bravo-acc-precio').value = '';
   document.getElementById('bravo-acc-costo').value = '';
+  document.getElementById('bravo-acc-notas').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaAccesorios();
@@ -11454,19 +11511,21 @@ function bravoAgregarLyca() {
   const precio = parseFloat(document.getElementById('bravo-lyca-precio').value) || 0;
   const costo = parseFloat(document.getElementById('bravo-lyca-costo').value) || 0;
   const metodo = document.getElementById('bravo-lyca-metodo').value;
+  const notas = document.getElementById('bravo-lyca-notas').value.trim();
 
   if(!cliente || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
   const ganancia = precio - costo;
 
   bravoRegistroTemp.lycas.push({
-    tipo, cliente, precio, costo, metodo, ganancia
+    tipo, cliente, precio, costo, metodo, ganancia, notas
   });
 
   // Limpiar formulario
   document.getElementById('bravo-lyca-cliente').value = '';
   document.getElementById('bravo-lyca-precio').value = '';
   document.getElementById('bravo-lyca-costo').value = '';
+  document.getElementById('bravo-lyca-notas').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaLycas();
@@ -11480,13 +11539,14 @@ function bravoAgregarReparacion() {
   const precio = parseFloat(document.getElementById('bravo-rep-precio').value) || 0;
   const costo = parseFloat(document.getElementById('bravo-rep-costo').value) || 0;
   const estado = document.getElementById('bravo-rep-estado').value;
+  const notas = document.getElementById('bravo-rep-notas').value.trim();
 
   if(!equipo || !tipo || !precio) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
   const ganancia = precio - costo;
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, estado, ganancia
+    equipo, tipo, precio, costo, estado, ganancia, notas
   });
 
   // Limpiar formulario
@@ -11494,6 +11554,7 @@ function bravoAgregarReparacion() {
   document.getElementById('bravo-rep-tipo').value = '';
   document.getElementById('bravo-rep-precio').value = '';
   document.getElementById('bravo-rep-costo').value = '';
+  document.getElementById('bravo-rep-notas').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaReparaciones();
@@ -11507,13 +11568,14 @@ function bravoAgregarCombo() {
   const costo = parseFloat(document.getElementById('bravo-combo-costo').value) || 0;
   const comision = parseFloat(document.getElementById('bravo-combo-comision').value) || 0;
   const metodo = document.getElementById('bravo-combo-metodo').value;
+  const notas = document.getElementById('bravo-combo-notas').value.trim();
 
   if(!desc || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
   const ganancia = precio - costo - comision;
 
   bravoRegistroTemp.combos.push({
-    desc, precio, costo, comision, metodo, ganancia
+    desc, precio, costo, comision, metodo, ganancia, notas
   });
 
   // Limpiar formulario
@@ -11521,6 +11583,7 @@ function bravoAgregarCombo() {
   document.getElementById('bravo-combo-precio').value = '';
   document.getElementById('bravo-combo-costo').value = '';
   document.getElementById('bravo-combo-comision').value = '';
+  document.getElementById('bravo-combo-notas').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaCombos();
@@ -11534,19 +11597,22 @@ function bravoAgregarTelefono() {
   const precio = parseFloat(document.getElementById('bravo-tel-precio').value) || 0;
   const tipo = document.getElementById('bravo-tel-tipo').value;
   const metodo = document.getElementById('bravo-tel-metodo').value;
+  const notas = document.getElementById('bravo-tel-notas').value.trim();
 
   if(!modelo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
   const ganancia = precio - costo;
 
   bravoRegistroTemp.telefonos.push({
-    modelo, costo, precio, tipo, metodo, ganancia
+    modelo, costo, precio, tipo, metodo, ganancia, notas
   });
 
   // Limpiar formulario
   document.getElementById('bravo-tel-modelo').value = '';
+  document.getElementById('bravo-tel-modelo-sel').value = '';
   document.getElementById('bravo-tel-costo').value = '';
   document.getElementById('bravo-tel-precio').value = '';
+  document.getElementById('bravo-tel-notas').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaTelefonos();
@@ -11566,6 +11632,7 @@ function bravoRenderListaAccesorios() {
         <div style="font-weight:600;color:#33475B">${acc.tipo || acc.nombre || '—'}</div>
         <div style="font-size:10px;color:#7C98B6">Cantidad: ${acc.cantidad||0} | Precio: $${(acc.precio||0).toFixed(2)} | Costo: $${(acc.costo||0).toFixed(2)}</div>
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(acc.ganancia!=null ? acc.ganancia : ((acc.precio||0)-(acc.costo||0))*(acc.cantidad||1)).toFixed(2)}</div>
+        ${acc.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${acc.notas}</div>` : ''}
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.accesorios.splice(${i},1);bravoRenderListaAccesorios();bravoActualizarResumen()">✕</button>
     </div>
@@ -11584,6 +11651,7 @@ function bravoRenderListaLycas() {
         <div style="font-weight:600;color:#33475B">${lyca.tipo||'Lyca'} - ${lyca.cliente||'—'}</div>
         <div style="font-size:10px;color:#7C98B6">Precio: $${(lyca.precio||0).toFixed(2)} | Costo: $${(lyca.costo||0).toFixed(2)}</div>
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(lyca.ganancia!=null ? lyca.ganancia : (lyca.precio||0)-(lyca.costo||0)).toFixed(2)}</div>
+        ${lyca.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${lyca.notas}</div>` : ''}
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.lycas.splice(${i},1);bravoRenderListaLycas();bravoActualizarResumen()">✕</button>
     </div>
@@ -11602,6 +11670,7 @@ function bravoRenderListaReparaciones() {
         <div style="font-weight:600;color:#33475B">${rep.equipo||'—'} - ${rep.tipo||'—'}</div>
         <div style="font-size:10px;color:#7C98B6">Estado: ${rep.estado||'—'} | Precio: $${(rep.precio||0).toFixed(2)} | Costo: $${(rep.costo||0).toFixed(2)}</div>
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(rep.ganancia!=null ? rep.ganancia : (rep.precio||0)-(rep.costo||0)).toFixed(2)}</div>
+        ${rep.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${rep.notas}</div>` : ''}
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.reparaciones.splice(${i},1);bravoRenderListaReparaciones();bravoActualizarResumen()">✕</button>
     </div>
@@ -11620,6 +11689,7 @@ function bravoRenderListaCombos() {
         <div style="font-weight:600;color:#33475B">${combo.desc||'—'}</div>
         <div style="font-size:10px;color:#7C98B6">Precio: $${(combo.precio||0).toFixed(2)} | Costo: $${(combo.costo||0).toFixed(2)} | Comisión: $${(combo.comision||0).toFixed(2)}</div>
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia Neta: $${(combo.ganancia!=null ? combo.ganancia : (combo.precio||0)-(combo.costo||0)-(combo.comision||0)).toFixed(2)}</div>
+        ${combo.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${combo.notas}</div>` : ''}
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.combos.splice(${i},1);bravoRenderListaCombos();bravoActualizarResumen()">✕</button>
     </div>
@@ -11638,6 +11708,7 @@ function bravoRenderListaTelefonos() {
         <div style="font-weight:600;color:#33475B">${tel.modelo||'—'}</div>
         <div style="font-size:10px;color:#7C98B6">Tipo: ${tel.tipo||'—'} | Precio: $${(tel.precio||0).toFixed(2)} | Costo: $${(tel.costo||0).toFixed(2)}</div>
         <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(tel.ganancia!=null ? tel.ganancia : (tel.precio||0)-(tel.costo||0)).toFixed(2)}</div>
+        ${tel.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${tel.notas}</div>` : ''}
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.telefonos.splice(${i},1);bravoRenderListaTelefonos();bravoActualizarResumen()">✕</button>
     </div>
