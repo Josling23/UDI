@@ -4873,8 +4873,12 @@ function renderPagos() {
           return pp.mes===mes && pp.q===q;
         });
 
+        // Productos Extra (configurados en Agentes) que también suman al total
+        // de comisiones del mes — antes invisibles en este desglose.
+        const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
+
         let ventasDesglose = '';
-        if(ventasQuincena.length > 0) {
+        if(ventasQuincena.length > 0 || extrasDelMes.length > 0) {
           const filasHTML = ventasQuincena.map(v=>{
             // Misma lógica de respaldo que getComisionesQuincena(): si la venta
             // se guardó con comisión $0 (ej. catálogo con tarifa $0 por defecto),
@@ -4893,6 +4897,21 @@ function renderPagos() {
             </tr>`;
           }).join('');
 
+          const filasExtraHTML = extrasDelMes.map(e=>{
+            const prod = (a.productosExtra||[]).find(p=>p.id===e.prodId);
+            const nombre = prod ? prod.nombre : e.prodId;
+            const qty = e.cantidad||0;
+            const rate = e.comisionUnit||0;
+            const comTotal = rate * qty;
+            return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBE8">
+              <td style="padding:4px 8px;color:#99ACC2;font-style:italic" colspan="1">— (producto extra, mensual)</td>
+              <td style="padding:4px 8px;color:#7C98B6">📦 ${nombre}</td>
+              <td style="padding:4px 8px;color:#33475B;text-align:right">${qty}</td>
+              <td style="padding:4px 8px;color:#FF7A59;text-align:right;font-weight:600">$${rate.toFixed(2)}</td>
+              <td style="padding:4px 8px;color:#FF7A59;text-align:right;font-weight:700">$${comTotal.toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+
           ventasDesglose = `<tr style="background:#F9FAFB">
             <td colspan="11" style="padding:8px 12px;border:none">
               <div style="font-weight:600;color:#7C98B6;font-size:10px;margin-bottom:6px;text-transform:uppercase">📋 Desglose de comisiones:</div>
@@ -4907,9 +4926,10 @@ function renderPagos() {
                   </tr>
                 </thead>
                 <tbody>
-                  ${filasHTML}
+                  ${filasHTML}${filasExtraHTML}
                 </tbody>
               </table>
+              ${extrasDelMes.length ? `<div style="font-size:9px;color:#D4A017;margin-top:4px">⚠️ Los productos extra son por mes, no por quincena — si ves Q1 y Q2 del mismo mes juntos, este monto puede estar contado en ambas filas. Configúralos en la página de Agentes.</div>` : ''}
             </td>
           </tr>`;
         }
