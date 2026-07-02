@@ -11053,6 +11053,7 @@ function bravoReparaciones() {
 
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
       <input type="text" id="rep-f-busqueda" placeholder="🔎 Buscar cliente o teléfono..." oninput="bravoRenderReparacionesTabla()" style="flex:1;min-width:160px;background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px;outline:none">
+      <input type="date" id="rep-f-fecha" onchange="bravoRenderReparacionesTabla()" title="Buscar por fecha específica" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
       <select id="rep-f-mes" onchange="bravoRenderReparacionesTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
         <option value="">📅 Todos los meses</option>
         ${mesesDisponibles.map(m=>`<option value="${m}">${m}</option>`).join('')}
@@ -11065,7 +11066,7 @@ function bravoReparaciones() {
         <option value="">Todos los pagos</option>
         ${Object.keys(REP_PAGO_LABELS).map(k=>`<option value="${k}">${REP_PAGO_LABELS[k]}</option>`).join('')}
       </select>
-      <button onclick="document.getElementById('rep-f-busqueda').value='';document.getElementById('rep-f-mes').value='';document.getElementById('rep-f-estado').value='';document.getElementById('rep-f-pago').value='';bravoRenderReparacionesTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+      <button onclick="document.getElementById('rep-f-busqueda').value='';document.getElementById('rep-f-fecha').value='';document.getElementById('rep-f-mes').value='';document.getElementById('rep-f-estado').value='';document.getElementById('rep-f-pago').value='';bravoRenderReparacionesTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
     </div>
 
     <div class="tbl-wrap">
@@ -11088,12 +11089,14 @@ function bravoReparaciones() {
 
 function bravoRenderReparacionesTabla() {
   const filtroMes = document.getElementById('rep-f-mes')?.value || '';
+  const filtroFecha = document.getElementById('rep-f-fecha')?.value || '';
   const filtroEstado = document.getElementById('rep-f-estado')?.value || '';
   const filtroPago = document.getElementById('rep-f-pago')?.value || '';
   const filtroBusqueda = (document.getElementById('rep-f-busqueda')?.value || '').trim().toLowerCase();
 
   const filtradas = (appData.bravo.reparaciones||[]).filter(r=>{
     if(filtroMes && r.mes!==filtroMes) return false;
+    if(filtroFecha && r.fecha!==filtroFecha) return false;
     if(filtroEstado && r.estado!==filtroEstado) return false;
     if(filtroPago && r.pago!==filtroPago) return false;
     if(filtroBusqueda && !((r.cliente||'').toLowerCase().includes(filtroBusqueda) || (r.telefono||'').toLowerCase().includes(filtroBusqueda))) return false;
