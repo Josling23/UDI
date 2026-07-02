@@ -2277,6 +2277,12 @@ function activarListenerAppData() {
           'hq':         renderHQ,
           'usuarios':   renderUsuarios,
           'campanas':   attRenderCampanas,
+          'bravo-dashboard':    bravoDashboard,
+          'bravo-registros':    bravoRegistros,
+          'bravo-reparaciones': bravoReparaciones,
+          'bravo-lyca':         bravoLineasLyca,
+          'bravo-roi':          bravoROI,
+          'bravo-caja':         bravoCaja,
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -10621,6 +10627,23 @@ function validarAccesoBravo() {
   return true;
 }
 
+// Refresca la página de Bravo que esté visible en este momento, sin
+// importar desde dónde se abrió el modal que se acaba de guardar.
+function bravoRefrescarVistaActual() {
+  const activePage = document.querySelector('.page.active');
+  if(!activePage) return;
+  const pageId = activePage.id.replace('page-', '');
+  const mapa = {
+    'bravo-dashboard':    bravoDashboard,
+    'bravo-registros':    bravoRegistros,
+    'bravo-reparaciones': bravoReparaciones,
+    'bravo-lyca':         bravoLineasLyca,
+    'bravo-roi':          bravoROI,
+    'bravo-caja':         bravoCaja,
+  };
+  if(mapa[pageId]) mapa[pageId]();
+}
+
 // Dashboard de Bravo - Vista principal
 function bravoDashboard() {
   if(!validarAccesoBravo()) return;
@@ -11717,29 +11740,16 @@ function bravoGuardarRegistro() {
     bravoRegistroTemp.combos.reduce((s,c) => s + c.ganancia, 0) +
     bravoRegistroTemp.telefonos.reduce((s,t) => s + t.ganancia, 0);
 
-  // Crear registro
-  const registro = {
-    id: appData.bravo.nextDiarioId,
-    fecha,
-    accesorios: bravoRegistroTemp.accesorios,
-    lycas: bravoRegistroTemp.lycas,
-    reparaciones: bravoRegistroTemp.reparaciones,
-    combos: bravoRegistroTemp.combos,
-    telefonos: bravoRegistroTemp.telefonos,
-    actividades: bravoRegistroTemp.actividades,
-    gananciaTotal,
-    productosCount: bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length,
-    actividadesCount: bravoRegistroTemp.actividades.length,
-    categoria: 'Múltiple',
-    timestamp: new Date().toISOString()
-  };
+  const productosCount = bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length;
 
   if(bravoRegistroTemp.id) {
-    // EDITAR REGISTRO EXISTENTE
+    // EDITAR REGISTRO EXISTENTE (upsert: si por alguna razón el registro ya
+    // no está en el array local — p.ej. una sincronización en curso — lo
+    // volvemos a insertar en vez de bloquear el guardado con un error)
     const idx = appData.bravo.reportesDiarios.findIndex(r => r.id === bravoRegistroTemp.id);
-    if(idx === -1) { showNotif('⚠️ Registro no encontrado','error'); return; }
+    const timestampOriginal = idx !== -1 ? appData.bravo.reportesDiarios[idx].timestamp : (bravoRegistroTemp.timestamp || new Date().toISOString());
 
-    appData.bravo.reportesDiarios[idx] = {
+    const registroActualizado = {
       id: bravoRegistroTemp.id,
       fecha,
       accesorios: bravoRegistroTemp.accesorios,
@@ -11749,15 +11759,18 @@ function bravoGuardarRegistro() {
       telefonos: bravoRegistroTemp.telefonos,
       actividades: bravoRegistroTemp.actividades,
       gananciaTotal,
-      productosCount: bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length,
+      productosCount,
       actividadesCount: bravoRegistroTemp.actividades.length,
       categoria: 'Múltiple',
-      timestamp: appData.bravo.reportesDiarios[idx].timestamp
+      timestamp: timestampOriginal
     };
+
+    if(idx !== -1) appData.bravo.reportesDiarios[idx] = registroActualizado;
+    else appData.bravo.reportesDiarios.push(registroActualizado);
 
     guardar();
     closeModal('modal-bravo-registro');
-    bravoRegistros();
+    bravoRefrescarVistaActual();
     showNotif('✅ Registro actualizado');
   } else {
     // CREAR NUEVO REGISTRO
@@ -11771,7 +11784,7 @@ function bravoGuardarRegistro() {
       telefonos: bravoRegistroTemp.telefonos,
       actividades: bravoRegistroTemp.actividades,
       gananciaTotal,
-      productosCount: bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length,
+      productosCount,
       actividadesCount: bravoRegistroTemp.actividades.length,
       categoria: 'Múltiple',
       timestamp: new Date().toISOString()
@@ -11782,7 +11795,7 @@ function bravoGuardarRegistro() {
 
     guardar();
     closeModal('modal-bravo-registro');
-    bravoDashboard();
+    bravoRefrescarVistaActual();
     showNotif('✅ Registro guardado exitosamente');
   }
 }
@@ -11903,7 +11916,7 @@ function eliminarRegistroDiario(id) {
   if(!confirm('¿Eliminar este registro diario?')) return;
   appData.bravo.reportesDiarios = (appData.bravo.reportesDiarios||[]).filter(r => r.id !== id);
   guardar();
-  bravoRegistros();
+  bravoRefrescarVistaActual();
   showNotif('🗑️ Registro eliminado');
 }
 
