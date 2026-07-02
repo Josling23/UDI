@@ -2234,7 +2234,11 @@ function guardar() {
   normalizarAppData();
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   _syncIgnoreNext = true; // no re-renderizar por mi propio guardado
-  fbDB.ref('appData').set(appData).catch(e => { _syncIgnoreNext = false; console.warn('Firebase write error:', e); });
+  fbDB.ref('appData').set(appData).catch(e => {
+    _syncIgnoreNext = false;
+    console.warn('Firebase write error:', e);
+    showNotif('⚠️ No se pudo guardar en el servidor (' + e.message + '). Tus cambios solo quedaron en este dispositivo.', 'error');
+  });
 }
 
 // Listener en tiempo real — se activa automáticamente cada vez que otro usuario guarda
@@ -11559,9 +11563,9 @@ function bravoRenderListaAccesorios() {
   lista.innerHTML = bravoRegistroTemp.accesorios.map((acc, i) => `
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
-        <div style="font-weight:600;color:#33475B">${acc.tipo}</div>
-        <div style="font-size:10px;color:#7C98B6">Cantidad: ${acc.cantidad} | Precio: $${acc.precio.toFixed(2)} | Costo: $${acc.costo.toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${acc.ganancia.toFixed(2)}</div>
+        <div style="font-weight:600;color:#33475B">${acc.tipo || acc.nombre || '—'}</div>
+        <div style="font-size:10px;color:#7C98B6">Cantidad: ${acc.cantidad||0} | Precio: $${(acc.precio||0).toFixed(2)} | Costo: $${(acc.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(acc.ganancia!=null ? acc.ganancia : ((acc.precio||0)-(acc.costo||0))*(acc.cantidad||1)).toFixed(2)}</div>
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.accesorios.splice(${i},1);bravoRenderListaAccesorios();bravoActualizarResumen()">✕</button>
     </div>
@@ -11577,9 +11581,9 @@ function bravoRenderListaLycas() {
   lista.innerHTML = bravoRegistroTemp.lycas.map((lyca, i) => `
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
-        <div style="font-weight:600;color:#33475B">${lyca.tipo} - ${lyca.cliente}</div>
-        <div style="font-size:10px;color:#7C98B6">Precio: $${lyca.precio.toFixed(2)} | Costo: $${lyca.costo.toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${lyca.ganancia.toFixed(2)}</div>
+        <div style="font-weight:600;color:#33475B">${lyca.tipo||'Lyca'} - ${lyca.cliente||'—'}</div>
+        <div style="font-size:10px;color:#7C98B6">Precio: $${(lyca.precio||0).toFixed(2)} | Costo: $${(lyca.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(lyca.ganancia!=null ? lyca.ganancia : (lyca.precio||0)-(lyca.costo||0)).toFixed(2)}</div>
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.lycas.splice(${i},1);bravoRenderListaLycas();bravoActualizarResumen()">✕</button>
     </div>
@@ -11595,9 +11599,9 @@ function bravoRenderListaReparaciones() {
   lista.innerHTML = bravoRegistroTemp.reparaciones.map((rep, i) => `
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
-        <div style="font-weight:600;color:#33475B">${rep.equipo} - ${rep.tipo}</div>
-        <div style="font-size:10px;color:#7C98B6">Estado: ${rep.estado} | Precio: $${rep.precio.toFixed(2)} | Costo: $${rep.costo.toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${rep.ganancia.toFixed(2)}</div>
+        <div style="font-weight:600;color:#33475B">${rep.equipo||'—'} - ${rep.tipo||'—'}</div>
+        <div style="font-size:10px;color:#7C98B6">Estado: ${rep.estado||'—'} | Precio: $${(rep.precio||0).toFixed(2)} | Costo: $${(rep.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(rep.ganancia!=null ? rep.ganancia : (rep.precio||0)-(rep.costo||0)).toFixed(2)}</div>
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.reparaciones.splice(${i},1);bravoRenderListaReparaciones();bravoActualizarResumen()">✕</button>
     </div>
@@ -11613,9 +11617,9 @@ function bravoRenderListaCombos() {
   lista.innerHTML = bravoRegistroTemp.combos.map((combo, i) => `
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
-        <div style="font-weight:600;color:#33475B">${combo.desc}</div>
-        <div style="font-size:10px;color:#7C98B6">Precio: $${combo.precio.toFixed(2)} | Costo: $${combo.costo.toFixed(2)} | Comisión: $${combo.comision.toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia Neta: $${combo.ganancia.toFixed(2)}</div>
+        <div style="font-weight:600;color:#33475B">${combo.desc||'—'}</div>
+        <div style="font-size:10px;color:#7C98B6">Precio: $${(combo.precio||0).toFixed(2)} | Costo: $${(combo.costo||0).toFixed(2)} | Comisión: $${(combo.comision||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia Neta: $${(combo.ganancia!=null ? combo.ganancia : (combo.precio||0)-(combo.costo||0)-(combo.comision||0)).toFixed(2)}</div>
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.combos.splice(${i},1);bravoRenderListaCombos();bravoActualizarResumen()">✕</button>
     </div>
@@ -11631,9 +11635,9 @@ function bravoRenderListaTelefonos() {
   lista.innerHTML = bravoRegistroTemp.telefonos.map((tel, i) => `
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
-        <div style="font-weight:600;color:#33475B">${tel.modelo}</div>
-        <div style="font-size:10px;color:#7C98B6">Tipo: ${tel.tipo} | Precio: $${tel.precio.toFixed(2)} | Costo: $${tel.costo.toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${tel.ganancia.toFixed(2)}</div>
+        <div style="font-weight:600;color:#33475B">${tel.modelo||'—'}</div>
+        <div style="font-size:10px;color:#7C98B6">Tipo: ${tel.tipo||'—'} | Precio: $${(tel.precio||0).toFixed(2)} | Costo: $${(tel.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(tel.ganancia!=null ? tel.ganancia : (tel.precio||0)-(tel.costo||0)).toFixed(2)}</div>
       </div>
       <button class="btn btn-danger btn-xs" onclick="bravoRegistroTemp.telefonos.splice(${i},1);bravoRenderListaTelefonos();bravoActualizarResumen()">✕</button>
     </div>
@@ -11709,11 +11713,11 @@ function bravoActualizarResumen() {
   document.getElementById('bravo-count-tel').textContent = bravoRegistroTemp.telefonos.length;
 
   const totalGanancia =
-    bravoRegistroTemp.accesorios.reduce((s,a) => s + a.ganancia, 0) +
-    bravoRegistroTemp.lycas.reduce((s,l) => s + l.ganancia, 0) +
-    bravoRegistroTemp.reparaciones.reduce((s,r) => s + r.ganancia, 0) +
-    bravoRegistroTemp.combos.reduce((s,c) => s + c.ganancia, 0) +
-    bravoRegistroTemp.telefonos.reduce((s,t) => s + t.ganancia, 0);
+    bravoRegistroTemp.accesorios.reduce((s,a) => s + (a.ganancia||0), 0) +
+    bravoRegistroTemp.lycas.reduce((s,l) => s + (l.ganancia||0), 0) +
+    bravoRegistroTemp.reparaciones.reduce((s,r) => s + (r.ganancia||0), 0) +
+    bravoRegistroTemp.combos.reduce((s,c) => s + (c.ganancia||0), 0) +
+    bravoRegistroTemp.telefonos.reduce((s,t) => s + (t.ganancia||0), 0);
 
   document.getElementById('bravo-ganancia-total').textContent = '$' + totalGanancia.toFixed(2);
 }
@@ -11734,11 +11738,11 @@ function bravoGuardarRegistro() {
 
   // Calcular ganancia total
   const gananciaTotal =
-    bravoRegistroTemp.accesorios.reduce((s,a) => s + a.ganancia, 0) +
-    bravoRegistroTemp.lycas.reduce((s,l) => s + l.ganancia, 0) +
-    bravoRegistroTemp.reparaciones.reduce((s,r) => s + r.ganancia, 0) +
-    bravoRegistroTemp.combos.reduce((s,c) => s + c.ganancia, 0) +
-    bravoRegistroTemp.telefonos.reduce((s,t) => s + t.ganancia, 0);
+    bravoRegistroTemp.accesorios.reduce((s,a) => s + (a.ganancia||0), 0) +
+    bravoRegistroTemp.lycas.reduce((s,l) => s + (l.ganancia||0), 0) +
+    bravoRegistroTemp.reparaciones.reduce((s,r) => s + (r.ganancia||0), 0) +
+    bravoRegistroTemp.combos.reduce((s,c) => s + (c.ganancia||0), 0) +
+    bravoRegistroTemp.telefonos.reduce((s,t) => s + (t.ganancia||0), 0);
 
   const productosCount = bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length;
 
