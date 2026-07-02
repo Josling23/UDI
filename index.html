@@ -2107,6 +2107,11 @@ const USERS_CONFIG = {
     nombre: 'José Piña',
     areas: ['admin', 'hq', 'bravo', 'salud'],
     fullAccess: false
+  },
+  'douglasleonudi@gmail.com': {
+    nombre: 'Douglas',
+    areas: ['bravo'],
+    fullAccess: false
   }
 };
 
@@ -5526,6 +5531,7 @@ async function inicializarUsuariosDefault() {
     { email: 'interjosling@hotmail.com', pass: 'JoslingUDI2024!' },
     { email: 'usadistributor024@gmail.com', pass: 'David2024!' },
     { email: 'udicreditrepair@gmail.com', pass: 'Oriana2024!' },
+    { email: 'douglasleonudi@gmail.com', pass: 'Douglas2024!' },
   ];
 
   // Crear una segunda instancia de Firebase para no interferir con la autenticación actual
@@ -5579,7 +5585,8 @@ console.log('🔐 UDI Firebase Auth - Configuración de usuarios:', {
   'usadistributor024@gmail.com': 'David (Salud y Dental)',
   'udicreditrepair@gmail.com': 'Oriana (Admin + Salud)',
   'astrid@usadistributor.com': 'Astrid (Salud y Dental) - usar email real cuando esté disponible',
-  'josepi@usadistributor.com': 'José Piña (Admin + HQ + Salud) - usar email real cuando esté disponible'
+  'josepi@usadistributor.com': 'José Piña (Admin + HQ + Salud) - usar email real cuando esté disponible',
+  'douglasleonudi@gmail.com': 'Douglas (solo Bravo)'
 });
 
 // ============================================================
