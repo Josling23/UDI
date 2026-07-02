@@ -1630,10 +1630,12 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group"><label>Número de Cuenta</label><input type="text" id="lyca-cuenta" placeholder="20280707001"></div>
         <div class="form-group"><label>Código Postal</label><input type="text" id="lyca-postal" placeholder="32835"></div>
         <div class="form-group" style="grid-column:1/-1"><label>Cliente <span style="color:#99ACC2;font-weight:400;font-size:9px">— déjalo en blanco si sigue Disponible</span></label><input type="text" id="lyca-cliente" placeholder="Nombre del cliente"></div>
+        <div class="form-group"><label>Agente</label><select id="lyca-agente"></select></div>
+        <div class="form-group"><label>Comisión Agente ($)</label><input type="number" id="lyca-comision" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
         <div class="form-group"><label>Costo ($)</label><input type="number" id="lyca-costo" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
         <div class="form-group"><label>Pago ($)</label><input type="number" id="lyca-pago" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
         <div class="form-group">
-          <label>Ganancia ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+          <label>Ganancia ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto: pago − costo − comisión</span></label>
           <input type="number" id="lyca-ganancia" step="0.01" readonly style="background:#F5F8FA;color:#7C98B6">
         </div>
         <div class="form-group">
@@ -11047,7 +11049,8 @@ const LYCA_ESTADO_COLORS = { disponible:'#009FDB', pendiente:'#D4A017', vendida:
 function calcularGananciaLyca() {
   const costo = parseFloat(document.getElementById('lyca-costo')?.value) || 0;
   const pago = parseFloat(document.getElementById('lyca-pago')?.value) || 0;
-  document.getElementById('lyca-ganancia').value = (pago - costo).toFixed(2);
+  const comision = parseFloat(document.getElementById('lyca-comision')?.value) || 0;
+  document.getElementById('lyca-ganancia').value = (pago - costo - comision).toFixed(2);
 }
 
 function abrirModalLineaLyca(id=null) {
@@ -11062,6 +11065,9 @@ function abrirModalLineaLyca(id=null) {
   document.getElementById('lyca-cuenta').value = l?.cuenta || '';
   document.getElementById('lyca-postal').value = l?.postal || '';
   document.getElementById('lyca-cliente').value = l?.cliente || '';
+  populateAgente('lyca-agente', false);
+  document.getElementById('lyca-agente').value = l?.agente || '';
+  document.getElementById('lyca-comision').value = l?.comision!=null ? l.comision : '';
   document.getElementById('lyca-costo').value = l?.costo!=null ? l.costo : '';
   document.getElementById('lyca-pago').value = l?.pago!=null ? l.pago : '';
   document.getElementById('lyca-estado').value = l?.estado || 'disponible';
@@ -11076,6 +11082,7 @@ function guardarLineaLyca() {
   if(!telefono) { showNotif('⚠️ Ingresa el número de teléfono','error'); return; }
   const costo = parseFloat(document.getElementById('lyca-costo').value) || 0;
   const pago = parseFloat(document.getElementById('lyca-pago').value) || 0;
+  const comision = parseFloat(document.getElementById('lyca-comision').value) || 0;
 
   const datos = {
     compania: document.getElementById('lyca-compania').value.trim() || 'LYCA',
@@ -11085,8 +11092,9 @@ function guardarLineaLyca() {
     cuenta: document.getElementById('lyca-cuenta').value.trim(),
     postal: document.getElementById('lyca-postal').value.trim(),
     cliente: document.getElementById('lyca-cliente').value.trim(),
-    costo, pago,
-    ganancia: pago - costo,
+    agente: document.getElementById('lyca-agente').value,
+    comision, costo, pago,
+    ganancia: pago - costo - comision,
     estado: document.getElementById('lyca-estado').value,
     mes: document.getElementById('lyca-mes').value
   };
@@ -11151,8 +11159,8 @@ function bravoLineasLyca() {
       <table>
         <thead>
           <tr>
-            <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th>
-            <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Ganancia</th>
+            <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th><th>Agente</th>
+            <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Comisión</th><th style="text-align:right">Ganancia</th>
             <th style="text-align:center">Estado</th><th>Mes</th><th></th>
           </tr>
         </thead>
@@ -11183,6 +11191,7 @@ function bravoRenderLineasLycaTabla() {
 
   const totalCosto = filtradas.reduce((s,l)=>s+(l.costo||0),0);
   const totalPago = filtradas.reduce((s,l)=>s+(l.pago||0),0);
+  const totalComision = filtradas.reduce((s,l)=>s+(l.comision||0),0);
   const totalGanancia = filtradas.reduce((s,l)=>s+(l.ganancia||0),0);
   const vendidas = filtradas.filter(l=>l.estado==='vendida').length;
 
@@ -11202,8 +11211,10 @@ function bravoRenderLineasLycaTabla() {
       <td style="font-size:11px;color:#7C98B6">${l.pin||'—'}</td>
       <td style="font-size:10px;color:#99ACC2">${l.cuenta||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${l.postal||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.agente||'<span style="color:#CBD6E2">—</span>'}</td>
       <td style="text-align:right">${fmt(l.costo||0)}</td>
       <td style="text-align:right">${fmt(l.pago||0)}</td>
+      <td style="text-align:right;color:#D4A017">${fmt(l.comision||0)}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(l.ganancia||0)}</td>
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${LYCA_ESTADO_COLORS[l.estado]}22;color:${LYCA_ESTADO_COLORS[l.estado]||'#7C98B6'}">${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}</span></td>
       <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
@@ -11211,13 +11222,14 @@ function bravoRenderLineasLycaTabla() {
         <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="13" class="tbl-empty">Sin líneas registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="15" class="tbl-empty">Sin líneas registradas</td></tr>';
 
   document.getElementById('bravo-lyca-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
-      <td colspan="7">TOTAL (${filtradas.length})</td>
+      <td colspan="8">TOTAL (${filtradas.length})</td>
       <td style="text-align:right">${fmt(totalCosto)}</td>
       <td style="text-align:right">${fmt(totalPago)}</td>
+      <td style="text-align:right;color:#D4A017">${fmt(totalComision)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
       <td colspan="3"></td>
     </tr>` : '';
