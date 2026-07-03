@@ -11183,12 +11183,38 @@ function bravoDashboard() {
 // Registros Diarios
 function bravoRegistros() {
   if(!validarAccesoBravo()) return;
+  if(!appData.bravo.reportesDiarios) appData.bravo.reportesDiarios = [];
+
+  const añosDisponibles = [...new Set((appData.bravo.reportesDiarios||[]).map(r => (r.fecha||'').slice(0,4)).filter(Boolean))];
+  const añoActual = String(new Date().getFullYear());
+  if(!añosDisponibles.includes(añoActual)) añosDisponibles.push(añoActual);
+  añosDisponibles.sort((a,b) => b.localeCompare(a));
+
   document.getElementById('bravo-registros-content').innerHTML = `
     <div class="section">
       <div class="section-header">
         <h2>📋 Registros Diarios de Bravo</h2>
-        <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="bravoDescargarReportesExcel()">📥 Descargar Reportes</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
+        </div>
       </div>
+
+      <div class="cards" id="bravo-reg-cards" style="margin-bottom:18px"></div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+        <input type="date" id="reg-f-fecha" onchange="bravoRenderRegistrosTabla()" title="Buscar por día específico (resumen diario)" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+        <select id="reg-f-mes" onchange="bravoRenderRegistrosTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">📅 Todos los meses (resumen mensual)</option>
+          ${MESES_ES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
+        </select>
+        <select id="reg-f-anio" onchange="bravoRenderRegistrosTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">Todos los años</option>
+          ${añosDisponibles.map(a=>`<option value="${a}">${a}</option>`).join('')}
+        </select>
+        <button onclick="document.getElementById('reg-f-fecha').value='';document.getElementById('reg-f-mes').value='';document.getElementById('reg-f-anio').value='';bravoRenderRegistrosTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+      </div>
+
       <div class="tbl-wrap">
         <table>
           <thead>
@@ -11204,19 +11230,49 @@ function bravoRegistros() {
               <th>Acciones</th>
             </tr>
           </thead>
-          <tbody id="bravo-registros-body">
-          </tbody>
+          <tbody id="bravo-registros-body"></tbody>
         </table>
       </div>
     </div>
   `;
 
+  bravoRenderRegistrosTabla();
+}
+
+function bravoRenderRegistrosTabla() {
+  const filtroFecha = document.getElementById('reg-f-fecha')?.value || '';
+  const filtroMes = document.getElementById('reg-f-mes')?.value || '';
+  const filtroAnio = document.getElementById('reg-f-anio')?.value || '';
+
+  const filtrados = (appData.bravo.reportesDiarios||[]).filter(r => {
+    if(!r.fecha) return false;
+    if(filtroFecha && r.fecha !== filtroFecha) return false;
+    const [y, m] = r.fecha.split('-');
+    if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
+    if(filtroAnio && y !== filtroAnio) return false;
+    return true;
+  }).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+  const sum = (arr, key) => arr.reduce((s,r)=> s + ((r[key]||[]).length), 0);
+  const totalGanancia = filtrados.reduce((s,r)=>s+(r.gananciaTotal||0),0);
+  const totalProductos = filtrados.reduce((s,r)=>s+(r.productosCount || (r.accesorios||[]).length+(r.lycas||[]).length+(r.reparaciones||[]).length+(r.combos||[]).length+(r.telefonos||[]).length),0);
+
+  const etiquetaResumen = filtroFecha ? `Resumen del Día (${filtroFecha})` : filtroMes ? `Resumen Mensual (${MESES_ES[parseInt(filtroMes,10)-1]}${filtroAnio?' '+filtroAnio:''})` : 'Resumen (todo el histórico)';
+
+  document.getElementById('bravo-reg-cards').innerHTML = `
+    <div class="card blue"><label>📋 ${etiquetaResumen}</label><div class="val">${filtrados.length} registro${filtrados.length!==1?'s':''}</div></div>
+    <div class="card green"><label>💰 Ganancia Total</label><div class="val">${fmt(totalGanancia)}</div></div>
+    <div class="card purple"><label>🏷️ Productos Vendidos</label><div class="val">${totalProductos}</div></div>
+    <div class="card navy"><label>🏷️ Accesorios</label><div class="val">${sum(filtrados,'accesorios')}</div></div>
+    <div class="card teal"><label>📱 Lycas</label><div class="val">${sum(filtrados,'lycas')}</div></div>
+    <div class="card orange"><label>🔧 Reparaciones</label><div class="val">${sum(filtrados,'reparaciones')}</div></div>
+  `;
+
   const body = document.getElementById('bravo-registros-body');
-  const registros = (appData.bravo.reportesDiarios||[]).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  body.innerHTML = registros.length ? registros.map((r, i) => `
+  body.innerHTML = filtrados.length ? filtrados.map((r, i) => `
     <tr>
       <td>${i+1}</td>
-      <td>${r.fecha}</td>
+      <td style="font-weight:600">${r.fecha}</td>
       <td>${r.accesorios ? r.accesorios.length : 0}</td>
       <td>${r.lycas ? r.lycas.length : 0}</td>
       <td>${r.reparaciones ? r.reparaciones.length : 0}</td>
@@ -11229,6 +11285,85 @@ function bravoRegistros() {
       </td>
     </tr>
   `).join('') : '<tr><td colspan="9" class="tbl-empty">Sin registros</td></tr>';
+}
+
+// Descarga en un solo Excel (una hoja por área) todo lo registrado en
+// Bravo — Registros Diarios, Reparaciones, Líneas Lyca y Caja Chica —
+// filtrado por el mismo día/mes/año elegido arriba en Registros Diarios.
+// Líneas Lyca no tiene fecha exacta (solo Mes), así que un filtro por
+// día específico no le aplica a esa hoja.
+function bravoDescargarReportesExcel() {
+  const filtroFecha = document.getElementById('reg-f-fecha')?.value || '';
+  const filtroMes = document.getElementById('reg-f-mes')?.value || '';
+  const filtroAnio = document.getElementById('reg-f-anio')?.value || '';
+
+  const coincideFecha = (fecha) => {
+    if(!fecha) return false;
+    if(filtroFecha && fecha !== filtroFecha) return false;
+    const [y, m] = fecha.split('-');
+    if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
+    if(filtroAnio && y !== filtroAnio) return false;
+    return true;
+  };
+  // Líneas Lyca solo trackea por Mes (sin fecha exacta) — si se filtró por
+  // un día específico, se usa el mes/año de esa fecha para esa hoja.
+  let lycaMesFiltro = filtroMes, lycaAnioFiltro = filtroAnio;
+  if(filtroFecha) {
+    const [y, m] = filtroFecha.split('-');
+    lycaMesFiltro = String(parseInt(m,10));
+    lycaAnioFiltro = y;
+  }
+  const coincideMesTextoLyca = (mesTexto) => {
+    if(!mesTexto) return false;
+    const partes = mesTexto.split(' ');
+    const mesNum = MESES_ES.indexOf(partes[0]) + 1;
+    const año = partes[1];
+    if(lycaMesFiltro && String(mesNum) !== lycaMesFiltro) return false;
+    if(lycaAnioFiltro && año !== lycaAnioFiltro) return false;
+    return true;
+  };
+
+  const tieneFiltro = filtroFecha || filtroMes || filtroAnio;
+
+  const registros = (appData.bravo.reportesDiarios||[]).filter(r => !tieneFiltro || coincideFecha(r.fecha));
+  const reparaciones = (appData.bravo.reparaciones||[]).filter(r => !tieneFiltro || coincideFecha(r.fecha));
+  const caja = (appData.bravo.caja||[]).filter(c => !tieneFiltro || coincideFecha(c.fecha));
+  const lycas = (appData.bravo.lineasLyca||[]).filter(l => !tieneFiltro || coincideMesTextoLyca(l.mes));
+
+  if(!registros.length && !reparaciones.length && !caja.length && !lycas.length) {
+    showNotif('⚠️ No hay datos para descargar con ese filtro','error');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  const wsRegistros = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Accesorios','Lycas','Reparaciones','Combos','Teléfonos','Ganancia Total'],
+    ...registros.map(r => [r.fecha, (r.accesorios||[]).length, (r.lycas||[]).length, (r.reparaciones||[]).length, (r.combos||[]).length, (r.telefonos||[]).length, r.gananciaTotal||0])
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsRegistros, 'Registros Diarios');
+
+  const wsReparaciones = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Cliente','Teléfono','Costo Repuesto','Total Cobrado','Abono','Resta','Ganancia','Estado','Pago'],
+    ...reparaciones.map(r => [r.fecha, r.cliente||'', r.telefono||'', r.costoRepuesto||0, r.totalCosto!=null?r.totalCosto:((r.costoRepuesto||0)+(r.ganancia||0)), r.abono||0, r.resta||0, r.ganancia||0, REP_ESTADO_LABELS[r.estado]||r.estado||'', REP_PAGO_LABELS[r.pago]||r.pago||''])
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsReparaciones, 'Reparaciones');
+
+  const wsLyca = XLSX.utils.aoa_to_sheet([
+    ['Mes','Teléfono','Cliente','Agente','Asignado por','Costo','Pago','Comisión','Ganancia','Estado','Método Pago'],
+    ...lycas.map(l => [l.mes||'', l.telefono||'', l.cliente||'', l.agente||'', l.asignadoPor||'', l.costo||0, l.pago||0, l.comision||0, l.ganancia||0, LYCA_ESTADO_LABELS[l.estado]||l.estado||'', LYCA_PAGO_LABELS[l.pagoMetodo]||''])
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsLyca, 'Líneas Lyca');
+
+  const wsCaja = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Caja Inicial','Entradas','Salidas','Caja Final','Notas'],
+    ...caja.map(c => [c.fecha, c.cajaInicial||0, c.totalEntradas||0, c.totalSalidas||0, (c.cajaInicial||0)+(c.totalEntradas||0)-(c.totalSalidas||0), c.notas||''])
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsCaja, 'Caja Chica');
+
+  const etiqueta = filtroFecha ? filtroFecha : (filtroMes ? `${MESES_ES[parseInt(filtroMes,10)-1]}${filtroAnio?'-'+filtroAnio:''}` : (filtroAnio || 'Todo'));
+  XLSX.writeFile(wb, `Bravo_Reportes_${etiqueta}.xlsx`);
+  showNotif('✅ Reporte descargado');
 }
 
 // ============================================================
