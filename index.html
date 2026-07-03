@@ -1692,10 +1692,21 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div class="form-group">
           <label>Estado</label>
-          <select id="lyca-estado">
+          <select id="lyca-estado" onchange="lycaActualizarAsignadoRequerido()">
             <option value="disponible">📦 Disponible</option>
             <option value="pendiente">⏳ Pendiente</option>
             <option value="vendida">✅ Vendida</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="lyca-asignado-label">Asignado por <span id="lyca-asignado-req" style="color:#E04048;display:none">*</span></label>
+          <select id="lyca-asignado">
+            <option value="">— Selecciona —</option>
+            <option value="Jose Piña">Jose Piña</option>
+            <option value="Douglas Leon">Douglas Leon</option>
+            <option value="Oriana">Oriana</option>
+            <option value="Josling">Josling</option>
+            <option value="David">David</option>
           </select>
         </div>
         <div class="form-group"><label>Mes</label><select id="lyca-mes"></select></div>
@@ -11474,6 +11485,13 @@ function calcularGananciaLyca() {
   document.getElementById('lyca-ganancia').value = (pago - costo - comision).toFixed(2);
 }
 
+// "Asignado por" es obligatorio solo cuando el Estado es Vendida
+function lycaActualizarAsignadoRequerido() {
+  const esVendida = document.getElementById('lyca-estado')?.value === 'vendida';
+  const req = document.getElementById('lyca-asignado-req');
+  if(req) req.style.display = esVendida ? 'inline' : 'none';
+}
+
 function abrirModalLineaLyca(id=null) {
   if(!validarAccesoBravo()) return;
   const l = id ? (appData.bravo.lineasLyca||[]).find(x=>x.id===id) : null;
@@ -11492,10 +11510,12 @@ function abrirModalLineaLyca(id=null) {
   document.getElementById('lyca-costo').value = l?.costo!=null ? l.costo : '';
   document.getElementById('lyca-pago').value = l?.pago!=null ? l.pago : '';
   document.getElementById('lyca-estado').value = l?.estado || 'disponible';
+  document.getElementById('lyca-asignado').value = l?.asignadoPor || '';
   document.getElementById('lyca-pago-metodo').value = l?.pagoMetodo || 'efectivo';
   populateMes('lyca-mes', false);
   document.getElementById('lyca-mes').value = l?.mes || mesPorDefecto();
   calcularGananciaLyca();
+  lycaActualizarAsignadoRequerido();
   document.getElementById('modal-bravo-lyca').classList.add('open');
 }
 
@@ -11505,6 +11525,13 @@ function guardarLineaLyca() {
   const costo = parseFloat(document.getElementById('lyca-costo').value) || 0;
   const pago = parseFloat(document.getElementById('lyca-pago').value) || 0;
   const comision = parseFloat(document.getElementById('lyca-comision').value) || 0;
+  const estado = document.getElementById('lyca-estado').value;
+  const asignadoPor = document.getElementById('lyca-asignado').value;
+
+  if(estado === 'vendida' && !asignadoPor) {
+    showNotif('⚠️ Selecciona quién asignó la línea — es obligatorio cuando el estado es Vendida','error');
+    return;
+  }
 
   const datos = {
     compania: document.getElementById('lyca-compania').value.trim() || 'LYCA',
@@ -11517,7 +11544,8 @@ function guardarLineaLyca() {
     agente: document.getElementById('lyca-agente').value,
     comision, costo, pago,
     ganancia: pago - costo - comision,
-    estado: document.getElementById('lyca-estado').value,
+    estado,
+    asignadoPor,
     pagoMetodo: document.getElementById('lyca-pago-metodo').value,
     mes: document.getElementById('lyca-mes').value
   };
@@ -11584,7 +11612,7 @@ function bravoLineasLyca() {
           <tr>
             <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th><th>Agente</th>
             <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Comisión</th><th style="text-align:right">Ganancia</th>
-            <th style="text-align:center">Estado</th><th>Método Pago</th><th>Mes</th><th></th>
+            <th style="text-align:center">Estado</th><th>Asignado por</th><th>Método Pago</th><th>Mes</th><th></th>
           </tr>
         </thead>
         <tbody id="bravo-lyca-tbody"></tbody>
@@ -11640,13 +11668,14 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right;color:#D4A017">${fmt(l.comision||0)}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(l.ganancia||0)}</td>
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${LYCA_ESTADO_COLORS[l.estado]}22;color:${LYCA_ESTADO_COLORS[l.estado]||'#7C98B6'}">${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}</span></td>
+      <td style="font-size:11px;color:#7C98B6">${l.asignadoPor||'<span style="color:#CBD6E2">—</span>'}</td>
       <td style="font-size:11px;color:#7C98B6">${LYCA_PAGO_LABELS[l.pagoMetodo]||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="16" class="tbl-empty">Sin líneas registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="17" class="tbl-empty">Sin líneas registradas</td></tr>';
 
   document.getElementById('bravo-lyca-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
@@ -11655,7 +11684,7 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right">${fmt(totalPago)}</td>
       <td style="text-align:right;color:#D4A017">${fmt(totalComision)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
-      <td colspan="4"></td>
+      <td colspan="5"></td>
     </tr>` : '';
 }
 
@@ -12409,7 +12438,6 @@ function bravoCaja() {
               </tr>
             </thead>
             <tbody id="bravo-caja-body"></tbody>
-            <tfoot id="bravo-caja-tfoot"></tfoot>
           </table>
         </div>
       </div>
@@ -12468,19 +12496,9 @@ function bravoRenderCajaTabla() {
     </tr>
   `).join('') : '<tr><td colspan="7" class="tbl-empty">Sin registros</td></tr>';
 
-  const totalInicial = filtradas.reduce((s,c)=>s+(c.cajaInicial||0),0);
-  const totalEntradasF = filtradas.reduce((s,c)=>s+(c.totalEntradas||0),0);
-  const totalSalidasF = filtradas.reduce((s,c)=>s+(c.totalSalidas||0),0);
-  const totalFinalF = totalInicial + totalEntradasF - totalSalidasF;
-  document.getElementById('bravo-caja-tfoot').innerHTML = filtradas.length ? `
-    <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
-      <td>TOTAL (${filtradas.length})</td>
-      <td style="text-align:right">$${fmt(totalInicial)}</td>
-      <td style="text-align:right;color:#00BDA5">+$${fmt(totalEntradasF)}</td>
-      <td style="text-align:right;color:#E04048">−$${fmt(totalSalidasF)}</td>
-      <td style="text-align:right;color:#00BDA5">$${fmt(totalFinalF)}</td>
-      <td colspan="2"></td>
-    </tr>` : '';
+  // No se suma un "total" de varios días: la caja chica es independiente
+  // cada día (entra y sale dinero distinto cada vez), sumar Caja Inicial o
+  // Caja Final de varios días juntos no representa nada real.
 }
 
 // Calcula la Caja Final en vivo dentro del modal
