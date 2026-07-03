@@ -1681,6 +1681,15 @@ tr:hover td{background:#EAF0FB}
           </select>
         </div>
         <div class="form-group"><label>Mes</label><select id="lyca-mes"></select></div>
+        <div class="form-group">
+          <label>Método de Pago</label>
+          <select id="lyca-pago-metodo">
+            <option value="efectivo">💵 Efectivo</option>
+            <option value="paypal">🅿️ PayPal</option>
+            <option value="zelle">📲 Zelle</option>
+            <option value="otro">📝 Otro</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -11306,6 +11315,7 @@ function bravoRenderReparacionesTabla() {
 // ============================================================
 const LYCA_ESTADO_LABELS = { disponible:'📦 Disponible', pendiente:'⏳ Pendiente', vendida:'✅ Vendida' };
 const LYCA_ESTADO_COLORS = { disponible:'#009FDB', pendiente:'#D4A017', vendida:'#00BDA5' };
+const LYCA_PAGO_LABELS   = { efectivo:'💵 Efectivo', paypal:'🅿️ PayPal', zelle:'📲 Zelle', otro:'📝 Otro' };
 
 function calcularGananciaLyca() {
   const costo = parseFloat(document.getElementById('lyca-costo')?.value) || 0;
@@ -11332,6 +11342,7 @@ function abrirModalLineaLyca(id=null) {
   document.getElementById('lyca-costo').value = l?.costo!=null ? l.costo : '';
   document.getElementById('lyca-pago').value = l?.pago!=null ? l.pago : '';
   document.getElementById('lyca-estado').value = l?.estado || 'disponible';
+  document.getElementById('lyca-pago-metodo').value = l?.pagoMetodo || 'efectivo';
   populateMes('lyca-mes', false);
   document.getElementById('lyca-mes').value = l?.mes || mesPorDefecto();
   calcularGananciaLyca();
@@ -11357,6 +11368,7 @@ function guardarLineaLyca() {
     comision, costo, pago,
     ganancia: pago - costo - comision,
     estado: document.getElementById('lyca-estado').value,
+    pagoMetodo: document.getElementById('lyca-pago-metodo').value,
     mes: document.getElementById('lyca-mes').value
   };
 
@@ -11422,7 +11434,7 @@ function bravoLineasLyca() {
           <tr>
             <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th><th>Agente</th>
             <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Comisión</th><th style="text-align:right">Ganancia</th>
-            <th style="text-align:center">Estado</th><th>Mes</th><th></th>
+            <th style="text-align:center">Estado</th><th>Método Pago</th><th>Mes</th><th></th>
           </tr>
         </thead>
         <tbody id="bravo-lyca-tbody"></tbody>
@@ -11478,12 +11490,13 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right;color:#D4A017">${fmt(l.comision||0)}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(l.ganancia||0)}</td>
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${LYCA_ESTADO_COLORS[l.estado]}22;color:${LYCA_ESTADO_COLORS[l.estado]||'#7C98B6'}">${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}</span></td>
+      <td style="font-size:11px;color:#7C98B6">${LYCA_PAGO_LABELS[l.pagoMetodo]||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="15" class="tbl-empty">Sin líneas registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="16" class="tbl-empty">Sin líneas registradas</td></tr>';
 
   document.getElementById('bravo-lyca-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
@@ -11492,7 +11505,7 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right">${fmt(totalPago)}</td>
       <td style="text-align:right;color:#D4A017">${fmt(totalComision)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
-      <td colspan="3"></td>
+      <td colspan="4"></td>
     </tr>` : '';
 }
 
