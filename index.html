@@ -1615,6 +1615,33 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - CAJA CHICA ===== -->
+<div class="modal-overlay" id="modal-bravo-caja">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="modal-bravo-caja-title">💵 Registrar Caja Chica</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-caja')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="caja-fecha"></div>
+        <div class="form-group"><label>Caja Inicial ($)</label><input type="number" id="caja-inicial" step="0.01" min="0" placeholder="0.00" oninput="bravoCalcularCajaFinal()"></div>
+        <div class="form-group"><label>Total Entradas ($)</label><input type="number" id="caja-entradas" step="0.01" min="0" placeholder="0.00" oninput="bravoCalcularCajaFinal()"></div>
+        <div class="form-group"><label>Total Salidas ($)</label><input type="number" id="caja-salidas" step="0.01" min="0" placeholder="0.00" oninput="bravoCalcularCajaFinal()"></div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Caja Final ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+          <input type="number" id="caja-final" step="0.01" readonly style="background:#F5F8FA;color:#7C98B6">
+        </div>
+        <div class="form-group" style="grid-column:1/-1"><label>Notas (opcional)</label><textarea id="caja-notas" placeholder="Observaciones del día" style="min-height:48px"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-caja')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarCajaChica()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - LÍNEAS LYCA ===== -->
 <div class="modal-overlay" id="modal-bravo-lyca">
   <div class="modal" style="max-width:560px">
@@ -2263,10 +2290,24 @@ function normalizarAppData() {
   if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
   if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
   if(!appData.bravo.caja) appData.bravo.caja = [];
+  if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
   if(!appData.bravo.nextReparacionId) appData.bravo.nextReparacionId = 1;
   if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
   if(!appData.bravo.nextLineaLycaId) appData.bravo.nextLineaLycaId = 1;
+
+  // Reparar ids duplicados o faltantes en caja chica (mismo motivo que
+  // reportesDiarios más abajo).
+  if(appData.bravo.caja.length) {
+    const idsVistosCaja = new Set();
+    let maxIdCaja = appData.bravo.nextCajaId || 1;
+    appData.bravo.caja.forEach(c => {
+      if(c.id == null || idsVistosCaja.has(c.id)) c.id = maxIdCaja++;
+      idsVistosCaja.add(c.id);
+      if(c.id >= maxIdCaja) maxIdCaja = c.id + 1;
+    });
+    appData.bravo.nextCajaId = maxIdCaja;
+  }
 
   // Reparar ids duplicados o faltantes en reportesDiarios (puede pasar
   // por condiciones de carrera al sincronizar con Firebase) — si no, el
@@ -12104,19 +12145,10 @@ function bravoCaja() {
   if(!validarAccesoBravo()) return;
   if(!appData.bravo.caja) appData.bravo.caja = [];
 
-  const hoy = new Date().toISOString().split('T')[0];
-  const cajaHoy = appData.bravo.caja.find(c => c.fecha === hoy);
-
-  const mesActual = new Date().getMonth() + 1;
-  const añoActual = new Date().getFullYear();
-  const cajaMes = (appData.bravo.caja||[]).filter(c => {
-    const d = new Date(c.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
-  });
-
-  const totalEntradas = cajaMes.reduce((s, c) => s + (c.totalEntradas || 0), 0);
-  const totalSalidas = cajaMes.reduce((s, c) => s + (c.totalSalidas || 0), 0);
-  const saldoNet = totalEntradas - totalSalidas;
+  const añosDisponibles = [...new Set((appData.bravo.caja||[]).map(c => (c.fecha||'').slice(0,4)).filter(Boolean))];
+  const añoActual = String(new Date().getFullYear());
+  if(!añosDisponibles.includes(añoActual)) añosDisponibles.push(añoActual);
+  añosDisponibles.sort((a,b) => b.localeCompare(a));
 
   document.getElementById('bravo-caja-content').innerHTML = `
     <div class="section">
@@ -12125,27 +12157,22 @@ function bravoCaja() {
         <button class="btn btn-primary btn-sm" onclick="abrirCajaChicaHoy()">➕ Registrar Caja</button>
       </div>
 
-      <div class="cards">
-        <div class="card green">
-          <label>📈 Total Entradas Hoy</label>
-          <div class="val">${cajaHoy ? '$' + fmt(cajaHoy.totalEntradas || 0) : '—'}</div>
-        </div>
-        <div class="card orange">
-          <label>📉 Total Salidas Hoy</label>
-          <div class="val">${cajaHoy ? '$' + fmt(cajaHoy.totalSalidas || 0) : '—'}</div>
-        </div>
-        <div class="card blue">
-          <label>💰 Saldo Hoy</label>
-          <div class="val">${cajaHoy ? '$' + fmt((cajaHoy.totalEntradas || 0) - (cajaHoy.totalSalidas || 0)) : '—'}</div>
-        </div>
-        <div class="card purple">
-          <label>📊 Saldo Mes</label>
-          <div class="val">${'$' + fmt(saldoNet)}</div>
-          <div class="sub">Entradas: $${fmt(totalEntradas)} | Salidas: $${fmt(totalSalidas)}</div>
-        </div>
+      <div class="cards" id="bravo-caja-cards" style="margin-bottom:18px"></div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+        <input type="date" id="caja-f-fecha" onchange="bravoRenderCajaTabla()" title="Buscar por día específico" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+        <select id="caja-f-mes" onchange="bravoRenderCajaTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">📅 Todos los meses</option>
+          ${MESES_ES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
+        </select>
+        <select id="caja-f-anio" onchange="bravoRenderCajaTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">Todos los años</option>
+          ${añosDisponibles.map(a=>`<option value="${a}">${a}</option>`).join('')}
+        </select>
+        <button onclick="document.getElementById('caja-f-fecha').value='';document.getElementById('caja-f-mes').value='';document.getElementById('caja-f-anio').value='';bravoRenderCajaTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
       </div>
 
-      <div class="section" style="margin-top:20px">
+      <div class="section" style="margin-top:0">
         <div class="section-header">
           <h2>📋 Histórico de Caja</h2>
         </div>
@@ -12154,54 +12181,165 @@ function bravoCaja() {
             <thead>
               <tr>
                 <th>Fecha</th>
-                <th>Caja Inicial</th>
-                <th>Entradas</th>
-                <th>Salidas</th>
-                <th>Caja Final</th>
+                <th style="text-align:right">Caja Inicial</th>
+                <th style="text-align:right">Entradas</th>
+                <th style="text-align:right">Salidas</th>
+                <th style="text-align:right">Caja Final</th>
+                <th>Notas</th>
                 <th>Acciones</th>
               </tr>
             </thead>
-            <tbody id="bravo-caja-body">
-            </tbody>
+            <tbody id="bravo-caja-body"></tbody>
+            <tfoot id="bravo-caja-tfoot"></tfoot>
           </table>
         </div>
       </div>
     </div>
   `;
 
+  bravoRenderCajaTabla();
+}
+
+function bravoRenderCajaTabla() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const cajaHoy = (appData.bravo.caja||[]).find(c => c.fecha === hoy);
+
+  const mesActual = new Date().getMonth() + 1;
+  const añoActualNum = new Date().getFullYear();
+  const cajaMes = (appData.bravo.caja||[]).filter(c => {
+    const d = new Date(c.fecha);
+    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActualNum;
+  });
+  const totalEntradasMes = cajaMes.reduce((s, c) => s + (c.totalEntradas || 0), 0);
+  const totalSalidasMes = cajaMes.reduce((s, c) => s + (c.totalSalidas || 0), 0);
+
+  document.getElementById('bravo-caja-cards').innerHTML = `
+    <div class="card green"><label>📈 Total Entradas Hoy</label><div class="val">${cajaHoy ? '$' + fmt(cajaHoy.totalEntradas || 0) : '—'}</div></div>
+    <div class="card orange"><label>📉 Total Salidas Hoy</label><div class="val">${cajaHoy ? '$' + fmt(cajaHoy.totalSalidas || 0) : '—'}</div></div>
+    <div class="card blue"><label>💰 Saldo Hoy</label><div class="val">${cajaHoy ? '$' + fmt((cajaHoy.totalEntradas || 0) - (cajaHoy.totalSalidas || 0)) : '—'}</div></div>
+    <div class="card purple"><label>📊 Saldo Mes Actual</label><div class="val">${'$' + fmt(totalEntradasMes - totalSalidasMes)}</div><div class="sub">Entradas: $${fmt(totalEntradasMes)} | Salidas: $${fmt(totalSalidasMes)}</div></div>
+  `;
+
+  const filtroFecha = document.getElementById('caja-f-fecha')?.value || '';
+  const filtroMes = document.getElementById('caja-f-mes')?.value || '';
+  const filtroAnio = document.getElementById('caja-f-anio')?.value || '';
+
+  const filtradas = (appData.bravo.caja||[]).filter(c => {
+    if(!c.fecha) return false;
+    if(filtroFecha && c.fecha !== filtroFecha) return false;
+    const [y, m] = c.fecha.split('-');
+    if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
+    if(filtroAnio && y !== filtroAnio) return false;
+    return true;
+  }).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
   const body = document.getElementById('bravo-caja-body');
-  const historico = (appData.bravo.caja||[]).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  body.innerHTML = historico.length ? historico.map((c, i) => `
+  body.innerHTML = filtradas.length ? filtradas.map(c => `
     <tr>
-      <td>${c.fecha}</td>
-      <td style="color:#7C98B6">$${fmt(c.cajaInicial || 0)}</td>
-      <td style="color:#00BDA5;font-weight:600">+$${fmt(c.totalEntradas || 0)}</td>
-      <td style="color:#E04048;font-weight:600">−$${fmt(c.totalSalidas || 0)}</td>
-      <td style="color:#00BDA5;font-weight:700">$${fmt((c.cajaInicial || 0) + (c.totalEntradas || 0) - (c.totalSalidas || 0))}</td>
-      <td>
-        <button class="btn btn-ghost btn-xs" onclick="editarCajaChica(${i})">✏️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarCajaChica(${i})">✕</button>
+      <td style="font-weight:600">${c.fecha}</td>
+      <td style="text-align:right;color:#7C98B6">$${fmt(c.cajaInicial || 0)}</td>
+      <td style="text-align:right;color:#00BDA5;font-weight:600">+$${fmt(c.totalEntradas || 0)}</td>
+      <td style="text-align:right;color:#E04048;font-weight:600">−$${fmt(c.totalSalidas || 0)}</td>
+      <td style="text-align:right;color:#00BDA5;font-weight:700">$${fmt((c.cajaInicial || 0) + (c.totalEntradas || 0) - (c.totalSalidas || 0))}</td>
+      <td style="font-size:11px;color:#7C98B6">${c.notas || '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="editarCajaChica(${c.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarCajaChica(${c.id})">✕</button>
       </td>
     </tr>
-  `).join('') : '<tr><td colspan="6" class="tbl-empty">Sin registros</td></tr>';
+  `).join('') : '<tr><td colspan="7" class="tbl-empty">Sin registros</td></tr>';
+
+  const totalInicial = filtradas.reduce((s,c)=>s+(c.cajaInicial||0),0);
+  const totalEntradasF = filtradas.reduce((s,c)=>s+(c.totalEntradas||0),0);
+  const totalSalidasF = filtradas.reduce((s,c)=>s+(c.totalSalidas||0),0);
+  const totalFinalF = totalInicial + totalEntradasF - totalSalidasF;
+  document.getElementById('bravo-caja-tfoot').innerHTML = filtradas.length ? `
+    <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
+      <td>TOTAL (${filtradas.length})</td>
+      <td style="text-align:right">$${fmt(totalInicial)}</td>
+      <td style="text-align:right;color:#00BDA5">+$${fmt(totalEntradasF)}</td>
+      <td style="text-align:right;color:#E04048">−$${fmt(totalSalidasF)}</td>
+      <td style="text-align:right;color:#00BDA5">$${fmt(totalFinalF)}</td>
+      <td colspan="2"></td>
+    </tr>` : '';
 }
 
-// Abrir modal para registrar caja chica
+// Calcula la Caja Final en vivo dentro del modal
+function bravoCalcularCajaFinal() {
+  const inicial = parseFloat(document.getElementById('caja-inicial')?.value) || 0;
+  const entradas = parseFloat(document.getElementById('caja-entradas')?.value) || 0;
+  const salidas = parseFloat(document.getElementById('caja-salidas')?.value) || 0;
+  document.getElementById('caja-final').value = (inicial + entradas - salidas).toFixed(2);
+}
+
+// Abrir modal para registrar/editar caja chica
+function abrirModalCajaChica(id=null) {
+  if(!validarAccesoBravo()) return;
+  const c = id ? (appData.bravo.caja||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-bravo-caja').dataset.editId = id||'';
+  document.getElementById('modal-bravo-caja-title').textContent = id ? '✏️ Editar Caja Chica' : '💵 Registrar Caja Chica';
+  document.getElementById('caja-fecha').value = c?.fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('caja-inicial').value = c?.cajaInicial != null ? c.cajaInicial : '';
+  document.getElementById('caja-entradas').value = c?.totalEntradas != null ? c.totalEntradas : '';
+  document.getElementById('caja-salidas').value = c?.totalSalidas != null ? c.totalSalidas : '';
+  document.getElementById('caja-notas').value = c?.notas || '';
+  bravoCalcularCajaFinal();
+  document.getElementById('modal-bravo-caja').classList.add('open');
+}
+
+// Abre el registro de HOY si ya existe, o uno nuevo si no
 function abrirCajaChicaHoy() {
-  showNotif('🚧 Modal en construcción','info');
+  const hoy = new Date().toISOString().split('T')[0];
+  const existente = (appData.bravo.caja||[]).find(c => c.fecha === hoy);
+  abrirModalCajaChica(existente ? existente.id : null);
 }
 
-// Editar caja
-function editarCajaChica(idx) {
-  showNotif('🚧 Edición en construcción','info');
+// Editar caja (por id)
+function editarCajaChica(id) {
+  abrirModalCajaChica(id);
 }
 
-// Eliminar caja
-function eliminarCajaChica(idx) {
-  if(!confirm('¿Eliminar este registro de caja?')) return;
-  appData.bravo.caja = (appData.bravo.caja||[]).filter((_, i) => i !== idx);
+function guardarCajaChica() {
+  const fecha = document.getElementById('caja-fecha').value;
+  if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+
+  const cajaInicial = parseFloat(document.getElementById('caja-inicial').value) || 0;
+  const totalEntradas = parseFloat(document.getElementById('caja-entradas').value) || 0;
+  const totalSalidas = parseFloat(document.getElementById('caja-salidas').value) || 0;
+  const notas = document.getElementById('caja-notas').value.trim();
+
+  if(!appData.bravo.caja) appData.bravo.caja = [];
+  const editId = parseInt(document.getElementById('modal-bravo-caja').dataset.editId) || null;
+
+  // Un registro por día: si ya existe otro registro con esa fecha (que no
+  // sea el que estamos editando), lo actualizamos a él en vez de duplicar.
+  const existenteMismaFecha = appData.bravo.caja.find(c => c.fecha === fecha && c.id !== editId);
+  const idDestino = editId || (existenteMismaFecha ? existenteMismaFecha.id : null);
+
+  const datos = { fecha, cajaInicial, totalEntradas, totalSalidas, notas };
+
+  if(idDestino) {
+    const c = appData.bravo.caja.find(x=>x.id===idDestino);
+    if(c) Object.assign(c, datos);
+    showNotif('✅ Caja actualizada');
+  } else {
+    const id = appData.bravo.nextCajaId || 1;
+    appData.bravo.caja.push({ id, ...datos });
+    appData.bravo.nextCajaId = id + 1;
+    showNotif('✅ Caja guardada');
+  }
+
   guardar();
-  bravoCaja();
+  closeModal('modal-bravo-caja');
+  bravoRefrescarVistaActual();
+}
+
+// Eliminar caja (por id)
+function eliminarCajaChica(id) {
+  if(!confirm('¿Eliminar este registro de caja?')) return;
+  appData.bravo.caja = (appData.bravo.caja||[]).filter(c => c.id !== id);
+  guardar();
+  bravoRefrescarVistaActual();
   showNotif('🗑️ Registro eliminado');
 }
 
