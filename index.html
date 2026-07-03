@@ -1658,7 +1658,13 @@ tr:hover td{background:#EAF0FB}
         <div class="form-group"><label>Número de Cuenta</label><input type="text" id="lyca-cuenta" placeholder="20280707001"></div>
         <div class="form-group"><label>Código Postal</label><input type="text" id="lyca-postal" placeholder="32835"></div>
         <div class="form-group" style="grid-column:1/-1"><label>Cliente <span style="color:#99ACC2;font-weight:400;font-size:9px">— déjalo en blanco si sigue Disponible</span></label><input type="text" id="lyca-cliente" placeholder="Nombre del cliente"></div>
-        <div class="form-group"><label>Agente</label><select id="lyca-agente"></select></div>
+        <div class="form-group">
+          <label>Agente</label>
+          <div style="display:flex;gap:6px">
+            <select id="lyca-agente" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost btn-xs" onclick="abrirModalAgenteRapido('lyca-agente')" title="Agregar un agente nuevo" style="white-space:nowrap">➕ Nuevo</button>
+          </div>
+        </div>
         <div class="form-group"><label>Comisión Agente ($)</label><input type="number" id="lyca-comision" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
         <div class="form-group"><label>Costo ($)</label><input type="number" id="lyca-costo" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
         <div class="form-group"><label>Pago ($)</label><input type="number" id="lyca-pago" step="0.01" min="0" placeholder="0.00" oninput="calcularGananciaLyca()"></div>
@@ -1680,6 +1686,35 @@ tr:hover td{background:#EAF0FB}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-bravo-lyca')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarLineaLyca()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL AGENTE RÁPIDO (agregar agente sin salir de Bravo) ===== -->
+<div class="modal-overlay" id="modal-agente-rapido">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h3>➕ Nuevo Agente</h3>
+      <button class="modal-close" onclick="closeModal('modal-agente-rapido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1"><label>Nombre *</label><input type="text" id="nag-nombre" placeholder="Nombre completo"></div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Rol</label>
+          <select id="nag-rol">
+            <option value="agente">👤 Agente</option>
+            <option value="subdealer">🤝 Sub-Dealer</option>
+            <option value="supervisor">🔷 Supervisor</option>
+            <option value="gerente">⭐ Gerente General</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin-top:4px">Se agrega con comisiones en $0 — luego puedes configurarlas en Admin → Agentes.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-agente-rapido')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarAgenteRapido()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -3008,6 +3043,42 @@ function populateAgente(selId, includeAll=true) {
   sel.innerHTML = (includeAll ? '<option value="">Todos los Agentes</option>' : '') +
     appData.agentes.map(a=>`<option value="${a.nombre}">${a.nombre}</option>`).join('');
   sel.value = cur;
+}
+
+// Agregar un agente nuevo rápido, sin salir de la pantalla actual (usado
+// desde selectores de agente en Bravo). Al guardar, refresca el <select>
+// que lo abrió y deja seleccionado el agente recién creado.
+function abrirModalAgenteRapido(targetSelectId) {
+  document.getElementById('modal-agente-rapido').dataset.target = targetSelectId || '';
+  document.getElementById('nag-nombre').value = '';
+  document.getElementById('nag-rol').value = 'agente';
+  document.getElementById('modal-agente-rapido').classList.add('open');
+}
+
+function guardarAgenteRapido() {
+  const nombre = document.getElementById('nag-nombre').value.trim();
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre','error'); return; }
+  const yaExiste = appData.agentes.some(a => (a.nombre||'').trim().toLowerCase() === nombre.toLowerCase());
+  if(yaExiste) { showNotif('⚠️ Ya existe un agente con ese nombre','error'); return; }
+
+  const rol = document.getElementById('nag-rol').value;
+  const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
+  appData.agentes.push({
+    id: maxId+1, nombre, rol,
+    sueldoQuincenal: 0, tel: '', email: '',
+    comisionesPersonales: {}, comisionesDirectas: {}, agentesSupervisa: [],
+    activo: true,
+  });
+  guardar();
+
+  const targetId = document.getElementById('modal-agente-rapido').dataset.target;
+  closeModal('modal-agente-rapido');
+  showNotif('✅ Agente agregado: ' + nombre);
+
+  if(targetId && document.getElementById(targetId)) {
+    populateAgente(targetId, false);
+    document.getElementById(targetId).value = nombre;
+  }
 }
 function populateMes(selId, includeAll=true) {
   const sel = document.getElementById(selId);
