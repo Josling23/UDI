@@ -1830,8 +1830,8 @@ tr:hover td{background:#EAF0FB}
             <input type="number" id="bravo-lyca-precio" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:600;color:#7C98B6">Costo ($) *</label>
-            <input type="number" id="bravo-lyca-costo" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Costo ($) <span style="font-weight:400;color:#99ACC2">— déjalo en $0 si se vendió directo</span></label>
+            <input type="number" id="bravo-lyca-costo" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
@@ -11738,7 +11738,7 @@ function bravoAgregarLyca() {
   const metodo = document.getElementById('bravo-lyca-metodo').value;
   const notas = document.getElementById('bravo-lyca-notas').value.trim();
 
-  if(!cliente || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
+  if(!cliente || !precio) { showNotif('⚠️ Completa Cliente/Agente y Precio Vendido','error'); return; }
 
   const ganancia = precio - costo;
 
