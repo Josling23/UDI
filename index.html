@@ -321,6 +321,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('campanas',this)"><span class="icon">📢</span><span>Campañas & ROI</span></div>
     <div class="nav-section">Config</div>
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
+    <div class="nav-item" onclick="showPage('enlaces-admin',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section">Finanzas</div>
     <div class="nav-item" onclick="showPage('admin',this)"><span class="icon">💸</span><span>Gastos & Nómina</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
@@ -339,6 +340,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
+    <div class="nav-item" onclick="showPage('enlaces-top',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -366,6 +368,7 @@ tr:hover td{background:#EAF0FB}
     <div class="nav-item" onclick="showPage('salud-resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
+    <div class="nav-item" onclick="showPage('enlaces-salud',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -549,6 +552,11 @@ tr:hover td{background:#EAF0FB}
       </div>
     </div>
 
+    <!-- ===== ENLACES (ADMIN) ===== -->
+    <div class="page" id="page-enlaces-admin">
+      <div id="enlaces-admin-content"></div>
+    </div>
+
     <!-- ===== CAMPAÑAS AT&T ===== -->
     <div class="page" id="page-campanas">
       <div class="section">
@@ -578,6 +586,11 @@ tr:hover td{background:#EAF0FB}
     <!-- ===== TOP ===== -->
     <div class="page" id="page-top">
       <div id="top-content"></div>
+    </div>
+
+    <!-- ===== ENLACES (TOP) ===== -->
+    <div class="page" id="page-enlaces-top">
+      <div id="enlaces-top-content"></div>
     </div>
 
     <!-- ===== ADMINISTRACIÓN (Gastos & Nómina) ===== -->
@@ -824,6 +837,11 @@ tr:hover td{background:#EAF0FB}
           </table>
         </div>
       </div>
+    </div>
+
+    <!-- ===== ENLACES (SALUD) ===== -->
+    <div class="page" id="page-enlaces-salud">
+      <div id="enlaces-salud-content"></div>
     </div>
     <!-- /SALUD PAGES -->
 
@@ -1728,6 +1746,26 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL ENLACE (Admin / Top / Salud) ===== -->
+<div class="modal-overlay" id="modal-enlace">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="modal-enlace-title">🔗 Nuevo Enlace</h3>
+      <button class="modal-close" onclick="closeModal('modal-enlace')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1"><label>Nombre *</label><input type="text" id="enlace-nombre" placeholder="Ej: Contratos AT&T (Drive)"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Enlace (URL) *</label><input type="text" id="enlace-url" placeholder="https://..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-enlace')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEnlace()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - REGISTRO DIARIO ===== -->
 <div class="modal-overlay" id="modal-bravo-registro">
   <div class="modal" style="max-width:1000px;max-height:95vh;overflow-y:auto">
@@ -2329,6 +2367,9 @@ function normalizarAppData() {
   if(!appData.gastosNomina) appData.gastosNomina = {};
   if(!appData.quincenasCerradas) appData.quincenasCerradas = {};
   if(!appData.auditLog) appData.auditLog = [];
+  if(!appData.enlaces) appData.enlaces = { admin: [], top: [] };
+  if(!appData.enlaces.admin) appData.enlaces.admin = [];
+  if(!appData.enlaces.top) appData.enlaces.top = [];
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
   if(!appData.bravo.reportesDiarios) appData.bravo.reportesDiarios = [];
   if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
@@ -2581,6 +2622,7 @@ function normalizarSaludData() {
   if(!saludData.nextId)    saludData.nextId    = 1;
   if(!saludData.nextCampId)saludData.nextCampId= 1;
   if(!saludData.nextSueldoId) saludData.nextSueldoId = 1;
+  if(!saludData.enlaces)   saludData.enlaces   = [];
 }
 
 function guardarSalud() {
@@ -2973,7 +3015,10 @@ const PAGE_TITLES = {
   'salud-campanas':'💚 Salud — Campañas ROI',
   'salud-resumen':'💚 Salud — Resumen Mensual',
   'salud-pagos':'💚 Salud — Pagos Agentes',
-  'salud-chargebacks':'💚 Salud — Chargebacks'
+  'salud-chargebacks':'💚 Salud — Chargebacks',
+  'enlaces-admin':'🔗 Enlaces',
+  'enlaces-top':'🔗 Enlaces',
+  'enlaces-salud':'🔗 Enlaces'
 };
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -3009,6 +3054,9 @@ function renderPage(name) {
   if(name==='salud-resumen') saludRenderResumen();
   if(name==='salud-pagos') saludRenderPagos();
   if(name==='salud-chargebacks') saludRenderChargebacks();
+  if(name==='enlaces-admin') renderEnlaces('admin');
+  if(name==='enlaces-top') renderEnlaces('top');
+  if(name==='enlaces-salud') renderEnlaces('salud');
 }
 
 
@@ -3074,6 +3122,108 @@ function guardarAgenteRapido() {
     document.getElementById(targetId).value = nombre;
   }
 }
+
+// ============================================================
+// ENLACES — lista de links personalizados por área (Admin/Top/Salud),
+// que abren en una ventana nueva. Centraliza accesos a archivos en la
+// nube u otros recursos propios de cada área.
+// ============================================================
+function getEnlacesArray(scope) {
+  if(scope === 'salud') { normalizarSaludData(); return saludData.enlaces; }
+  normalizarAppData();
+  return appData.enlaces[scope];
+}
+
+function guardarEnlaces(scope) {
+  if(scope === 'salud') guardarSalud();
+  else guardar();
+}
+
+// Solo permite abrir enlaces http(s) — evita esquemas peligrosos como
+// javascript: si alguien pega algo raro en el campo de URL.
+function normalizarUrlEnlace(url) {
+  const limpio = (url||'').trim();
+  if(!limpio) return '';
+  if(/^https?:\/\//i.test(limpio)) return limpio;
+  if(/^[a-z][a-z0-9+.-]*:/i.test(limpio)) return ''; // otro esquema no permitido
+  return 'https://' + limpio;
+}
+
+function renderEnlaces(scope) {
+  const cont = document.getElementById('enlaces-' + scope + '-content');
+  if(!cont) return;
+  const lista = getEnlacesArray(scope) || [];
+
+  cont.innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>🔗 Enlaces</h2>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalEnlace('${scope}')">➕ Agregar Enlace</button>
+      </div>
+      <div style="font-size:12px;color:#7C98B6;margin-bottom:16px">Enlaces propios de esta área (archivos en la nube, documentos, etc.) — se abren en una pestaña nueva.</div>
+      <div id="enlaces-${scope}-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
+    </div>
+  `;
+
+  const grid = document.getElementById('enlaces-' + scope + '-grid');
+  grid.innerHTML = lista.length ? lista.map(e => `
+    <div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-weight:700;color:#33475B;font-size:13px">${e.nombre||'—'}</div>
+      <a href="${e.url}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#009FDB;word-break:break-all;text-decoration:none">${e.url}</a>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <a class="btn btn-primary btn-xs" href="${e.url}" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;text-decoration:none">🔗 Abrir</a>
+        <button class="btn btn-ghost btn-xs" onclick="abrirModalEnlace('${scope}','${e.id}')">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarEnlace('${scope}','${e.id}')">✕</button>
+      </div>
+    </div>
+  `).join('') : '<div style="color:#99ACC2;font-size:12px">Sin enlaces agregados todavía</div>';
+}
+
+function abrirModalEnlace(scope, id=null) {
+  const lista = getEnlacesArray(scope) || [];
+  const e = id ? lista.find(x=>x.id===id) : null;
+  document.getElementById('modal-enlace').dataset.scope = scope;
+  document.getElementById('modal-enlace').dataset.editId = id||'';
+  document.getElementById('modal-enlace-title').textContent = id ? '✏️ Editar Enlace' : '🔗 Nuevo Enlace';
+  document.getElementById('enlace-nombre').value = e?.nombre || '';
+  document.getElementById('enlace-url').value = e?.url || '';
+  document.getElementById('modal-enlace').classList.add('open');
+}
+
+function guardarEnlace() {
+  const scope = document.getElementById('modal-enlace').dataset.scope;
+  const editId = document.getElementById('modal-enlace').dataset.editId || null;
+  const nombre = document.getElementById('enlace-nombre').value.trim();
+  const url = normalizarUrlEnlace(document.getElementById('enlace-url').value);
+
+  if(!nombre) { showNotif('⚠️ Ingresa un nombre para el enlace','error'); return; }
+  if(!url) { showNotif('⚠️ Ingresa una URL válida (http:// o https://)','error'); return; }
+
+  const lista = getEnlacesArray(scope);
+  if(editId) {
+    const e = lista.find(x=>x.id===editId);
+    if(e) Object.assign(e, { nombre, url });
+    showNotif('✅ Enlace actualizado');
+  } else {
+    lista.push({ id: 'lnk_' + Date.now(), nombre, url });
+    showNotif('✅ Enlace agregado');
+  }
+
+  guardarEnlaces(scope);
+  closeModal('modal-enlace');
+  renderEnlaces(scope);
+}
+
+function eliminarEnlace(scope, id) {
+  if(!confirm('¿Eliminar este enlace?')) return;
+  const lista = getEnlacesArray(scope);
+  const idx = lista.findIndex(x=>x.id===id);
+  if(idx !== -1) lista.splice(idx, 1);
+  guardarEnlaces(scope);
+  renderEnlaces(scope);
+  showNotif('🗑️ Enlace eliminado');
+}
+
 function populateMes(selId, includeAll=true) {
   const sel = document.getElementById(selId);
   if(!sel) return;
