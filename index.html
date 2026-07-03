@@ -1159,7 +1159,7 @@ tr:hover td{background:#EAF0FB}
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
         <div class="form-group" style="margin:0">
           <label>Fecha *</label>
-          <input type="date" id="v-fecha" onchange="updateVentaTotal()">
+          <input type="date" id="v-fecha" onchange="sincronizarMesConFecha();updateVentaTotal()">
         </div>
         <div class="form-group" style="margin:0">
           <label>Agente *</label>
@@ -1191,7 +1191,7 @@ tr:hover td{background:#EAF0FB}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
           <div class="form-group" style="margin:0">
-            <label>Mes de Registro</label>
+            <label>Mes de la Venta <span style="font-weight:400;color:#99ACC2">— cuenta para la Meta</span></label>
             <select id="v-mes"></select>
           </div>
           <div class="form-group" style="margin:0">
@@ -2664,6 +2664,21 @@ function getComisionesMes(a, mes) {
   return propias + extras;
 }
 function getMeses() { return appData.meses || []; }
+
+// Ajusta automáticamente "Mes de la Venta" (v-mes) al mes de la Fecha
+// elegida en el modal de venta, para que la meta se calcule por el mes
+// en que se vendió y no por cuándo se activó o se registró en el sistema.
+// Si el mes de esa fecha no existe todavía en la lista de meses, no se
+// toca el selector (se deja el valor manual que ya tenía).
+function sincronizarMesConFecha() {
+  const fechaEl = document.getElementById('v-fecha');
+  const mesEl = document.getElementById('v-mes');
+  if(!fechaEl || !mesEl || !fechaEl.value) return;
+  const [y, m] = fechaEl.value.split('-').map(Number);
+  if(!y || !m) return;
+  const mesDeFecha = MESES_ES[m-1] + ' ' + y;
+  if(getMeses().includes(mesDeFecha)) mesEl.value = mesDeFecha;
+}
 
 // Comisiones de una quincena específica según fecha de las ventas (Q1=últim día mes ant + días 1-14, Q2=días 15-penúlt.)
 // Dado "Junio 2026" devuelve "Julio 2026"
@@ -4754,14 +4769,20 @@ function pendInput(agente, mes, q) {
     onfocus="this.style.borderColor='#D4A017'" onblur="this.style.borderColor='#F5C26B'">`;
 }
 
-// ── Activaciones de un agente en un mes (att-act8 y att-act10) ──
+// ── Activaciones de un agente en un mes ──
+// Cuentan: att-act8, att-act10 (activaciones de Mobility), y cualquier
+// venta de internet (categoría internet / otros-internet) EXCEPTO
+// AT&T Internet Air (att-air), que no cuenta para la meta.
 function getActivacionesMes(agenteNombre, mes) {
   const nombreLow = (agenteNombre||'').trim().toLowerCase();
   const IDS_ACT = ['att-act8','att-act10'];
   return appData.ventas.filter(v=>
     v.mes === mes &&
     (v.agente||'').trim().toLowerCase() === nombreLow &&
-    IDS_ACT.includes(v.productoId)
+    (
+      IDS_ACT.includes(v.productoId) ||
+      ((v.categoria==='internet' || v.categoria==='otros-internet') && v.productoId!=='att-air')
+    )
   ).reduce((s,v)=>s+(parseFloat(v.cantidad)||1), 0);
 }
 
