@@ -1787,7 +1787,7 @@ tr:hover td{background:#EAF0FB}
     <div class="modal-body">
       <div style="margin-bottom:16px">
         <label style="font-weight:600;color:#33475B">Fecha del Registro *</label>
-        <input type="date" id="bravo-fecha" value="" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px;margin-top:4px">
+        <input type="date" id="bravo-fecha" value="" onchange="bravoActualizarResumen()" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px;margin-top:4px">
       </div>
 
       <!-- TABS -->
@@ -2148,7 +2148,8 @@ tr:hover td{background:#EAF0FB}
 
       <!-- RESUMEN -->
       <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:14px;margin-top:20px">
-        <h4 style="color:#0057A8;margin-bottom:10px;font-size:12px;font-weight:700">📊 Resumen del Registro</h4>
+        <h4 style="color:#0057A8;margin-bottom:4px;font-size:12px;font-weight:700">📊 Resumen del Registro</h4>
+        <div style="font-size:11px;color:#7C98B6;margin-bottom:10px">📅 Fecha: <span id="bravo-resumen-fecha" style="font-weight:700;color:#33475B">—</span></div>
         <div id="bravo-resumen" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;font-size:11px">
           <div><span style="color:#7C98B6">Accesorios:</span> <span id="bravo-count-acc" style="font-weight:700;color:#33475B">0</span></div>
           <div><span style="color:#7C98B6">Lycas:</span> <span id="bravo-count-lyca" style="font-weight:700;color:#33475B">0</span></div>
@@ -12430,6 +12431,18 @@ function bravoRenderListaActividades() {
 
 // Actualizar resumen
 function bravoActualizarResumen() {
+  const fechaVal = document.getElementById('bravo-fecha')?.value;
+  const elResumenFecha = document.getElementById('bravo-resumen-fecha');
+  if(elResumenFecha) {
+    if(fechaVal) {
+      const [y, m, d] = fechaVal.split('-').map(Number);
+      const fechaObj = new Date(y, m-1, d);
+      elResumenFecha.textContent = fechaObj.toLocaleDateString('es-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    } else {
+      elResumenFecha.textContent = '—';
+    }
+  }
+
   document.getElementById('bravo-count-acc').textContent = bravoRegistroTemp.accesorios.length;
   document.getElementById('bravo-count-lyca').textContent = bravoRegistroTemp.lycas.length;
   document.getElementById('bravo-count-rep').textContent = bravoRegistroTemp.reparaciones.length;
