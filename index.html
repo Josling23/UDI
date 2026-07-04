@@ -1660,6 +1660,36 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - GASTO INDEPENDIENTE ===== -->
+<div class="modal-overlay" id="modal-bravo-gasto">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="modal-bravo-gasto-title">💸 Nuevo Gasto de Bravo</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-gasto')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="bravo-gasto-fecha"></div>
+        <div class="form-group"><label>Monto ($) *</label><input type="number" id="bravo-gasto-monto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Nombre del Gasto *</label><input type="text" id="bravo-gasto-nombre" placeholder="Ej: Compra de inventario"></div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Tipo de Pago</label>
+          <select id="bravo-gasto-tipo-pago">
+            <option value="efectivo">💵 Efectivo</option>
+            <option value="paypal">🅿️ PayPal</option>
+            <option value="zelle">📲 Zelle</option>
+            <option value="otro">📝 Otro</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-gasto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarGastoBravo()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL TOP - PAGOS AT&T ===== -->
 <div class="modal-overlay" id="modal-pago-att">
   <div class="modal" style="max-width:420px">
@@ -2379,7 +2409,9 @@ let appData = {
   bravo: {
     reportesDiarios: [],
     nextDiarioId: 1,
-    caja: []
+    caja: [],
+    gastos: [],
+    nextGastoId: 1
   }
 };
 
@@ -2420,6 +2452,8 @@ function normalizarAppData() {
   if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
   if(!appData.bravo.caja) appData.bravo.caja = [];
   if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
+  if(!appData.bravo.gastos) appData.bravo.gastos = [];
+  if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
   if(!appData.bravo.nextReparacionId) appData.bravo.nextReparacionId = 1;
   if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
@@ -8796,6 +8830,16 @@ function renderAdmin() {
     </div>
     <div id="admin-gasto-nomina-table"></div>
 
+    <div class="section" style="margin-top:24px;border-left:4px solid #6A78D1;background:#F5F4FF">
+      <div class="section-header">
+        <h2>📋 Gastos reportados por Bravo (referencia)</h2>
+      </div>
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">
+        Esto es lo que Douglas reporta desde Bravo → ROI Bravo — es solo informativo, no se suma automáticamente a nada. Úsalo para decidir qué registrar arriba como Gasto Fijo o Variable.
+      </div>
+      <div id="admin-gastos-bravo-referencia"></div>
+    </div>
+
     <div class="section" style="margin-top:24px">
       <div class="section-header">
         <h2>💾 Backup y Restauración</h2>
@@ -8861,8 +8905,29 @@ function renderAdmin() {
     </div>
   `;
   renderAdminGastoNominaTable();
+  renderAdminGastosBravoReferencia();
   populateAgente('bkf-vendedor');
   populateMes('bkf-mes');
+}
+
+function renderAdminGastosBravoReferencia() {
+  const el = document.getElementById('admin-gastos-bravo-referencia');
+  if(!el) return;
+  const gastos = [...(appData.bravo?.gastos||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  if(!gastos.length) { el.innerHTML = '<div style="color:#99ACC2;font-size:12px">Bravo no ha reportado gastos todavía.</div>'; return; }
+  const total = gastos.reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  el.innerHTML = `
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Fecha</th><th>Gasto</th><th>Tipo de Pago</th><th style="text-align:right">Monto</th></tr></thead>
+        <tbody>${gastos.map(g=>`<tr>
+          <td>${g.fecha}</td><td>${g.nombre||'—'}</td><td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
+          <td style="text-align:right;font-weight:700;color:#E04048">${fmt(g.monto)}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="3" style="font-weight:700">Total reportado por Bravo</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(total)}</td></tr></tfoot>
+      </table>
+    </div>
+  `;
 }
 
 // ── BACKUP COMPLETO EN EXCEL (descargar/restaurar todos los datos de la app) ─
@@ -12085,17 +12150,45 @@ function bravoRenderLineasLycaTabla() {
 // ROI de Bravo
 function bravoROI() {
   if(!validarAccesoBravo()) return;
+  if(!appData.bravo.gastos) appData.bravo.gastos = [];
+  if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
 
-  const mesActual = new Date().getMonth() + 1;
-  const añoActual = new Date().getFullYear();
-  const d = calcBravoMes(mesActual, añoActual);
+  const hoy = new Date();
+  const selMesEl = document.getElementById('bravo-roi-mes-sel');
+  const selAnioEl = document.getElementById('bravo-roi-anio-sel');
+  const mesSel = selMesEl ? parseInt(selMesEl.value) : hoy.getMonth() + 1;
+  const anioSel = selAnioEl ? parseInt(selAnioEl.value) : hoy.getFullYear();
+
+  const d = calcBravoMes(mesSel, anioSel);
+
+  const gastosMes = (appData.bravo.gastos||[]).filter(g => {
+    const gd = new Date(g.fecha);
+    return gd.getMonth() + 1 === mesSel && gd.getFullYear() === anioSel;
+  }).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const totalGastosMes = gastosMes.reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  const roiIndependiente = d.gananciaMes - totalGastosMes;
+  const roiPct = d.gananciaMes > 0 ? (roiIndependiente / d.gananciaMes * 100) : 0;
+
+  const anios = new Set([hoy.getFullYear(), anioSel]);
+  (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(new Date(r.fecha).getFullYear()); });
+  (appData.bravo.gastos||[]).forEach(g=>{ if(g.fecha) anios.add(new Date(g.fecha).getFullYear()); });
+  const aniosArr = [...anios].sort((a,b)=>b-a);
 
   document.getElementById('bravo-roi-content').innerHTML = `
     <div class="section">
       <div class="section-header">
-        <h2>📊 ROI de Bravo</h2>
+        <h2>📊 ROI de Bravo (independiente)</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="bravo-roi-mes-sel" onchange="bravoROI()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+            ${MESES_ES.map((m,i)=>`<option value="${i+1}" ${i+1===mesSel?'selected':''}>${m}</option>`).join('')}
+          </select>
+          <select id="bravo-roi-anio-sel" onchange="bravoROI()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+            ${aniosArr.map(a=>`<option value="${a}" ${a===anioSel?'selected':''}>${a}</option>`).join('')}
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalGastoBravo()">➕ Nuevo Gasto</button>
+        </div>
       </div>
-      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">La renta y el sueldo de Douglas ya se contabilizan en Admin → Gastos & Nómina, por eso aquí solo se muestra la ganancia de Bravo (ver "ROI Real" en TOP para el neto completo).</div>
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Este ROI es solo informativo para Bravo — no afecta el ROI Real de TOP ni los Gastos & Nómina de Admin (esos ya cuentan la renta y el sueldo de Douglas). Oriana puede ver estos gastos desde Admin → Gastos & Nómina como referencia para decidir qué registrar allá como fijo o variable.</div>
 
       <div class="cards">
         <div class="card green">
@@ -12103,9 +12196,79 @@ function bravoROI() {
           <div class="val">${fmt(d.gananciaMes)}</div>
           <div class="sub">${d.reportesMes.length} días</div>
         </div>
+        <div class="card orange">
+          <label>💸 Gastos del Mes</label>
+          <div class="val">${fmt(totalGastosMes)}</div>
+          <div class="sub">${gastosMes.length} gasto${gastosMes.length!==1?'s':''} reportado${gastosMes.length!==1?'s':''}</div>
+        </div>
+        <div class="card blue">
+          <label>💵 ROI Bravo Independiente</label>
+          <div class="val" style="color:${roiIndependiente>=0?'#00BDA5':'#E04048'}">${fmt(roiIndependiente)}</div>
+          <div class="sub">${roiIndependiente>=0?'✅ Rentable':'❌ En pérdida'}</div>
+        </div>
+        <div class="card purple">
+          <label>📈 ROI %</label>
+          <div class="val">${roiPct.toFixed(1)}%</div>
+        </div>
+      </div>
+
+      <div class="tbl-wrap" style="margin-top:18px">
+        <table>
+          <thead><tr><th>Fecha</th><th>Gasto</th><th>Tipo de Pago</th><th style="text-align:right">Monto</th><th></th></tr></thead>
+          <tbody>
+            ${gastosMes.length ? gastosMes.map(g=>`<tr>
+              <td>${g.fecha}</td>
+              <td>${g.nombre||'—'}</td>
+              <td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
+              <td style="text-align:right;font-weight:700;color:#E04048">${fmt(g.monto)}</td>
+              <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="abrirModalGastoBravo(${g.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="eliminarGastoBravo(${g.id})" style="margin-left:4px">✕</button></td>
+            </tr>`).join('') : `<tr><td colspan="5" class="tbl-empty">Sin gastos registrados para este mes</td></tr>`}
+          </tbody>
+          ${gastosMes.length ? `<tfoot><tr><td colspan="3" style="font-weight:700">Total</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(totalGastosMes)}</td><td></td></tr></tfoot>` : ''}
+        </table>
       </div>
     </div>
   `;
+}
+
+let bravoGastoEditId = null;
+function abrirModalGastoBravo(id = null) {
+  bravoGastoEditId = id;
+  const g = id ? (appData.bravo.gastos||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-bravo-gasto-title').textContent = id ? '✏️ Editar Gasto de Bravo' : '💸 Nuevo Gasto de Bravo';
+  document.getElementById('bravo-gasto-fecha').value = g ? g.fecha : new Date().toISOString().slice(0,10);
+  document.getElementById('bravo-gasto-monto').value = g ? g.monto : '';
+  document.getElementById('bravo-gasto-nombre').value = g ? (g.nombre||'') : '';
+  document.getElementById('bravo-gasto-tipo-pago').value = g ? (g.tipoPago||'efectivo') : 'efectivo';
+  openModal('modal-bravo-gasto');
+}
+function guardarGastoBravo() {
+  const fecha = document.getElementById('bravo-gasto-fecha').value;
+  const monto = parseFloat(document.getElementById('bravo-gasto-monto').value)||0;
+  const nombre = document.getElementById('bravo-gasto-nombre').value.trim();
+  const tipoPago = document.getElementById('bravo-gasto-tipo-pago').value;
+  if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+  if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre del gasto','error'); return; }
+  if(!appData.bravo.gastos) appData.bravo.gastos = [];
+  if(bravoGastoEditId) {
+    const g = appData.bravo.gastos.find(x=>x.id===bravoGastoEditId);
+    Object.assign(g, { fecha, monto, nombre, tipoPago });
+  } else {
+    if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
+    appData.bravo.gastos.push({ id: appData.bravo.nextGastoId++, fecha, monto, nombre, tipoPago });
+  }
+  guardar();
+  closeModal('modal-bravo-gasto');
+  bravoROI();
+  showNotif('✅ Gasto guardado');
+}
+function eliminarGastoBravo(id) {
+  if(!confirm('¿Eliminar este gasto?')) return;
+  appData.bravo.gastos = (appData.bravo.gastos||[]).filter(g=>g.id!==id);
+  guardar();
+  bravoROI();
+  showNotif('🗑️ Gasto eliminado');
 }
 
 // Estructura de datos temporal para el formulario
