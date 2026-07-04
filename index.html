@@ -7266,7 +7266,8 @@ function renderTop() {
   const anioGlobalNum = parseInt(anioGlobalStr) || new Date().getFullYear();
   const adminGlobal = mesGlobal ? calcROI(mesGlobal) : { utilidad: 0 };
   const bravoGlobal = mesGlobalNum > 0 ? calcBravoMes(mesGlobalNum, anioGlobalNum) : { gananciaNeta: 0 };
-  const totalGlobal = adminGlobal.utilidad + bravoGlobal.gananciaNeta;
+  const saludGlobal = mesGlobal ? calcSaludMes(mesGlobal) : { gananciaNeta: 0 };
+  const totalGlobal = adminGlobal.utilidad + bravoGlobal.gananciaNeta + saludGlobal.gananciaNeta;
 
   document.getElementById('top-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
@@ -7287,7 +7288,8 @@ function renderTop() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
       <div class="card blue"><label>💼 Utilidad Admin (AT&T) — ${mesGlobal||'—'}</label><div class="val">${fmt(adminGlobal.utilidad)}</div></div>
       <div class="card orange"><label>🏪 Ganancia Bravo — ${mesGlobal||'—'}</label><div class="val">${fmt(bravoGlobal.gananciaNeta)}</div></div>
-      <div class="card ${totalGlobal>=0?'green':'red'}"><label>🌐 TOTAL GLOBAL (Bravo + AT&T)</label><div class="val">${fmt(totalGlobal)}</div><div class="sub">Bravo = sede oficial y punto de venta de AT&T</div></div>
+      <div class="card teal"><label>💚 Ganancia Salud/Dental — ${mesGlobal||'—'}</label><div class="val">${fmt(saludGlobal.gananciaNeta)}</div></div>
+      <div class="card ${totalGlobal>=0?'green':'red'}"><label>🌐 TOTAL GLOBAL (Bravo + AT&T + Salud)</label><div class="val">${fmt(totalGlobal)}</div><div class="sub">Cada área se mide por separado; este es el combinado</div></div>
     </div>
 
     <div class="priv-section active" id="top-roi"></div>
@@ -8494,27 +8496,27 @@ function eliminarRSIPago(cliente, fecha) {
   showNotif('🗑️ Cliente desmarcado como pagado');
 }
 
+function calcSaludMes(m) {
+  const clientes = saludData.clientes.filter(c=>c.mes===m);
+  const activos = clientes.filter(c=>c.estado==='activo');
+  const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
+  const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
+  const comAgentes = clientes.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
+  const [mesMes, mesAnio] = m.split(' ');
+  const mesNum = String(MESES_ES.indexOf(mesMes)+1).padStart(2,'0');
+  let sueldosMes = (saludData.sueldos||[]).filter(s=>s.fecha&&s.fecha.startsWith(`${mesAnio}-${mesNum}`)).reduce((s,x)=>s+x.monto,0);
+  if(saludData.quincenas) {
+    (saludData.agentes||[]).forEach(a=>{ [1,2].forEach(q=>{ if(saludData.quincenas[saludGetQuincenaKey(a.nombre,m,q)]) sueldosMes+=a.sueldoQuincenal; }); });
+  }
+  const gananciaNeta = totalAdelanto - comAgentes - sueldosMes;
+  return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, comAgentes, sueldosMes, gananciaNeta };
+}
+
 function renderTopSalud() {
   const meses = getSaludMeses();
   const sel = document.getElementById('top-salud-mes-sel');
   const curVal = sel ? sel.value : '';
   const mes = curVal || meses[meses.length-1] || '';
-
-  function calcSaludMes(m) {
-    const clientes = saludData.clientes.filter(c=>c.mes===m);
-    const activos = clientes.filter(c=>c.estado==='activo');
-    const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
-    const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
-    const comAgentes = clientes.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-    const [mesMes, mesAnio] = m.split(' ');
-    const mesNum = String(MESES_ES.indexOf(mesMes)+1).padStart(2,'0');
-    let sueldosMes = (saludData.sueldos||[]).filter(s=>s.fecha&&s.fecha.startsWith(`${mesAnio}-${mesNum}`)).reduce((s,x)=>s+x.monto,0);
-    if(saludData.quincenas) {
-      (saludData.agentes||[]).forEach(a=>{ [1,2].forEach(q=>{ if(saludData.quincenas[saludGetQuincenaKey(a.nombre,m,q)]) sueldosMes+=a.sueldoQuincenal; }); });
-    }
-    const gananciaNeta = totalAdelanto - comAgentes - sueldosMes;
-    return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, comAgentes, sueldosMes, gananciaNeta };
-  }
 
   const d = mes ? calcSaludMes(mes) : { ventas:0, activos:0, totalAdelanto:0, totalFinal:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
   const historial = meses.slice(-6).map(m => calcSaludMes(m));
