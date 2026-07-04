@@ -2445,7 +2445,6 @@ let appData = {
   ingresos: [],
   pagosATT: [],
   nextPagoAttId: 1,
-  gananciaManualATT: {},
   gananciaManualOtrosInternet: {},
   chargebacks: {},
   rsiReportes: {},
@@ -2468,7 +2467,6 @@ function normalizarAppData() {
   if(!appData.ingresos)     appData.ingresos = [];
   if(!appData.pagosATT)     appData.pagosATT = [];
   if(!appData.nextPagoAttId) appData.nextPagoAttId = 1;
-  if(!appData.gananciaManualATT) appData.gananciaManualATT = {};
   if(!appData.gananciaManualOtrosInternet) appData.gananciaManualOtrosInternet = {};
   if(!appData.chargebacks)  appData.chargebacks = {};
   if(!appData.rsiReportes)  appData.rsiReportes = {};
@@ -7616,7 +7614,7 @@ function renderTopROI() {
     </tr>`;
   }).join('');
 
-  // ── ROI REAL — Bravo (auto) + AT&T (manual) + Otros Internet (manual) − Gastos & Nómina ──
+  // ── ROI REAL — Bravo (auto) + AT&T (auto, unificado con la tabla de Gastos & Nómina) + Otros Internet (manual) ──
   let gananciaBravoRealMes = 0;
   if(selMes) {
     const [mesNombreReal, anioStrReal] = selMes.split(' ');
@@ -7624,51 +7622,32 @@ function renderTopROI() {
     const anioNumReal = parseInt(anioStrReal);
     if(mesNumReal > 0 && anioNumReal) gananciaBravoRealMes = calcBravoMes(mesNumReal, anioNumReal).gananciaNeta;
   }
-  const gananciaATTManualMes = selMes ? parseFloat(appData.gananciaManualATT[selMes]||0) : 0;
+  const gananciaATTRealMes = selMes ? d.utilidad : 0;
   const gananciaOtrosInternetManualMes = selMes ? parseFloat(appData.gananciaManualOtrosInternet[selMes]||0) : 0;
-  const gastosNominaMesReal = selMes && appData.gastosNomina[selMes]
-    ? (parseFloat(appData.gastosNomina[selMes].nominas||0) + parseFloat(appData.gastosNomina[selMes].comisiones||0) + parseFloat(appData.gastosNomina[selMes].gastosVar||0) + parseFloat(appData.gastosNomina[selMes].gastosFijos||0))
-    : 0;
-  const gananciaTotalReal = gananciaBravoRealMes + gananciaATTManualMes + gananciaOtrosInternetManualMes;
-  const utilidadReal = gananciaTotalReal - gastosNominaMesReal;
-  const roiRealPct = gananciaTotalReal > 0 ? (utilidadReal / gananciaTotalReal * 100) : 0;
+  const utilidadReal = gananciaBravoRealMes + gananciaATTRealMes + gananciaOtrosInternetManualMes;
 
   const roiRealHTML = `
     <div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1;background:#F5F4FF">
       <div style="font-size:13px;font-weight:800;color:#33475B;margin-bottom:4px">🎯 ROI Real — ${selMes||'(selecciona un mes)'}</div>
-      <div style="font-size:10px;color:#7C98B6;margin-bottom:14px">Bravo se calcula automático (Registro Diario + Reparaciones + Lycas). AT&T y Otros Internet los ingresas tú aquí manualmente.</div>
-      ${!selMes ? '<div style="color:#99ACC2;font-size:12px">Selecciona un mes arriba para ver y capturar el ROI Real</div>' : `
+      <div style="font-size:10px;color:#7C98B6;margin-bottom:14px">Bravo y AT&T se calculan automático (AT&T ya incluye Gastos & Nómina restados — es el mismo número de la tabla de abajo). Otros Internet lo ingresas tú aquí manualmente.</div>
+      ${!selMes ? '<div style="color:#99ACC2;font-size:12px">Selecciona un mes arriba para ver el ROI Real</div>' : `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px">
         <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
           <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">🏪 Ganancia Bravo <span style="font-weight:400">(auto)</span></label>
           <div style="font-size:18px;font-weight:800;color:#33475B;margin-top:4px">${fmt(gananciaBravoRealMes)}</div>
         </div>
         <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
-          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">📶 Ganancia Neta AT&T</label>
-          <input type="number" id="top-ganancia-att" value="${appData.gananciaManualATT[selMes]||''}" placeholder="0.00" step="0.01" onchange="guardarGananciaManual('att')" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:4px;font-size:16px;font-weight:800;color:#33475B" />
+          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">📶 Ganancia AT&T <span style="font-weight:400">(auto)</span></label>
+          <div style="font-size:18px;font-weight:800;color:${gananciaATTRealMes>=0?'#33475B':'#E04048'};margin-top:4px">${fmt(gananciaATTRealMes)}</div>
         </div>
         <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
           <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">🌐 Ganancia Neta Otros Internet</label>
           <input type="number" id="top-ganancia-otros-internet" value="${appData.gananciaManualOtrosInternet[selMes]||''}" placeholder="0.00" step="0.01" onchange="guardarGananciaManual('otrosInternet')" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:4px;font-size:16px;font-weight:800;color:#33475B" />
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
-        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
-          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Ganancia Total</label>
-          <div style="font-size:16px;font-weight:800;color:#33475B">${fmt(gananciaTotalReal)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
-          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Gastos & Nómina</label>
-          <div style="font-size:16px;font-weight:800;color:#E04048">${fmt(gastosNominaMesReal)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
-          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Utilidad Real</label>
-          <div style="font-size:16px;font-weight:800;color:${utilidadReal>=0?'#00BDA5':'#E04048'}">${fmt(utilidadReal)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
-          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">ROI Real</label>
-          <div style="font-size:16px;font-weight:800;color:#6A78D1">${roiRealPct.toFixed(1)}%</div>
-        </div>
+      <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
+        <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Utilidad Real Total</label>
+        <div style="font-size:20px;font-weight:900;color:${utilidadReal>=0?'#00BDA5':'#E04048'}">${fmt(utilidadReal)}</div>
       </div>
       `}
     </div>
@@ -8230,22 +8209,16 @@ function eliminarPagoATT(id) {
 function guardarGananciaManual(tipo) {
   const mes = document.getElementById('top-mes-sel')?.value;
   if(!mes) { showNotif('⚠️ Selecciona un mes','error'); return; }
-  const inputId = tipo === 'att' ? 'top-ganancia-att' : 'top-ganancia-otros-internet';
-  const valor = parseFloat(document.getElementById(inputId).value) || 0;
-  if(tipo === 'att') {
-    if(!appData.gananciaManualATT) appData.gananciaManualATT = {};
-    appData.gananciaManualATT[mes] = valor;
-  } else {
-    if(!appData.gananciaManualOtrosInternet) appData.gananciaManualOtrosInternet = {};
-    appData.gananciaManualOtrosInternet[mes] = valor;
-  }
+  const valor = parseFloat(document.getElementById('top-ganancia-otros-internet').value) || 0;
+  if(!appData.gananciaManualOtrosInternet) appData.gananciaManualOtrosInternet = {};
+  appData.gananciaManualOtrosInternet[mes] = valor;
   guardar();
   renderTopROI();
   showNotif('✅ Ganancia guardada');
 }
 
-function abrirIngreso() {
-  const mes = document.getElementById('top-mes-sel')?.value;
+function abrirIngreso(mesParam) {
+  const mes = mesParam || document.getElementById('top-mes-sel')?.value;
   if(!mes) return;
   const fuente = prompt('Fuente del ingreso (ej: RS&I, Bravo, AT&T):','');
   if(fuente===null) return;
@@ -9541,7 +9514,7 @@ function renderTopGastoNominaGanancias() {
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
               <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
-              <td style="padding:12px;text-align:right;font-weight:600;color:#00A492;background:#F8FFFC">${fmt(d.ingresosATT)}</td>
+              <td style="padding:12px;text-align:right;font-weight:600;color:#00A492;background:#F8FFFC">${fmt(d.ingresosATT)} <button class="btn btn-ghost btn-xs" onclick="abrirIngreso('${d.mes}')" title="Agregar ingreso para ${d.mes}" style="padding:2px 6px;margin-left:2px">➕</button></td>
               <td style="padding:12px;text-align:right;font-weight:800;background:#F8FFFC;color:${d.gananciaATT>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaATT)}</td>
               <td style="padding:12px;text-align:right;font-weight:800;background:#FFFAF7;color:${d.gananciaBravo>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaBravo)}</td>
               <td style="padding:12px;text-align:right;font-weight:800;background:#F7FFFD;color:${d.gananciaSalud>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaSalud)}</td>
