@@ -2366,6 +2366,8 @@ let appData = {
   ingresos: [],
   pagosATT: [],
   nextPagoAttId: 1,
+  gananciaManualATT: {},
+  gananciaManualOtrosInternet: {},
   chargebacks: {},
   rsiReportes: {},
   accesoPrivado: [],
@@ -2386,6 +2388,8 @@ function normalizarAppData() {
   if(!appData.ingresos)     appData.ingresos = [];
   if(!appData.pagosATT)     appData.pagosATT = [];
   if(!appData.nextPagoAttId) appData.nextPagoAttId = 1;
+  if(!appData.gananciaManualATT) appData.gananciaManualATT = {};
+  if(!appData.gananciaManualOtrosInternet) appData.gananciaManualOtrosInternet = {};
   if(!appData.chargebacks)  appData.chargebacks = {};
   if(!appData.rsiReportes)  appData.rsiReportes = {};
   if(!appData.pagosRecibidos) appData.pagosRecibidos = {};
@@ -7445,6 +7449,71 @@ function renderTopROI() {
     </tr>`;
   }).join('');
 
+  // ── ROI REAL — Bravo (auto) + AT&T (manual) + Otros Internet (manual) − Gastos & Nómina ──
+  let gananciaBravoRealMes = 0;
+  if(selMes) {
+    const [mesNombreReal, anioStrReal] = selMes.split(' ');
+    const mesNumReal = MESES_ES.indexOf(mesNombreReal) + 1;
+    const anioNumReal = parseInt(anioStrReal);
+    if(mesNumReal > 0 && anioNumReal) gananciaBravoRealMes = calcBravoMes(mesNumReal, anioNumReal).gananciaNeta;
+  }
+  const gananciaATTManualMes = selMes ? parseFloat(appData.gananciaManualATT[selMes]||0) : 0;
+  const gananciaOtrosInternetManualMes = selMes ? parseFloat(appData.gananciaManualOtrosInternet[selMes]||0) : 0;
+  const gastosNominaMesReal = selMes && appData.gastosNomina[selMes]
+    ? (parseFloat(appData.gastosNomina[selMes].nominas||0) + parseFloat(appData.gastosNomina[selMes].comisiones||0) + parseFloat(appData.gastosNomina[selMes].gastosVar||0) + parseFloat(appData.gastosNomina[selMes].gastosFijos||0))
+    : 0;
+  const gananciaTotalReal = gananciaBravoRealMes + gananciaATTManualMes + gananciaOtrosInternetManualMes;
+  const utilidadReal = gananciaTotalReal - gastosNominaMesReal;
+  const roiRealPct = gananciaTotalReal > 0 ? (utilidadReal / gananciaTotalReal * 100) : 0;
+
+  const roiRealHTML = `
+    <div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1;background:#F5F4FF">
+      <div style="font-size:13px;font-weight:800;color:#33475B;margin-bottom:4px">🎯 ROI Real — ${selMes||'(selecciona un mes)'}</div>
+      <div style="font-size:10px;color:#7C98B6;margin-bottom:14px">Bravo se calcula automático (Registro Diario + Reparaciones + Lycas). AT&T y Otros Internet los ingresas tú aquí manualmente.</div>
+      ${!selMes ? '<div style="color:#99ACC2;font-size:12px">Selecciona un mes arriba para ver y capturar el ROI Real</div>' : `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px">
+        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
+          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">🏪 Ganancia Neta Bravo <span style="font-weight:400">(auto)</span></label>
+          <div style="font-size:18px;font-weight:800;color:#33475B;margin-top:4px">${fmt(gananciaBravoRealMes)}</div>
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
+          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">📶 Ganancia Neta AT&T</label>
+          <input type="number" id="top-ganancia-att" value="${appData.gananciaManualATT[selMes]||''}" placeholder="0.00" step="0.01" onchange="guardarGananciaManual('att')" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:4px;font-size:16px;font-weight:800;color:#33475B" />
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
+          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">🌐 Ganancia Neta Otros Internet</label>
+          <input type="number" id="top-ganancia-otros-internet" value="${appData.gananciaManualOtrosInternet[selMes]||''}" placeholder="0.00" step="0.01" onchange="guardarGananciaManual('otrosInternet')" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:4px;font-size:16px;font-weight:800;color:#33475B" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
+          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Ganancia Total</label>
+          <div style="font-size:16px;font-weight:800;color:#33475B">${fmt(gananciaTotalReal)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
+          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Gastos & Nómina</label>
+          <div style="font-size:16px;font-weight:800;color:#E04048">${fmt(gastosNominaMesReal)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
+          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">Utilidad Real</label>
+          <div style="font-size:16px;font-weight:800;color:${utilidadReal>=0?'#00BDA5':'#E04048'}">${fmt(utilidadReal)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.6);border-radius:8px;padding:10px">
+          <label style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase">ROI Real</label>
+          <div style="font-size:16px;font-weight:800;color:#6A78D1">${roiRealPct.toFixed(1)}%</div>
+        </div>
+      </div>
+      `}
+    </div>
+
+    <!-- Gastos & Nómina (igual que Admin, editable desde aquí también) -->
+    <div class="section" style="margin-bottom:18px;border-left:4px solid #F2545B">
+      <div style="font-size:12px;font-weight:700;color:#E04048;margin-bottom:4px">💸 Gastos & Nómina</div>
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:12px">Misma tabla que ves en Admin → Gastos & Nómina — se edita igual desde cualquiera de los dos lados</div>
+      <div id="top-gasto-nomina-table"></div>
+    </div>
+  `;
+
   document.getElementById('top-roi').innerHTML = `
     ${resumenEjecutivoHTML}
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
@@ -7485,6 +7554,8 @@ function renderTopROI() {
         </div>
       </div>
     </div>
+
+    ${roiRealHTML}
 
     <!-- Ingresos del mes -->
     <div class="section" style="margin-bottom:18px;border-left:4px solid #009FDB">
@@ -8014,6 +8085,8 @@ function renderTopROI() {
         </div>
       </details>`;
     })() : ''}`
+
+  renderAdminGastoNominaTable();
 }
 
 function guardarPagoRecibido() {
@@ -8064,6 +8137,23 @@ function eliminarPagoATT(id) {
   guardar();
   renderTopROI();
   showNotif('🗑️ Pago eliminado');
+}
+
+function guardarGananciaManual(tipo) {
+  const mes = document.getElementById('top-mes-sel')?.value;
+  if(!mes) { showNotif('⚠️ Selecciona un mes','error'); return; }
+  const inputId = tipo === 'att' ? 'top-ganancia-att' : 'top-ganancia-otros-internet';
+  const valor = parseFloat(document.getElementById(inputId).value) || 0;
+  if(tipo === 'att') {
+    if(!appData.gananciaManualATT) appData.gananciaManualATT = {};
+    appData.gananciaManualATT[mes] = valor;
+  } else {
+    if(!appData.gananciaManualOtrosInternet) appData.gananciaManualOtrosInternet = {};
+    appData.gananciaManualOtrosInternet[mes] = valor;
+  }
+  guardar();
+  renderTopROI();
+  showNotif('✅ Ganancia guardada');
 }
 
 function abrirIngreso() {
@@ -9143,7 +9233,7 @@ function renderAdminGastoNominaTable() {
 
   const totalAnual = totalAnualNominas + totalAnualComisiones + totalAnualGastosVar + totalAnualGastosFijos;
 
-  document.getElementById('admin-gasto-nomina-table').innerHTML = `
+  const html = `
     <div class="tbl-wrap" style="overflow-x:auto">
       <table style="width:100%">
         <thead>
@@ -9179,6 +9269,10 @@ function renderAdminGastoNominaTable() {
       </table>
     </div>
   `;
+  ['admin-gasto-nomina-table', 'top-gasto-nomina-table'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = html;
+  });
 }
 
 function guardarGastoNominaCell(input) {
