@@ -7326,6 +7326,7 @@ function calcROI(mes, quincena) {
 }
 
 function renderTopROI() {
+  const meses = getMeses();
   const selMes = document.getElementById('top-mes-sel')?.value ?? mesPorDefecto();
   const selQ = document.getElementById('top-q-sel')?.value ?? '';
 
