@@ -6750,7 +6750,7 @@ function cerrarQuincena(mes, quincena) {
   agregarAuditLog('Cierre', mes, quincena);
   guardar();
   showNotif(`🔒 Quincena cerrada: ${mes} Q${quincena}`);
-  renderTopROI(); // Actualizar audit log en pantalla
+  if(typeof renderAdminQuincenas === 'function') renderAdminQuincenas();
 }
 
 function reabrirQuincena(mes, quincena) {
@@ -6761,7 +6761,7 @@ function reabrirQuincena(mes, quincena) {
   agregarAuditLog('Reapertura', mes, quincena);
   guardar();
   showNotif(`🔓 Quincena reabierta: ${mes} Q${quincena}`);
-  renderTopROI(); // Actualizar audit log en pantalla
+  if(typeof renderAdminQuincenas === 'function') renderAdminQuincenas();
 }
 
 function validarQuincenaNoEsteeCerrada(mes, quincena) {
@@ -6816,13 +6816,13 @@ function descargarResumenClick() {
 }
 
 function cerrarQuincenaClick(q) {
-  const mes = document.getElementById('top-mes-sel')?.value;
+  const mes = document.getElementById('admin-quincena-mes-sel')?.value;
   if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
   cerrarQuincena(mes, q);
 }
 
 function reabrirQuincenaClick(q) {
-  const mes = document.getElementById('top-mes-sel')?.value;
+  const mes = document.getElementById('admin-quincena-mes-sel')?.value;
   if(!mes) { showNotif('⚠️ Selecciona un mes', 'error'); return; }
   reabrirQuincena(mes, q);
 }
@@ -7317,17 +7317,8 @@ function renderHQGerente() {
 // TOP — RENDER
 // ============================================================
 function renderTop() {
-  const mesGlobal = mesPorDefecto();
-  const [mesGlobalNombre, anioGlobalStr] = (mesGlobal||'').split(' ');
-  const mesGlobalNum = MESES_ES.indexOf(mesGlobalNombre) + 1;
-  const anioGlobalNum = parseInt(anioGlobalStr) || new Date().getFullYear();
-  const adminGlobal = mesGlobal ? calcROI(mesGlobal) : { utilidad: 0 };
-  const bravoGlobal = mesGlobalNum > 0 ? calcBravoMes(mesGlobalNum, anioGlobalNum) : { gananciaNeta: 0 };
-  const saludGlobal = mesGlobal ? calcSaludMes(mesGlobal) : { gananciaNeta: 0 };
-  const totalGlobal = adminGlobal.utilidad + bravoGlobal.gananciaNeta + saludGlobal.gananciaNeta;
-
   document.getElementById('top-content').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
       <div>
         <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">⭐ TOP</h2>
         <div style="font-size:11px;color:#99ACC2">ROI & Finanzas — Solo tú tienes acceso</div>
@@ -7343,11 +7334,10 @@ function renderTop() {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
-      <div class="card blue"><label>💼 Utilidad Admin (AT&T) — ${mesGlobal||'—'}</label><div class="val">${fmt(adminGlobal.utilidad)}</div></div>
-      <div class="card orange"><label>🏪 Ganancia Bravo — ${mesGlobal||'—'}</label><div class="val">${fmt(bravoGlobal.gananciaNeta)}</div></div>
-      <div class="card teal"><label>💚 Ganancia Salud/Dental — ${mesGlobal||'—'}</label><div class="val">${fmt(saludGlobal.gananciaNeta)}</div></div>
-      <div class="card ${totalGlobal>=0?'green':'red'}"><label>🌐 TOTAL GLOBAL (Bravo + AT&T + Salud)</label><div class="val">${fmt(totalGlobal)}</div><div class="sub">Cada área se mide por separado; este es el combinado</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="btn btn-primary btn-sm" onclick="abrirIngreso()">➕ Nuevo Ingreso</button>
+      <button class="btn btn-success btn-sm" onclick="abrirModalGastoBravo()">➕ Gasto Bravo</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirRSIReporte(mesPorDefecto())" style="border:1px solid #E04048;color:#E04048">📋 Reporte RS&I del mes</button>
     </div>
 
     <div class="priv-section active" id="top-comparativo"></div>
@@ -7773,90 +7763,6 @@ function renderTopROI() {
         </div>`;
       })() : ''}
 
-      <!-- CONTROL DE QUINCENAS CERRADAS -->
-      ${selMes ? (()=>{
-        const q1Cerrada = estaQuincenaCerrada(selMes, 1);
-        const q2Cerrada = estaQuincenaCerrada(selMes, 2);
-        return `<div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1;background:#F0EDFF">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-            <div style="font-size:12px;font-weight:700;color:#6A78D1">🔒 Control de Quincenas — ${selMes}
-              <span style="font-size:10px;font-weight:400;color:#99ACC2;margin-left:6px">Cierra quincenas para evitar cambios no deseados</span>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div style="background:${q1Cerrada?'#FFF0F0':'#F0FDF4'};border:2px solid ${q1Cerrada?'#F2545B':'#00BDA5'};border-radius:8px;padding:12px">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div>
-                  <div style="font-size:12px;font-weight:700;color:#33475B">Q1 (1-14)</div>
-                  <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q1Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
-                </div>
-                <button class="btn ${q1Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q1Cerrada?`reabrirQuincenaClick(1)`:`cerrarQuincenaClick(1)`}">
-                  ${q1Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
-                </button>
-              </div>
-              <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',1)">
-                📥 Descargar informe Q1
-              </button>
-            </div>
-            <div style="background:${q2Cerrada?'#FFF0F0':'#F0FDF4'};border:2px solid ${q2Cerrada?'#F2545B':'#00BDA5'};border-radius:8px;padding:12px">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div>
-                  <div style="font-size:12px;font-weight:700;color:#33475B">Q2 (15-fin)</div>
-                  <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q2Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
-                </div>
-                <button class="btn ${q2Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q2Cerrada?`reabrirQuincenaClick(2)`:`cerrarQuincenaClick(2)`}">
-                  ${q2Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
-                </button>
-              </div>
-              <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',2)">
-                📥 Descargar informe Q2
-              </button>
-            </div>
-          </div>
-        </div>`;
-      })() : ''}
-
-      <!-- AUDIT LOG DE QUINCENAS -->
-      ${selMes ? (()=>{
-        const auditMes = (appData.auditLog||[]).filter(log => log.mes === selMes);
-        if(auditMes.length === 0) return '';
-
-        const filas = auditMes.map(log => `
-          <tr style="border-bottom:1px solid #F0F2F5">
-            <td style="padding:8px 12px;color:#33475B;font-size:11px">${log.fecha}</td>
-            <td style="padding:8px 12px;color:#7C98B6;font-size:11px">${log.hora}</td>
-            <td style="padding:8px 12px;color:#33475B;font-weight:600;font-size:11px">Q${log.quincena}</td>
-            <td style="padding:8px 12px;font-size:11px">
-              <span style="display:inline-block;padding:2px 8px;border-radius:20px;background:${log.action==='Cierre'?'#FEE2E2':'#D1FAE5'};color:${log.action==='Cierre'?'#DC2626':'#059669'};font-weight:600;font-size:10px">
-                ${log.action==='Cierre'?'🔒 Cierre':'🔓 Reapertura'}
-              </span>
-            </td>
-            <td style="padding:8px 12px;color:#7C98B6;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${log.user}</td>
-          </tr>
-        `).join('');
-
-        return `<div class="section" style="margin-bottom:18px;border-left:4px solid #059669;background:#F0FDF4">
-          <div style="font-size:12px;font-weight:700;color:#059669;margin-bottom:12px">
-            📋 Registro de Auditoría — ${selMes}
-            <span style="font-size:10px;font-weight:400;color:#7C98B6;margin-left:6px">(${auditMes.length} evento${auditMes.length!==1?'s':''})</span>
-          </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;font-size:11px;border-collapse:collapse">
-              <thead>
-                <tr style="background:#E8F5F0;border-bottom:2px solid #059669">
-                  <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Fecha</th>
-                  <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Hora</th>
-                  <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Período</th>
-                  <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Acción</th>
-                  <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700">Usuario</th>
-                </tr>
-              </thead>
-              <tbody>${filas}</tbody>
-            </table>
-          </div>
-        </div>`;
-      })() : ''}
-
       ${selMes ? (()=>{
         const ings = (appData.ingresos||[]).filter(i=>i.mes===selMes);
         const legado = parseFloat(appData.pagosRecibidos[selMes]||0);
@@ -7920,6 +7826,9 @@ function renderTopROI() {
       })() : '<span style="font-size:12px;color:#99ACC2">Selecciona un mes para ver o agregar gastos</span>'}
     </div>
 
+    <details class="section" style="margin-bottom:18px;border-left:4px solid #33475B">
+      <summary style="cursor:pointer;font-size:14px;font-weight:800;color:#33475B">📊 Análisis Avanzado — histórico, rendimiento de agentes y proyecciones</summary>
+      <div style="margin-top:14px">
     <!-- YTD SUMMARY -->
     ${(() => {
       const year = new Date().getFullYear().toString();
@@ -7990,7 +7899,7 @@ function renderTopROI() {
           </span>
         </summary>
         <div style="display:flex;justify-content:flex-end;margin:10px 0 6px">
-          <button class="btn btn-primary btn-sm" onclick="document.querySelectorAll('.priv-section.active')[0].style.display='none'; switchAdminTab('finanzas'); showPage('admin'); window.setTimeout(()=>switchAdminTab('finanzas'),100)" style="background:#6A78D1;border-color:#6A78D1">⚙️ Editar en Admin</button>
+          <button class="btn btn-primary btn-sm" onclick="showPage('admin')" style="background:#6A78D1;border-color:#6A78D1">⚙️ Ir a Admin</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
           <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:4px solid #F2545B">
@@ -8261,7 +8170,9 @@ function renderTopROI() {
           }).join('')}
         </div>
       </details>`;
-    })() : ''}`
+    })() : ''}
+      </div>
+    </details>`
 
   renderAdminGastoNominaTable();
 }
@@ -8975,6 +8886,8 @@ function renderAdmin() {
     </div>
     <div id="admin-gasto-nomina-table"></div>
 
+    <div id="admin-quincenas-wrap" style="margin-top:24px"></div>
+
     <div class="section" style="margin-top:24px;border-left:4px solid #6A78D1;background:#F5F4FF">
       <div class="section-header">
         <h2>📋 Gastos reportados por Bravo (referencia)</h2>
@@ -9051,8 +8964,92 @@ function renderAdmin() {
   `;
   renderAdminGastoNominaTable();
   renderAdminGastosBravoReferencia();
+  renderAdminQuincenas();
   populateAgente('bkf-vendedor');
   populateMes('bkf-mes');
+}
+
+function renderAdminQuincenas() {
+  const wrap = document.getElementById('admin-quincenas-wrap');
+  if(!wrap) return;
+  const meses = getMeses();
+  const selMes = document.getElementById('admin-quincena-mes-sel')?.value || mesPorDefecto() || meses[meses.length-1] || '';
+  const q1Cerrada = selMes ? estaQuincenaCerrada(selMes, 1) : false;
+  const q2Cerrada = selMes ? estaQuincenaCerrada(selMes, 2) : false;
+  const auditMes = selMes ? (appData.auditLog||[]).filter(log => log.mes === selMes) : [];
+
+  const auditHTML = auditMes.length ? `
+    <div style="margin-top:14px;overflow-x:auto">
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <thead>
+          <tr style="background:#E8F5F0;border-bottom:2px solid #059669">
+            <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Fecha</th>
+            <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Hora</th>
+            <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Período</th>
+            <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700;border-right:1px solid #D1FAE5">Acción</th>
+            <th style="padding:8px 12px;text-align:left;color:#059669;font-weight:700">Usuario</th>
+          </tr>
+        </thead>
+        <tbody>${auditMes.map(log => `
+          <tr style="border-bottom:1px solid #F0F2F5">
+            <td style="padding:8px 12px;color:#33475B;font-size:11px">${log.fecha}</td>
+            <td style="padding:8px 12px;color:#7C98B6;font-size:11px">${log.hora}</td>
+            <td style="padding:8px 12px;color:#33475B;font-weight:600;font-size:11px">Q${log.quincena}</td>
+            <td style="padding:8px 12px;font-size:11px">
+              <span style="display:inline-block;padding:2px 8px;border-radius:20px;background:${log.action==='Cierre'?'#FEE2E2':'#D1FAE5'};color:${log.action==='Cierre'?'#DC2626':'#059669'};font-weight:600;font-size:10px">
+                ${log.action==='Cierre'?'🔒 Cierre':'🔓 Reapertura'}
+              </span>
+            </td>
+            <td style="padding:8px 12px;color:#7C98B6;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${log.user}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>` : '';
+
+  wrap.innerHTML = `
+    <details class="section" style="border-left:4px solid #6A78D1;background:#F0EDFF">
+      <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#6A78D1">🔒 Control de Quincenas
+        <span style="font-size:10px;font-weight:400;color:#99ACC2;margin-left:6px">Cierra quincenas para evitar cambios no deseados — se refleja en TOP</span>
+      </summary>
+      <div style="margin-top:14px">
+        <select id="admin-quincena-mes-sel" onchange="renderAdminQuincenas()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600;margin-bottom:14px">
+          ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('') || '<option value="">Sin meses</option>'}
+        </select>
+        ${!selMes ? '<div style="color:#99ACC2;font-size:12px">Selecciona un mes</div>' : `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:${q1Cerrada?'#FFF0F0':'#F0FDF4'};border:2px solid ${q1Cerrada?'#F2545B':'#00BDA5'};border-radius:8px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#33475B">Q1 (1-14)</div>
+                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q1Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
+              </div>
+              <button class="btn ${q1Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q1Cerrada?`reabrirQuincenaClick(1)`:`cerrarQuincenaClick(1)`}">
+                ${q1Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
+              </button>
+            </div>
+            <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',1)">
+              📥 Descargar informe Q1
+            </button>
+          </div>
+          <div style="background:${q2Cerrada?'#FFF0F0':'#F0FDF4'};border:2px solid ${q2Cerrada?'#F2545B':'#00BDA5'};border-radius:8px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#33475B">Q2 (15-fin)</div>
+                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q2Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
+              </div>
+              <button class="btn ${q2Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q2Cerrada?`reabrirQuincenaClick(2)`:`cerrarQuincenaClick(2)`}">
+                ${q2Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
+              </button>
+            </div>
+            <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',2)">
+              📥 Descargar informe Q2
+            </button>
+          </div>
+        </div>
+        ${auditHTML}
+        `}
+      </div>
+    </details>
+  `;
 }
 
 function renderAdminGastosBravoReferencia() {
