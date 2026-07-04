@@ -8140,7 +8140,7 @@ function abrirModalPagoATT(id = null) {
   document.getElementById('pago-att-fecha').value = p ? p.fecha : new Date().toISOString().slice(0,10);
   document.getElementById('pago-att-monto').value = p ? p.monto : '';
   document.getElementById('pago-att-notas').value = p ? (p.notas||'') : '';
-  openModal('modal-pago-att');
+  document.getElementById('modal-pago-att').classList.add('open');
 }
 function guardarPagoATT() {
   const fecha = document.getElementById('pago-att-fecha').value;
@@ -12240,7 +12240,7 @@ function abrirModalGastoBravo(id = null) {
   document.getElementById('bravo-gasto-monto').value = g ? g.monto : '';
   document.getElementById('bravo-gasto-nombre').value = g ? (g.nombre||'') : '';
   document.getElementById('bravo-gasto-tipo-pago').value = g ? (g.tipoPago||'efectivo') : 'efectivo';
-  openModal('modal-bravo-gasto');
+  document.getElementById('modal-bravo-gasto').classList.add('open');
 }
 function guardarGastoBravo() {
   const fecha = document.getElementById('bravo-gasto-fecha').value;
