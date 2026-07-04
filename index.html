@@ -7333,6 +7333,7 @@ function renderTop() {
         <div style="font-size:11px;color:#99ACC2">ROI & Finanzas — Solo tú tienes acceso</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('comparativo',this)">📊 Comparativo</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI Admin</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('salud',this)">💚 ROI Salud/Dental</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('bravo',this)">🏪 ROI Bravo</button>
@@ -7349,19 +7350,104 @@ function renderTop() {
       <div class="card ${totalGlobal>=0?'green':'red'}"><label>🌐 TOTAL GLOBAL (Bravo + AT&T + Salud)</label><div class="val">${fmt(totalGlobal)}</div><div class="sub">Cada área se mide por separado; este es el combinado</div></div>
     </div>
 
-    <div class="priv-section active" id="top-roi"></div>
+    <div class="priv-section active" id="top-comparativo"></div>
+    <div class="priv-section" id="top-roi"></div>
     <div class="priv-section" id="top-salud"></div>
     <div class="priv-section" id="top-bravo"></div>
     <div class="priv-section" id="top-chargebacks"></div>
     <div class="priv-section" id="top-rsi"></div>
     <div class="priv-section" id="top-config"></div>
   `;
+  renderTopComparativo();
   renderTopROI();
   renderTopSalud();
   renderTopBravo();
   renderTopChargebacks();
   renderTopRSI();
   renderTopConfig();
+}
+
+function renderTopComparativo() {
+  const meses = getMeses();
+  const sel = document.getElementById('top-comp-mes-sel');
+  const selMes = sel ? sel.value : (mesPorDefecto() || meses[meses.length-1] || '');
+
+  const [mesNombre, anioStr] = (selMes||'').split(' ');
+  const mesNum = MESES_ES.indexOf(mesNombre) + 1;
+  const anioNum = parseInt(anioStr) || new Date().getFullYear();
+
+  const admin = selMes ? calcROI(selMes) : { pagado:0, totalEgresos:0, utilidad:0, roi:0 };
+  const bravo = mesNum > 0 ? calcBravoMes(mesNum, anioNum) : { gananciaMes:0, gananciaNeta:0 };
+  const salud = selMes ? calcSaludMes(selMes) : { totalAdelanto:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
+  const total = admin.utilidad + bravo.gananciaNeta + salud.gananciaNeta;
+
+  const maxVal = Math.max(Math.abs(admin.utilidad), Math.abs(bravo.gananciaNeta), Math.abs(salud.gananciaNeta), 1);
+  const barra = (val, color) => `<div style="background:#F5F8FA;border-radius:20px;height:10px;width:100%;overflow:hidden"><div style="background:${color};height:100%;width:${Math.min(Math.abs(val)/maxVal*100,100)}%"></div></div>`;
+
+  // Historial de los últimos 6 meses (usando la lista de meses de Admin como eje temporal)
+  const historial = meses.slice(-6).map(m => {
+    const [mn, ay] = m.split(' ');
+    const mNum = MESES_ES.indexOf(mn) + 1;
+    const aNum = parseInt(ay) || new Date().getFullYear();
+    const a = calcROI(m);
+    const b = mNum > 0 ? calcBravoMes(mNum, aNum) : { gananciaNeta: 0 };
+    const s = calcSaludMes(m);
+    return { mes: m, admin: a.utilidad, bravo: b.gananciaNeta, salud: s.gananciaNeta, total: a.utilidad + b.gananciaNeta + s.gananciaNeta };
+  });
+
+  document.getElementById('top-comparativo').innerHTML = `
+    <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <h3 style="font-size:14px;font-weight:700;color:#33475B">📊 Comparativo — AT&T, Bravo y Salud/Dental en un solo sitio</h3>
+        <select id="top-comp-mes-sel" onchange="renderTopComparativo()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+          ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('') || '<option value="">Sin datos</option>'}
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px">
+        <div style="border:1.5px solid #CBD6E2;border-radius:10px;padding:14px">
+          <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">💼 AT&T (Admin)</div>
+          <div style="font-size:20px;font-weight:900;color:${admin.utilidad>=0?'#00BDA5':'#E04048'}">${fmt(admin.utilidad)}</div>
+          <div style="font-size:10px;color:#7C98B6;margin:6px 0">Pagado ${fmt(admin.pagado)} − Egresos ${fmt(admin.totalEgresos)}</div>
+          ${barra(admin.utilidad, '#009FDB')}
+          <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="switchTopTab('roi')">Ver detalle →</button></div>
+        </div>
+        <div style="border:1.5px solid #CBD6E2;border-radius:10px;padding:14px">
+          <div style="font-size:12px;font-weight:700;color:#B94A00;margin-bottom:8px">🏪 Bravo</div>
+          <div style="font-size:20px;font-weight:900;color:${bravo.gananciaNeta>=0?'#00BDA5':'#E04048'}">${fmt(bravo.gananciaNeta)}</div>
+          <div style="font-size:10px;color:#7C98B6;margin:6px 0">Ganancia bruta del mes</div>
+          ${barra(bravo.gananciaNeta, '#FF7A59')}
+          <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="switchTopTab('bravo')">Ver detalle →</button></div>
+        </div>
+        <div style="border:1.5px solid #CBD6E2;border-radius:10px;padding:14px">
+          <div style="font-size:12px;font-weight:700;color:#00A492;margin-bottom:8px">💚 Salud / Dental</div>
+          <div style="font-size:20px;font-weight:900;color:${salud.gananciaNeta>=0?'#00BDA5':'#E04048'}">${fmt(salud.gananciaNeta)}</div>
+          <div style="font-size:10px;color:#7C98B6;margin:6px 0">Adelanto ${fmt(salud.totalAdelanto)} − Com. ${fmt(salud.comAgentes)} − Sueldos ${fmt(salud.sueldosMes)}</div>
+          ${barra(salud.gananciaNeta, '#00BDA5')}
+          <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="switchTopTab('salud')">Ver detalle →</button></div>
+        </div>
+        <div style="border:2px solid ${total>=0?'#00BDA5':'#E04048'};border-radius:10px;padding:14px;background:${total>=0?'#F0FDF9':'#FFF5F5'}">
+          <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:8px">🌐 Total Combinado</div>
+          <div style="font-size:24px;font-weight:900;color:${total>=0?'#00BDA5':'#E04048'}">${fmt(total)}</div>
+          <div style="font-size:10px;color:#7C98B6;margin-top:6px">Suma de las tres áreas — ${selMes||'—'}</div>
+        </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📈 Historial comparado (últimos meses)</div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Mes</th><th>AT&T</th><th>Bravo</th><th>Salud/Dental</th><th>Total</th></tr></thead>
+        <tbody>${historial.map(h=>`<tr>
+          <td>${h.mes}</td>
+          <td style="color:${h.admin>=0?'#00BDA5':'#E04048'}">${fmt(h.admin)}</td>
+          <td style="color:${h.bravo>=0?'#00BDA5':'#E04048'}">${fmt(h.bravo)}</td>
+          <td style="color:${h.salud>=0?'#00BDA5':'#E04048'}">${fmt(h.salud)}</td>
+          <td style="font-weight:700;color:${h.total>=0?'#00BDA5':'#E04048'}">${fmt(h.total)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      </div>
+    </div>
+  `;
 }
 
 function switchTopTab(id, el) {
