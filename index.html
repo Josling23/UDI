@@ -7673,10 +7673,10 @@ function renderTopROI() {
       `}
     </div>
 
-    <!-- Gastos & Nómina (igual que Admin, editable desde aquí también) -->
+    <!-- Gastos & Nómina + Ganancias (vista maestra, solo visible aquí en TOP) -->
     <div class="section" style="margin-bottom:18px;border-left:4px solid #F2545B">
-      <div style="font-size:12px;font-weight:700;color:#E04048;margin-bottom:4px">💸 Gastos & Nómina</div>
-      <div style="font-size:10px;color:#99ACC2;margin-bottom:12px">Misma tabla que ves en Admin → Gastos & Nómina — se edita igual desde cualquiera de los dos lados</div>
+      <div style="font-size:12px;font-weight:700;color:#E04048;margin-bottom:4px">💸 Gastos & Nómina + Ganancias por Mes</div>
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:12px">Los gastos son los mismos que ves en Admin → Gastos & Nómina — se edita igual desde cualquiera de los dos lados. Las columnas de ganancia y ROI solo se ven aquí en TOP, nunca en Admin.</div>
       <div id="top-gasto-nomina-table"></div>
     </div>
   `;
@@ -8898,6 +8898,16 @@ function renderAdmin() {
       <div id="admin-gastos-bravo-referencia"></div>
     </div>
 
+    <div class="section" style="margin-top:24px;border-left:4px solid #00A492;background:#F0FFFB">
+      <div class="section-header">
+        <h2>📋 Gastos reportados por Salud/Dental (referencia)</h2>
+      </div>
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">
+        Comisiones de agentes y sueldos pagados en Salud/Dental, por mes — es solo informativo, no se suma automáticamente a nada. Úsalo para decidir qué registrar arriba como Gasto Fijo o Variable.
+      </div>
+      <div id="admin-gastos-salud-referencia"></div>
+    </div>
+
     <div class="section" style="margin-top:24px">
       <div class="section-header">
         <h2>💾 Backup y Restauración</h2>
@@ -8964,6 +8974,7 @@ function renderAdmin() {
   `;
   renderAdminGastoNominaTable();
   renderAdminGastosBravoReferencia();
+  renderAdminGastosSaludReferencia();
   renderAdminQuincenas();
   populateAgente('bkf-vendedor');
   populateMes('bkf-mes');
@@ -9067,6 +9078,39 @@ function renderAdminGastosBravoReferencia() {
           <td style="text-align:right;font-weight:700;color:#E04048">${fmt(g.monto)}</td>
         </tr>`).join('')}</tbody>
         <tfoot><tr><td colspan="3" style="font-weight:700">Total reportado por Bravo</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(total)}</td></tr></tfoot>
+      </table>
+    </div>
+  `;
+}
+
+function renderAdminGastosSaludReferencia() {
+  const el = document.getElementById('admin-gastos-salud-referencia');
+  if(!el) return;
+  const meses = getSaludMeses();
+  if(!meses.length) { el.innerHTML = '<div style="color:#99ACC2;font-size:12px">Salud/Dental no ha reportado datos todavía.</div>'; return; }
+  const datos = meses.map(mes => {
+    const s = calcSaludMes(mes);
+    return { mes, comAgentes: s.comAgentes, sueldosMes: s.sueldosMes, total: s.comAgentes + s.sueldosMes };
+  });
+  const totalComAgentes = datos.reduce((s,d)=>s+d.comAgentes,0);
+  const totalSueldos = datos.reduce((s,d)=>s+d.sueldosMes,0);
+  const totalGeneral = datos.reduce((s,d)=>s+d.total,0);
+  el.innerHTML = `
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Mes</th><th style="text-align:right">Com. Agentes</th><th style="text-align:right">Sueldos Pagados</th><th style="text-align:right">Total Gastos Salud</th></tr></thead>
+        <tbody>${datos.map(d=>`<tr>
+          <td>${d.mes}</td>
+          <td style="text-align:right;font-weight:600;color:#D4A017">${fmt(d.comAgentes)}</td>
+          <td style="text-align:right;font-weight:600;color:#F2545B">${fmt(d.sueldosMes)}</td>
+          <td style="text-align:right;font-weight:700;color:#E04048">${fmt(d.total)}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr>
+          <td style="font-weight:700">Total</td>
+          <td style="text-align:right;font-weight:700;color:#D4A017">${fmt(totalComAgentes)}</td>
+          <td style="text-align:right;font-weight:700;color:#F2545B">${fmt(totalSueldos)}</td>
+          <td style="text-align:right;font-weight:800;color:#E04048">${fmt(totalGeneral)}</td>
+        </tr></tfoot>
       </table>
     </div>
   `;
@@ -9424,10 +9468,105 @@ function renderAdminGastoNominaTable() {
       </table>
     </div>
   `;
-  ['admin-gasto-nomina-table', 'top-gasto-nomina-table'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.innerHTML = html;
+  const elAdmin = document.getElementById('admin-gasto-nomina-table');
+  if(elAdmin) elAdmin.innerHTML = html;
+  if(typeof renderTopGastoNominaGanancias === 'function') renderTopGastoNominaGanancias();
+}
+
+function renderTopGastoNominaGanancias() {
+  const el = document.getElementById('top-gasto-nomina-table');
+  if(!el) return;
+
+  const meses = getMeses();
+  const anios = [...new Set(meses.map(m => (m.split(' ')[1]||'')).filter(Boolean))].sort();
+  const selAnio = document.getElementById('top-gn-anio-sel')?.value || '';
+  const mesesFiltrados = selAnio ? meses.filter(m => m.split(' ')[1] === selAnio) : meses;
+
+  const datos = mesesFiltrados.map(mes => {
+    const nominas = (appData.gastosNomina[mes]?.nominas || 0);
+    const comisiones = (appData.gastosNomina[mes]?.comisiones || 0);
+    const gastosVar = (appData.gastosNomina[mes]?.gastosVar || 0);
+    const gastosFijos = (appData.gastosNomina[mes]?.gastosFijos || 0);
+    const totalMes = nominas + comisiones + gastosVar + gastosFijos;
+
+    const [mesNombre, anioStr] = mes.split(' ');
+    const mesNum = MESES_ES.indexOf(mesNombre) + 1;
+    const anioNum = parseInt(anioStr) || new Date().getFullYear();
+
+    const roi = calcROI(mes);
+    const bravo = mesNum > 0 ? calcBravoMes(mesNum, anioNum) : { gananciaNeta: 0 };
+    const salud = calcSaludMes(mes);
+    const utilidadGlobal = roi.utilidad + bravo.gananciaNeta + salud.gananciaNeta;
+
+    return { mes, nominas, comisiones, gastosVar, gastosFijos, totalMes,
+      ingresosATT: roi.pagado, gananciaATT: roi.utilidad, roiPct: roi.roi,
+      gananciaBravo: bravo.gananciaNeta, gananciaSalud: salud.gananciaNeta, utilidadGlobal };
   });
+
+  const sum = (key) => datos.reduce((s,d)=>s+d[key],0);
+  const totalUtilidad = sum('utilidadGlobal');
+  const totalRoiPct = sum('ingresosATT') > 0 ? (sum('gananciaATT') / sum('ingresosATT') * 100) : 0;
+
+  el.innerHTML = `
+    <div style="margin-bottom:12px">
+      <select id="top-gn-anio-sel" onchange="renderTopGastoNominaGanancias()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600">
+        <option value="">📊 Todos los años</option>
+        ${anios.map(a=>`<option value="${a}" ${a===selAnio?'selected':''}>${a}</option>`).join('')}
+      </select>
+    </div>
+    <div class="tbl-wrap" style="overflow-x:auto">
+      <table style="width:100%">
+        <thead>
+          <tr style="background:#F5F8FA">
+            <th style="text-align:left;min-width:140px">📅 Mes</th>
+            <th style="text-align:right;min-width:130px">💼 Nóminas</th>
+            <th style="text-align:right;min-width:130px">💰 Comisiones</th>
+            <th style="text-align:right;min-width:150px">📊 Gastos Var.</th>
+            <th style="text-align:right;min-width:130px">📌 Gastos Fijos</th>
+            <th style="text-align:right;min-width:130px">💵 Total Gastos</th>
+            <th style="text-align:right;min-width:130px;background:#F0FDF9">📶 Ingresos AT&T</th>
+            <th style="text-align:right;min-width:130px;background:#F0FDF9">💎 Ganancia AT&T</th>
+            <th style="text-align:right;min-width:130px;background:#FFF3EE">🏪 Ganancia Bravo</th>
+            <th style="text-align:right;min-width:150px;background:#F0FFFB">💚 Ganancia Salud/Dental</th>
+            <th style="text-align:right;min-width:140px;background:#F5F4FF">🌐 Utilidad Global</th>
+            <th style="text-align:right;min-width:90px;background:#F5F4FF">ROI%</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${datos.map(d => `
+            <tr style="border-bottom:1px solid #CBD6E2">
+              <td style="padding:12px;font-weight:600;color:#33475B">${d.mes}</td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.nominas}" data-field="nominas" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#009FDB" /></td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00BDA5" /></td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
+              <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
+              <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
+              <td style="padding:12px;text-align:right;font-weight:600;color:#00A492;background:#F8FFFC">${fmt(d.ingresosATT)}</td>
+              <td style="padding:12px;text-align:right;font-weight:800;background:#F8FFFC;color:${d.gananciaATT>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaATT)}</td>
+              <td style="padding:12px;text-align:right;font-weight:800;background:#FFFAF7;color:${d.gananciaBravo>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaBravo)}</td>
+              <td style="padding:12px;text-align:right;font-weight:800;background:#F7FFFD;color:${d.gananciaSalud>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaSalud)}</td>
+              <td style="padding:12px;text-align:right;font-weight:900;background:#FAFAFF;color:${d.utilidadGlobal>=0?'#00BDA5':'#E04048'}">${fmt(d.utilidadGlobal)}</td>
+              <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF;color:${d.roiPct>=20?'#00BDA5':d.roiPct>=0?'#D4A017':'#E04048'}">${d.roiPct.toFixed(1)}%</td>
+            </tr>
+          `).join('') || `<tr><td colspan="12" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
+          <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
+            <td style="padding:12px;color:#33475B">📊 Total${selAnio?' '+selAnio:' (todos los años)'}</td>
+            <td style="padding:12px;text-align:right;color:#009FDB">${fmt(sum('nominas'))}</td>
+            <td style="padding:12px;text-align:right;color:#00BDA5">${fmt(sum('comisiones'))}</td>
+            <td style="padding:12px;text-align:right;color:#FF7A59">${fmt(sum('gastosVar'))}</td>
+            <td style="padding:12px;text-align:right;color:#F2545B">${fmt(sum('gastosFijos'))}</td>
+            <td style="padding:12px;text-align:right;color:#009FDB;font-size:15px">${fmt(sum('totalMes'))}</td>
+            <td style="padding:12px;text-align:right;color:#00A492;background:#F8FFFC">${fmt(sum('ingresosATT'))}</td>
+            <td style="padding:12px;text-align:right;background:#F8FFFC;color:${sum('gananciaATT')>=0?'#00BDA5':'#E04048'}">${fmt(sum('gananciaATT'))}</td>
+            <td style="padding:12px;text-align:right;background:#FFFAF7;color:${sum('gananciaBravo')>=0?'#00BDA5':'#E04048'}">${fmt(sum('gananciaBravo'))}</td>
+            <td style="padding:12px;text-align:right;background:#F7FFFD;color:${sum('gananciaSalud')>=0?'#00BDA5':'#E04048'}">${fmt(sum('gananciaSalud'))}</td>
+            <td style="padding:12px;text-align:right;font-size:16px;background:#FAFAFF;color:${totalUtilidad>=0?'#00BDA5':'#E04048'}">${fmt(totalUtilidad)}</td>
+            <td style="padding:12px;text-align:right;background:#FAFAFF;color:${totalRoiPct>=20?'#00BDA5':totalRoiPct>=0?'#D4A017':'#E04048'}">${totalRoiPct.toFixed(1)}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function guardarGastoNominaCell(input) {
