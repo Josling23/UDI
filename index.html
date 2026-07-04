@@ -2155,7 +2155,12 @@ tr:hover td{background:#EAF0FB}
           <div><span style="color:#7C98B6">Reparaciones:</span> <span id="bravo-count-rep" style="font-weight:700;color:#33475B">0</span></div>
           <div><span style="color:#7C98B6">Combos:</span> <span id="bravo-count-combo" style="font-weight:700;color:#33475B">0</span></div>
           <div><span style="color:#7C98B6">Teléfonos:</span> <span id="bravo-count-tel" style="font-weight:700;color:#33475B">0</span></div>
+          <div><span style="color:#7C98B6">Actividades Douglas:</span> <span id="bravo-count-douglas" style="font-weight:700;color:#33475B">0</span></div>
           <div><span style="color:#7C98B6">Ganancia Total:</span> <span id="bravo-ganancia-total" style="font-weight:700;color:#00BDA5">$0.00</span></div>
+        </div>
+        <div id="bravo-resumen-douglas-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #CBD6E2">
+          <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:6px">👤 Resumen de Actividades de Douglas</div>
+          <div id="bravo-resumen-douglas" style="font-size:11px;color:#33475B;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px"></div>
         </div>
       </div>
     </div>
@@ -11375,6 +11380,27 @@ const REP_ESTADO_LABELS = { recibido:'📥 Recibido', pendiente:'⏳ Pendiente',
 const REP_ESTADO_COLORS = { recibido:'#009FDB', pendiente:'#D4A017', entregado:'#00BDA5' };
 const REP_PAGO_LABELS   = { cash:'💵 Cash', zelle:'📲 Zelle', punto:'💳 Punto' };
 
+const DOUGLAS_ACTIVIDAD_LABELS = {
+  'flyers': '🗞️ Flyers Entregados',
+  'publicidad': '📢 Publicidad Enviada',
+  'leads-llamados': '📞 Leads Llamados',
+  'leads-contactados': '✅ Leads Contactados',
+  'clientes-telefono': '📱 Clientes Verificados Teléfono',
+  'clientes-internet': '🌐 Clientes Verificados Internet',
+  'fraudes': '⚠️ Fraudes Directos',
+  'aprobados-inicial': '💰 Clientes Aprobados',
+  'presupuestos': '📋 Presupuestos de Reparación',
+  'soporte-vendedores': '🤝 Soporte a Vendedores',
+  'soporte-lycas': '📱 Soporte con Lycas',
+  'portabilidad': '↔️ Datos de Portabilidad',
+  'conferencia': '☎️ Llamadas en Conferencia',
+  'pago-facturas': '💳 Ayuda a Pagar Facturas',
+  'inventario': '📦 Inventario Agregado',
+  'viajes': '🚗 Viajes',
+  'fedex': '📮 Paquetes FedEx/Correo',
+  'otro': '📝 Otra Actividad'
+};
+
 function calcularReparacionAuto() {
   const costo = parseFloat(document.getElementById('rep-costo')?.value) || 0;
   const totalCosto = parseFloat(document.getElementById('rep-totalcosto')?.value) || 0;
@@ -12388,31 +12414,10 @@ function bravoRenderListaActividades() {
     return;
   }
 
-  const tiposLabels = {
-    'flyers': '🗞️ Flyers Entregados',
-    'publicidad': '📢 Publicidad Enviada',
-    'leads-llamados': '📞 Leads Llamados',
-    'leads-contactados': '✅ Leads Contactados',
-    'clientes-telefono': '📱 Clientes Verificados Teléfono',
-    'clientes-internet': '🌐 Clientes Verificados Internet',
-    'fraudes': '⚠️ Fraudes Directos',
-    'aprobados-inicial': '💰 Clientes Aprobados',
-    'presupuestos': '📋 Presupuestos de Reparación',
-    'soporte-vendedores': '🤝 Soporte a Vendedores',
-    'soporte-lycas': '📱 Soporte con Lycas',
-    'portabilidad': '↔️ Datos de Portabilidad',
-    'conferencia': '☎️ Llamadas en Conferencia',
-    'pago-facturas': '💳 Ayuda a Pagar Facturas',
-    'inventario': '📦 Inventario Agregado',
-    'viajes': '🚗 Viajes',
-    'fedex': '📮 Paquetes FedEx/Correo',
-    'otro': '📝 Otra Actividad'
-  };
-
   lista.innerHTML = bravoRegistroTemp.actividades.map((act, i) => `
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
-        <div style="font-weight:600;color:#33475B">${tiposLabels[act.tipo] || act.tipo}</div>
+        <div style="font-weight:600;color:#33475B">${DOUGLAS_ACTIVIDAD_LABELS[act.tipo] || act.tipo}</div>
         <div style="font-size:10px;color:#7C98B6">Cantidad: ${act.cantidad}${act.notas ? ' | ' + act.notas : ''}</div>
       </div>
       <div style="display:flex;gap:4px">
@@ -12430,6 +12435,7 @@ function bravoActualizarResumen() {
   document.getElementById('bravo-count-rep').textContent = bravoRegistroTemp.reparaciones.length;
   document.getElementById('bravo-count-combo').textContent = bravoRegistroTemp.combos.length;
   document.getElementById('bravo-count-tel').textContent = bravoRegistroTemp.telefonos.length;
+  document.getElementById('bravo-count-douglas').textContent = bravoRegistroTemp.actividades.length;
 
   const totalGanancia =
     bravoRegistroTemp.accesorios.reduce((s,a) => s + (a.ganancia||0), 0) +
@@ -12439,6 +12445,24 @@ function bravoActualizarResumen() {
     bravoRegistroTemp.telefonos.reduce((s,t) => s + (t.ganancia||0), 0);
 
   document.getElementById('bravo-ganancia-total').textContent = '$' + totalGanancia.toFixed(2);
+
+  // Desglose de las actividades de Douglas, agrupadas por tipo, según lo
+  // que él va reportando en esta pestaña.
+  const porTipo = {};
+  bravoRegistroTemp.actividades.forEach(act => {
+    const label = DOUGLAS_ACTIVIDAD_LABELS[act.tipo] || act.tipo;
+    porTipo[label] = (porTipo[label]||0) + (parseInt(act.cantidad)||1);
+  });
+  const wrap = document.getElementById('bravo-resumen-douglas-wrap');
+  const cont = document.getElementById('bravo-resumen-douglas');
+  const entradas = Object.entries(porTipo);
+  if(entradas.length) {
+    wrap.style.display = 'block';
+    cont.innerHTML = entradas.map(([label, total]) => `<div>${label}: <b>${total}</b></div>`).join('');
+  } else {
+    wrap.style.display = 'none';
+    cont.innerHTML = '';
+  }
 }
 
 // Guardar registro completo
