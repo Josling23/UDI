@@ -4310,7 +4310,7 @@ function guardarVentaJosePina() {
   if(cantidad <= 0) { showNotif('⚠️ La cantidad debe ser mayor a 0','error'); return; }
 
   // Encontrar a José Piña
-  const josePina = appData.agentes.find(a => a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+  const josePina = appData.agentes.find(a => a.soloHQ && esJosePina(a.nombre));
   if(!josePina) { showNotif('❌ No se encontró el perfil de José Piña','error'); return; }
 
   // Crear el registro de venta
@@ -4353,7 +4353,7 @@ function guardarVentaJosePina() {
 }
 
 function actualizarListaVentasHQ() {
-  const josePina = appData.agentes.find(a => a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+  const josePina = appData.agentes.find(a => a.soloHQ && esJosePina(a.nombre));
   if(!josePina) return;
 
   const nombreLow = (josePina.nombre||'').trim().toLowerCase();
@@ -4458,7 +4458,7 @@ function renderAgentes() {
 
   // Filtrar José Piña si el usuario no puede manejarlo
   if (!canManageJP) {
-    visibles = visibles.filter(a=>!(a.nombre||'').toLowerCase().includes('jose pina'));
+    visibles = visibles.filter(a=>!esJosePina(a.nombre));
   }
 
   const gerentes    = visibles.filter(a=>a.rol==='gerente');
@@ -4660,7 +4660,7 @@ function openAgenteModal(id=null) {
   const otrosAgentes = appData.agentes.filter(x=>
     x.id !== id &&
     (x.rol === 'agente' || !x.rol) &&
-    !(x.nombre||'').toLowerCase().includes('jose pina')
+    !esJosePina(x.nombre)
   );
   document.getElementById('a-copy-source').innerHTML =
     '<option value="">— Selecciona un agente —</option>' +
@@ -5236,7 +5236,7 @@ function renderPagos() {
 
   // ── Calcular Inversión-Activa (José Piña) ──
   const josePinaTotal = (() => {
-    const jp = appData.agentes.find(a => a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+    const jp = appData.agentes.find(a => a.soloHQ && esJosePina(a.nombre));
     if(!jp) return 0;
     const comQ   = getComisionesQuincena(jp, mesAct, qAct);
     const nombreLow = (jp.nombre||'').trim().toLowerCase();
@@ -6334,7 +6334,7 @@ function renderHQ() {
   const canManageJP = userCanManageJosePina(email);
 
   // SOLO mostrar José Piña en HQ
-  let hqAgentes = appData.agentes.filter(a=>a.soloHQ && (a.nombre||'').toLowerCase().includes('jose pina'));
+  let hqAgentes = appData.agentes.filter(a=>a.soloHQ && esJosePina(a.nombre));
   if (!canManageJP) {
     hqAgentes = [];
   }
@@ -7086,7 +7086,7 @@ function renderHQGerente() {
     return;
   }
 
-  const josePina = appData.agentes.find(a=>(a.nombre||'').toLowerCase().includes('jose pina'));
+  const josePina = appData.agentes.find(a=>esJosePina(a.nombre));
 
   if (!josePina) {
     document.getElementById('hq-gerente-content').innerHTML = `
@@ -7220,7 +7220,7 @@ function renderHQGerente() {
             <label style="display:block;font-weight:600;color:#33475B;margin-bottom:6px;font-size:12px">📦 Producto *</label>
             <select id="hqg-venta-producto" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px">
               <option value="">— Selecciona un producto —</option>
-              ${PRODUCTOS_CATALOG.map(p=>`<option value="${p.id}">${p.nombre} ($${p.precio.toFixed(2)})</option>`).join('')}
+              ${PRODUCTOS_CATALOG.map(p=>`<option value="${p.id}">${p.nombre} (comisión típica: $${(p.comision||0).toFixed(2)})</option>`).join('')}
             </select>
           </div>
         </div>
