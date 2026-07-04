@@ -11575,7 +11575,12 @@ function bravoRegistros() {
           <option value="">Todos los años</option>
           ${añosDisponibles.map(a=>`<option value="${a}">${a}</option>`).join('')}
         </select>
-        <button onclick="document.getElementById('reg-f-fecha').value='';document.getElementById('reg-f-mes').value='';document.getElementById('reg-f-anio').value='';bravoRenderRegistrosTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+        <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:5px 10px">
+          <input type="date" id="reg-f-desde" onchange="bravoRenderRegistrosTabla()" title="Desde (rango de fechas)" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
+          <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
+          <input type="date" id="reg-f-hasta" onchange="bravoRenderRegistrosTabla()" title="Hasta (rango de fechas)" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
+        </div>
+        <button onclick="document.getElementById('reg-f-fecha').value='';document.getElementById('reg-f-mes').value='';document.getElementById('reg-f-anio').value='';document.getElementById('reg-f-desde').value='';document.getElementById('reg-f-hasta').value='';bravoRenderRegistrosTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
       </div>
 
       <div class="tbl-wrap">
@@ -11606,10 +11611,14 @@ function bravoRenderRegistrosTabla() {
   const filtroFecha = document.getElementById('reg-f-fecha')?.value || '';
   const filtroMes = document.getElementById('reg-f-mes')?.value || '';
   const filtroAnio = document.getElementById('reg-f-anio')?.value || '';
+  const filtroDesde = document.getElementById('reg-f-desde')?.value || '';
+  const filtroHasta = document.getElementById('reg-f-hasta')?.value || '';
 
   const filtrados = (appData.bravo.reportesDiarios||[]).filter(r => {
     if(!r.fecha) return false;
     if(filtroFecha && r.fecha !== filtroFecha) return false;
+    if(filtroDesde && r.fecha < filtroDesde) return false;
+    if(filtroHasta && r.fecha > filtroHasta) return false;
     const [y, m] = r.fecha.split('-');
     if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
     if(filtroAnio && y !== filtroAnio) return false;
@@ -11650,19 +11659,47 @@ function bravoRenderRegistrosTabla() {
   `).join('') : '<tr><td colspan="9" class="tbl-empty">Sin registros</td></tr>';
 }
 
-// Descarga en un solo Excel (una hoja por área) todo lo registrado en
-// Bravo — Registros Diarios, Reparaciones, Líneas Lyca y Caja Chica —
-// filtrado por el mismo día/mes/año elegido arriba en Registros Diarios.
-// Líneas Lyca no tiene fecha exacta (solo Mes), así que un filtro por
-// día específico no le aplica a esa hoja.
+const BRAVO_METODO_PAGO_LABELS_FULL = { efectivo:'Efectivo', zelle:'Zelle', paypal:'PayPal', punto:'Punto', otro:'Otro' };
+const BRAVO_ACC_TIPO_LABELS_FULL = { fundas:'Funda', vidrios:'Vidrio Templado', camara:'Protector de Cámara',
+  'cargador-carro':'Cargador de Carro', tacos:'Taco de Carga', cables:'Cable de Carga', powerbank:'Power Bank',
+  audifonos:'Audífonos/AirPods', otros:'Otros Accesorios' };
+const BRAVO_LYCA_TIPO_LABELS_FULL = { 'lyca-agente':'Lyca - Agente', 'lyca-cliente':'Lyca - Cliente Final', tmobile:'T-Mobile' };
+const BRAVO_REP_EQUIPO_LABELS_FULL = { celular:'Celular', tablet:'Tablet/iPad', laptop:'Laptop', otro:'Otro' };
+const BRAVO_REP_TIPO_LABELS_FULL = { pantalla:'Pantalla', tapa:'Tapa Trasera', pin:'Pin de Carga', mojado:'Mojado',
+  speaker:'Speaker', diagnostico:'Diagnóstico', otro:'Otro' };
+const BRAVO_REP_ESTADO_LABELS_FULL = { entregada:'Entregada', pendiente:'Pendiente de Repuesto',
+  'en-reparacion':'En Reparación', cancelada:'Cancelada' };
+const BRAVO_TEL_TIPO_LABELS_FULL = { desbloqueado:'Desbloqueado', activacion:'Con Activación' };
+
+function bravoAplicarFormatoMoneda(ws, colIndices, numRows) {
+  colIndices.forEach(col => {
+    for(let row = 1; row <= numRows; row++) {
+      const addr = XLSX.utils.encode_cell({ r: row, c: col });
+      if(ws[addr] && typeof ws[addr].v === 'number') ws[addr].z = '"$"#,##0.00';
+    }
+  });
+}
+
+// Descarga un Excel completo para análisis financiero/operativo de Bravo:
+// Resumen Diario, Detalle por categoría (Accesorios/Lycas/Reparaciones/
+// Combos/Teléfonos), Actividades Douglas y Resumen Mensual — todo lo que
+// se carga desde Registro Diario (incluyendo lo pegado con "Pegar Reporte(s)").
+// La ganancia de Bravo aquí es solo la operativa del local (no mezcla
+// comisiones de AT&T/Internet/RS&I, que se manejan aparte en Admin/TOP).
+// También incluye, como hojas adicionales, los trackers independientes de
+// Reparaciones (tickets) y Líneas Lyca, que ya existían antes de este reporte.
 function bravoDescargarReportesExcel() {
   const filtroFecha = document.getElementById('reg-f-fecha')?.value || '';
   const filtroMes = document.getElementById('reg-f-mes')?.value || '';
   const filtroAnio = document.getElementById('reg-f-anio')?.value || '';
+  const filtroDesde = document.getElementById('reg-f-desde')?.value || '';
+  const filtroHasta = document.getElementById('reg-f-hasta')?.value || '';
 
   const coincideFecha = (fecha) => {
     if(!fecha) return false;
     if(filtroFecha && fecha !== filtroFecha) return false;
+    if(filtroDesde && fecha < filtroDesde) return false;
+    if(filtroHasta && fecha > filtroHasta) return false;
     const [y, m] = fecha.split('-');
     if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
     if(filtroAnio && y !== filtroAnio) return false;
@@ -11686,46 +11723,179 @@ function bravoDescargarReportesExcel() {
     return true;
   };
 
-  const tieneFiltro = filtroFecha || filtroMes || filtroAnio;
+  const tieneFiltro = filtroFecha || filtroMes || filtroAnio || filtroDesde || filtroHasta;
 
-  const registros = (appData.bravo.reportesDiarios||[]).filter(r => !tieneFiltro || coincideFecha(r.fecha));
-  const reparaciones = (appData.bravo.reparaciones||[]).filter(r => !tieneFiltro || coincideFecha(r.fecha));
-  const caja = (appData.bravo.caja||[]).filter(c => !tieneFiltro || coincideFecha(c.fecha));
-  const lycas = (appData.bravo.lineasLyca||[]).filter(l => !tieneFiltro || coincideMesTextoLyca(l.mes));
+  const registros = (appData.bravo.reportesDiarios||[]).filter(r => !tieneFiltro || coincideFecha(r.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const reparacionesStandalone = (appData.bravo.reparaciones||[]).filter(r => !tieneFiltro || coincideFecha(r.fecha));
+  const cajaFiltrada = (appData.bravo.caja||[]).filter(c => !tieneFiltro || coincideFecha(c.fecha));
+  const lycasStandalone = (appData.bravo.lineasLyca||[]).filter(l => !tieneFiltro || coincideMesTextoLyca(l.mes));
 
-  if(!registros.length && !reparaciones.length && !caja.length && !lycas.length) {
+  if(!registros.length && !reparacionesStandalone.length && !cajaFiltrada.length && !lycasStandalone.length) {
     showNotif('⚠️ No hay datos para descargar con ese filtro','error');
     return;
   }
 
+  const cajaPorFecha = {};
+  cajaFiltrada.forEach(c => { cajaPorFecha[c.fecha] = (c.cajaInicial||0) + (c.totalEntradas||0) - (c.totalSalidas||0); });
+
   const wb = XLSX.utils.book_new();
 
-  const wsRegistros = XLSX.utils.aoa_to_sheet([
-    ['Fecha','Accesorios','Lycas','Reparaciones','Combos','Teléfonos','Ganancia Total'],
-    ...registros.map(r => [r.fecha, (r.accesorios||[]).length, (r.lycas||[]).length, (r.reparaciones||[]).length, (r.combos||[]).length, (r.telefonos||[]).length, r.gananciaTotal||0])
+  // ---- 1. RESUMEN DIARIO ----
+  const resumenDiarioRows = registros.map(r => {
+    const [y,m,d] = (r.fecha||'').split('-').map(Number);
+    let diaSemana = '';
+    if(y && m && d) {
+      diaSemana = new Date(y, m-1, d).toLocaleDateString('es-ES', {weekday:'long'});
+      diaSemana = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
+    }
+    const notasGenerales = [
+      ...(r.accesorios||[]).map(x=>x.notas), ...(r.lycas||[]).map(x=>x.notas), ...(r.reparaciones||[]).map(x=>x.notas),
+      ...(r.combos||[]).map(x=>x.notas), ...(r.telefonos||[]).map(x=>x.notas)
+    ].filter(Boolean).join(' | ');
+    const actividadesResumen = (r.actividades||[]).map(a => `${DOUGLAS_ACTIVIDAD_LABELS[a.tipo]||a.tipo} (${a.cantidad})`).join(' | ');
+    return [
+      r.fecha, diaSemana,
+      (r.accesorios||[]).length, (r.lycas||[]).length, (r.reparaciones||[]).length, (r.combos||[]).length, (r.telefonos||[]).length,
+      r.gananciaTotal||0, cajaPorFecha[r.fecha] != null ? cajaPorFecha[r.fecha] : '',
+      actividadesResumen, notasGenerales
+    ];
+  });
+  const wsResumenDiario = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Día de la Semana','Accesorios Vendidos','Lycas Vendidas','Reparaciones','Combos','Teléfonos','Ganancia Total del Día','Caja Chica Final','Actividades Douglas','Notas Generales'],
+    ...resumenDiarioRows
   ]);
-  XLSX.utils.book_append_sheet(wb, wsRegistros, 'Registros Diarios');
+  bravoAplicarFormatoMoneda(wsResumenDiario, [7,8], resumenDiarioRows.length);
+  XLSX.utils.book_append_sheet(wb, wsResumenDiario, 'Resumen Diario');
 
-  const wsReparaciones = XLSX.utils.aoa_to_sheet([
-    ['Fecha','Cliente','Teléfono','Costo Repuesto','Total Cobrado','Abono','Resta','Ganancia','Estado','Pago'],
-    ...reparaciones.map(r => [r.fecha, r.cliente||'', r.telefono||'', r.costoRepuesto||0, r.totalCosto!=null?r.totalCosto:((r.costoRepuesto||0)+(r.ganancia||0)), r.abono||0, r.resta||0, r.ganancia||0, REP_ESTADO_LABELS[r.estado]||r.estado||'', REP_PAGO_LABELS[r.pago]||r.pago||''])
+  // ---- 2. DETALLE DE ACCESORIOS ----
+  const accRows = [];
+  registros.forEach(r => (r.accesorios||[]).forEach(a => {
+    accRows.push([r.fecha, BRAVO_ACC_TIPO_LABELS_FULL[a.tipo]||a.tipo||'', a.cantidad||1, a.precio||0, a.costo||0, a.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[a.metodo]||a.metodo||'', a.notas||'']);
+  }));
+  const wsAcc = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Tipo de Accesorio','Cantidad','Precio de Venta','Costo','Ganancia Neta','Método de Pago','Nota'],
+    ...accRows
   ]);
-  XLSX.utils.book_append_sheet(wb, wsReparaciones, 'Reparaciones');
+  bravoAplicarFormatoMoneda(wsAcc, [3,4,5], accRows.length);
+  XLSX.utils.book_append_sheet(wb, wsAcc, 'Detalle Accesorios');
 
-  const wsLyca = XLSX.utils.aoa_to_sheet([
-    ['Mes','Teléfono','Cliente','Agente','Asignado por','Costo','Pago','Comisión','Ganancia','Estado','Método Pago'],
-    ...lycas.map(l => [l.mes||'', l.telefono||'', l.cliente||'', l.agente||'', l.asignadoPor||'', l.costo||0, l.pago||0, l.comision||0, l.ganancia||0, LYCA_ESTADO_LABELS[l.estado]||l.estado||'', LYCA_PAGO_LABELS[l.pagoMetodo]||''])
+  // ---- 3. DETALLE DE LYCAS / T-MOBILE ----
+  const lycaRows = [];
+  registros.forEach(r => (r.lycas||[]).forEach(l => {
+    lycaRows.push([r.fecha, BRAVO_LYCA_TIPO_LABELS_FULL[l.tipo]||l.tipo||'', l.cliente||'', l.precio||0, l.costo||0, l.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[l.metodo]||l.metodo||'', l.notas||'']);
+  }));
+  const wsLycaDet = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Tipo','Cliente / Agente','Precio Vendido','Costo','Ganancia Neta','Método de Pago','Nota'],
+    ...lycaRows
   ]);
-  XLSX.utils.book_append_sheet(wb, wsLyca, 'Líneas Lyca');
+  bravoAplicarFormatoMoneda(wsLycaDet, [3,4,5], lycaRows.length);
+  XLSX.utils.book_append_sheet(wb, wsLycaDet, 'Detalle Lycas');
 
-  const wsCaja = XLSX.utils.aoa_to_sheet([
-    ['Fecha','Caja Inicial','Entradas','Salidas','Caja Final','Notas'],
-    ...caja.map(c => [c.fecha, c.cajaInicial||0, c.totalEntradas||0, c.totalSalidas||0, (c.cajaInicial||0)+(c.totalEntradas||0)-(c.totalSalidas||0), c.notas||''])
+  // ---- 4. DETALLE DE REPARACIONES ----
+  const repRows = [];
+  registros.forEach(r => (r.reparaciones||[]).forEach(x => {
+    repRows.push([r.fecha, BRAVO_REP_EQUIPO_LABELS_FULL[x.equipo]||x.equipo||'', BRAVO_REP_TIPO_LABELS_FULL[x.tipo]||x.tipo||'', x.precio||0, x.costo||0, x.abono||0, x.resta||0, x.ganancia||0, BRAVO_REP_ESTADO_LABELS_FULL[x.estado]||x.estado||'', x.notas||'']);
+  }));
+  const wsRep = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Equipo','Tipo de Reparación','Precio Cobrado','Costo Repuesto','Abono','Resta por Cobrar','Ganancia Neta','Estado','Nota'],
+    ...repRows
   ]);
-  XLSX.utils.book_append_sheet(wb, wsCaja, 'Caja Chica');
+  bravoAplicarFormatoMoneda(wsRep, [3,4,5,6,7], repRows.length);
+  XLSX.utils.book_append_sheet(wb, wsRep, 'Detalle Reparaciones');
 
-  const etiqueta = filtroFecha ? filtroFecha : (filtroMes ? `${MESES_ES[parseInt(filtroMes,10)-1]}${filtroAnio?'-'+filtroAnio:''}` : (filtroAnio || 'Todo'));
-  XLSX.writeFile(wb, `Bravo_Reportes_${etiqueta}.xlsx`);
+  // ---- 5. DETALLE DE COMBOS ----
+  const comboRows = [];
+  registros.forEach(r => (r.combos||[]).forEach(c => {
+    comboRows.push([r.fecha, c.desc||'', c.precio||0, c.costo||0, c.comision||0, c.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[c.metodo]||c.metodo||'', c.notas||'']);
+  }));
+  const wsCombos = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Descripción','Precio de Venta','Costo Combo','Comisión Vendedor','Ganancia Neta','Método de Pago','Nota'],
+    ...comboRows
+  ]);
+  bravoAplicarFormatoMoneda(wsCombos, [2,3,4,5], comboRows.length);
+  XLSX.utils.book_append_sheet(wb, wsCombos, 'Detalle Combos');
+
+  // ---- 6. DETALLE DE TELÉFONOS ----
+  const telRows = [];
+  registros.forEach(r => (r.telefonos||[]).forEach(t => {
+    telRows.push([r.fecha, t.modelo||'', t.costo||0, t.precio||0, t.ganancia||0, BRAVO_TEL_TIPO_LABELS_FULL[t.tipo]||t.tipo||'', BRAVO_METODO_PAGO_LABELS_FULL[t.metodo]||t.metodo||'', t.notas||'']);
+  }));
+  const wsTel = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Modelo','Costo','Precio de Venta','Ganancia Neta','Tipo','Método de Pago','Nota'],
+    ...telRows
+  ]);
+  bravoAplicarFormatoMoneda(wsTel, [2,3,4], telRows.length);
+  XLSX.utils.book_append_sheet(wb, wsTel, 'Detalle Teléfonos');
+
+  // ---- 7. ACTIVIDADES DOUGLAS ----
+  const actRows = [];
+  registros.forEach(r => (r.actividades||[]).forEach(a => {
+    actRows.push([r.fecha, DOUGLAS_ACTIVIDAD_LABELS[a.tipo]||a.tipo||'', a.cantidad||1, a.notas||'']);
+  }));
+  const wsAct = XLSX.utils.aoa_to_sheet([
+    ['Fecha','Tipo de Actividad','Cantidad','Nota'],
+    ...actRows
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsAct, 'Actividades Douglas');
+
+  // ---- 8. RESUMEN MENSUAL ----
+  const mesesEnDatos = [...new Set(registros.map(r => (r.fecha||'').slice(0,7)))].filter(Boolean).sort();
+  const resumenMensualRows = mesesEnDatos.map(ym => {
+    const [yy, mm] = ym.split('-');
+    const regsDelMes = registros.filter(r => (r.fecha||'').startsWith(ym));
+    const totalAcc = regsDelMes.reduce((s,r)=>s+(r.accesorios||[]).length,0);
+    const totalLyca = regsDelMes.reduce((s,r)=>s+(r.lycas||[]).length,0);
+    const totalRep = regsDelMes.reduce((s,r)=>s+(r.reparaciones||[]).length,0);
+    const totalCombo = regsDelMes.reduce((s,r)=>s+(r.combos||[]).length,0);
+    const totalTel = regsDelMes.reduce((s,r)=>s+(r.telefonos||[]).length,0);
+    const gananciaTotalMes = regsDelMes.reduce((s,r)=>s+(r.gananciaTotal||0),0);
+    const diasConDatos = regsDelMes.length;
+    const promedioDiario = diasConDatos>0 ? gananciaTotalMes/diasConDatos : 0;
+    let mejorDia = null, peorDia = null;
+    regsDelMes.forEach(r => {
+      if(!mejorDia || (r.gananciaTotal||0) > mejorDia.gananciaTotal) mejorDia = r;
+      if(!peorDia || (r.gananciaTotal||0) < peorDia.gananciaTotal) peorDia = r;
+    });
+    const cajaDelMes = cajaFiltrada.filter(c=>(c.fecha||'').startsWith(ym)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    const cajaFinalMes = cajaDelMes.length ? (cajaDelMes[cajaDelMes.length-1].cajaInicial + cajaDelMes[cajaDelMes.length-1].totalEntradas - cajaDelMes[cajaDelMes.length-1].totalSalidas) : '';
+    return [
+      `${MESES_ES[parseInt(mm,10)-1]} ${yy}`, totalAcc, totalLyca, totalRep, totalCombo, totalTel, gananciaTotalMes,
+      promedioDiario, mejorDia ? `${mejorDia.fecha} (${fmt(mejorDia.gananciaTotal||0)})` : '—',
+      peorDia ? `${peorDia.fecha} (${fmt(peorDia.gananciaTotal||0)})` : '—', cajaFinalMes
+    ];
+  });
+  const wsResumenMensual = XLSX.utils.aoa_to_sheet([
+    ['Mes','Total Accesorios','Total Lycas','Total Reparaciones','Total Combos','Total Teléfonos','Ganancia Total','Promedio Diario','Mejor Día','Peor Día','Caja Chica Final'],
+    ...resumenMensualRows
+  ]);
+  bravoAplicarFormatoMoneda(wsResumenMensual, [6,7,10], resumenMensualRows.length);
+  XLSX.utils.book_append_sheet(wb, wsResumenMensual, 'Resumen Mensual');
+
+  // ---- Hojas adicionales: trackers independientes que ya existían ----
+  if(reparacionesStandalone.length) {
+    const wsReparacionesTickets = XLSX.utils.aoa_to_sheet([
+      ['Fecha','Cliente','Teléfono','Costo Repuesto','Total Cobrado','Abono','Resta','Ganancia','Estado','Pago'],
+      ...reparacionesStandalone.map(r => [r.fecha, r.cliente||'', r.telefono||'', r.costoRepuesto||0, r.totalCosto!=null?r.totalCosto:((r.costoRepuesto||0)+(r.ganancia||0)), r.abono||0, r.resta||0, r.ganancia||0, REP_ESTADO_LABELS[r.estado]||r.estado||'', REP_PAGO_LABELS[r.pago]||r.pago||''])
+    ]);
+    bravoAplicarFormatoMoneda(wsReparacionesTickets, [3,4,5,6,7], reparacionesStandalone.length);
+    XLSX.utils.book_append_sheet(wb, wsReparacionesTickets, 'Reparaciones (Tickets)');
+  }
+  if(lycasStandalone.length) {
+    const wsLycaStandalone = XLSX.utils.aoa_to_sheet([
+      ['Mes','Teléfono','Cliente','Agente','Asignado por','Costo','Pago','Comisión','Ganancia','Estado','Método Pago'],
+      ...lycasStandalone.map(l => [l.mes||'', l.telefono||'', l.cliente||'', l.agente||'', l.asignadoPor||'', l.costo||0, l.pago||0, l.comision||0, l.ganancia||0, LYCA_ESTADO_LABELS[l.estado]||l.estado||'', LYCA_PAGO_LABELS[l.pagoMetodo]||''])
+    ]);
+    bravoAplicarFormatoMoneda(wsLycaStandalone, [5,6,7,8], lycasStandalone.length);
+    XLSX.utils.book_append_sheet(wb, wsLycaStandalone, 'Líneas Lyca (Standalone)');
+  }
+
+  let etiqueta;
+  if(filtroMes && filtroAnio) etiqueta = `${filtroAnio}-${String(parseInt(filtroMes,10)).padStart(2,'0')}`;
+  else if(filtroFecha) etiqueta = filtroFecha;
+  else if(filtroDesde && filtroHasta) etiqueta = `${filtroDesde}_a_${filtroHasta}`;
+  else if(filtroAnio) etiqueta = filtroAnio;
+  else etiqueta = new Date().toISOString().slice(0,7);
+  XLSX.writeFile(wb, `bravo_reporte_${etiqueta}.xlsx`);
   showNotif('✅ Reporte descargado');
 }
 
