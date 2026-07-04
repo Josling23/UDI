@@ -1660,6 +1660,27 @@ tr:hover td{background:#EAF0FB}
   </div>
 </div>
 
+<!-- ===== MODAL TOP - PAGOS AT&T ===== -->
+<div class="modal-overlay" id="modal-pago-att">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="modal-pago-att-title">📶 Nuevo Pago AT&T</h3>
+      <button class="modal-close" onclick="closeModal('modal-pago-att')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="pago-att-fecha"></div>
+        <div class="form-group"><label>Monto ($) *</label><input type="number" id="pago-att-monto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Notas (opcional)</label><input type="text" id="pago-att-notas" placeholder="Ej: pago del viernes"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-pago-att')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPagoATT()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - LÍNEAS LYCA ===== -->
 <div class="modal-overlay" id="modal-bravo-lyca">
   <div class="modal" style="max-width:560px">
@@ -2343,6 +2364,8 @@ let appData = {
   nextGastoId: 1,
   pagosRecibidos: {},
   ingresos: [],
+  pagosATT: [],
+  nextPagoAttId: 1,
   chargebacks: {},
   rsiReportes: {},
   accesoPrivado: [],
@@ -2361,6 +2384,8 @@ let appData = {
 
 function normalizarAppData() {
   if(!appData.ingresos)     appData.ingresos = [];
+  if(!appData.pagosATT)     appData.pagosATT = [];
+  if(!appData.nextPagoAttId) appData.nextPagoAttId = 1;
   if(!appData.chargebacks)  appData.chargebacks = {};
   if(!appData.rsiReportes)  appData.rsiReportes = {};
   if(!appData.pagosRecibidos) appData.pagosRecibidos = {};
@@ -7245,6 +7270,7 @@ function renderTopROI() {
     let pagado = msLista.reduce((s,m)=>s
       + parseFloat(appData.pagosRecibidos[m]||0)
       + (appData.ingresos||[]).filter(i=>i.mes===m).reduce((ss,i)=>ss+parseFloat(i.monto||0),0)
+      + (appData.pagosATT||[]).filter(p=>p.mes===m).reduce((ss,p)=>ss+parseFloat(p.monto||0),0)
     ,0);
     const comAgentes = appData.agentes
       .filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente'))
@@ -7581,6 +7607,33 @@ function renderTopROI() {
         ];
         return rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>Fuente</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<div style="color:#99ACC2;font-size:12px;padding:8px 0">Sin ingresos registrados para este mes.</div>';
       })() : '<span style="font-size:12px;color:#99ACC2">Selecciona un mes para ver o agregar ingresos</span>'}
+    </div>
+
+    <!-- Pagos AT&T (martes/viernes) -->
+    <div class="section" style="margin-bottom:18px;border-left:4px solid #009FDB;background:#F0FBFF">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;font-weight:700;color:#0057A8">📶 Pagos AT&T — ${selMes||'(selecciona un mes)'}
+          <span style="font-size:10px;font-weight:400;color:#99ACC2;margin-left:6px">Registra aquí lo que AT&T te paga cada martes y viernes — esto NO se ve en Admin</span>
+        </div>
+        ${selMes?`<button class="btn btn-primary btn-sm" onclick="abrirModalPagoATT()">➕ Nuevo Pago AT&T</button>`:''}
+      </div>
+      ${selMes ? (()=>{
+        const pagos = (appData.pagosATT||[]).filter(p=>p.mes===selMes).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+        const totalPagosATT = pagos.reduce((s,p)=>s+parseFloat(p.monto||0),0);
+        if(!pagos.length) return '<div style="color:#99ACC2;font-size:12px;padding:8px 0">Sin pagos de AT&T registrados para este mes.</div>';
+        const rows = pagos.map(p=>{
+          const [y,mm,dd] = p.fecha.split('-').map(Number);
+          const diaSemana = new Date(y,mm-1,dd).toLocaleDateString('es-ES',{weekday:'long'});
+          return `<tr>
+            <td><b style="color:#0057A8">${p.fecha}</b> <span style="color:#7C98B6;font-size:11px;text-transform:capitalize">(${diaSemana})</span> ${p.notas?`<div style="color:#99ACC2;font-size:10px">${p.notas}</div>`:''}</td>
+            <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(p.monto)}</td>
+            <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="abrirModalPagoATT(${p.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="eliminarPagoATT(${p.id})" style="margin-left:4px">✕</button></td>
+          </tr>`;
+        }).join('');
+        return `<div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>${rows}</tbody>
+          <tfoot><tr><td style="font-weight:700">Total del mes</td><td style="text-align:right;font-weight:800;color:#0057A8">${fmt(totalPagosATT)}</td><td></td></tr></tfoot>
+        </table></div>`;
+      })() : '<span style="font-size:12px;color:#99ACC2">Selecciona un mes para ver o agregar pagos de AT&T</span>'}
     </div>
 
     <!-- Gastos del mes -->
@@ -7957,6 +8010,45 @@ function guardarPagoRecibido() {
   guardar();
   showNotif(`✅ Pago ${mes}: ${fmt(monto)} guardado`);
   renderTopROI();
+}
+
+let pagoAttEditId = null;
+function abrirModalPagoATT(id = null) {
+  pagoAttEditId = id;
+  const p = id ? (appData.pagosATT||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-pago-att-title').textContent = id ? '✏️ Editar Pago AT&T' : '📶 Nuevo Pago AT&T';
+  document.getElementById('pago-att-fecha').value = p ? p.fecha : new Date().toISOString().slice(0,10);
+  document.getElementById('pago-att-monto').value = p ? p.monto : '';
+  document.getElementById('pago-att-notas').value = p ? (p.notas||'') : '';
+  openModal('modal-pago-att');
+}
+function guardarPagoATT() {
+  const fecha = document.getElementById('pago-att-fecha').value;
+  const monto = parseFloat(document.getElementById('pago-att-monto').value)||0;
+  const notas = document.getElementById('pago-att-notas').value.trim();
+  if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+  if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
+  const [y,m] = fecha.split('-').map(Number);
+  const mes = MESES_ES[m-1] + ' ' + y;
+  if(!appData.pagosATT) appData.pagosATT = [];
+  if(pagoAttEditId) {
+    const p = appData.pagosATT.find(x=>x.id===pagoAttEditId);
+    Object.assign(p, { fecha, monto, notas, mes });
+  } else {
+    if(!appData.nextPagoAttId) appData.nextPagoAttId = 1;
+    appData.pagosATT.push({ id: appData.nextPagoAttId++, fecha, monto, notas, mes });
+  }
+  guardar();
+  closeModal('modal-pago-att');
+  renderTopROI();
+  showNotif('✅ Pago AT&T guardado');
+}
+function eliminarPagoATT(id) {
+  if(!confirm('¿Eliminar este pago de AT&T?')) return;
+  appData.pagosATT = (appData.pagosATT||[]).filter(p=>p.id!==id);
+  guardar();
+  renderTopROI();
+  showNotif('🗑️ Pago eliminado');
 }
 
 function abrirIngreso() {
