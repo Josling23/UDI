@@ -2249,6 +2249,30 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - IMPORTAR REPORTES PEGADOS ===== -->
+<div class="modal-overlay" id="modal-bravo-importar-reportes">
+  <div class="modal" style="max-width:720px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3>📋 Pegar Reporte(s) de Bravo</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-importar-reportes')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:10px">
+        Pega uno o varios reportes con el formato <code>---REPORTE | FECHA</code>. Puedes pegar varios días juntos, uno tras otro.
+      </div>
+      <textarea id="bravo-importar-textarea" placeholder="---REPORTE | 1-MAYO-2026&#10;&#10;ACCESORIOS:&#10;- Tipo: Funda | Cantidad: 1 | Precio Venta: $20 | Costo: $5 | Método: Punto | Nota: ...&#10;&#10;LYCAS:&#10;- Sin ventas Lyca registradas&#10;..." style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
+      <div style="margin-top:10px">
+        <button class="btn btn-primary btn-sm" onclick="bravoAnalizarReportesPegados()">🔍 Analizar</button>
+      </div>
+      <div id="bravo-importar-preview" style="margin-top:16px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-importar-reportes')">Cancelar</button>
+      <button class="btn btn-primary" id="bravo-importar-guardar-btn" onclick="bravoGuardarReportesImportados()" style="display:none">💾 Guardar Todos los Marcados</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // MESES
@@ -11534,6 +11558,7 @@ function bravoRegistros() {
         <h2>📋 Registros Diarios de Bravo</h2>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost btn-sm" onclick="bravoDescargarReportesExcel()">📥 Descargar Reportes</button>
+          <button class="btn btn-success btn-sm" onclick="abrirModalImportarReportes()">📋 Pegar Reporte(s)</button>
           <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
         </div>
       </div>
@@ -12934,6 +12959,333 @@ function bravoGuardarRegistro() {
     bravoRefrescarVistaActual();
     showNotif('✅ Registro guardado exitosamente');
   }
+}
+
+// ============================================================
+// IMPORTAR REPORTES DE BRAVO PEGADOS COMO TEXTO
+// ============================================================
+function bravoQuitarAcentos(s) { return (s||'').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function bravoNorm(s) { return bravoQuitarAcentos((s||'').trim().toLowerCase()); }
+
+function bravoParsearFechaReporte(str) {
+  if(!str) return '';
+  str = str.trim();
+  let m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m) return str;
+  m = str.match(/(\d{1,2})[\s\-\/]+(?:de\s+)?([a-zA-Zñáéíóú]+)[\s\-\/]+(?:de\s+)?(\d{4})/i);
+  if(m) {
+    const dia = parseInt(m[1], 10);
+    const mesTexto = bravoNorm(m[2]);
+    const anio = parseInt(m[3], 10);
+    const mesIdx = MESES_ES.findIndex(mm => bravoNorm(mm) === mesTexto || bravoNorm(mm).startsWith(mesTexto.slice(0,3)));
+    if(mesIdx === -1) return '';
+    return `${anio}-${String(mesIdx+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+function bravoParsearLineaClaveValor(linea) {
+  const limpio = linea.replace(/^\s*-\s*/, '');
+  const partes = limpio.split('|').map(p => p.trim()).filter(Boolean);
+  const obj = {};
+  partes.forEach(p => {
+    const idx = p.indexOf(':');
+    if(idx === -1) return;
+    const key = bravoNorm(p.slice(0, idx));
+    const val = p.slice(idx+1).trim();
+    obj[key] = val;
+  });
+  return obj;
+}
+
+function bravoParseMonto(str) {
+  if(!str) return 0;
+  const n = parseFloat(String(str).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function bravoEsSeccionVacia(texto) {
+  return /^\s*-?\s*sin\b.*(registrad|encontr|realiz)/i.test((texto||'').trim());
+}
+
+function bravoExtraerSecciones(bloque) {
+  const encabezados = ['ACCESORIOS', 'LYCAS', 'REPARACIONES', 'COMBOS', 'TELEFONOS', 'ACTIVIDADES DOUGLAS', 'CAJA CHICA'];
+  const lineas = bloque.split('\n');
+  const secciones = {};
+  let actual = null;
+  lineas.forEach(linea => {
+    const trimmed = linea.trim();
+    const match = trimmed.match(/^([A-ZÑÁÉÍÓÚ\s]+):\s*$/);
+    if(match && encabezados.some(e => bravoNorm(e) === bravoNorm(match[1]))) {
+      actual = bravoNorm(match[1]);
+      secciones[actual] = [];
+    } else if(actual) {
+      secciones[actual].push(linea);
+    }
+  });
+  Object.keys(secciones).forEach(k => secciones[k] = secciones[k].join('\n').trim());
+  return secciones;
+}
+
+function bravoMapearValor(mapa, texto, porDefecto) {
+  const key = bravoNorm(texto);
+  return mapa[key] || porDefecto;
+}
+
+const BRAVO_ACC_TIPO_MAP = { funda:'fundas', fundas:'fundas', vidrio:'vidrios', vidrios:'vidrios',
+  'vidrio templado':'vidrios', 'vidrios templados':'vidrios', camara:'camara', cargador:'cargador-carro',
+  'cargador de carro':'cargador-carro', 'cargadores de carro':'cargador-carro', taco:'tacos', tacos:'tacos',
+  'tacos de carga':'tacos', cable:'cables', cables:'cables', 'cables de carga':'cables', powerbank:'powerbank',
+  'power bank':'powerbank', 'power banks':'powerbank', audifono:'audifonos', audifonos:'audifonos',
+  airpod:'audifonos', airpods:'audifonos' };
+const BRAVO_METODO_MAP = { efectivo:'efectivo', zelle:'zelle', paypal:'paypal', punto:'punto', tarjeta:'punto', otro:'otro' };
+
+function bravoParsearAccesoriosTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return [];
+  return texto.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-')).map(linea => {
+    const kv = bravoParsearLineaClaveValor(linea);
+    const tipo = BRAVO_ACC_TIPO_MAP[bravoNorm(kv['tipo'])] || 'otros';
+    const cantidad = parseInt(kv['cantidad']) || 1;
+    const precio = bravoParseMonto(kv['precio venta'] || kv['precio']);
+    const costo = bravoParseMonto(kv['costo']);
+    const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
+    const notas = kv['nota'] || kv['notas'] || '';
+    const ganancia = (precio - costo) * cantidad;
+    return { tipo, cantidad, precio, costo, metodo, ganancia, notas };
+  });
+}
+
+function bravoParsearLycasTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return [];
+  const TIPO_MAP = { 'lyca-agente':'lyca-agente', 'lyca agente':'lyca-agente', agente:'lyca-agente',
+    'lyca-cliente':'lyca-cliente', 'lyca cliente':'lyca-cliente', 'cliente final':'lyca-cliente',
+    tmobile:'tmobile', 't-mobile':'tmobile' };
+  return texto.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-')).map(linea => {
+    const kv = bravoParsearLineaClaveValor(linea);
+    const tipo = bravoMapearValor(TIPO_MAP, kv['tipo'], 'lyca-agente');
+    const cliente = kv['cliente'] || kv['agente'] || kv['cliente/agente'] || '';
+    const precio = bravoParseMonto(kv['precio'] || kv['precio vendido']);
+    const costo = bravoParseMonto(kv['costo']);
+    const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
+    const notas = kv['nota'] || kv['notas'] || '';
+    const ganancia = precio - costo;
+    return { tipo, cliente, precio, costo, metodo, ganancia, notas };
+  });
+}
+
+function bravoParsearReparacionesTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return [];
+  const EQUIPO_MAP = { celular:'celular', tablet:'tablet', ipad:'tablet', laptop:'laptop', otro:'otro' };
+  const TIPOREP_MAP = { pantalla:'pantalla', tapa:'tapa', 'tapa trasera':'tapa', pin:'pin', 'pin de carga':'pin',
+    mojado:'mojado', speaker:'speaker', diagnostico:'diagnostico', otro:'otro' };
+  const ESTADO_MAP = { entregada:'entregada', pendiente:'pendiente', 'en reparacion':'en-reparacion', cancelada:'cancelada' };
+  return texto.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-')).map(linea => {
+    const kv = bravoParsearLineaClaveValor(linea);
+    const equipo = bravoMapearValor(EQUIPO_MAP, kv['equipo'], 'otro');
+    const tipo = bravoMapearValor(TIPOREP_MAP, kv['tipo'] || kv['tipo reparacion'], 'otro');
+    const precio = bravoParseMonto(kv['precio'] || kv['precio cobrado']);
+    const costo = bravoParseMonto(kv['costo'] || kv['costo repuesto']);
+    const abono = bravoParseMonto(kv['abono']);
+    const estado = bravoMapearValor(ESTADO_MAP, kv['estado'], 'entregada');
+    const notas = kv['nota'] || kv['notas'] || '';
+    const ganancia = precio - costo;
+    const resta = Math.max(0, precio - abono);
+    return { equipo, tipo, precio, costo, abono, resta, estado, ganancia, notas };
+  });
+}
+
+function bravoParsearCombosTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return [];
+  return texto.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-')).map(linea => {
+    const kv = bravoParsearLineaClaveValor(linea);
+    const desc = kv['descripcion'] || kv['desc'] || '';
+    const precio = bravoParseMonto(kv['precio'] || kv['precio venta']);
+    const costo = bravoParseMonto(kv['costo']);
+    const comision = bravoParseMonto(kv['comision']);
+    const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
+    const notas = kv['nota'] || kv['notas'] || '';
+    const ganancia = precio - costo - comision;
+    return { desc, precio, costo, comision, metodo, ganancia, notas };
+  });
+}
+
+function bravoParsearTelefonosTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return [];
+  const TIPOTEL_MAP = { desbloqueado:'desbloqueado', activacion:'activacion', 'con activacion':'activacion' };
+  return texto.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-')).map(linea => {
+    const kv = bravoParsearLineaClaveValor(linea);
+    const modelo = kv['modelo'] || '';
+    const costo = bravoParseMonto(kv['costo']);
+    const precio = bravoParseMonto(kv['precio'] || kv['precio venta']);
+    const tipo = bravoMapearValor(TIPOTEL_MAP, kv['tipo'], 'desbloqueado');
+    const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
+    const notas = kv['nota'] || kv['notas'] || '';
+    const ganancia = precio - costo;
+    return { modelo, costo, precio, tipo, metodo, ganancia, notas };
+  });
+}
+
+function bravoParsearActividadesTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return [];
+  const limpio = texto.replace(/^-?\s*resumen:\s*/i, '').trim();
+  if(!limpio) return [];
+  return [{ tipo: 'otro', cantidad: 1, notas: limpio }];
+}
+
+function bravoParsearCajaChicaTexto(texto) {
+  if(!texto || bravoEsSeccionVacia(texto)) return null;
+  const inicialM = texto.match(/inicial[^\d\-$]*\$?\s*(-?[\d.,]+)/i);
+  const entradasM = texto.match(/entradas[^\d\-$]*\$?\s*(-?[\d.,]+)/i);
+  const salidasM = texto.match(/salidas[^\d\-$]*\$?\s*(-?[\d.,]+)/i);
+  const finalM = texto.match(/final[^\d\-$]*\$?\s*(-?[\d.,]+)/i);
+
+  if(inicialM || entradasM || salidasM) {
+    return {
+      cajaInicial: inicialM ? bravoParseMonto(inicialM[1]) : 0,
+      totalEntradas: entradasM ? bravoParseMonto(entradasM[1]) : 0,
+      totalSalidas: salidasM ? bravoParseMonto(salidasM[1]) : 0,
+      notas: '',
+    };
+  }
+  if(finalM) {
+    return { cajaInicial: bravoParseMonto(finalM[1]), totalEntradas: 0, totalSalidas: 0, notas: '(solo se reportó el total final, sin desglose)' };
+  }
+  return null;
+}
+
+function bravoParsearBloqueReporte(bloque, fechaHeader) {
+  const fecha = bravoParsearFechaReporte(fechaHeader);
+  const secciones = bravoExtraerSecciones(bloque);
+  const accesorios = bravoParsearAccesoriosTexto(secciones['accesorios']);
+  const lycas = bravoParsearLycasTexto(secciones['lycas']);
+  const reparaciones = bravoParsearReparacionesTexto(secciones['reparaciones']);
+  const combos = bravoParsearCombosTexto(secciones['combos']);
+  const telefonos = bravoParsearTelefonosTexto(secciones['telefonos']);
+  const actividades = bravoParsearActividadesTexto(secciones['actividades douglas']);
+  const caja = bravoParsearCajaChicaTexto(secciones['caja chica']);
+
+  const gananciaTotal = accesorios.reduce((s,a)=>s+a.ganancia,0) + lycas.reduce((s,l)=>s+l.ganancia,0) +
+    reparaciones.reduce((s,r)=>s+r.ganancia,0) + combos.reduce((s,c)=>s+c.ganancia,0) + telefonos.reduce((s,t)=>s+t.ganancia,0);
+  const productosCount = accesorios.length + lycas.length + reparaciones.length + combos.length + telefonos.length;
+
+  const warnings = [];
+  if(!fecha) warnings.push('No se pudo interpretar la fecha: "' + fechaHeader + '"');
+  if(productosCount === 0 && actividades.length === 0 && !caja) warnings.push('Este bloque no tiene ningún dato reconocible');
+
+  return { fecha, fechaHeader, accesorios, lycas, reparaciones, combos, telefonos, actividades, caja, gananciaTotal, productosCount, warnings, incluir: !!fecha };
+}
+
+function bravoParsearReportesPegados(textoCompleto) {
+  const regex = /-{2,}\s*REPORTE\s*\|\s*([^\n]+)/gi;
+  const matches = [...textoCompleto.matchAll(regex)];
+  if(matches.length === 0) return [];
+  const resultados = [];
+  for(let i=0; i<matches.length; i++) {
+    const inicio = matches[i].index + matches[i][0].length;
+    const fin = i+1 < matches.length ? matches[i+1].index : textoCompleto.length;
+    const bloque = textoCompleto.slice(inicio, fin);
+    const fechaHeader = matches[i][1].trim();
+    resultados.push(bravoParsearBloqueReporte(bloque, fechaHeader));
+  }
+  return resultados;
+}
+
+let bravoReportesParseados = [];
+
+function abrirModalImportarReportes() {
+  if(!validarAccesoBravo()) return;
+  document.getElementById('bravo-importar-textarea').value = '';
+  document.getElementById('bravo-importar-preview').innerHTML = '';
+  document.getElementById('bravo-importar-guardar-btn').style.display = 'none';
+  bravoReportesParseados = [];
+  document.getElementById('modal-bravo-importar-reportes').classList.add('open');
+}
+
+function bravoAnalizarReportesPegados() {
+  const texto = document.getElementById('bravo-importar-textarea').value;
+  bravoReportesParseados = bravoParsearReportesPegados(texto);
+  if(bravoReportesParseados.length === 0) {
+    document.getElementById('bravo-importar-preview').innerHTML = '<div style="color:#E04048;font-size:12px;padding:10px">No se encontró ningún bloque "---REPORTE | FECHA" en el texto pegado.</div>';
+    document.getElementById('bravo-importar-guardar-btn').style.display = 'none';
+    return;
+  }
+  bravoRenderPreviewReportes();
+  document.getElementById('bravo-importar-guardar-btn').style.display = 'inline-flex';
+}
+
+function bravoToggleReporteParseado(i) {
+  bravoReportesParseados[i].incluir = !bravoReportesParseados[i].incluir;
+  bravoRenderPreviewReportes();
+}
+
+function bravoRenderPreviewReportes() {
+  document.getElementById('bravo-importar-preview').innerHTML = bravoReportesParseados.map((r, i) => {
+    const items = [];
+    if(r.accesorios.length) items.push(`🏷️ ${r.accesorios.length} accesorio(s)`);
+    if(r.lycas.length) items.push(`📱 ${r.lycas.length} lyca(s)`);
+    if(r.reparaciones.length) items.push(`🔧 ${r.reparaciones.length} reparación(es)`);
+    if(r.combos.length) items.push(`📦 ${r.combos.length} combo(s)`);
+    if(r.telefonos.length) items.push(`📲 ${r.telefonos.length} teléfono(s)`);
+    if(r.actividades.length) items.push(`👤 actividad de Douglas`);
+    if(r.caja) items.push(`💵 caja chica: ${fmt(r.caja.cajaInicial + r.caja.totalEntradas - r.caja.totalSalidas)}`);
+    const resumen = items.length ? items.join(' · ') : 'Sin datos reconocibles';
+    const tieneWarnings = r.warnings.length > 0;
+    return `<div style="border:1.5px solid ${tieneWarnings?'#F2545B':'#CBD6E2'};background:${tieneWarnings?'#FFF5F5':'#F5F8FA'};border-radius:8px;padding:12px;margin-bottom:8px">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" ${r.incluir?'checked':''} onchange="bravoToggleReporteParseado(${i})" style="margin-top:3px">
+        <div style="flex:1">
+          <div style="font-weight:700;color:#33475B">${r.fecha || ('⚠️ ' + r.fechaHeader)}</div>
+          <div style="font-size:12px;color:#7C98B6;margin-top:2px">${resumen}</div>
+          ${tieneWarnings ? `<div style="font-size:11px;color:#E04048;margin-top:4px">${r.warnings.join(' · ')}</div>` : ''}
+          ${r.gananciaTotal ? `<div style="font-size:12px;color:#00BDA5;font-weight:700;margin-top:4px">Ganancia: ${fmt(r.gananciaTotal)}</div>` : ''}
+        </div>
+      </label>
+    </div>`;
+  }).join('');
+}
+
+function bravoGuardarReportesImportados() {
+  const seleccionados = bravoReportesParseados.filter(r => r.incluir && r.fecha);
+  if(seleccionados.length === 0) { showNotif('⚠️ No hay reportes marcados con fecha válida para guardar','error'); return; }
+
+  if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
+  if(!appData.bravo.caja) appData.bravo.caja = [];
+  if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
+
+  let creados = 0, cajasGuardadas = 0;
+  seleccionados.forEach(r => {
+    if(r.productosCount > 0 || r.actividades.length > 0) {
+      const registro = {
+        id: appData.bravo.nextDiarioId++,
+        fecha: r.fecha,
+        accesorios: r.accesorios,
+        lycas: r.lycas,
+        reparaciones: r.reparaciones,
+        combos: r.combos,
+        telefonos: r.telefonos,
+        actividades: r.actividades,
+        gananciaTotal: r.gananciaTotal,
+        productosCount: r.productosCount,
+        actividadesCount: r.actividades.length,
+        categoria: 'Múltiple',
+        timestamp: new Date().toISOString()
+      };
+      appData.bravo.reportesDiarios.push(registro);
+      creados++;
+    }
+    if(r.caja) {
+      const existenteMismaFecha = appData.bravo.caja.find(c => c.fecha === r.fecha);
+      const datos = { fecha: r.fecha, cajaInicial: r.caja.cajaInicial, totalEntradas: r.caja.totalEntradas, totalSalidas: r.caja.totalSalidas, notas: r.caja.notas };
+      if(existenteMismaFecha) Object.assign(existenteMismaFecha, datos);
+      else { appData.bravo.caja.push({ id: appData.bravo.nextCajaId++, ...datos }); }
+      cajasGuardadas++;
+    }
+  });
+
+  guardar();
+  closeModal('modal-bravo-importar-reportes');
+  bravoRefrescarVistaActual();
+  showNotif(`✅ ${creados} registro(s) y ${cajasGuardadas} caja(s) chica(s) guardados`);
 }
 
 // Caja Chica
