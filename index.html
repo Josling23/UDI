@@ -2379,7 +2379,6 @@ let appData = {
   bravo: {
     reportesDiarios: [],
     nextDiarioId: 1,
-    gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 },
     caja: []
   }
 };
@@ -2416,10 +2415,9 @@ function normalizarAppData() {
   if(!appData.enlaces) appData.enlaces = { admin: [], top: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
-  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
   if(!appData.bravo.reportesDiarios) appData.bravo.reportesDiarios = [];
   if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
-  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
   if(!appData.bravo.caja) appData.bravo.caja = [];
   if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
@@ -7254,7 +7252,7 @@ function renderTop() {
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
       <div class="card blue"><label>💼 Utilidad Admin (AT&T) — ${mesGlobal||'—'}</label><div class="val">${fmt(adminGlobal.utilidad)}</div></div>
-      <div class="card orange"><label>🏪 Ganancia Neta Bravo — ${mesGlobal||'—'}</label><div class="val">${fmt(bravoGlobal.gananciaNeta)}</div></div>
+      <div class="card orange"><label>🏪 Ganancia Bravo — ${mesGlobal||'—'}</label><div class="val">${fmt(bravoGlobal.gananciaNeta)}</div></div>
       <div class="card ${totalGlobal>=0?'green':'red'}"><label>🌐 TOTAL GLOBAL (Bravo + AT&T)</label><div class="val">${fmt(totalGlobal)}</div><div class="sub">Bravo = sede oficial y punto de venta de AT&T</div></div>
     </div>
 
@@ -7473,7 +7471,7 @@ function renderTopROI() {
       ${!selMes ? '<div style="color:#99ACC2;font-size:12px">Selecciona un mes arriba para ver y capturar el ROI Real</div>' : `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px">
         <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
-          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">🏪 Ganancia Neta Bravo <span style="font-weight:400">(auto)</span></label>
+          <label style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">🏪 Ganancia Bravo <span style="font-weight:400">(auto)</span></label>
           <div style="font-size:18px;font-weight:800;color:#33475B;margin-top:4px">${fmt(gananciaBravoRealMes)}</div>
         </div>
         <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #DCD6FF">
@@ -8519,20 +8517,8 @@ function renderTopSalud() {
   `;
 }
 
-function guardarGastosFijosBravo() {
-  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = {};
-  appData.bravo.gastosFijos.rentaMensual = parseFloat(document.getElementById('top-bravo-renta').value) || 0;
-  appData.bravo.gastosFijos.sueldoSemanal = parseFloat(document.getElementById('top-bravo-sueldo').value) || 0;
-  guardar();
-  renderTopBravo();
-  showNotif('✅ Gastos fijos de Bravo actualizados');
-}
-
 function calcBravoMes(mes, anio) {
-  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
-  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
-  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 0;
-  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 0;
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
 
   const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
     const d = new Date(r.fecha);
@@ -8548,15 +8534,9 @@ function calcBravoMes(mes, anio) {
   const gananciaLycaMes = lycaLineasMes.reduce((s, l) => s + (l.ganancia || 0), 0);
   const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + gananciaReparacionesMes + gananciaLycaMes;
 
-  const viernes = new Date(anio, mes - 1, 1);
-  let countViernes = 0;
-  while(viernes.getMonth() + 1 === mes && viernes.getFullYear() === anio) {
-    if(viernes.getDay() === 5) countViernes++;
-    viernes.setDate(viernes.getDate() + 1);
-  }
-  const sueldoTotal = sueldoSemanal * countViernes;
-  const gastosTotales = rentaMensual + sueldoTotal;
-  const gananciaNeta = gananciaMes - gastosTotales;
+  // Renta y sueldo de Bravo ya se contabilizan en Admin -> Gastos & Nómina,
+  // así que aquí no se vuelven a restar: gananciaNeta = ganancia bruta de Bravo.
+  const gananciaNeta = gananciaMes;
 
   const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
   const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
@@ -8564,12 +8544,11 @@ function calcBravoMes(mes, anio) {
   const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
   const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
 
-  return { reportesMes, gananciaMes, gastosTotales, sueldoTotal, gananciaNeta, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
+  return { reportesMes, gananciaMes, gananciaNeta, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
 }
 
 function renderTopBravo() {
-  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
-  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
 
   const hoy = new Date();
   const selMesEl = document.getElementById('top-bravo-mes-sel');
@@ -8577,11 +8556,7 @@ function renderTopBravo() {
   const mesSel = selMesEl ? parseInt(selMesEl.value) : hoy.getMonth() + 1;
   const anioSel = selAnioEl ? parseInt(selAnioEl.value) : hoy.getFullYear();
 
-  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 0;
-  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 0;
-
   const d = calcBravoMes(mesSel, anioSel);
-  const porcentajeCobertura = d.gastosTotales > 0 ? (d.gananciaMes / d.gastosTotales * 100).toFixed(1) : '0.0';
 
   const historial = [];
   for(let i=5;i>=0;i--) {
@@ -8610,58 +8585,31 @@ function renderTopBravo() {
 
       <div class="cards" style="margin-bottom:20px">
         <div class="card green">
-          <label>💰 Ganancia Bruta Mes</label>
+          <label>💰 Ganancia del Mes</label>
           <div class="val">${fmt(d.gananciaMes)}</div>
           <div class="sub">${d.reportesMes.length} días registrados</div>
         </div>
-        <div class="card orange">
-          <label>💸 Gastos Fijos Mes</label>
-          <div class="val">${fmt(d.gastosTotales)}</div>
-          <div class="sub">Renta ($${fmt(rentaMensual)}) + Sueldo ($${fmt(d.sueldoTotal)})</div>
-        </div>
-        <div class="card blue">
-          <label>💵 Ganancia NETA</label>
-          <div class="val" style="color:${d.gananciaNeta >= 0 ? '#00BDA5' : '#E04048'}">${fmt(Math.abs(d.gananciaNeta))}</div>
-          <div class="sub">${d.gananciaNeta >= 0 ? '✅ Rentable' : '❌ En pérdida'}</div>
-        </div>
-        <div class="card purple">
-          <label>🎯 Cobertura de Gastos</label>
-          <div class="val">${porcentajeCobertura}%</div>
-          <div class="sub">${d.gananciaMes >= d.gastosTotales ? '✅ Cubre costos' : `❌ Falta $${fmt(d.gastosTotales - d.gananciaMes)}`}</div>
-        </div>
       </div>
+      <div style="font-size:10px;color:#99ACC2;margin:-12px 0 16px">Renta y sueldo de Bravo ya se contabilizan en Admin → Gastos & Nómina, por eso aquí no se restan de nuevo.</div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-        <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB">
-          <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción Mes</div>
-          <div style="font-size:11px;color:#7C98B6">
-            <div>🏷️ Accesorios: <span style="font-weight:600;color:#33475B">${d.accesoriosMes}</span></div>
-            <div>📱 Lycas: <span style="font-weight:600;color:#33475B">${d.lycasMes}</span></div>
-            <div>🔧 Reparaciones: <span style="font-weight:600;color:#33475B">${d.reparacionesMes}</span></div>
-            <div>📦 Combos: <span style="font-weight:600;color:#33475B">${d.combosMes}</span></div>
-            <div>📲 Teléfonos: <span style="font-weight:600;color:#33475B">${d.telefonosMes}</span></div>
-          </div>
-        </div>
-        <div style="background:#FFF8F0;border-radius:8px;padding:12px;border-left:3px solid #FF7A59">
-          <div style="font-size:12px;font-weight:700;color:#B94A00;margin-bottom:8px">⚙️ Gastos Fijos (editable)</div>
-          <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:#7C98B6">
-            <label>Renta Mensual ($)
-              <input type="number" id="top-bravo-renta" value="${rentaMensual}" onchange="guardarGastosFijosBravo()" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:2px;box-sizing:border-box" />
-            </label>
-            <label>Sueldo Semanal ($)
-              <input type="number" id="top-bravo-sueldo" value="${sueldoSemanal}" onchange="guardarGastosFijosBravo()" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:2px;box-sizing:border-box" />
-            </label>
-          </div>
+      <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción Mes</div>
+        <div style="font-size:11px;color:#7C98B6">
+          <div>🏷️ Accesorios: <span style="font-weight:600;color:#33475B">${d.accesoriosMes}</span></div>
+          <div>📱 Lycas: <span style="font-weight:600;color:#33475B">${d.lycasMes}</span></div>
+          <div>🔧 Reparaciones: <span style="font-weight:600;color:#33475B">${d.reparacionesMes}</span></div>
+          <div>📦 Combos: <span style="font-weight:600;color:#33475B">${d.combosMes}</span></div>
+          <div>📲 Teléfonos: <span style="font-weight:600;color:#33475B">${d.telefonosMes}</span></div>
         </div>
       </div>
 
       <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (últimos 6 meses)</div>
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Mes</th><th>Ganancia Bruta</th><th>Gastos Fijos</th><th>Ganancia Neta</th></tr></thead>
+        <thead><tr><th>Mes</th><th>Ganancia del Mes</th></tr></thead>
         <tbody>${historial.map(h=>`<tr>
-          <td>${h.mes} ${h.anio}</td><td>${fmt(h.gananciaMes)}</td><td>${fmt(h.gastosTotales)}</td>
-          <td style="color:${h.gananciaNeta>=0?'#00BDA5':'#E04048'};font-weight:700">${fmt(h.gananciaNeta)}</td>
+          <td>${h.mes} ${h.anio}</td>
+          <td style="font-weight:700;color:#00BDA5">${fmt(h.gananciaMes)}</td>
         </tr>`).join('')}</tbody>
       </table>
       </div>
@@ -11338,7 +11286,7 @@ function bravoRefrescarVistaActual() {
 // Dashboard de Bravo - Vista principal
 function bravoDashboard() {
   if(!validarAccesoBravo()) return;
-  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 } };
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1 };
 
   const hoy = new Date().toISOString().split('T')[0];
   const reporteHoy = appData.bravo.reportesDiarios.find(r => r.fecha === hoy);
@@ -11369,14 +11317,6 @@ function bravoDashboard() {
   const gananciaMes = gananciaDelMes(mesActual, añoActual);
   const gananciaMesAnterior = gananciaDelMes(mesAnteriorNum, añoAnteriorNum);
 
-  const gastosFijosMes = (appData.bravo.gastosFijos.rentaMensual||0) + ((appData.bravo.gastosFijos.sueldoSemanal||0) * 4);
-  const gananciaNetaReal = gananciaMes - gastosFijosMes;
-  const margenMes = gananciaMes > 0 ? (gananciaNetaReal / gananciaMes * 100) : (gananciaNetaReal >= 0 ? 100 : -100);
-  const salud = margenMes >= 20
-    ? { emoji:'🟢', label:'Saludable',  color:'#00BDA5', bg:'#E8F9F7' }
-    : margenMes >= 0
-    ? { emoji:'🟡', label:'Ajustada',   color:'#D4A017', bg:'#FFFBE8' }
-    : { emoji:'🔴', label:'En pérdida', color:'#E04048', bg:'#FFF0F0' };
   const cambioMes = gananciaMesAnterior !== 0
     ? ((gananciaMes - gananciaMesAnterior) / Math.abs(gananciaMesAnterior) * 100) : null;
 
@@ -11387,19 +11327,16 @@ function bravoDashboard() {
   if(lineasDisponibles<=5) alertasBravo.push(`📱 Solo quedan ${lineasDisponibles} línea${lineasDisponibles!==1?'s':''} Lyca disponibles — considera pedir más stock`);
   if(restaPendienteTotal.length) alertasBravo.push(`🔧 ${restaPendienteTotal.length} reparación${restaPendienteTotal.length!==1?'es':''} con saldo pendiente de cobrar (${fmt(restaPendienteTotal.reduce((s,r)=>s+(r.resta||0),0))})`);
   if(cambioMes !== null && cambioMes < -15) alertasBravo.push(`📉 La ganancia bajó ${Math.abs(cambioMes).toFixed(0)}% vs el mes anterior`);
-  if(gananciaNetaReal < 0) alertasBravo.push(`⚠️ Este mes no cubre los gastos fijos (renta + sueldo)`);
 
   const resumenEjecutivoBravoHTML = `
     <div style="background:linear-gradient(135deg,#1a0008,#2a0008,#3a0a14);border-radius:16px;padding:22px;margin-bottom:20px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
         <div>
           <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.6">Resumen Ejecutivo — ${mesActualStr}</div>
-          <div style="font-size:20px;font-weight:900;margin-top:2px">Salud de Bravo</div>
-        </div>
-        <div style="background:${salud.bg};color:${salud.color};padding:8px 16px;border-radius:20px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px">
-          ${salud.emoji} ${salud.label} <span style="font-weight:600;opacity:0.8">(margen ${margenMes.toFixed(0)}%)</span>
+          <div style="font-size:20px;font-weight:900;margin-top:2px">Ganancia de Bravo</div>
         </div>
       </div>
+      <div style="font-size:10px;opacity:0.5;margin-bottom:10px">Renta y sueldo de Bravo se contabilizan en Admin → Gastos & Nómina (ver ROI Real en TOP)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">
         <div>
           <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💰 Ganancia Hoy</div>
@@ -11409,14 +11346,6 @@ function bravoDashboard() {
           <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📈 Ganancia del Mes</div>
           <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(gananciaMes)}</div>
           ${cambioMes===null ? '<span style="font-size:10px;color:#99ACC2">— sin mes anterior</span>' : `<span style="font-size:11px;font-weight:700;color:${cambioMes>=0?'#7FE8D4':'#FCA5A5'}">${cambioMes>=0?'▲':'▼'} ${Math.abs(cambioMes).toFixed(0)}% vs mes anterior</span>`}
-        </div>
-        <div>
-          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💸 Gastos Fijos</div>
-          <div style="font-size:24px;font-weight:900;color:#FCA5A5">${fmt(gastosFijosMes)}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📊 Ganancia Neta</div>
-          <div style="font-size:24px;font-weight:900;color:${gananciaNetaReal>=0?'#7FE8D4':'#FCA5A5'}">${fmt(gananciaNetaReal)}</div>
         </div>
       </div>
       ${alertasBravo.length ? `
@@ -11450,16 +11379,6 @@ function bravoDashboard() {
           <label>📈 Ganancia Este Mes</label>
           <div class="val">${fmt(gananciaMes)}</div>
           <div class="sub">${reportesMes.length} días registrados · ${lycaMes.length} líneas Lyca</div>
-        </div>
-        <div class="card orange">
-          <label>💵 Gastos Fijos Mensuales</label>
-          <div class="val">${fmt(appData.bravo.gastosFijos.rentaMensual)}</div>
-          <div class="sub">Renta: $1,300</div>
-        </div>
-        <div class="card purple">
-          <label>📊 Ganancia Neta (Después Gastos)</label>
-          <div class="val">${fmt(Math.max(0, gananciaMes - (appData.bravo.gastosFijos.rentaMensual + (appData.bravo.gastosFijos.sueldoSemanal * 4))))}</div>
-          <div class="sub">Sin sueldo Douglas</div>
         </div>
       </div>
 
@@ -12169,74 +12088,20 @@ function bravoROI() {
 
   const mesActual = new Date().getMonth() + 1;
   const añoActual = new Date().getFullYear();
-  const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
-  });
-
-  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0);
-  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 1300;
-  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 585;
-  const viernes = new Date(añoActual, mesActual - 1, 1);
-  let countViernes = 0;
-  while(viernes.getMonth() + 1 === mesActual && viernes.getFullYear() === añoActual) {
-    if(viernes.getDay() === 5) countViernes++;
-    viernes.setDate(viernes.getDate() + 1);
-  }
-  const sueldoTotal = sueldoSemanal * countViernes;
-  const gastosTotales = rentaMensual + sueldoTotal;
-  const gananciaNeta = gananciaMes - gastosTotales;
-  const puntoEquilibrio = gastosTotales;
-  const porcentajeCobertura = (gananciaMes / puntoEquilibrio * 100).toFixed(1);
+  const d = calcBravoMes(mesActual, añoActual);
 
   document.getElementById('bravo-roi-content').innerHTML = `
     <div class="section">
       <div class="section-header">
         <h2>📊 ROI de Bravo</h2>
       </div>
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">La renta y el sueldo de Douglas ya se contabilizan en Admin → Gastos & Nómina, por eso aquí solo se muestra la ganancia de Bravo (ver "ROI Real" en TOP para el neto completo).</div>
 
       <div class="cards">
         <div class="card green">
-          <label>💰 Ganancia Bruta del Mes</label>
-          <div class="val">${fmt(gananciaMes)}</div>
-          <div class="sub">${reportesMes.length} días</div>
-        </div>
-        <div class="card orange">
-          <label>💸 Gastos Fijos del Mes</label>
-          <div class="val">${fmt(gastosTotales)}</div>
-          <div class="sub">Renta + Sueldo Douglas (${countViernes} viernes)</div>
-        </div>
-        <div class="card blue">
-          <label>💵 Ganancia NETA</label>
-          <div class="val" style="color:${gananciaNeta >= 0 ? '#00BDA5' : '#E04048'}">${fmt(Math.abs(gananciaNeta))}</div>
-          <div class="sub">${gananciaNeta >= 0 ? '✅ Rentable' : '❌ En pérdida'}</div>
-        </div>
-        <div class="card purple">
-          <label>🎯 Cobertura de Gastos</label>
-          <div class="val">${porcentajeCobertura}%</div>
-          <div class="sub">${gananciaMes >= puntoEquilibrio ? '✅ Punto de equilibrio alcanzado' : `❌ Falta $${fmt(puntoEquilibrio - gananciaMes)}`}</div>
-        </div>
-      </div>
-
-      <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:16px;margin-top:18px">
-        <h3 style="font-size:13px;font-weight:700;color:#0057A8;margin-bottom:12px">📈 Desglose Financiero</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px">
-          <div>
-            <span style="color:#7C98B6">Renta mensual:</span>
-            <span style="float:right;font-weight:700;color:#33475B">${fmt(rentaMensual)}</span>
-          </div>
-          <div>
-            <span style="color:#7C98B6">Sueldo Douglas (${countViernes} viernes):</span>
-            <span style="float:right;font-weight:700;color:#33475B">${fmt(sueldoTotal)}</span>
-          </div>
-          <div style="border-top:1px solid #CBD6E2;padding-top:8px">
-            <span style="font-weight:700;color:#0057A8">Total Gastos:</span>
-            <span style="float:right;font-weight:700;color:#0057A8">${fmt(gastosTotales)}</span>
-          </div>
-          <div style="border-top:1px solid #CBD6E2;padding-top:8px">
-            <span style="font-weight:700;color:#00BDA5">Ganancia Neta:</span>
-            <span style="float:right;font-weight:700;color:#00BDA5">${fmt(gananciaNeta)}</span>
-          </div>
+          <label>💰 Ganancia del Mes</label>
+          <div class="val">${fmt(d.gananciaMes)}</div>
+          <div class="sub">${d.reportesMes.length} días</div>
         </div>
       </div>
     </div>
