@@ -7206,20 +7206,23 @@ function renderTop() {
         <div style="font-size:11px;color:#99ACC2">ROI & Finanzas — Solo tú tienes acceso</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI</button>
-        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('bravo',this)">🏪 Bravo</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('roi',this)">📈 ROI Admin</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('salud',this)">💚 ROI Salud/Dental</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('bravo',this)">🏪 ROI Bravo</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('chargebacks',this)">🔴 Chargebacks</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('rsi',this)">💳 RS&I Pagos</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('config',this)">⚙️ Config</button>
       </div>
     </div>
     <div class="priv-section active" id="top-roi"></div>
+    <div class="priv-section" id="top-salud"></div>
     <div class="priv-section" id="top-bravo"></div>
     <div class="priv-section" id="top-chargebacks"></div>
     <div class="priv-section" id="top-rsi"></div>
     <div class="priv-section" id="top-config"></div>
   `;
   renderTopROI();
+  renderTopSalud();
   renderTopBravo();
   renderTopChargebacks();
   renderTopRSI();
@@ -8262,77 +8265,167 @@ function eliminarRSIPago(cliente, fecha) {
   showNotif('🗑️ Cliente desmarcado como pagado');
 }
 
-function renderTopBravo() {
-  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
+function renderTopSalud() {
+  const meses = getSaludMeses();
+  const sel = document.getElementById('top-salud-mes-sel');
+  const curVal = sel ? sel.value : '';
+  const mes = curVal || meses[meses.length-1] || '';
 
-  const mesActual = new Date().getMonth() + 1;
-  const añoActual = new Date().getFullYear();
-
-  const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
-  });
-
-  // Tickets de Reparaciones (sección dedicada) del mes actual
-  const repTicketsMes = (appData.bravo.reparaciones||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
-  });
-  const gananciaReparacionesMes = repTicketsMes.reduce((s, r) => s + (r.ganancia || 0), 0);
-
-  // Líneas Lyca (sección dedicada) del mes actual
-  const mesActualStrTop = MESES_ES[mesActual-1] + ' ' + añoActual;
-  const lycaLineasMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStrTop);
-  const gananciaLycaMes = lycaLineasMes.reduce((s, l) => s + (l.ganancia || 0), 0);
-
-  const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + gananciaReparacionesMes + gananciaLycaMes;
-  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 1300;
-  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 585;
-
-  // Calcular viernes del mes
-  const viernes = new Date(añoActual, mesActual - 1, 1);
-  let countViernes = 0;
-  while(viernes.getMonth() + 1 === mesActual && viernes.getFullYear() === añoActual) {
-    if(viernes.getDay() === 5) countViernes++;
-    viernes.setDate(viernes.getDate() + 1);
+  function calcSaludMes(m) {
+    const clientes = saludData.clientes.filter(c=>c.mes===m);
+    const activos = clientes.filter(c=>c.estado==='activo');
+    const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
+    const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
+    const comAgentes = clientes.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
+    const [mesMes, mesAnio] = m.split(' ');
+    const mesNum = String(MESES_ES.indexOf(mesMes)+1).padStart(2,'0');
+    let sueldosMes = (saludData.sueldos||[]).filter(s=>s.fecha&&s.fecha.startsWith(`${mesAnio}-${mesNum}`)).reduce((s,x)=>s+x.monto,0);
+    if(saludData.quincenas) {
+      (saludData.agentes||[]).forEach(a=>{ [1,2].forEach(q=>{ if(saludData.quincenas[saludGetQuincenaKey(a.nombre,m,q)]) sueldosMes+=a.sueldoQuincenal; }); });
+    }
+    const gananciaNeta = totalAdelanto - comAgentes - sueldosMes;
+    return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, comAgentes, sueldosMes, gananciaNeta };
   }
 
-  const sueldoTotal = sueldoSemanal * countViernes;
-  const gastosTotales = rentaMensual + sueldoTotal;
-  const gananciaNeta = gananciaMes - gastosTotales;
-  const porcentajeCobertura = (gananciaMes / gastosTotales * 100).toFixed(1);
+  const d = mes ? calcSaludMes(mes) : { ventas:0, activos:0, totalAdelanto:0, totalFinal:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
+  const historial = meses.slice(-6).map(m => calcSaludMes(m));
 
-  // Desglose por categoría
-  const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
-  const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
-  const reparacionesMes = reportesMes.reduce((s, r) => s + (r.reparaciones ? r.reparaciones.length : 0), 0) + repTicketsMes.length;
-  const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
-  const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
+  document.getElementById('top-salud').innerHTML = `
+    <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <h3 style="font-size:14px;font-weight:700;color:#33475B">💚 ROI Salud / Dental</h3>
+        <select id="top-salud-mes-sel" onchange="renderTopSalud()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+          ${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${m}</option>`).join('') || '<option value="">Sin datos</option>'}
+        </select>
+      </div>
+      ${!mes ? '<div style="color:#7C98B6;padding:20px">Aún no hay meses registrados en Salud</div>' : `
+      <div class="cards" style="margin-bottom:20px">
+        <div class="card blue"><label>Ventas del Mes</label><div class="val">${d.ventas}</div><div class="sub">${d.activos} activos</div></div>
+        <div class="card green"><label>Adelanto (9m)</label><div class="val">${fmt(d.totalAdelanto)}</div></div>
+        <div class="card orange"><label>Final (3m)</label><div class="val">${fmt(d.totalFinal)}</div></div>
+        <div class="card yellow"><label>Com. Agentes</label><div class="val">${fmt(d.comAgentes)}</div></div>
+        <div class="card red"><label>Sueldos Pagados</label><div class="val">${fmt(d.sueldosMes)}</div></div>
+        <div class="card ${d.gananciaNeta>=0?'green':'red'}"><label>💵 Ganancia Neta</label><div class="val">${fmt(d.gananciaNeta)}</div></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (últimos meses)</div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Mes</th><th>Ventas</th><th>Adelanto</th><th>Com. Agentes</th><th>Sueldos</th><th>Ganancia Neta</th></tr></thead>
+        <tbody>${historial.map(h=>`<tr>
+          <td>${h.mes}</td><td>${h.ventas}</td><td>${fmt(h.totalAdelanto)}</td><td>${fmt(h.comAgentes)}</td><td>${fmt(h.sueldosMes)}</td>
+          <td style="color:${h.gananciaNeta>=0?'#00BDA5':'#E04048'};font-weight:700">${fmt(h.gananciaNeta)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      </div>
+      `}
+    </div>
+  `;
+}
+
+function guardarGastosFijosBravo() {
+  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = {};
+  appData.bravo.gastosFijos.rentaMensual = parseFloat(document.getElementById('top-bravo-renta').value) || 0;
+  appData.bravo.gastosFijos.sueldoSemanal = parseFloat(document.getElementById('top-bravo-sueldo').value) || 0;
+  guardar();
+  renderTopBravo();
+  showNotif('✅ Gastos fijos de Bravo actualizados');
+}
+
+function renderTopBravo() {
+  if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, gastosFijos: { rentaMensual: 1300, sueldoSemanal: 585 }, caja: [] };
+  if(!appData.bravo.gastosFijos) appData.bravo.gastosFijos = { rentaMensual: 1300, sueldoSemanal: 585 };
+
+  const hoy = new Date();
+  const selMesEl = document.getElementById('top-bravo-mes-sel');
+  const selAnioEl = document.getElementById('top-bravo-anio-sel');
+  const mesSel = selMesEl ? parseInt(selMesEl.value) : hoy.getMonth() + 1;
+  const anioSel = selAnioEl ? parseInt(selAnioEl.value) : hoy.getFullYear();
+
+  const rentaMensual = appData.bravo.gastosFijos.rentaMensual || 0;
+  const sueldoSemanal = appData.bravo.gastosFijos.sueldoSemanal || 0;
+
+  function calcBravoMes(mes, anio) {
+    const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
+      const d = new Date(r.fecha);
+      return d.getMonth() + 1 === mes && d.getFullYear() === anio;
+    });
+    const repTicketsMes = (appData.bravo.reparaciones||[]).filter(r => {
+      const d = new Date(r.fecha);
+      return d.getMonth() + 1 === mes && d.getFullYear() === anio;
+    });
+    const gananciaReparacionesMes = repTicketsMes.reduce((s, r) => s + (r.ganancia || 0), 0);
+    const mesStr = MESES_ES[mes-1] + ' ' + anio;
+    const lycaLineasMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesStr);
+    const gananciaLycaMes = lycaLineasMes.reduce((s, l) => s + (l.ganancia || 0), 0);
+    const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + gananciaReparacionesMes + gananciaLycaMes;
+
+    const viernes = new Date(anio, mes - 1, 1);
+    let countViernes = 0;
+    while(viernes.getMonth() + 1 === mes && viernes.getFullYear() === anio) {
+      if(viernes.getDay() === 5) countViernes++;
+      viernes.setDate(viernes.getDate() + 1);
+    }
+    const sueldoTotal = sueldoSemanal * countViernes;
+    const gastosTotales = rentaMensual + sueldoTotal;
+    const gananciaNeta = gananciaMes - gastosTotales;
+
+    const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
+    const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
+    const reparacionesMes = reportesMes.reduce((s, r) => s + (r.reparaciones ? r.reparaciones.length : 0), 0) + repTicketsMes.length;
+    const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
+    const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
+
+    return { reportesMes, gananciaMes, gastosTotales, sueldoTotal, gananciaNeta, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
+  }
+
+  const d = calcBravoMes(mesSel, anioSel);
+  const porcentajeCobertura = d.gastosTotales > 0 ? (d.gananciaMes / d.gastosTotales * 100).toFixed(1) : '0.0';
+
+  const historial = [];
+  for(let i=5;i>=0;i--) {
+    const dt = new Date(anioSel, mesSel-1-i, 1);
+    const hm = dt.getMonth()+1, ha = dt.getFullYear();
+    historial.push({ mes: MESES_ES[hm-1], anio: ha, ...calcBravoMes(hm, ha) });
+  }
+
+  const anios = new Set([hoy.getFullYear(), anioSel]);
+  (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(new Date(r.fecha).getFullYear()); });
+  const aniosArr = [...anios].sort((a,b)=>b-a);
 
   document.getElementById('top-bravo').innerHTML = `
     <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff;margin-bottom:20px">
-      <h3 style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:16px">🏪 Resumen de Bravo</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <h3 style="font-size:14px;font-weight:700;color:#33475B">🏪 ROI Bravo</h3>
+        <div style="display:flex;gap:8px">
+          <select id="top-bravo-mes-sel" onchange="renderTopBravo()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+            ${MESES_ES.map((m,i)=>`<option value="${i+1}" ${i+1===mesSel?'selected':''}>${m}</option>`).join('')}
+          </select>
+          <select id="top-bravo-anio-sel" onchange="renderTopBravo()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+            ${aniosArr.map(a=>`<option value="${a}" ${a===anioSel?'selected':''}>${a}</option>`).join('')}
+          </select>
+        </div>
+      </div>
 
       <div class="cards" style="margin-bottom:20px">
         <div class="card green">
           <label>💰 Ganancia Bruta Mes</label>
-          <div class="val">${fmt(gananciaMes)}</div>
-          <div class="sub">${reportesMes.length} días registrados</div>
+          <div class="val">${fmt(d.gananciaMes)}</div>
+          <div class="sub">${d.reportesMes.length} días registrados</div>
         </div>
         <div class="card orange">
           <label>💸 Gastos Fijos Mes</label>
-          <div class="val">${fmt(gastosTotales)}</div>
-          <div class="sub">Renta ($${rentaMensual}) + Sueldo ($${sueldoTotal})</div>
+          <div class="val">${fmt(d.gastosTotales)}</div>
+          <div class="sub">Renta ($${fmt(rentaMensual)}) + Sueldo ($${fmt(d.sueldoTotal)})</div>
         </div>
         <div class="card blue">
           <label>💵 Ganancia NETA</label>
-          <div class="val" style="color:${gananciaNeta >= 0 ? '#00BDA5' : '#E04048'}">${fmt(Math.abs(gananciaNeta))}</div>
-          <div class="sub">${gananciaNeta >= 0 ? '✅ Rentable' : '❌ En pérdida'}</div>
+          <div class="val" style="color:${d.gananciaNeta >= 0 ? '#00BDA5' : '#E04048'}">${fmt(Math.abs(d.gananciaNeta))}</div>
+          <div class="sub">${d.gananciaNeta >= 0 ? '✅ Rentable' : '❌ En pérdida'}</div>
         </div>
         <div class="card purple">
           <label>🎯 Cobertura de Gastos</label>
           <div class="val">${porcentajeCobertura}%</div>
-          <div class="sub">${gananciaMes >= gastosTotales ? '✅ Cubre costos' : `❌ Falta $${fmt(gastosTotales - gananciaMes)}`}</div>
+          <div class="sub">${d.gananciaMes >= d.gastosTotales ? '✅ Cubre costos' : `❌ Falta $${fmt(d.gastosTotales - d.gananciaMes)}`}</div>
         </div>
       </div>
 
@@ -8340,21 +8433,35 @@ function renderTopBravo() {
         <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB">
           <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción Mes</div>
           <div style="font-size:11px;color:#7C98B6">
-            <div>🏷️ Accesorios: <span style="font-weight:600;color:#33475B">${accesoriosMes}</span></div>
-            <div>📱 Lycas: <span style="font-weight:600;color:#33475B">${lycasMes}</span></div>
-            <div>🔧 Reparaciones: <span style="font-weight:600;color:#33475B">${reparacionesMes}</span></div>
-            <div>📦 Combos: <span style="font-weight:600;color:#33475B">${combosMes}</span></div>
-            <div>📲 Teléfonos: <span style="font-weight:600;color:#33475B">${telefonosMes}</span></div>
+            <div>🏷️ Accesorios: <span style="font-weight:600;color:#33475B">${d.accesoriosMes}</span></div>
+            <div>📱 Lycas: <span style="font-weight:600;color:#33475B">${d.lycasMes}</span></div>
+            <div>🔧 Reparaciones: <span style="font-weight:600;color:#33475B">${d.reparacionesMes}</span></div>
+            <div>📦 Combos: <span style="font-weight:600;color:#33475B">${d.combosMes}</span></div>
+            <div>📲 Teléfonos: <span style="font-weight:600;color:#33475B">${d.telefonosMes}</span></div>
           </div>
         </div>
-        <div style="background:#EAF7FB;border-radius:8px;padding:12px;border-left:3px solid #0057A8">
-          <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📈 Promedio Diario</div>
-          <div style="font-size:11px;color:#7C98B6">
-            <div>Ganancia: <span style="font-weight:600;color:#00BDA5">$${fmt(reportesMes.length > 0 ? gananciaMes / reportesMes.length : 0)}</span></div>
-            <div>Productos: <span style="font-weight:600;color:#33475B">${reportesMes.length > 0 ? ((accesoriosMes + lycasMes + reparacionesMes + combosMes + telefonosMes) / reportesMes.length).toFixed(1) : 0}</span></div>
-            <div>Total Registrados: <span style="font-weight:600;color:#33475B">${reportesMes.length}</span></div>
+        <div style="background:#FFF8F0;border-radius:8px;padding:12px;border-left:3px solid #FF7A59">
+          <div style="font-size:12px;font-weight:700;color:#B94A00;margin-bottom:8px">⚙️ Gastos Fijos (editable)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:#7C98B6">
+            <label>Renta Mensual ($)
+              <input type="number" id="top-bravo-renta" value="${rentaMensual}" onchange="guardarGastosFijosBravo()" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:2px;box-sizing:border-box" />
+            </label>
+            <label>Sueldo Semanal ($)
+              <input type="number" id="top-bravo-sueldo" value="${sueldoSemanal}" onchange="guardarGastosFijosBravo()" style="width:100%;border:1px solid #CBD6E2;padding:6px;border-radius:4px;margin-top:2px;box-sizing:border-box" />
+            </label>
           </div>
         </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (últimos 6 meses)</div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Mes</th><th>Ganancia Bruta</th><th>Gastos Fijos</th><th>Ganancia Neta</th></tr></thead>
+        <tbody>${historial.map(h=>`<tr>
+          <td>${h.mes} ${h.anio}</td><td>${fmt(h.gananciaMes)}</td><td>${fmt(h.gastosTotales)}</td>
+          <td style="color:${h.gananciaNeta>=0?'#00BDA5':'#E04048'};font-weight:700">${fmt(h.gananciaNeta)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
       </div>
 
       <div style="text-align:center;margin-top:16px">
