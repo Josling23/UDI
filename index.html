@@ -382,6 +382,7 @@ table thead,table tbody{display:table;width:100%}
   <nav class="sidebar-nav" id="sidebar-nav-salud" style="display:none">
     <div class="nav-section">💚 SALUD & DENTAL</div>
     <div class="nav-item active" onclick="showPage('salud-dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
+    <div class="nav-item" onclick="showPage('salud-pagos-recibidos',this)"><span class="icon">💰</span><span>Pagos Recibidos</span></div>
     <div class="nav-item" onclick="showPage('salud-clientes',this)"><span class="icon">👥</span><span>Clientes</span></div>
     <div class="nav-item" onclick="showPage('salud-agentes',this)"><span class="icon">🤝</span><span>Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-comisiones',this)"><span class="icon">💵</span><span>Comisiones</span></div>
@@ -684,6 +685,10 @@ table thead,table tbody{display:table;width:100%}
           <div id="salud-dash-campaigns"></div>
         </div>
       </div>
+    </div>
+
+    <div class="page" id="page-salud-pagos-recibidos">
+      <div id="salud-pagos-recibidos-content"></div>
     </div>
 
     <div class="page" id="page-salud-clientes">
@@ -1078,6 +1083,29 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-salud-sueldo')">Cancelar</button>
       <button class="btn btn-success" onclick="saludGuardarSueldo()">✅ Registrar Pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SALUD PAGO RECIBIDO (dinero real que entra de las compañías de seguro) -->
+<div class="modal-overlay" id="modal-salud-pago">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="modal-salud-pago-title">💰 Nuevo Pago Recibido</h3>
+      <button class="modal-close" onclick="closeModal('modal-salud-pago')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid cols1">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="sp-fecha"></div>
+        <div class="form-group"><label>Monto ($) *</label><input type="number" id="sp-monto" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label>Compañía de Salud *</label><input type="text" id="sp-compania" placeholder="Ej: Ambetter, Molina, Aetna..."></div>
+        <div class="form-group"><label>Cuenta de Banco *</label><input type="text" id="sp-cuenta" placeholder="Ej: Chase Business ****1234"></div>
+        <div class="form-group"><label>Notas (opcional)</label><input type="text" id="sp-notas" placeholder=""></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-salud-pago')">Cancelar</button>
+      <button class="btn btn-success" onclick="saludGuardarPago()">✅ Registrar Pago</button>
     </div>
   </div>
 </div>
@@ -2731,9 +2759,11 @@ let saludData = {
   sueldos: [],
   quincenas: {},
   meses: ['Mayo 2026','Junio 2026'],
+  pagos: [],
   nextId: 13,
   nextCampId: 2,
-  nextSueldoId: 1
+  nextSueldoId: 1,
+  nextPagoId: 1
 };
 let _saludLoaded = false;
 
@@ -2748,6 +2778,8 @@ function normalizarSaludData() {
   if(!saludData.nextCampId)saludData.nextCampId= 1;
   if(!saludData.nextSueldoId) saludData.nextSueldoId = 1;
   if(!saludData.enlaces)   saludData.enlaces   = [];
+  if(!saludData.pagos)     saludData.pagos     = [];
+  if(!saludData.nextPagoId) saludData.nextPagoId = 1;
 }
 
 function guardarSalud() {
@@ -2775,6 +2807,7 @@ function activarListenerSalud() {
         const pageId = activePage.id.replace('page-', '');
         const renderMapSalud = {
           'salud-dashboard':   saludRenderDashboard,
+          'salud-pagos-recibidos': saludRenderPagosRecibidos,
           'salud-clientes':    saludRenderClientes,
           'salud-agentes':     saludRenderAgentes,
           'salud-comisiones':  saludRenderComisiones,
@@ -3134,6 +3167,7 @@ const PAGE_TITLES = {
   'bravo-roi':'🏪 Bravo — ROI',
   'bravo-caja':'💵 Caja Chica — Bravo',
   'salud-dashboard':'💚 Salud — Dashboard',
+  'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-clientes':'💚 Salud — Clientes',
   'salud-agentes':'💚 Salud — Agentes',
   'salud-comisiones':'💚 Salud — Comisiones',
@@ -3180,6 +3214,7 @@ function renderPage(name) {
   if(name==='bravo-roi') bravoROI();
   if(name==='bravo-caja') bravoCaja();
   if(name==='salud-dashboard') saludRenderDashboard();
+  if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-clientes') saludRenderClientes();
   if(name==='salud-agentes') saludRenderAgentes();
   if(name==='salud-comisiones') saludRenderComisiones();
@@ -8535,8 +8570,9 @@ function calcSaludMes(m) {
   if(saludData.quincenas) {
     (saludData.agentes||[]).forEach(a=>{ [1,2].forEach(q=>{ if(saludData.quincenas[saludGetQuincenaKey(a.nombre,m,q)]) sueldosMes+=a.sueldoQuincenal; }); });
   }
-  const gananciaNeta = totalAdelanto - comAgentes - sueldosMes;
-  return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, comAgentes, sueldosMes, gananciaNeta };
+  const totalPagosReales = (saludData.pagos||[]).filter(p=>p.mes===m).reduce((s,p)=>s+parseFloat(p.monto||0),0);
+  const gananciaNeta = totalPagosReales - comAgentes - sueldosMes;
+  return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, totalPagosReales, comAgentes, sueldosMes, gananciaNeta };
 }
 
 function renderTopSalud() {
@@ -8545,7 +8581,7 @@ function renderTopSalud() {
   const curVal = sel ? sel.value : '';
   const mes = curVal || meses[meses.length-1] || '';
 
-  const d = mes ? calcSaludMes(mes) : { ventas:0, activos:0, totalAdelanto:0, totalFinal:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
+  const d = mes ? calcSaludMes(mes) : { ventas:0, activos:0, totalAdelanto:0, totalFinal:0, totalPagosReales:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
   const historial = meses.slice(-6).map(m => calcSaludMes(m));
 
   document.getElementById('top-salud').innerHTML = `
@@ -8557,20 +8593,22 @@ function renderTopSalud() {
         </select>
       </div>
       ${!mes ? '<div style="color:#7C98B6;padding:20px">Aún no hay meses registrados en Salud</div>' : `
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:10px">Adelanto/Final son proyecciones de comisión; la Ganancia Neta usa el dinero real recibido (Salud → Pagos Recibidos).</div>
       <div class="cards" style="margin-bottom:20px">
         <div class="card blue"><label>Ventas del Mes</label><div class="val">${d.ventas}</div><div class="sub">${d.activos} activos</div></div>
-        <div class="card green"><label>Adelanto (9m)</label><div class="val">${fmt(d.totalAdelanto)}</div></div>
-        <div class="card orange"><label>Final (3m)</label><div class="val">${fmt(d.totalFinal)}</div></div>
+        <div class="card teal"><label>💰 Pagos Reales Recibidos</label><div class="val">${fmt(d.totalPagosReales)}</div></div>
+        <div class="card green"><label>Adelanto (9m) <span style="font-weight:400">proyectado</span></label><div class="val">${fmt(d.totalAdelanto)}</div></div>
+        <div class="card orange"><label>Final (3m) <span style="font-weight:400">proyectado</span></label><div class="val">${fmt(d.totalFinal)}</div></div>
         <div class="card yellow"><label>Com. Agentes</label><div class="val">${fmt(d.comAgentes)}</div></div>
         <div class="card red"><label>Sueldos Pagados</label><div class="val">${fmt(d.sueldosMes)}</div></div>
-        <div class="card ${d.gananciaNeta>=0?'green':'red'}"><label>💵 Ganancia Neta</label><div class="val">${fmt(d.gananciaNeta)}</div></div>
+        <div class="card ${d.gananciaNeta>=0?'green':'red'}"><label>💵 Ganancia Neta (real)</label><div class="val">${fmt(d.gananciaNeta)}</div></div>
       </div>
       <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (últimos meses)</div>
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Mes</th><th>Ventas</th><th>Adelanto</th><th>Com. Agentes</th><th>Sueldos</th><th>Ganancia Neta</th></tr></thead>
+        <thead><tr><th>Mes</th><th>Ventas</th><th>Pagos Reales</th><th>Com. Agentes</th><th>Sueldos</th><th>Ganancia Neta</th></tr></thead>
         <tbody>${historial.map(h=>`<tr>
-          <td>${h.mes}</td><td>${h.ventas}</td><td>${fmt(h.totalAdelanto)}</td><td>${fmt(h.comAgentes)}</td><td>${fmt(h.sueldosMes)}</td>
+          <td>${h.mes}</td><td>${h.ventas}</td><td>${fmt(h.totalPagosReales)}</td><td>${fmt(h.comAgentes)}</td><td>${fmt(h.sueldosMes)}</td>
           <td style="color:${h.gananciaNeta>=0?'#00BDA5':'#E04048'};font-weight:700">${fmt(h.gananciaNeta)}</td>
         </tr>`).join('')}</tbody>
       </table>
@@ -10075,6 +10113,92 @@ function saludEliminarSueldo(id) {
   if(!confirm('¿Eliminar este registro de pago?')) return;
   saludData.sueldos = saludData.sueldos.filter(s=>s.id!==id);
   guardarSalud(); saludRenderComisiones(); showNotif('🗑️ Eliminado');
+}
+
+// ─── Pagos Recibidos de Salud/Dental (dinero real de las compañías de seguro) ───
+let saludPagoEditId = null;
+function saludAbrirModalPago(id = null) {
+  saludPagoEditId = id;
+  const p = id ? (saludData.pagos||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-salud-pago-title').textContent = id ? '✏️ Editar Pago Recibido' : '💰 Nuevo Pago Recibido';
+  document.getElementById('sp-fecha').value = p ? p.fecha : new Date().toISOString().slice(0,10);
+  document.getElementById('sp-monto').value = p ? p.monto : '';
+  document.getElementById('sp-compania').value = p ? p.compania : '';
+  document.getElementById('sp-cuenta').value = p ? p.cuentaBanco : '';
+  document.getElementById('sp-notas').value = p ? (p.notas||'') : '';
+  document.getElementById('modal-salud-pago').classList.add('open');
+}
+function saludGuardarPago() {
+  const fecha = document.getElementById('sp-fecha').value;
+  const monto = parseFloat(document.getElementById('sp-monto').value)||0;
+  const compania = document.getElementById('sp-compania').value.trim();
+  const cuentaBanco = document.getElementById('sp-cuenta').value.trim();
+  const notas = document.getElementById('sp-notas').value.trim();
+  if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+  if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
+  if(!compania) { showNotif('⚠️ Ingresa la compañía de salud','error'); return; }
+  if(!cuentaBanco) { showNotif('⚠️ Ingresa la cuenta de banco','error'); return; }
+  const [y,m] = fecha.split('-').map(Number);
+  const mes = MESES_ES[m-1] + ' ' + y;
+  if(!saludData.pagos) saludData.pagos = [];
+  if(saludPagoEditId) {
+    const p = saludData.pagos.find(x=>x.id===saludPagoEditId);
+    Object.assign(p, { fecha, monto, compania, cuentaBanco, notas, mes });
+  } else {
+    if(!saludData.nextPagoId) saludData.nextPagoId = 1;
+    saludData.pagos.push({ id: saludData.nextPagoId++, fecha, monto, compania, cuentaBanco, notas, mes });
+  }
+  guardarSalud();
+  closeModal('modal-salud-pago');
+  saludRenderPagosRecibidos();
+  showNotif('✅ Pago recibido registrado');
+}
+function saludEliminarPago(id) {
+  if(!confirm('¿Eliminar este pago recibido?')) return;
+  saludData.pagos = (saludData.pagos||[]).filter(p=>p.id!==id);
+  guardarSalud(); saludRenderPagosRecibidos(); showNotif('🗑️ Pago eliminado');
+}
+function saludRenderPagosRecibidos() {
+  const el = document.getElementById('salud-pagos-recibidos-content');
+  if(!el) return;
+  const meses = getSaludMeses();
+  const selMes = document.getElementById('sp-filtro-mes')?.value || '';
+  const pagos = [...(saludData.pagos||[])]
+    .filter(p => !selMes || p.mes === selMes)
+    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const total = pagos.reduce((s,p)=>s+parseFloat(p.monto||0),0);
+
+  el.innerHTML = `
+    <div class="section" style="margin-bottom:16px">
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h2>💰 Pagos Recibidos de Compañías de Salud</h2>
+        <button class="btn btn-primary btn-sm" onclick="saludAbrirModalPago()">➕ Nuevo Pago</button>
+      </div>
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:14px">
+        Este es el dinero REAL que entra cada semana/mes de las compañías de seguro — es lo que se usa para calcular la Ganancia Neta real de Salud/Dental en TOP.
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <select id="sp-filtro-mes" onchange="saludRenderPagosRecibidos()" style="border:1px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">📊 Todos los meses</option>
+          ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+        </select>
+        <div class="card green" style="margin:0"><label>Total ${selMes||'(todos los meses)'}</label><div class="val">${fmt(total)}</div></div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Fecha</th><th>Compañía</th><th>Cuenta de Banco</th><th style="text-align:right">Monto</th><th>Notas</th><th></th></tr></thead>
+          <tbody>${pagos.length ? pagos.map(p=>`<tr>
+            <td>${p.fecha}</td>
+            <td><b style="color:#00A492">${p.compania}</b></td>
+            <td>${p.cuentaBanco}</td>
+            <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(p.monto)}</td>
+            <td style="color:#7C98B6;font-size:11px">${p.notas||''}</td>
+            <td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="saludAbrirModalPago(${p.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="saludEliminarPago(${p.id})" style="margin-left:4px">✕</button></td>
+          </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Sin pagos registrados' + (selMes?' para '+selMes:'') + '</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 // ─── AT&T Campañas ────────────────────────────────────────────
