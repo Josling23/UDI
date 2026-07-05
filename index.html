@@ -9574,11 +9574,13 @@ function renderTopGastoNominaGanancias() {
     const rsiNeto = parseFloat(rep.neto||0);
 
     // Utilidad Global y ROI% se calculan SOLO con lo que se ve en esta misma
-    // tabla: RS&I Neto − Total Gastos + Ganancia Bravo + Ganancia
-    // Salud/Dental — ya no usan Ingresos AT&T (que incluía Pagos AT&T e
-    // ingresos manuales) ni el cálculo interno de calcROI(), a pedido del
-    // usuario, para que no haya cifras "escondidas".
-    const gananciaATT = rsiNeto - totalMes;
+    // tabla: RS&I Neto − Total Gastos (sin Saraplus) + Ganancia Bravo +
+    // Ganancia Salud/Dental — ya no usan Ingresos AT&T (que incluía Pagos
+    // AT&T e ingresos manuales) ni el cálculo interno de calcROI(), a pedido
+    // del usuario, para que no haya cifras "escondidas". Saraplus se excluye
+    // aquí porque RS&I Neto ya llega con ese cargo descontado en origen; si
+    // se restara también aquí se contaría dos veces.
+    const gananciaATT = rsiNeto - (totalMes - saraplus);
     const utilidadGlobal = gananciaATT + bravo.gananciaNeta + salud.gananciaNeta;
     const roiPct = rsiNeto > 0 ? (gananciaATT / rsiNeto * 100) : 0;
 
