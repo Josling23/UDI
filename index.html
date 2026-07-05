@@ -9551,12 +9551,21 @@ function renderTopGastoNominaGanancias() {
     const roi = calcROI(mes);
     const bravo = mesNum > 0 ? calcBravoMes(mesNum, anioNum) : { gananciaNeta: 0 };
     const salud = calcSaludMes(mes);
-    const utilidadGlobal = roi.utilidad + bravo.gananciaNeta + salud.gananciaNeta;
     const rep = (appData.rsiReportes||{})[mes] || {};
+
+    // Utilidad Global y ROI% se calculan SOLO con lo que se ve en esta misma
+    // tabla (Ingresos AT&T − Total Gastos + Ganancia Bravo + Ganancia
+    // Salud/Dental) — ya no usan el cálculo interno de calcROI() (comisiones
+    // reales de ventas, nómina de quincenas cerradas, gastos/finanzas legado),
+    // a pedido del usuario, para que no haya cifras "escondidas".
+    const ingresosATT = roi.pagado;
+    const gananciaATT = ingresosATT - totalMes;
+    const utilidadGlobal = gananciaATT + bravo.gananciaNeta + salud.gananciaNeta;
+    const roiPct = ingresosATT > 0 ? (gananciaATT / ingresosATT * 100) : 0;
 
     return { mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, totalMes,
       rsiBruto: parseFloat(rep.bruto||0), rsiNeto: parseFloat(rep.neto||0),
-      ingresosATT: roi.pagado, gananciaATT: roi.utilidad, roiPct: roi.roi,
+      ingresosATT, gananciaATT, roiPct,
       gananciaBravo: bravo.gananciaNeta, gananciaSalud: salud.gananciaNeta, utilidadGlobal };
   });
 
