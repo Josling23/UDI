@@ -383,6 +383,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-section">💚 SALUD & DENTAL</div>
     <div class="nav-item active" onclick="showPage('salud-dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('salud-pagos-recibidos',this)"><span class="icon">💰</span><span>Pagos Recibidos</span></div>
+    <div class="nav-item" onclick="showPage('salud-roi-mensual',this)"><span class="icon">📊</span><span>ROI Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-clientes',this)"><span class="icon">👥</span><span>Clientes</span></div>
     <div class="nav-item" onclick="showPage('salud-agentes',this)"><span class="icon">🤝</span><span>Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-comisiones',this)"><span class="icon">💵</span><span>Comisiones</span></div>
@@ -689,6 +690,10 @@ table thead,table tbody{display:table;width:100%}
 
     <div class="page" id="page-salud-pagos-recibidos">
       <div id="salud-pagos-recibidos-content"></div>
+    </div>
+
+    <div class="page" id="page-salud-roi-mensual">
+      <div id="salud-roi-mensual-content"></div>
     </div>
 
     <div class="page" id="page-salud-clientes">
@@ -2768,6 +2773,7 @@ let saludData = {
   quincenas: {},
   meses: ['Mayo 2026','Junio 2026'],
   pagos: [],
+  roiMensual: {},
   nextId: 13,
   nextCampId: 2,
   nextSueldoId: 1,
@@ -2788,6 +2794,7 @@ function normalizarSaludData() {
   if(!saludData.enlaces)   saludData.enlaces   = [];
   if(!saludData.pagos)     saludData.pagos     = [];
   if(!saludData.nextPagoId) saludData.nextPagoId = 1;
+  if(!saludData.roiMensual) saludData.roiMensual = {};
   migrarMesesSalud();
 }
 
@@ -2840,6 +2847,7 @@ function activarListenerSalud() {
         const renderMapSalud = {
           'salud-dashboard':   saludRenderDashboard,
           'salud-pagos-recibidos': saludRenderPagosRecibidos,
+          'salud-roi-mensual': saludRenderROIMensual,
           'salud-clientes':    saludRenderClientes,
           'salud-agentes':     saludRenderAgentes,
           'salud-comisiones':  saludRenderComisiones,
@@ -3200,6 +3208,7 @@ const PAGE_TITLES = {
   'bravo-caja':'💵 Caja Chica — Bravo',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
+  'salud-roi-mensual':'📊 Salud — ROI Mensual',
   'salud-clientes':'💚 Salud — Clientes',
   'salud-agentes':'💚 Salud — Agentes',
   'salud-comisiones':'💚 Salud — Comisiones',
@@ -3247,6 +3256,7 @@ function renderPage(name) {
   if(name==='bravo-caja') bravoCaja();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
+  if(name==='salud-roi-mensual') saludRenderROIMensual();
   if(name==='salud-clientes') saludRenderClientes();
   if(name==='salud-agentes') saludRenderAgentes();
   if(name==='salud-comisiones') saludRenderComisiones();
@@ -8597,14 +8607,15 @@ function calcSaludMes(m) {
   const activos = clientes.filter(c=>c.estado==='activo');
   const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
   const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
-  const comAgentes = clientes.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-  const [mesMes, mesAnio] = m.split(' ');
-  const mesNum = String(MESES_ES.indexOf(mesMes)+1).padStart(2,'0');
-  let sueldosMes = (saludData.sueldos||[]).filter(s=>s.fecha&&s.fecha.startsWith(`${mesAnio}-${mesNum}`)).reduce((s,x)=>s+x.monto,0);
-  if(saludData.quincenas) {
-    (saludData.agentes||[]).forEach(a=>{ [1,2].forEach(q=>{ if(saludData.quincenas[saludGetQuincenaKey(a.nombre,m,q)]) sueldosMes+=a.sueldoQuincenal; }); });
-  }
-  const totalPagosReales = (saludData.pagos||[]).filter(p=>p.mes===m).reduce((s,p)=>s+parseFloat(p.monto||0),0);
+
+  // Ganancia Neta real: sale del ROI Mensual (Salud → ROI Mensual), donde se
+  // ingresan a mano Pagos Recibidos/Comisiones/Sueldos por mes — ya no se
+  // calculan automáticamente de clientes/agentes/quincenas ni se suman los
+  // pagos individuales de "Pagos Recibidos".
+  const rm = (saludData.roiMensual||{})[m] || {};
+  const totalPagosReales = parseFloat(rm.pagos || 0);
+  const comAgentes = parseFloat(rm.comisiones || 0);
+  const sueldosMes = parseFloat(rm.sueldos || 0);
   const gananciaNeta = totalPagosReales - comAgentes - sueldosMes;
   return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, totalPagosReales, comAgentes, sueldosMes, gananciaNeta };
 }
@@ -10291,6 +10302,92 @@ function saludRenderPagosRecibidos() {
       </div>
     </div>
   `;
+}
+
+// ─── ROI Mensual de Salud/Dental (tabla mes a mes, estilo Gastos & Nómina) ───
+// Reemplaza la fuente de la Ganancia Salud/Dental que se refleja en
+// TOP → Gastos & Nómina + Ganancias por Mes: en vez de sumar los pagos
+// individuales de "Pagos Recibidos" ni calcular comisiones/sueldos de los
+// clientes/agentes, aquí se ingresa manualmente un solo total por mes para
+// Pagos Recibidos, Comisiones y Sueldos — igual que Nóminas/Comisiones/
+// Gastos Var/Gastos Fijos en la tabla de Gastos & Nómina de TOP.
+function saludRenderROIMensual() {
+  const el = document.getElementById('salud-roi-mensual-content');
+  if(!el) return;
+  const meses = getSaludMeses();
+
+  const datos = meses.map(mes => {
+    const rm = (saludData.roiMensual||{})[mes] || {};
+    const pagos = parseFloat(rm.pagos || 0);
+    const comisiones = parseFloat(rm.comisiones || 0);
+    const sueldos = parseFloat(rm.sueldos || 0);
+    const gananciaNeta = pagos - comisiones - sueldos;
+    const roiPct = pagos > 0 ? (gananciaNeta / pagos * 100) : 0;
+    return { mes, pagos, comisiones, sueldos, gananciaNeta, roiPct };
+  });
+
+  const sum = (key) => datos.reduce((s,d)=>s+d[key],0);
+  const totalGanancia = sum('gananciaNeta');
+  const totalPagos = sum('pagos');
+  const totalRoiPct = totalPagos > 0 ? (totalGanancia / totalPagos * 100) : 0;
+
+  el.innerHTML = `
+    <div class="section" style="margin-bottom:16px">
+      <div class="section-header">
+        <h2>📊 ROI Mensual — Salud/Dental</h2>
+      </div>
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:14px">
+        Ingresa manualmente el total de Pagos Recibidos, Comisiones y Sueldos de cada mes — la Ganancia Neta y el ROI% que calcula aquí son los que se reflejan en TOP → 💸 Gastos & Nómina + Ganancias por Mes → 💚 Ganancia Salud/Dental.
+      </div>
+      <div class="tbl-wrap">
+        <table style="width:100%">
+          <thead>
+            <tr style="background:#F5F8FA">
+              <th style="text-align:left;min-width:140px">📅 Mes</th>
+              <th style="text-align:right;min-width:140px">💰 Pagos Recibidos</th>
+              <th style="text-align:right;min-width:130px">💵 Comisiones</th>
+              <th style="text-align:right;min-width:120px">💼 Sueldos</th>
+              <th style="text-align:right;min-width:140px">💚 Ganancia Neta</th>
+              <th style="text-align:right;min-width:90px">ROI%</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${datos.map(d => `
+              <tr style="border-bottom:1px solid #CBD6E2">
+                <td style="padding:12px;font-weight:600;color:#33475B">${d.mes}</td>
+                <td style="padding:12px;text-align:right"><input type="number" value="${d.pagos}" data-field="pagos" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:120px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00A492" /></td>
+                <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#D4A017" /></td>
+                <td style="padding:12px;text-align:right"><input type="number" value="${d.sueldos}" data-field="sueldos" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
+                <td style="padding:12px;text-align:right;font-weight:800;color:${d.gananciaNeta>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaNeta)}</td>
+                <td style="padding:12px;text-align:right;font-weight:700;color:${d.roiPct>=20?'#00BDA5':d.roiPct>=0?'#D4A017':'#E04048'}">${d.roiPct.toFixed(1)}%</td>
+              </tr>
+            `).join('') || '<tr><td colspan="6" class="tbl-empty">Sin meses registrados</td></tr>'}
+            <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
+              <td style="padding:12px;color:#33475B">📊 Total</td>
+              <td style="padding:12px;text-align:right;color:#00A492">${fmt(sum('pagos'))}</td>
+              <td style="padding:12px;text-align:right;color:#D4A017">${fmt(sum('comisiones'))}</td>
+              <td style="padding:12px;text-align:right;color:#F2545B">${fmt(sum('sueldos'))}</td>
+              <td style="padding:12px;text-align:right;font-size:15px;color:${totalGanancia>=0?'#00BDA5':'#E04048'}">${fmt(totalGanancia)}</td>
+              <td style="padding:12px;text-align:right;color:${totalRoiPct>=20?'#00BDA5':totalRoiPct>=0?'#D4A017':'#E04048'}">${totalRoiPct.toFixed(1)}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+function guardarSaludROIMensualCell(input) {
+  const mes = input.getAttribute('data-mes');
+  const field = input.getAttribute('data-field');
+  const valor = parseFloat(input.value) || 0;
+
+  if(!saludData.roiMensual) saludData.roiMensual = {};
+  if(!saludData.roiMensual[mes]) saludData.roiMensual[mes] = { pagos: 0, comisiones: 0, sueldos: 0 };
+  saludData.roiMensual[mes][field] = valor;
+
+  guardarSalud();
+  saludRenderROIMensual();
+  showNotif('✅ ROI Mensual de Salud actualizado');
 }
 
 // ─── AT&T Campañas ────────────────────────────────────────────
