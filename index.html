@@ -2684,7 +2684,11 @@ async function cargar() {
   } catch(e) {
     console.warn('Firebase read error, using localStorage:', e);
   }
-  // Fallback localStorage
+  // Fallback localStorage — si hay una copia local válida, se usa y se detiene
+  // aquí (antes esto NO tenía "return", así que después de cargar los datos
+  // reales de localStorage el código seguía de largo hacia el bloque de
+  // "datos de ejemplo" de abajo, los sobreescribía con datos ficticios, y
+  // luego los guardaba en Firebase — borrando datos reales de producción).
   const s = localStorage.getItem('attVND_v1');
   if (s) {
     const parsed = JSON.parse(s);
@@ -2699,9 +2703,14 @@ async function cargar() {
       });
     }
     normalizarAppData();
+    activarListenerAppData();
+    return;
   }
   activarListenerAppData();
-  // Sin datos previos → cargar datos de ejemplo
+  // Sin datos previos en ningún lado (ni Firebase ni localStorage) → mostrar
+  // datos de ejemplo solo en memoria para esta sesión, SIN guardarlos en
+  // Firebase — un guardado real solo debe ocurrir cuando el usuario edite
+  // algo intencionalmente (eso ya dispara guardar() por su cuenta).
   {
     // Datos de ejemplo
     const hoy = new Date();
@@ -2724,7 +2733,6 @@ async function cargar() {
       { id:6, fecha:hoyStr, agente:'Carlos',  productoId:'att-combo',   categoria:'mobility', cantidad:1, cliente:'Cliente F', cuenta:'', mes:mesActual, notas:'' },
     ];
     appData.nextId = 10;
-    guardar();
   }
 }
 
@@ -6173,12 +6181,13 @@ fbAuth.onAuthStateChanged(async (user) => {
     }
 
     // Cargar datos de Firebase antes de mostrar áreas
+    // (cargar() ya maneja su propio timeout de Firebase + fallback a
+    // localStorage internamente — antes había además una carrera externa de
+    // solo 3 segundos, más corta que el timeout interno de 5 segundos, que
+    // podía abandonar la carga real antes de tiempo)
     try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Load timeout')), 3000)
-      );
       try {
-        await Promise.race([cargar(), timeoutPromise]);
+        await cargar();
       } catch(e) {
         console.warn('Cargar timeout/error, continuando sin datos previos:', e);
       }
@@ -8756,10 +8765,12 @@ function renderTopChargebacks() {
 
   const filas = meses.map(mes=>{
     const rep   = appData.rsiReportes[mes];
-    // Si hay reporte RS&I, calcular automáticamente
+    const saraplusMes = parseFloat(appData.gastosNomina[mes]?.saraplus || 0);
+    // Si hay reporte RS&I, calcular automáticamente — se resta Saraplus porque
+    // ese cargo es un gasto real de RS&I, no un chargeback de cliente
     let val, tiene, fuente;
     if(rep && rep.bruto>0) {
-      val    = ((rep.bruto - rep.neto) / rep.bruto) * 100;
+      val    = ((rep.bruto - rep.neto - saraplusMes) / rep.bruto) * 100;
       tiene  = true;
       fuente = 'auto';
     } else {
@@ -8771,7 +8782,7 @@ function renderTopChargebacks() {
     const color = !tiene ? '#99ACC2' : val < UMBRAL_OK ? '#00A492' : val < UMBRAL_WARN ? '#D4A017' : '#E04048';
     const badge = !tiene ? '' : val < UMBRAL_OK ? '✅ Bajo' : val < UMBRAL_WARN ? '⚠️ Moderado' : '🔴 Alto';
     const bar   = tiene ? `<div style="background:#F5F8FA;border-radius:20px;height:8px;width:100px;display:inline-block;vertical-align:middle;margin-left:8px"><div style="background:${color};border-radius:20px;height:8px;width:${Math.min(val/25*100,100)}%"></div></div>` : '';
-    const detalle = fuente==='auto' && rep ? `<span style="font-size:10px;color:#99ACC2">Bruto ${fmt(rep.bruto)} → Neto ${fmt(rep.neto)}</span>` : '';
+    const detalle = fuente==='auto' && rep ? `<span style="font-size:10px;color:#99ACC2">Bruto ${fmt(rep.bruto)} → Neto ${fmt(rep.neto)}${saraplusMes>0?` · Saraplus ${fmt(saraplusMes)}`:''}</span>` : '';
     return `<tr>
       <td style="font-weight:600">${mes}</td>
       <td style="text-align:right">
@@ -8795,7 +8806,8 @@ function renderTopChargebacks() {
     return (rep&&rep.bruto>0) || appData.chargebacks[m]!==undefined;
   }).map(m=>{
     const rep = appData.rsiReportes[m];
-    return rep&&rep.bruto>0 ? ((rep.bruto-rep.neto)/rep.bruto)*100 : parseFloat(appData.chargebacks[m]||0);
+    const saraplusM = parseFloat(appData.gastosNomina[m]?.saraplus || 0);
+    return rep&&rep.bruto>0 ? ((rep.bruto-rep.neto-saraplusM)/rep.bruto)*100 : parseFloat(appData.chargebacks[m]||0);
   });
   const prom = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
   const promColor = prom===null?'#99ACC2':prom<UMBRAL_OK?'#00A492':prom<UMBRAL_WARN?'#D4A017':'#E04048';
@@ -8837,7 +8849,8 @@ function abrirRSIReporte(mes) {
   // Actualizar también el ingreso RS&I almacenado
   const idx = appData.ingresos.findIndex(i=>i.mes===mes && i.fuente==='RS&I');
   if(idx>=0) appData.ingresos[idx].monto = n;
-  guardar(); renderTopChargebacks(); showNotif(`✅ Reporte RS&I ${mes} guardado — CB: ${((b-n)/b*100).toFixed(2)}%`);
+  const saraplusMes = parseFloat(appData.gastosNomina[mes]?.saraplus || 0);
+  guardar(); renderTopChargebacks(); showNotif(`✅ Reporte RS&I ${mes} guardado — CB: ${((b-n-saraplusMes)/b*100).toFixed(2)}%`);
 }
 
 function guardarChargeback(mes, valor) {
