@@ -9542,7 +9542,15 @@ function renderTopGastoNominaGanancias() {
   const el = document.getElementById('top-gasto-nomina-table');
   if(!el) return;
 
-  const meses = getMeses();
+  // Combina los meses de AT&T/Admin (appData.meses) y de Salud/Dental
+  // (saludData.meses) — son listas independientes, así que un mes con datos
+  // reales en Salud pero ausente de appData.meses no debe quedar invisible
+  // en esta tabla. Se ordenan cronológicamente por año+mes.
+  const meses = [...new Set([...getMeses(), ...getSaludMeses()])].sort((a, b) => {
+    const [mA, yA] = [MESES_ES.indexOf(a.split(' ')[0]), parseInt(a.split(' ')[1])];
+    const [mB, yB] = [MESES_ES.indexOf(b.split(' ')[0]), parseInt(b.split(' ')[1])];
+    return yA !== yB ? yA - yB : mA - mB;
+  });
   const anios = [...new Set(meses.map(m => (m.split(' ')[1]||'')).filter(Boolean))].sort();
   const selAnio = document.getElementById('top-gn-anio-sel')?.value || '';
   const mesesFiltrados = selAnio ? meses.filter(m => m.split(' ')[1] === selAnio) : meses;
