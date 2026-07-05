@@ -2780,6 +2780,30 @@ function normalizarSaludData() {
   if(!saludData.enlaces)   saludData.enlaces   = [];
   if(!saludData.pagos)     saludData.pagos     = [];
   if(!saludData.nextPagoId) saludData.nextPagoId = 1;
+  migrarMesesSalud();
+}
+
+// Asegura que todos los meses del año calendario actual estén en saludData.meses
+// (igual que migrarMeses() hace para appData) y los mantiene ordenados
+// cronológicamente por año+mes, para que Salud/Dental también esté listo
+// automáticamente cuando entra un año nuevo — sin depender de que alguien
+// use el botón "Agregar mes" a mano.
+function migrarMesesSalud() {
+  const anio = new Date().getFullYear();
+  let changed = false;
+  MESES_ES.forEach(m => {
+    const key = `${m} ${anio}`;
+    if(!saludData.meses.includes(key)) {
+      saludData.meses.push(key);
+      changed = true;
+    }
+  });
+  saludData.meses.sort((a, b) => {
+    const [mA, yA] = [MESES_ES.indexOf(a.split(' ')[0]), parseInt(a.split(' ')[1])];
+    const [mB, yB] = [MESES_ES.indexOf(b.split(' ')[0]), parseInt(b.split(' ')[1])];
+    return yA !== yB ? yA - yB : mA - mB;
+  });
+  if(changed) guardarSalud();
 }
 
 function guardarSalud() {
