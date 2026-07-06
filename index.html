@@ -1390,7 +1390,7 @@ table thead,table tbody{display:table;width:100%}
         Pega uno o varios bloques con el formato <code>---VENTAS | FECHA: ...</code>, agrupando las ventas por <code>AGENTE: Nombre</code>. Puedes pegar varios días juntos, uno tras otro.
         <code>Quincena</code> es opcional (1 o 2 — si se deja vacío, se calcula automático según la fecha). <code>Mes Pago</code> es opcional (ej. "Julio 2026") y solo tiene efecto si también pones Quincena — fuerza el mes completo de pago, no solo la quincena. <code>Llamada Grabada</code> es opcional: pon el nombre del agente que grabó la llamada y se le asigna su comisión de $2 aparte.
       </div>
-      <textarea id="ventas-pegar-textarea" placeholder="---VENTAS | FECHA: 5-Julio-2026&#10;&#10;AGENTE: Claudia&#10;- Producto: Activación $8 | Cantidad: 5 | Cliente: Juan Pérez | Cuenta: 123456789 | Quincena: 1 | Mes Pago: Julio 2026 | Llamada Grabada: Carlos | Nota:&#10;- Producto: Upgrade | Cantidad: 2 | Cliente: María López | Cuenta: | Quincena: | Mes Pago: | Llamada Grabada: | Nota:&#10;&#10;AGENTE: Carlos&#10;- Producto: Lyca Mobile | Cantidad: 3 | Cliente: Pedro Gómez | Cuenta: | Quincena: | Mes Pago: | Llamada Grabada: | Nota:" style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
+      <textarea id="ventas-pegar-textarea" placeholder="---VENTAS | FECHA: 5-Julio-2026&#10;&#10;AGENTE: Claudia&#10;- Producto: Línea <=15 | Cantidad: 5 | Cliente: Juan Pérez | Cuenta: 123456789 | Quincena: 1 | Mes Pago: Julio 2026 | Llamada Grabada: Carlos | Nota:&#10;- Producto: Upgrade | Cantidad: 2 | Cliente: María López | Cuenta: | Quincena: | Mes Pago: | Llamada Grabada: | Nota:&#10;&#10;AGENTE: Carlos&#10;- Producto: Lyca Mobile | Cantidad: 3 | Cliente: Pedro Gómez | Cuenta: | Quincena: | Mes Pago: | Llamada Grabada: | Nota:" style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
       <div style="margin-top:10px">
         <button class="btn btn-primary btn-sm" onclick="analizarVentasPegadas()">🔍 Analizar</button>
       </div>
@@ -2349,8 +2349,8 @@ const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 // Catálogo basado en columnas exactas del reporte Excel VND
 const PRODUCTOS_CATALOG = [
   // MOBILITY — AT&T
-  { id:'att-act8',    cat:'mobility', nombre:'Activación $8',          comision:8,   excelCol:'ACTIVACION $8'  },
-  { id:'att-act10',   cat:'mobility', nombre:'Activación $10',         comision:10,  excelCol:'ACTIVACION $10' },
+  { id:'att-act8',    cat:'mobility', nombre:'Línea <=15',             comision:8,   excelCol:'ACTIVACION $8'  },
+  { id:'att-act10',   cat:'mobility', nombre:'Línea >15',              comision:10,  excelCol:'ACTIVACION $10' },
   { id:'att-starter', cat:'mobility', nombre:'Starter',                comision:0,   excelCol:'STARTER'        },
   { id:'att-extra',   cat:'mobility', nombre:'Unlimited Extra',        comision:0,   excelCol:'UNL EXTRA'      },
   { id:'att-premium', cat:'mobility', nombre:'Unlimited Premium',      comision:0,   excelCol:'UNL PREMIUM'    },
