@@ -9577,27 +9577,27 @@ function renderTopGastoNominaGanancias() {
     const rsiBruto = parseFloat(rep.bruto||0);
     const rsiNeto = parseFloat(rep.neto||0);
 
-    // Utilidad Global = suma bruta de lo que se ve en esta misma tabla: RS&I
-    // Neto + Ganancia Bravo + Ganancia Salud/Dental (sin restar gastos todavía)
-    // — ya no usan Ingresos AT&T (que incluía Pagos AT&T e ingresos manuales)
-    // ni el cálculo interno de calcROI(), a pedido del usuario, para que no
-    // haya cifras "escondidas". El ROI% se calcula sobre Total Gastos (sin
-    // Saraplus, porque RS&I Neto ya llega con ese cargo descontado en
-    // origen): ROI% = (Utilidad Global − Total Gastos) / Total Gastos × 100.
+    // Utilidad Global = (RS&I Neto − Total Gastos) + Ganancia Bravo +
+    // Ganancia Salud/Dental — ya NETA de gastos, no una suma bruta. Total
+    // Gastos aquí excluye Saraplus porque RS&I Neto ya llega con ese cargo
+    // descontado en origen (restarlo también aquí lo contaría dos veces). Ya
+    // no se usan Ingresos AT&T ni el cálculo interno de calcROI(), a pedido
+    // del usuario, para que no haya cifras "escondidas". El ROI% se calcula
+    // sobre esa misma Utilidad Global ya neta, dividida entre Total Gastos:
+    // ROI% = Utilidad Global / Total Gastos × 100.
     const totalGastosSinSaraplus = totalMes - saraplus;
-    const utilidadGlobal = rsiNeto + bravo.gananciaNeta + gananciaSalud;
-    const gananciaNetaGlobal = utilidadGlobal - totalGastosSinSaraplus;
-    const roiPct = totalGastosSinSaraplus > 0 ? (gananciaNetaGlobal / totalGastosSinSaraplus * 100) : 0;
+    const utilidadGlobal = (rsiNeto - totalGastosSinSaraplus) + bravo.gananciaNeta + gananciaSalud;
+    const roiPct = totalGastosSinSaraplus > 0 ? (utilidadGlobal / totalGastosSinSaraplus * 100) : 0;
 
     return { mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, totalMes,
-      rsiBruto, rsiNeto, totalGastosSinSaraplus, gananciaNetaGlobal, roiPct,
+      rsiBruto, rsiNeto, totalGastosSinSaraplus, roiPct,
       gananciaBravo: bravo.gananciaNeta, gananciaSalud, utilidadGlobal };
   });
 
   const sum = (key) => datos.reduce((s,d)=>s+d[key],0);
   const totalUtilidad = sum('utilidadGlobal');
   const totalGastosSinSaraplusSum = sum('totalGastosSinSaraplus');
-  const totalRoiPct = totalGastosSinSaraplusSum > 0 ? (sum('gananciaNetaGlobal') / totalGastosSinSaraplusSum * 100) : 0;
+  const totalRoiPct = totalGastosSinSaraplusSum > 0 ? (totalUtilidad / totalGastosSinSaraplusSum * 100) : 0;
 
   el.innerHTML = `
     <div style="margin-bottom:12px">
