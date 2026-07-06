@@ -4319,7 +4319,9 @@ function parsearVentasPegadas(textoCompleto) {
       const agenteBloque = bloqueTexto.slice(inicioAg, finAg);
       const agenteObj = appData.agentes.find(a => bravoNorm(a.nombre) === bravoNorm(agenteNombreTexto));
 
-      const lineas = agenteBloque.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-'));
+      // Reconoce la línea de venta tenga o no el guion inicial "- " (ChatGPT
+      // a veces lo omite) — lo único que se exige es que mencione "Producto:".
+      const lineas = agenteBloque.split('\n').map(l=>l.trim()).filter(l=>/producto\s*:/i.test(l));
       lineas.forEach(linea => {
         const obj = bravoParsearLineaClaveValor(linea);
         const productoTexto = obj['producto'] || '';
