@@ -1244,11 +1244,15 @@ table thead,table tbody{display:table;width:100%}
         </div>
         <div class="form-group" style="margin:0">
           <label>💳 Quincena de Pago</label>
-          <select id="v-quincena" style="border:1.5px solid #009FDB;border-radius:8px;padding:8px 10px;font-size:13px;background:#EAF7FB;font-weight:600;color:#0057A8">
+          <select id="v-quincena" onchange="toggleMesPago()" style="border:1.5px solid #009FDB;border-radius:8px;padding:8px 10px;font-size:13px;background:#EAF7FB;font-weight:600;color:#0057A8">
             <option value="">⚡ Auto: últ.día mes ant + días 1-14 → Q1 · días 15-penúlt. → Q2</option>
             <option value="1">Manual: forzar Q1 de este mes</option>
             <option value="2">Manual: forzar Q2 de este mes</option>
           </select>
+          <div id="v-mespago-wrap" style="display:none;margin-top:6px">
+            <label style="font-size:10px;color:#7C98B6;font-weight:600">📅 Mes de pago (forzado, junto con la quincena)</label>
+            <select id="v-mes-pago" style="border:1.5px solid #009FDB;border-radius:8px;padding:6px 8px;font-size:12px;background:#EAF7FB;font-weight:600;color:#0057A8;width:100%;box-sizing:border-box"></select>
+          </div>
         </div>
       </div>
       <!-- Cliente con autocomplete -->
@@ -1384,9 +1388,9 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-body">
       <div style="font-size:11px;color:#7C98B6;margin-bottom:10px">
         Pega uno o varios bloques con el formato <code>---VENTAS | FECHA: ...</code>, agrupando las ventas por <code>AGENTE: Nombre</code>. Puedes pegar varios días juntos, uno tras otro.
-        <code>Quincena</code> es opcional (1 o 2 — si se deja vacío, se calcula automático según la fecha). <code>Llamada Grabada</code> es opcional: pon el nombre del agente que grabó la llamada y se le asigna su comisión de $2 aparte.
+        <code>Quincena</code> es opcional (1 o 2 — si se deja vacío, se calcula automático según la fecha). <code>Mes Pago</code> es opcional (ej. "Julio 2026") y solo tiene efecto si también pones Quincena — fuerza el mes completo de pago, no solo la quincena. <code>Llamada Grabada</code> es opcional: pon el nombre del agente que grabó la llamada y se le asigna su comisión de $2 aparte.
       </div>
-      <textarea id="ventas-pegar-textarea" placeholder="---VENTAS | FECHA: 5-Julio-2026&#10;&#10;AGENTE: Claudia&#10;- Producto: Activación $8 | Cantidad: 5 | Cliente: Juan Pérez | Cuenta: 123456789 | Quincena: 1 | Llamada Grabada: Carlos | Nota:&#10;- Producto: Upgrade | Cantidad: 2 | Cliente: María López | Cuenta: | Quincena: | Llamada Grabada: | Nota:&#10;&#10;AGENTE: Carlos&#10;- Producto: Lyca Mobile | Cantidad: 3 | Cliente: Pedro Gómez | Cuenta: | Quincena: | Llamada Grabada: | Nota:" style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
+      <textarea id="ventas-pegar-textarea" placeholder="---VENTAS | FECHA: 5-Julio-2026&#10;&#10;AGENTE: Claudia&#10;- Producto: Activación $8 | Cantidad: 5 | Cliente: Juan Pérez | Cuenta: 123456789 | Quincena: 1 | Mes Pago: Julio 2026 | Llamada Grabada: Carlos | Nota:&#10;- Producto: Upgrade | Cantidad: 2 | Cliente: María López | Cuenta: | Quincena: | Mes Pago: | Llamada Grabada: | Nota:&#10;&#10;AGENTE: Carlos&#10;- Producto: Lyca Mobile | Cantidad: 3 | Cliente: Pedro Gómez | Cuenta: | Quincena: | Mes Pago: | Llamada Grabada: | Nota:" style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
       <div style="margin-top:10px">
         <button class="btn btn-primary btn-sm" onclick="analizarVentasPegadas()">🔍 Analizar</button>
       </div>
@@ -3066,10 +3070,15 @@ function mesAISO(mesStr) {
 // Override manual ('1' o '2'): usa v.mes como mes de pago
 function getPeríodoPago(v) {
   // Override manual: usa la fecha para calcular el mes de pago correcto,
-  // pero fuerza la quincena indicada (Q1 o Q2) dentro de ese mes de pago auto
+  // pero fuerza la quincena indicada (Q1 o Q2) dentro de ese mes de pago auto.
+  // Si además se fija v.mesPago, se reemplaza también el MES de pago — ambos
+  // overrides van emparejados: no tiene sentido forzar el mes de pago sin
+  // forzar también la quincena, porque el cálculo automático siempre
+  // determina mes+quincena juntos a partir de la fecha.
   if(v.quincenaPago === '1' || v.quincenaPago === '2') {
     const autoP = getPeríodoPagoAuto(v);
-    return { mes: autoP.mes, q: parseInt(v.quincenaPago) };
+    const mesForzado = (v.mesPago && getMeses().includes(v.mesPago)) ? v.mesPago : autoP.mes;
+    return { mes: mesForzado, q: parseInt(v.quincenaPago) };
   }
 
   return getPeríodoPagoAuto(v);
@@ -4077,6 +4086,22 @@ function seleccionarClienteExistente(nombre, cuenta, agente, campana, mes) {
   if(mes) document.getElementById('v-mes').value = mes;
 }
 
+function toggleMesPago() {
+  const q = document.getElementById('v-quincena').value;
+  const wrap = document.getElementById('v-mespago-wrap');
+  if(q === '1' || q === '2') {
+    wrap.style.display = 'block';
+    populateMes('v-mes-pago', false);
+    // Sugerir por defecto el mes que resultaría del cálculo automático según
+    // la fecha, pero queda editable a cualquier otro mes existente.
+    const fecha = document.getElementById('v-fecha').value;
+    const autoP = getPeríodoPagoAuto({ fecha });
+    if(autoP.mes) document.getElementById('v-mes-pago').value = autoP.mes;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
 function toggleGrabacion() {
   const checked = document.getElementById('v-llamada-grabada').checked;
   const fields = document.getElementById('v-grab-fields');
@@ -4304,8 +4329,10 @@ function parsearVentasPegadas(textoCompleto) {
         const nota = (obj['nota'] || '').trim();
         const quincena = (obj['quincena'] || '').trim();
         const llamadaGrabadaTexto = (obj['llamada grabada'] || '').trim();
+        const mesPagoTexto = (obj['mes pago'] || '').trim();
         const productoObj = PRODUCTOS_CATALOG.find(p => bravoNorm(p.nombre) === bravoNorm(productoTexto));
         const agenteGrabacionObj = llamadaGrabadaTexto ? appData.agentes.find(a => bravoNorm(a.nombre) === bravoNorm(llamadaGrabadaTexto)) : null;
+        const mesPagoValido = mesPagoTexto ? getMeses().find(m => bravoNorm(m) === bravoNorm(mesPagoTexto)) : null;
 
         const errores = [];
         if(!fecha) errores.push(`Fecha inválida ("${fechaHeader}")`);
@@ -4315,6 +4342,8 @@ function parsearVentasPegadas(textoCompleto) {
         if(!cliente) errores.push('Falta cliente');
         if(quincena && quincena !== '1' && quincena !== '2') errores.push(`Quincena inválida ("${quincena}") — usa 1 o 2, o déjalo vacío`);
         if(llamadaGrabadaTexto && !agenteGrabacionObj) errores.push(`Agente de grabación "${llamadaGrabadaTexto}" no encontrado`);
+        if(mesPagoTexto && !mesPagoValido) errores.push(`Mes Pago "${mesPagoTexto}" no coincide con ningún mes existente`);
+        if(mesPagoTexto && !quincena) errores.push('Mes Pago requiere indicar también Quincena (1 o 2)');
 
         filas.push({
           fecha, fechaHeader,
@@ -4322,6 +4351,7 @@ function parsearVentasPegadas(textoCompleto) {
           productoTexto, productoId: productoObj ? productoObj.id : '', categoria: productoObj ? productoObj.cat : '',
           cantidad, cliente, cuenta, nota,
           quincena: (quincena === '1' || quincena === '2') ? quincena : '',
+          mesPago: mesPagoValido || '',
           agenteGrabacion: agenteGrabacionObj ? agenteGrabacionObj.nombre : '',
           comision: (productoObj && agenteObj) ? getComisionParaAgente(productoObj.id, agenteObj.nombre) : 0,
           valido: errores.length === 0,
@@ -4371,6 +4401,7 @@ function renderPreviewVentasPegadas() {
           <th style="padding:8px;text-align:right">Cant.</th>
           <th style="padding:8px;text-align:right">Comisión</th>
           <th style="padding:8px;text-align:center">Quincena</th>
+          <th style="padding:8px;text-align:center">Mes Pago</th>
           <th style="padding:8px;text-align:left">🎙️ Grabó</th>
           <th style="padding:8px;text-align:left">Estado</th>
         </tr>
@@ -4386,6 +4417,7 @@ function renderPreviewVentasPegadas() {
             <td style="padding:8px;text-align:right;color:#009FDB;font-weight:600">${r.cantidad}</td>
             <td style="padding:8px;text-align:right;color:#00BDA5;font-weight:600">$${r.comision}</td>
             <td style="padding:8px;text-align:center;color:#7C98B6">${r.quincena ? 'Q'+r.quincena : '⚡ Auto'}</td>
+            <td style="padding:8px;text-align:center;color:#7C98B6">${r.mesPago || '⚡ Auto'}</td>
             <td style="padding:8px;color:#6A78D1;font-weight:600">${r.agenteGrabacion || '—'}</td>
             <td style="padding:8px;font-size:10px;${r.valido?'color:#059669':'color:#F2545B'}">${r.valido?'✅ OK':r.errores.join(' · ')}</td>
           </tr>
@@ -4416,6 +4448,7 @@ function guardarVentasPegadas() {
       mes: mesCalc,
       campana: '',
       quincenaPago: r.quincena || '',
+      mesPago: r.mesPago || '',
       categoria: r.categoria,
       productoId: r.productoId,
       cantidad: r.cantidad,
@@ -4434,7 +4467,7 @@ function guardarVentasPegadas() {
       maxId++;
       appData.ventas.push({
         id: maxId, fecha: r.fecha, agente: r.agenteGrabacion, cliente: r.cliente, cuenta: '',
-        mes: mesCalc, campana: '', quincenaPago: r.quincena || '',
+        mes: mesCalc, campana: '', quincenaPago: r.quincena || '', mesPago: r.mesPago || '',
         productoId: 'grabacion', categoria: 'grabada', cantidad: 1, comision: 2,
         notas: 'Grabación llamada: '+r.cliente, esGrabacion: true, refVentaId: ventaId,
       });
@@ -4478,6 +4511,10 @@ function openVentaModal(id=null) {
     document.getElementById('v-campana').value = v.campana||'';
     document.getElementById('v-notas').value = v.notas||'';
     document.getElementById('v-quincena').value = v.quincenaPago||'';
+    toggleMesPago();
+    if(v.quincenaPago==='1'||v.quincenaPago==='2') {
+      document.getElementById('v-mes-pago').value = v.mesPago || getPeríodoPagoAuto(v).mes;
+    }
     document.getElementById('v-llamada-grabada').checked = !!v.llamadaGrabada;
     document.getElementById('v-agente-grabacion').value = v.agenteGrabacion||'';
     document.getElementById('v-comision-grabacion').value = '$2.00'; // Siempre $2
@@ -4492,6 +4529,8 @@ function openVentaModal(id=null) {
     document.getElementById('v-campana').value = '';
     document.getElementById('v-notas').value = '';
     document.getElementById('v-quincena').value = '';
+    document.getElementById('v-mes-pago').value = '';
+    toggleMesPago(); // oculta el bloque ya que queda en Auto
     document.getElementById('v-llamada-grabada').checked = false;
     document.getElementById('v-agente-grabacion').value = '';
     document.getElementById('v-comision-grabacion').value = '$2.00'; // Siempre $2
@@ -4527,6 +4566,7 @@ function guardarVenta() {
   const campana     = document.getElementById('v-campana').value;
   const notas       = document.getElementById('v-notas').value.trim();
   const quincenaPago     = document.getElementById('v-quincena').value;
+  const mesPago          = (quincenaPago==='1'||quincenaPago==='2') ? (document.getElementById('v-mes-pago')?.value||'') : '';
   const llamadaGrabada   = document.getElementById('v-llamada-grabada').checked;
   let agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'').trim() : '';
   // Normalizar nombre del agente de grabación para que coincida exactamente con el registro
@@ -4591,7 +4631,7 @@ function guardarVenta() {
       const ventaId = idx === 0 ? editVentaId : maxId;
       if(idx === 0) newVentaId = ventaId;
 
-      const ventaObj = { id:ventaId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
+      const ventaObj = { id:ventaId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago, mesPago,
         llamadaGrabada: idx === 0 ? llamadaGrabada : false,
         agenteGrabacion: idx === 0 ? agenteGrabacion : '',
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
@@ -4604,7 +4644,7 @@ function guardarVenta() {
     if(llamadaGrabada && agenteGrabacion && newVentaId) {
       maxId++;
       const comGrab = parseFloat(comisionGrabacion)||0;
-      const grabObj = { id:maxId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
+      const grabObj = { id:maxId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago, mesPago,
         productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
         notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:newVentaId };
       appData.ventas.push(grabObj);
@@ -4619,7 +4659,7 @@ function guardarVenta() {
       maxId++;
       const newId = maxId;
       // Solo la primera venta (idx=0) lleva los datos de grabación
-      const ventaObj = { id:newId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago,
+      const ventaObj = { id:newId, fecha, agente, cliente, cuenta, mes, campana, quincenaPago, mesPago,
         llamadaGrabada: idx === 0 ? llamadaGrabada : false,
         agenteGrabacion: idx === 0 ? agenteGrabacion : '',
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
@@ -4638,7 +4678,7 @@ function guardarVenta() {
       maxId++;
       const grabId = maxId;
       const comGrab = parseFloat(comisionGrabacion)||0;
-      const grabObj = { id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago,
+      const grabObj = { id:grabId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago, mesPago,
         productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
         notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:firstVentaId };
       console.log('Agregando grabación:', grabObj);
