@@ -457,6 +457,7 @@ table thead,table tbody{display:table;width:100%}
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="openVentaModal()">➕ Nueva Venta</button>
             <button class="btn btn-success btn-sm" onclick="openImportarExcelModal()">📊 Importar Excel</button>
+            <button class="btn btn-success btn-sm" onclick="abrirModalImportarVentasTexto()">📋 Pegar Ventas</button>
           </div>
         </div>
         <div class="filters">
@@ -1369,6 +1370,31 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-importar-excel')">Cancelar</button>
       <button class="btn btn-success" id="btn-importar-guardar" onclick="guardarImportacionExcel()" style="display:none">✅ Importar <span id="importar-final-count">0</span> registros</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL PEGAR VENTAS (TEXTO) ===== -->
+<div class="modal-overlay" id="modal-importar-ventas-texto">
+  <div class="modal" style="max-width:820px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3>📋 Pegar Ventas</h3>
+      <button class="modal-close" onclick="closeModal('modal-importar-ventas-texto')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:10px">
+        Pega uno o varios bloques con el formato <code>---VENTAS | FECHA: ...</code>, agrupando las ventas por <code>AGENTE: Nombre</code>. Puedes pegar varios días juntos, uno tras otro.
+      </div>
+      <textarea id="ventas-pegar-textarea" placeholder="---VENTAS | FECHA: 5-Julio-2026&#10;&#10;AGENTE: Claudia&#10;- Producto: Activación $8 | Cantidad: 5 | Cliente: Juan Pérez | Cuenta: 123456789 | Nota:&#10;- Producto: Upgrade | Cantidad: 2 | Cliente: María López | Cuenta: | Nota:&#10;&#10;AGENTE: Carlos&#10;- Producto: Lyca Mobile | Cantidad: 3 | Cliente: Pedro Gómez | Cuenta: | Nota:" style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
+      <div style="margin-top:10px">
+        <button class="btn btn-primary btn-sm" onclick="analizarVentasPegadas()">🔍 Analizar</button>
+      </div>
+      <div id="ventas-pegar-stats" style="margin-top:12px;padding:10px;background:#F5F8FA;border-radius:8px;display:none;font-size:11px;color:#7C98B6"></div>
+      <div id="ventas-pegar-preview" style="margin-top:16px;max-height:360px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-importar-ventas-texto')">Cancelar</button>
+      <button class="btn btn-success" id="ventas-pegar-guardar-btn" onclick="guardarVentasPegadas()" style="display:none">✅ Guardar Ventas Marcadas</button>
     </div>
   </div>
 </div>
@@ -4224,6 +4250,171 @@ function guardarImportacionExcel() {
   guardar();
   showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''} exitosamente`);
   closeModal('modal-importar-excel');
+  renderVentas();
+}
+
+// ============================================================
+// PEGAR VENTAS (TEXTO) — mismo patrón que "Pegar Reporte(s)" de
+// Bravo: se pega texto con bloques "---VENTAS | FECHA: ..." y
+// "AGENTE: Nombre", se analiza con vista previa (marcando errores de
+// agente/producto no reconocidos) y solo al confirmar se crean los
+// registros de venta reales.
+// ============================================================
+let ventasPegadasParseadas = [];
+
+function abrirModalImportarVentasTexto() {
+  document.getElementById('ventas-pegar-textarea').value = '';
+  document.getElementById('ventas-pegar-preview').innerHTML = '';
+  document.getElementById('ventas-pegar-stats').style.display = 'none';
+  document.getElementById('ventas-pegar-guardar-btn').style.display = 'none';
+  ventasPegadasParseadas = [];
+  document.getElementById('modal-importar-ventas-texto').classList.add('open');
+}
+
+function parsearVentasPegadas(textoCompleto) {
+  const regexBloque = /-{2,}\s*VENTAS\s*\|\s*FECHA:\s*([^\n]+)/gi;
+  const bloques = [...textoCompleto.matchAll(regexBloque)];
+  if(bloques.length === 0) return [];
+
+  const filas = [];
+  for(let i=0; i<bloques.length; i++) {
+    const inicio = bloques[i].index + bloques[i][0].length;
+    const fin = i+1 < bloques.length ? bloques[i+1].index : textoCompleto.length;
+    const bloqueTexto = textoCompleto.slice(inicio, fin);
+    const fechaHeader = bloques[i][1].trim();
+    const fecha = bravoParsearFechaReporte(fechaHeader);
+
+    const regexAgente = /AGENTE:\s*([^\n]+)/gi;
+    const agentesMatches = [...bloqueTexto.matchAll(regexAgente)];
+    agentesMatches.forEach((am, j) => {
+      const agenteNombreTexto = am[1].trim();
+      const inicioAg = am.index + am[0].length;
+      const finAg = j+1 < agentesMatches.length ? agentesMatches[j+1].index : bloqueTexto.length;
+      const agenteBloque = bloqueTexto.slice(inicioAg, finAg);
+      const agenteObj = appData.agentes.find(a => bravoNorm(a.nombre) === bravoNorm(agenteNombreTexto));
+
+      const lineas = agenteBloque.split('\n').map(l=>l.trim()).filter(l=>l.startsWith('-'));
+      lineas.forEach(linea => {
+        const obj = bravoParsearLineaClaveValor(linea);
+        const productoTexto = obj['producto'] || '';
+        const cantidad = parseInt(obj['cantidad']) || 0;
+        const cliente = (obj['cliente'] || '').trim();
+        const cuenta = (obj['cuenta'] || '').trim();
+        const nota = (obj['nota'] || '').trim();
+        const productoObj = PRODUCTOS_CATALOG.find(p => bravoNorm(p.nombre) === bravoNorm(productoTexto));
+
+        const errores = [];
+        if(!fecha) errores.push(`Fecha inválida ("${fechaHeader}")`);
+        if(!agenteObj) errores.push(`Agente "${agenteNombreTexto}" no encontrado`);
+        if(!productoObj) errores.push(`Producto "${productoTexto}" no reconocido`);
+        if(!cantidad || cantidad <= 0) errores.push('Cantidad inválida');
+        if(!cliente) errores.push('Falta cliente');
+
+        filas.push({
+          fecha, fechaHeader,
+          agenteTexto: agenteNombreTexto, agente: agenteObj ? agenteObj.nombre : '',
+          productoTexto, productoId: productoObj ? productoObj.id : '', categoria: productoObj ? productoObj.cat : '',
+          cantidad, cliente, cuenta, nota,
+          comision: (productoObj && agenteObj) ? getComisionParaAgente(productoObj.id, agenteObj.nombre) : 0,
+          valido: errores.length === 0,
+          errores,
+          incluir: errores.length === 0,
+        });
+      });
+    });
+  }
+  return filas;
+}
+
+function analizarVentasPegadas() {
+  const texto = document.getElementById('ventas-pegar-textarea').value;
+  ventasPegadasParseadas = parsearVentasPegadas(texto);
+  if(ventasPegadasParseadas.length === 0) {
+    document.getElementById('ventas-pegar-preview').innerHTML = '<div style="color:#E04048;font-size:12px;padding:10px">No se encontró ningún bloque "---VENTAS | FECHA" con líneas de venta en el texto pegado.</div>';
+    document.getElementById('ventas-pegar-stats').style.display = 'none';
+    document.getElementById('ventas-pegar-guardar-btn').style.display = 'none';
+    return;
+  }
+  renderPreviewVentasPegadas();
+  document.getElementById('ventas-pegar-guardar-btn').style.display = 'inline-flex';
+}
+
+function toggleVentaPegadaIncluir(i) {
+  ventasPegadasParseadas[i].incluir = !ventasPegadasParseadas[i].incluir;
+  renderPreviewVentasPegadas();
+}
+
+function renderPreviewVentasPegadas() {
+  const validas = ventasPegadasParseadas.filter(r=>r.valido).length;
+  const invalidas = ventasPegadasParseadas.length - validas;
+  const stats = document.getElementById('ventas-pegar-stats');
+  stats.style.display = 'block';
+  stats.innerHTML = `<div><b>${validas}</b> venta(s) válida(s) · <b>${invalidas}</b> con error</div>`;
+
+  document.getElementById('ventas-pegar-preview').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead>
+        <tr style="background:#F5F8FA;border-bottom:2px solid #CBD6E2">
+          <th style="padding:8px;text-align:center"></th>
+          <th style="padding:8px;text-align:left">Fecha</th>
+          <th style="padding:8px;text-align:left">Agente</th>
+          <th style="padding:8px;text-align:left">Cliente</th>
+          <th style="padding:8px;text-align:left">Producto</th>
+          <th style="padding:8px;text-align:right">Cant.</th>
+          <th style="padding:8px;text-align:right">Comisión</th>
+          <th style="padding:8px;text-align:left">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${ventasPegadasParseadas.map((r,i) => `
+          <tr style="background:${r.valido?'#fff':'#FFF5F5'};border-bottom:1px solid #F5F8FA">
+            <td style="padding:8px;text-align:center"><input type="checkbox" ${r.incluir?'checked':''} ${r.valido?'':'disabled'} onchange="toggleVentaPegadaIncluir(${i})"></td>
+            <td style="padding:8px;color:#7C98B6">${r.fecha || ('⚠️ '+r.fechaHeader)}</td>
+            <td style="padding:8px;color:#7C98B6">${r.agente || r.agenteTexto}</td>
+            <td style="padding:8px;color:#7C98B6">${r.cliente}</td>
+            <td style="padding:8px;color:#7C98B6">${r.productoTexto}</td>
+            <td style="padding:8px;text-align:right;color:#009FDB;font-weight:600">${r.cantidad}</td>
+            <td style="padding:8px;text-align:right;color:#00BDA5;font-weight:600">$${r.comision}</td>
+            <td style="padding:8px;font-size:10px;${r.valido?'color:#059669':'color:#F2545B'}">${r.valido?'✅ OK':r.errores.join(' · ')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function guardarVentasPegadas() {
+  const validas = ventasPegadasParseadas.filter(r => r.incluir && r.valido);
+  if(validas.length === 0) { showNotif('⚠️ No hay ventas válidas marcadas para guardar','error'); return; }
+
+  let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  let guardados = 0;
+  validas.forEach(r => {
+    maxId++;
+    const [yyyy, mm] = r.fecha.split('-');
+    const mesCalc = mesStrDesdeNum(parseInt(yyyy), parseInt(mm));
+    appData.ventas.push({
+      id: maxId,
+      fecha: r.fecha,
+      agente: r.agente,
+      cliente: r.cliente,
+      cuenta: r.cuenta,
+      mes: mesCalc,
+      campana: '',
+      quincenaPago: '',
+      categoria: r.categoria,
+      productoId: r.productoId,
+      cantidad: r.cantidad,
+      comision: r.comision,
+      notas: r.nota || '📋 Importado (texto)',
+      llamadaGrabada: false,
+    });
+    guardados++;
+  });
+
+  guardar();
+  showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''} exitosamente`);
+  closeModal('modal-importar-ventas-texto');
   renderVentas();
 }
 
