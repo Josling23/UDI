@@ -2897,6 +2897,16 @@ function fmt(n) {
   return '$' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 }
 
+// Semáforo visual para interpretar el ROI% de un vistazo:
+// 🔴 <20% revisar de inmediato · 🟡 20-35% aceptable · 🟢 35-50% muy buen
+// desempeño · ⭐ >50% excepcional.
+function roiPctVisual(pct) {
+  if (pct < 20)  return { emoji: '🔴', color: '#E04048' };
+  if (pct < 35)  return { emoji: '🟡', color: '#D4A017' };
+  if (pct < 50)  return { emoji: '🟢', color: '#00BDA5' };
+  return { emoji: '⭐', color: '#7C3AED' };
+}
+
 // Devuelve la comisión base del catálogo para un productoId
 // Catálogo completo = estático + otros internet custom
 function getCatalogoCompleto() {
@@ -9638,7 +9648,7 @@ function renderTopGastoNominaGanancias() {
               <td style="padding:12px;text-align:right;font-weight:800;background:#FFFAF7;color:${d.gananciaBravo>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaBravo)}</td>
               <td style="padding:12px;text-align:right;background:#F7FFFD"><input type="number" value="${d.gananciaSalud||''}" placeholder="0.00" step="0.01" data-field="gananciaSaludManual" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:800;color:${d.gananciaSalud>=0?'#00BDA5':'#E04048'}" /></td>
               <td style="padding:12px;text-align:right;font-weight:900;background:#FAFAFF;color:${d.utilidadGlobal>=0?'#00BDA5':'#E04048'}">${fmt(d.utilidadGlobal)}</td>
-              <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF;color:${d.roiPct>=20?'#00BDA5':d.roiPct>=0?'#D4A017':'#E04048'}">${d.roiPct.toFixed(1)}%</td>
+              <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF;color:${roiPctVisual(d.roiPct).color}">${roiPctVisual(d.roiPct).emoji} ${d.roiPct.toFixed(1)}%</td>
             </tr>
           `).join('') || `<tr><td colspan="13" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
           <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
@@ -9654,7 +9664,7 @@ function renderTopGastoNominaGanancias() {
             <td style="padding:12px;text-align:right;background:#FFFAF7;color:${sum('gananciaBravo')>=0?'#00BDA5':'#E04048'}">${fmt(sum('gananciaBravo'))}</td>
             <td style="padding:12px;text-align:right;background:#F7FFFD;color:${sum('gananciaSalud')>=0?'#00BDA5':'#E04048'}">${fmt(sum('gananciaSalud'))}</td>
             <td style="padding:12px;text-align:right;font-size:16px;background:#FAFAFF;color:${totalUtilidad>=0?'#00BDA5':'#E04048'}">${fmt(totalUtilidad)}</td>
-            <td style="padding:12px;text-align:right;background:#FAFAFF;color:${totalRoiPct>=20?'#00BDA5':totalRoiPct>=0?'#D4A017':'#E04048'}">${totalRoiPct.toFixed(1)}%</td>
+            <td style="padding:12px;text-align:right;background:#FAFAFF;color:${roiPctVisual(totalRoiPct).color}">${roiPctVisual(totalRoiPct).emoji} ${totalRoiPct.toFixed(1)}%</td>
           </tr>
         </tbody>
       </table>
@@ -10369,7 +10379,7 @@ function saludRenderROIMensual() {
                 <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#D4A017" /></td>
                 <td style="padding:12px;text-align:right"><input type="number" value="${d.sueldos}" data-field="sueldos" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
                 <td style="padding:12px;text-align:right;font-weight:800;color:${d.gananciaNeta>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaNeta)}</td>
-                <td style="padding:12px;text-align:right;font-weight:700;color:${d.roiPct>=20?'#00BDA5':d.roiPct>=0?'#D4A017':'#E04048'}">${d.roiPct.toFixed(1)}%</td>
+                <td style="padding:12px;text-align:right;font-weight:700;color:${roiPctVisual(d.roiPct).color}">${roiPctVisual(d.roiPct).emoji} ${d.roiPct.toFixed(1)}%</td>
               </tr>
             `).join('') || '<tr><td colspan="6" class="tbl-empty">Sin meses registrados</td></tr>'}
             <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
@@ -10378,7 +10388,7 @@ function saludRenderROIMensual() {
               <td style="padding:12px;text-align:right;color:#D4A017">${fmt(sum('comisiones'))}</td>
               <td style="padding:12px;text-align:right;color:#F2545B">${fmt(sum('sueldos'))}</td>
               <td style="padding:12px;text-align:right;font-size:15px;color:${totalGanancia>=0?'#00BDA5':'#E04048'}">${fmt(totalGanancia)}</td>
-              <td style="padding:12px;text-align:right;color:${totalRoiPct>=20?'#00BDA5':totalRoiPct>=0?'#D4A017':'#E04048'}">${totalRoiPct.toFixed(1)}%</td>
+              <td style="padding:12px;text-align:right;color:${roiPctVisual(totalRoiPct).color}">${roiPctVisual(totalRoiPct).emoji} ${totalRoiPct.toFixed(1)}%</td>
             </tr>
           </tbody>
         </table>
