@@ -5996,7 +5996,7 @@ function abrirArea(area) {
   if(area==='admin')  showPage('dashboard', document.getElementById('nav-dashboard'));
   else if(area==='hq')    showPage('hq', null);
   else if(area==='top')   showPage('top', null);
-  else if(area==='salud') { migrarDatosSaludReales().then(()=>cargarSalud()).then(()=>showPage('salud-dashboard', null)); }
+  else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
 }
 
@@ -11495,27 +11495,6 @@ function ejecutarMigraciones() {
   }
 } // fin ejecutarMigraciones()
 
-// ── Migración de datos reales de Salud (borra placeholders si existen) ──
-async function migrarDatosSaludReales() {
-  try {
-    const snap = await fbDB.ref('saludData').get();
-    if (snap.exists()) {
-      const d = snap.val();
-      // Si la primera agente se llama "Jesus Remotos" o el primer cliente se llama "Cliente 1"
-      // significa que aún están los placeholders → sobreescribir con datos reales
-      const primerAgente  = (d.agentes  && d.agentes[0]  && d.agentes[0].nombre)  || '';
-      const primerCliente = (d.clientes && d.clientes[0] && d.clientes[0].nombre) || '';
-      const sonPlaceholders = primerAgente === 'Jesus Remotos' || primerCliente === 'Cliente 1';
-      if (!sonPlaceholders) return; // ya tiene datos reales, no tocar
-    }
-    // Grabar datos reales
-    await fbDB.ref('saludData').set(saludData);
-    _saludLoaded = false; // forzar recarga
-    console.log('✅ Datos reales de Salud migrados a Firebase');
-  } catch(e) {
-    console.warn('migrarDatosSaludReales error:', e);
-  }
-}
 
 // Date in topbar
 const hoy = new Date();
