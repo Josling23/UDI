@@ -4393,6 +4393,19 @@ function renderPreviewVentasPegadas() {
   stats.style.display = 'block';
   stats.innerHTML = `<div><b>${validas}</b> venta(s) válida(s) · <b>${invalidas}</b> con error</div>`;
 
+  // Mismo criterio de agrupación que guardarVentasPegadas(): varias líneas
+  // con el mismo cliente + mismo agente de grabación (dentro de la misma
+  // fecha+agente) solo cobran la comisión de $2 una vez — se marca aquí
+  // cuál línea es la que realmente la cobra, para que la vista previa no
+  // sea engañosa.
+  const gruposVistos = new Set();
+  ventasPegadasParseadas.forEach(r => {
+    if(!r.valido || !r.incluir || !r.agenteGrabacion) { r._grabacionCobrada = false; return; }
+    const key = `${r.fecha}|${r.agente}|${r.cliente}|${r.agenteGrabacion}`;
+    r._grabacionCobrada = !gruposVistos.has(key);
+    gruposVistos.add(key);
+  });
+
   document.getElementById('ventas-pegar-preview').innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead>
@@ -4422,7 +4435,7 @@ function renderPreviewVentasPegadas() {
             <td style="padding:8px;text-align:right;color:#00BDA5;font-weight:600">$${r.comision}</td>
             <td style="padding:8px;text-align:center;color:#7C98B6">${r.quincena ? 'Q'+r.quincena : '⚡ Auto'}</td>
             <td style="padding:8px;text-align:center;color:#7C98B6">${r.mesPago || '⚡ Auto'}</td>
-            <td style="padding:8px;color:#6A78D1;font-weight:600">${r.agenteGrabacion || '—'}</td>
+            <td style="padding:8px;color:#6A78D1;font-weight:600">${r.agenteGrabacion ? (r._grabacionCobrada ? r.agenteGrabacion : r.agenteGrabacion + ' <span style="font-weight:400;color:#99ACC2;font-size:9px">(agrupada, sin cobro extra)</span>') : '—'}</td>
             <td style="padding:8px;font-size:10px;${r.valido?'color:#059669':'color:#F2545B'}">${r.valido?'✅ OK':r.errores.join(' · ')}</td>
           </tr>
         `).join('')}
@@ -4437,12 +4450,22 @@ function guardarVentasPegadas() {
 
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
   let guardados = 0, grabaciones = 0;
+  // Varias líneas de producto para el MISMO cliente con la MISMA "Llamada
+  // Grabada" (dentro del mismo día+agente) representan una sola llamada que
+  // cubrió una venta de varios productos — igual que el formulario manual,
+  // que solo cobra la comisión de grabación una vez por venta aunque tenga
+  // varias líneas. Se agrupan por fecha+agente+cliente+agenteGrabacion y
+  // solo la primera línea de cada grupo genera el registro de $2.
+  const gruposGrabacionYaFacturados = new Set();
   validas.forEach(r => {
     maxId++;
     const ventaId = maxId;
     const [yyyy, mm] = r.fecha.split('-');
     const mesCalc = mesStrDesdeNum(parseInt(yyyy), parseInt(mm));
     const tieneGrabacion = !!r.agenteGrabacion;
+    const grupoKey = tieneGrabacion ? `${r.fecha}|${r.agente}|${r.cliente}|${r.agenteGrabacion}` : null;
+    const esPrimeraDelGrupo = tieneGrabacion && !gruposGrabacionYaFacturados.has(grupoKey);
+
     appData.ventas.push({
       id: ventaId,
       fecha: r.fecha,
@@ -4458,16 +4481,18 @@ function guardarVentasPegadas() {
       cantidad: r.cantidad,
       comision: r.comision,
       notas: r.nota || '📋 Importado (texto)',
-      llamadaGrabada: tieneGrabacion,
-      agenteGrabacion: tieneGrabacion ? r.agenteGrabacion : '',
-      comisionGrabacion: tieneGrabacion ? 2 : 0,
+      llamadaGrabada: esPrimeraDelGrupo,
+      agenteGrabacion: esPrimeraDelGrupo ? r.agenteGrabacion : '',
+      comisionGrabacion: esPrimeraDelGrupo ? 2 : 0,
     });
     guardados++;
 
     // Igual que en el formulario manual: la llamada grabada crea un registro
     // aparte, atribuido al agente que grabó (puede ser distinto al vendedor),
-    // con comisión fija de $2.
-    if(tieneGrabacion) {
+    // con comisión fija de $2 — solo una vez por grupo (mismo cliente +
+    // mismo agente de grabación), no una vez por cada línea de producto.
+    if(esPrimeraDelGrupo) {
+      gruposGrabacionYaFacturados.add(grupoKey);
       maxId++;
       appData.ventas.push({
         id: maxId, fecha: r.fecha, agente: r.agenteGrabacion, cliente: r.cliente, cuenta: '',
