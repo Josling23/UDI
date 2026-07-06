@@ -9573,25 +9573,27 @@ function renderTopGastoNominaGanancias() {
     const rsiBruto = parseFloat(rep.bruto||0);
     const rsiNeto = parseFloat(rep.neto||0);
 
-    // Utilidad Global y ROI% se calculan SOLO con lo que se ve en esta misma
-    // tabla: RS&I Neto − Total Gastos (sin Saraplus) + Ganancia Bravo +
-    // Ganancia Salud/Dental — ya no usan Ingresos AT&T (que incluía Pagos
-    // AT&T e ingresos manuales) ni el cálculo interno de calcROI(), a pedido
-    // del usuario, para que no haya cifras "escondidas". Saraplus se excluye
-    // aquí porque RS&I Neto ya llega con ese cargo descontado en origen; si
-    // se restara también aquí se contaría dos veces.
-    const gananciaATT = rsiNeto - (totalMes - saraplus);
-    const utilidadGlobal = gananciaATT + bravo.gananciaNeta + salud.gananciaNeta;
-    const roiPct = rsiNeto > 0 ? (gananciaATT / rsiNeto * 100) : 0;
+    // Utilidad Global = suma bruta de lo que se ve en esta misma tabla: RS&I
+    // Neto + Ganancia Bravo + Ganancia Salud/Dental (sin restar gastos todavía)
+    // — ya no usan Ingresos AT&T (que incluía Pagos AT&T e ingresos manuales)
+    // ni el cálculo interno de calcROI(), a pedido del usuario, para que no
+    // haya cifras "escondidas". El ROI% se calcula sobre Total Gastos (sin
+    // Saraplus, porque RS&I Neto ya llega con ese cargo descontado en
+    // origen): ROI% = (Utilidad Global − Total Gastos) / Total Gastos × 100.
+    const totalGastosSinSaraplus = totalMes - saraplus;
+    const utilidadGlobal = rsiNeto + bravo.gananciaNeta + salud.gananciaNeta;
+    const gananciaNetaGlobal = utilidadGlobal - totalGastosSinSaraplus;
+    const roiPct = totalGastosSinSaraplus > 0 ? (gananciaNetaGlobal / totalGastosSinSaraplus * 100) : 0;
 
     return { mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, totalMes,
-      rsiBruto, rsiNeto, gananciaATT, roiPct,
+      rsiBruto, rsiNeto, totalGastosSinSaraplus, gananciaNetaGlobal, roiPct,
       gananciaBravo: bravo.gananciaNeta, gananciaSalud: salud.gananciaNeta, utilidadGlobal };
   });
 
   const sum = (key) => datos.reduce((s,d)=>s+d[key],0);
   const totalUtilidad = sum('utilidadGlobal');
-  const totalRoiPct = sum('rsiNeto') > 0 ? (sum('gananciaATT') / sum('rsiNeto') * 100) : 0;
+  const totalGastosSinSaraplusSum = sum('totalGastosSinSaraplus');
+  const totalRoiPct = totalGastosSinSaraplusSum > 0 ? (sum('gananciaNetaGlobal') / totalGastosSinSaraplusSum * 100) : 0;
 
   el.innerHTML = `
     <div style="margin-bottom:12px">
