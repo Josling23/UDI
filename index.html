@@ -11841,21 +11841,6 @@ function ejecutarMigraciones() {
     if(fixed > 0) { guardar(); showNotif(`🔧 ${fixed} ventas con comisión $0 corregidas automáticamente`); }
   }
 
-  // ── Limpiar quincenaPago mal guardados (migración única) ──
-  // Borra valores '1'/'2' guardados con la lógica antigua para que el
-  // auto-cálculo por fecha tome el control correctamente en todos los registros.
-  if(!appData._mig_clearQuincenaPago_v1) {
-    let cleared = 0;
-    (appData.ventas||[]).forEach(v => {
-      if(v.quincenaPago === '1' || v.quincenaPago === '2') {
-        delete v.quincenaPago;
-        cleared++;
-      }
-    });
-    appData._mig_clearQuincenaPago_v1 = true;
-    if(cleared > 0) { guardar(); showNotif(`🔄 ${cleared} ventas ajustadas al ciclo automático de quincena`); }
-  }
-
   // Migración: convertir _esGrabacion a esGrabacion y _refVentaId a refVentaId
   if(!appData._mig_grabacionPropsV1) {
     let converted = 0;
