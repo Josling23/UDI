@@ -385,6 +385,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('salud-pagos-recibidos',this)"><span class="icon">💰</span><span>Pagos Recibidos</span></div>
     <div class="nav-item" onclick="showPage('salud-roi-mensual',this)"><span class="icon">📊</span><span>ROI Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-clientes',this)"><span class="icon">👥</span><span>Clientes</span></div>
+    <div class="nav-item" onclick="showPage('salud-trazabilidad',this)"><span class="icon">🗓️</span><span>Trazabilidad Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-agentes',this)"><span class="icon">🤝</span><span>Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-comisiones',this)"><span class="icon">💵</span><span>Comisiones</span></div>
     <div class="nav-item" onclick="showPage('salud-campanas',this)"><span class="icon">📢</span><span>Campañas ROI</span></div>
@@ -737,6 +738,34 @@ table thead,table tbody{display:table;width:100%}
       </div>
     </div>
 
+    <div class="page" id="page-salud-trazabilidad">
+      <div class="section">
+        <div class="section-header">
+          <h2>🗓️ Trazabilidad Mensual</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saludTrazOpenModal()">➕ Nuevo Registro</button>
+            <button class="btn btn-ghost btn-sm" onclick="saludTrazAgregarMes()">➕ Mes</button>
+            <button class="btn btn-ghost btn-sm" onclick="abrirModalImportarTrazabilidad()">📥 Importar Excel</button>
+            <button class="btn btn-success btn-sm" onclick="saludTrazDescargar()">⬇️ Descargar</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#7C98B6;margin:-6px 0 12px">Registro independiente de los Clientes de Salud/Dental — mismo concepto que tu Excel de Trazabilidad: cada fila cobra mes a mes, con un monto por columna de mes.</div>
+        <div class="filters">
+          <input type="text" id="traz-search" placeholder="🔍 Buscar nombre, cuenta, NPN..." oninput="saludRenderTrazabilidad()">
+          <select id="traz-filter-proveedor" onchange="saludRenderTrazabilidad()"><option value="">Todos los Proveedores</option></select>
+          <select id="traz-filter-agente" onchange="saludRenderTrazabilidad()"><option value="">Todos los Agentes</option></select>
+          <select id="traz-filter-status" onchange="saludRenderTrazabilidad()"><option value="">Todos los Status</option></select>
+        </div>
+        <div id="salud-traz-cards" style="margin-bottom:14px"></div>
+        <div class="tbl-wrap" style="overflow-x:auto">
+          <table>
+            <thead id="salud-traz-thead"></thead>
+            <tbody id="salud-traz-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="page-salud-agentes">
       <div class="section-header" style="margin-bottom:16px">
         <h2 style="font-size:15px;font-weight:700"></h2>
@@ -961,6 +990,59 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-salud-cliente')">Cancelar</button>
       <button class="btn btn-primary" onclick="saludGuardarCliente()">💾 Guardar Cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRAZABILIDAD MENSUAL — nuevo registro / editar -->
+<div class="modal-overlay" id="modal-salud-traz">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-salud-traz-title">➕ Nuevo Registro de Trazabilidad</h3>
+      <button class="modal-close" onclick="closeModal('modal-salud-traz')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha de Venta</label><input type="date" id="traz-fecha-venta"></div>
+        <div class="form-group"><label>Proveedor</label><input type="text" id="traz-proveedor" placeholder="Ej: ANTHEM, UHC, OSCAR..."></div>
+        <div class="form-group"><label>Nombre y Apellido *</label><input type="text" id="traz-nombre" placeholder="Nombre completo del cliente"></div>
+        <div class="form-group"><label>F. Nacimiento</label><input type="date" id="traz-fecha-nacimiento"></div>
+        <div class="form-group"><label>Integrantes</label><input type="number" id="traz-integrantes" min="0" placeholder="1"></div>
+        <div class="form-group"><label>Estado (US)</label><input type="text" id="traz-estado" placeholder="Ej: FLORIDA, TEXAS..."></div>
+        <div class="form-group"><label>Agente</label><input type="text" id="traz-agente" list="traz-agente-list" placeholder="Nombre del agente"><datalist id="traz-agente-list"></datalist></div>
+        <div class="form-group"><label>Status</label><input type="text" id="traz-status" placeholder="Ej: PAGADO, ACTIVO, CANCELADO..."></div>
+        <div class="form-group"><label>Renovaciones</label><input type="text" id="traz-renovaciones" placeholder="Ej: RENOVADO"></div>
+        <div class="form-group"><label>Prima</label><input type="number" id="traz-prima" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group"><label>NPN</label><input type="text" id="traz-npn" placeholder="Nombre en NPN"></div>
+      </div>
+      <div class="form-group" style="margin-top:14px"><label>Notas</label><textarea id="traz-notas" placeholder="Observaciones..."></textarea></div>
+      <div style="font-size:11px;color:#7C98B6;margin-top:10px">Los montos cobrados mes a mes se editan directo en la tabla (clic en la celda del mes correspondiente) una vez guardado el registro.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-salud-traz')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saludTrazGuardar()">💾 Guardar Registro</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR TRAZABILIDAD DESDE EXCEL -->
+<div class="modal-overlay" id="modal-importar-trazabilidad">
+  <div class="modal" style="max-width:820px">
+    <div class="modal-header">
+      <h3>📥 Importar Trazabilidad desde Excel</h3>
+      <button class="modal-close" onclick="closeModal('modal-importar-trazabilidad')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#7C98B6;margin-bottom:10px">
+        Sube el archivo con la misma estructura de tu Excel de Trazabilidad: columnas fijas (Fecha de Venta, Proveedor, Nombre, F. Nacimiento, Integrantes, Estado, Agente, Status, Renovaciones, Prima, NPN, Notas) seguidas de una columna por cada mes calendario con el monto cobrado. Se procesa en tu navegador y se guarda directo — el archivo nunca se sube a GitHub.
+      </div>
+      <input type="file" id="traz-file-input" accept=".xlsx,.xls" style="background:#fff;border:2px dashed #0091AE;padding:12px;border-radius:8px;width:100%;cursor:pointer">
+      <div id="traz-importar-stats" style="display:none;margin-top:14px;font-size:12px;font-weight:700"></div>
+      <div id="traz-importar-preview" style="display:none;margin-top:14px;max-height:340px;overflow:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-importar-trazabilidad')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-traz-importar-guardar" style="display:none" onclick="guardarImportacionTrazabilidad()">💾 Guardar Registros Válidos</button>
     </div>
   </div>
 </div>
@@ -2807,10 +2889,13 @@ let saludData = {
   meses: ['Mayo 2026','Junio 2026'],
   pagos: [],
   roiMensual: {},
+  trazabilidad: [],
+  trazabilidadMeses: [],
   nextId: 13,
   nextCampId: 2,
   nextSueldoId: 1,
-  nextPagoId: 1
+  nextPagoId: 1,
+  nextTrazId: 1
 };
 let _saludLoaded = false;
 
@@ -2828,7 +2913,14 @@ function normalizarSaludData() {
   if(!saludData.pagos)     saludData.pagos     = [];
   if(!saludData.nextPagoId) saludData.nextPagoId = 1;
   if(!saludData.roiMensual) saludData.roiMensual = {};
+  if(!saludData.trazabilidad) saludData.trazabilidad = [];
+  if(!saludData.trazabilidadMeses) saludData.trazabilidadMeses = [];
+  if(!saludData.nextTrazId) saludData.nextTrazId = 1;
   migrarMesesSalud();
+}
+
+function trazTotal(r) {
+  return Object.values(r.pagosPorMes||{}).reduce((s,v)=>s+(parseFloat(v)||0), 0);
 }
 
 // Asegura que todos los meses del año calendario actual estén en saludData.meses
@@ -2882,6 +2974,7 @@ function activarListenerSalud() {
           'salud-pagos-recibidos': saludRenderPagosRecibidos,
           'salud-roi-mensual': saludRenderROIMensual,
           'salud-clientes':    saludRenderClientes,
+          'salud-trazabilidad': saludRenderTrazabilidad,
           'salud-agentes':     saludRenderAgentes,
           'salud-comisiones':  saludRenderComisiones,
           'salud-campanas':    saludRenderCampanas,
@@ -3263,6 +3356,7 @@ const PAGE_TITLES = {
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
   'salud-clientes':'💚 Salud — Clientes',
+  'salud-trazabilidad':'🗓️ Salud — Trazabilidad Mensual',
   'salud-agentes':'💚 Salud — Agentes',
   'salud-comisiones':'💚 Salud — Comisiones',
   'salud-campanas':'💚 Salud — Campañas ROI',
@@ -3311,6 +3405,7 @@ function renderPage(name) {
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
   if(name==='salud-clientes') saludRenderClientes();
+  if(name==='salud-trazabilidad') saludRenderTrazabilidad();
   if(name==='salud-agentes') saludRenderAgentes();
   if(name==='salud-comisiones') saludRenderComisiones();
   if(name==='salud-campanas') saludRenderCampanas();
@@ -10249,6 +10344,383 @@ function saludEliminarCliente(id) {
   if(!confirm('¿Eliminar este cliente?')) return;
   saludData.clientes = saludData.clientes.filter(c=>c.id!==id);
   guardarSalud(); saludRenderClientes(); saludRenderDashboard(); showNotif('🗑️ Cliente eliminado');
+}
+
+// ─── Trazabilidad Mensual (Salud/Dental) — independiente de Clientes ──
+function saludTrazAgentesUnicos() {
+  const set = new Set();
+  (saludData.trazabilidad||[]).forEach(r => { if(r.agente) set.add(r.agente); });
+  (saludData.agentes||[]).forEach(a => set.add(a.nombre));
+  return [...set].sort();
+}
+
+function saludTrazPopFiltros() {
+  const selProv = document.getElementById('traz-filter-proveedor');
+  const selAg = document.getElementById('traz-filter-agente');
+  const selStatus = document.getElementById('traz-filter-status');
+  if(selProv) {
+    const cur = selProv.value;
+    const provs = [...new Set((saludData.trazabilidad||[]).map(r=>r.proveedor).filter(Boolean))].sort();
+    selProv.innerHTML = '<option value="">Todos los Proveedores</option>' + provs.map(p=>`<option value="${p}" ${p===cur?'selected':''}>${p}</option>`).join('');
+  }
+  if(selAg) {
+    const cur = selAg.value;
+    selAg.innerHTML = '<option value="">Todos los Agentes</option>' + saludTrazAgentesUnicos().map(a=>`<option value="${a}" ${a===cur?'selected':''}>${a}</option>`).join('');
+  }
+  if(selStatus) {
+    const cur = selStatus.value;
+    const stats = [...new Set((saludData.trazabilidad||[]).map(r=>r.status).filter(Boolean))].sort();
+    selStatus.innerHTML = '<option value="">Todos los Status</option>' + stats.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('');
+  }
+}
+
+function saludRenderTrazabilidad() {
+  saludTrazPopFiltros();
+  const search = (document.getElementById('traz-search')?.value||'').toLowerCase();
+  const fProv = document.getElementById('traz-filter-proveedor')?.value||'';
+  const fAgente = document.getElementById('traz-filter-agente')?.value||'';
+  const fStatus = document.getElementById('traz-filter-status')?.value||'';
+  let list = (saludData.trazabilidad||[]).filter(r=>{
+    if(search && !(r.nombre||'').toLowerCase().includes(search) && !(r.npn||'').toLowerCase().includes(search)) return false;
+    if(fProv && r.proveedor!==fProv) return false;
+    if(fAgente && r.agente!==fAgente) return false;
+    if(fStatus && r.status!==fStatus) return false;
+    return true;
+  });
+
+  const meses = saludData.trazabilidadMeses||[];
+
+  const recaudPorMes = meses.map(m => ({ mes:m, total:(saludData.trazabilidad||[]).reduce((s,r)=>s+(parseFloat(r.pagosPorMes?.[m])||0),0) }));
+  const totalPorAgente = {};
+  (saludData.trazabilidad||[]).forEach(r=>{
+    const ag = r.agente || 'Sin agente';
+    totalPorAgente[ag] = (totalPorAgente[ag]||0) + trazTotal(r);
+  });
+  document.getElementById('salud-traz-cards').innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💰 Recaudación por Mes</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      ${recaudPorMes.map(m=>`<div class="card blue" style="min-width:110px"><label>${m.mes}</label><div class="val">${fmt(m.total)}</div></div>`).join('') || '<div style="color:#99ACC2;font-size:12px">Sin meses todavía — usa "➕ Mes" o importa el Excel.</div>'}
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">👤 Total por Agente</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${Object.entries(totalPorAgente).sort((a,b)=>b[1]-a[1]).map(([ag,tot])=>`<div class="card teal" style="min-width:130px"><label>${ag}</label><div class="val">${fmt(tot)}</div></div>`).join('') || '<div style="color:#99ACC2;font-size:12px">Sin registros todavía.</div>'}
+    </div>`;
+
+  const thead = document.getElementById('salud-traz-thead');
+  thead.innerHTML = `<tr>
+    <th>#</th><th>Fecha Venta</th><th>Proveedor</th><th>Nombre</th><th>F. Nac.</th><th>Integr.</th>
+    <th>Estado</th><th>Agente</th><th>Status</th><th>Renov.</th><th>Prima</th><th>NPN</th>
+    ${meses.map(m=>`<th style="min-width:70px">${m}</th>`).join('')}
+    <th>Total</th><th>Notas</th><th>Acciones</th>
+  </tr>`;
+
+  const body = document.getElementById('salud-traz-body');
+  const iSty = 'background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 5px;border-radius:5px;font-size:11px;width:60px;text-align:right';
+  body.innerHTML = list.length ? list.map((r,i)=>`<tr>
+    <td style="color:#99ACC2">${i+1}</td>
+    <td>${r.fechaVenta||'—'}</td>
+    <td>${r.proveedor||'—'}</td>
+    <td style="font-weight:600">${r.nombre||'—'}</td>
+    <td>${r.fechaNacimiento||'—'}</td>
+    <td>${r.integrantes||'—'}</td>
+    <td>${r.estado||'—'}</td>
+    <td>${r.agente||'—'}</td>
+    <td>${r.status||'—'}</td>
+    <td>${r.renovaciones||'—'}</td>
+    <td>${r.prima?fmt(r.prima):'—'}</td>
+    <td>${r.npn||'—'}</td>
+    ${meses.map(m=>`<td><input type="number" step="0.01" style="${iSty}" value="${r.pagosPorMes?.[m] ?? ''}" onchange="saludTrazInlineEdit(${r.id},'${m.replace(/'/g,"\\'")}',this.value)"></td>`).join('')}
+    <td style="font-weight:700;color:#0091AE">${fmt(trazTotal(r))}</td>
+    <td class="note-cell" title="${r.notas||''}">${r.notas||'—'}</td>
+    <td style="display:flex;gap:4px">
+      <button class="btn btn-ghost btn-xs" onclick="saludTrazOpenModal(${r.id})">✏️</button>
+      <button class="btn btn-danger btn-xs" onclick="saludTrazEliminar(${r.id})">✕</button>
+    </td>
+  </tr>`).join('') : `<tr><td colspan="${13+meses.length+2}" class="tbl-empty">No hay registros — usa "➕ Nuevo Registro" o importa tu Excel.</td></tr>`;
+}
+
+function saludTrazInlineEdit(id, mes, value) {
+  const r = saludData.trazabilidad.find(x=>x.id===id); if(!r) return;
+  if(!r.pagosPorMes) r.pagosPorMes = {};
+  const v = parseFloat(value);
+  if(value === '' || isNaN(v)) delete r.pagosPorMes[mes];
+  else r.pagosPorMes[mes] = v;
+  guardarSalud();
+  saludRenderTrazabilidad();
+}
+
+function saludTrazAgregarMes() {
+  const meses = saludData.trazabilidadMeses;
+  let next;
+  if(meses.length === 0) {
+    next = mesStrDesdeNum(new Date().getFullYear(), new Date().getMonth()+1);
+  } else {
+    const ultimo = meses[meses.length-1];
+    const partes = ultimo.split(' ');
+    let idx = MESES_ES.indexOf(partes[0]);
+    let anio = parseInt(partes[1]);
+    idx++; if(idx>11){ idx=0; anio++; }
+    next = mesStrDesdeNum(anio, idx+1);
+  }
+  if(meses.includes(next)) { showNotif('⚠️ Ese mes ya existe: '+next, 'error'); return; }
+  meses.push(next);
+  guardarSalud();
+  saludRenderTrazabilidad();
+  showNotif('✅ Mes agregado: '+next);
+}
+
+let saludTrazEditId = null;
+function saludTrazOpenModal(id=null) {
+  saludTrazEditId = id;
+  const isEdit = id !== null;
+  document.getElementById('modal-salud-traz-title').textContent = isEdit ? '✏️ Editar Registro' : '➕ Nuevo Registro de Trazabilidad';
+  document.getElementById('traz-agente-list').innerHTML = saludTrazAgentesUnicos().map(a=>`<option value="${a}"></option>`).join('');
+  const campos = ['traz-fecha-venta','traz-proveedor','traz-nombre','traz-fecha-nacimiento','traz-integrantes','traz-estado','traz-agente','traz-status','traz-renovaciones','traz-prima','traz-npn','traz-notas'];
+  if(isEdit) {
+    const r = saludData.trazabilidad.find(x=>x.id===id); if(!r) return;
+    document.getElementById('traz-fecha-venta').value = r.fechaVenta||'';
+    document.getElementById('traz-proveedor').value = r.proveedor||'';
+    document.getElementById('traz-nombre').value = r.nombre||'';
+    document.getElementById('traz-fecha-nacimiento').value = r.fechaNacimiento||'';
+    document.getElementById('traz-integrantes').value = r.integrantes||'';
+    document.getElementById('traz-estado').value = r.estado||'';
+    document.getElementById('traz-agente').value = r.agente||'';
+    document.getElementById('traz-status').value = r.status||'';
+    document.getElementById('traz-renovaciones').value = r.renovaciones||'';
+    document.getElementById('traz-prima').value = r.prima||'';
+    document.getElementById('traz-npn').value = r.npn||'';
+    document.getElementById('traz-notas').value = r.notas||'';
+  } else {
+    campos.forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('traz-fecha-venta').value = new Date().toISOString().split('T')[0];
+  }
+  document.getElementById('modal-salud-traz').classList.add('open');
+}
+
+function saludTrazGuardar() {
+  const nombre = document.getElementById('traz-nombre').value.trim();
+  if(!nombre) { showNotif('⚠️ El nombre es obligatorio', 'error'); return; }
+  const datos = {
+    fechaVenta: document.getElementById('traz-fecha-venta').value,
+    proveedor: document.getElementById('traz-proveedor').value.trim(),
+    nombre,
+    fechaNacimiento: document.getElementById('traz-fecha-nacimiento').value,
+    integrantes: parseInt(document.getElementById('traz-integrantes').value)||0,
+    estado: document.getElementById('traz-estado').value.trim(),
+    agente: document.getElementById('traz-agente').value.trim(),
+    status: document.getElementById('traz-status').value.trim(),
+    renovaciones: document.getElementById('traz-renovaciones').value.trim(),
+    prima: parseFloat(document.getElementById('traz-prima').value)||0,
+    npn: document.getElementById('traz-npn').value.trim(),
+    notas: document.getElementById('traz-notas').value.trim(),
+  };
+  if(saludTrazEditId !== null) {
+    const r = saludData.trazabilidad.find(x=>x.id===saludTrazEditId);
+    if(r) Object.assign(r, datos);
+  } else {
+    saludData.trazabilidad.push({ id: saludData.nextTrazId++, ...datos, pagosPorMes: {} });
+  }
+  guardarSalud();
+  closeModal('modal-salud-traz');
+  saludRenderTrazabilidad();
+  showNotif('✅ Registro guardado');
+}
+
+function saludTrazEliminar(id) {
+  if(!confirm('¿Eliminar este registro de trazabilidad?')) return;
+  saludData.trazabilidad = saludData.trazabilidad.filter(r=>r.id!==id);
+  guardarSalud();
+  saludRenderTrazabilidad();
+  showNotif('🗑️ Registro eliminado');
+}
+
+function saludTrazDescargar() {
+  const meses = saludData.trazabilidadMeses||[];
+  const headers = ['ID','Fecha Venta','Proveedor','Nombre','F. Nacimiento','Integrantes','Estado','Agente','Status','Renovaciones','Prima','NPN', ...meses, 'Total','Notas'];
+  const rows = (saludData.trazabilidad||[]).map(r => [
+    r.id, r.fechaVenta||'', r.proveedor||'', r.nombre||'', r.fechaNacimiento||'', r.integrantes||0, r.estado||'', r.agente||'', r.status||'', r.renovaciones||'', r.prima||0, r.npn||'',
+    ...meses.map(m => r.pagosPorMes?.[m] || 0),
+    trazTotal(r), r.notas||''
+  ]);
+  if(!rows.length) { showNotif('⚠️ No hay registros para descargar', 'error'); return; }
+  descargarExcel(`Trazabilidad_Mensual_${new Date().toISOString().split('T')[0]}.xlsx`, 'Trazabilidad', headers, rows);
+}
+
+// ─── Importar Trazabilidad desde Excel (mapeo posicional, no por nombre de
+// columna — el Excel real repite "JULIO" dos veces como encabezado, lo que
+// colisionaría si se usara sheet_to_json por nombre) ──
+const TRAZ_AGENTE_ALIAS = {
+  'angela chacon': 'Angela Chacón',
+  'belzai huerano': 'Belzai Huerfano',
+  'belzai huerfano': 'Belzai Huerfano',
+  'manuel mavares': 'Manuel Mávarez',
+  'manuel mavarez': 'Manuel Mávarez',
+  'yuliana': 'Yuliana Pulido',
+  'yuliana pulido': 'Yuliana Pulido',
+};
+function trazNormalizarAgente(nombre) {
+  if(!nombre) return '';
+  const key = normNombre(nombre);
+  for(const k in TRAZ_AGENTE_ALIAS) {
+    if(normNombre(k) === key) return TRAZ_AGENTE_ALIAS[k];
+  }
+  return nombre.trim();
+}
+
+function trazExcelSerialAFecha(v) {
+  if(v === undefined || v === null || v === '') return '';
+  if(typeof v === 'string') return v.includes('-') ? v : '';
+  const n = parseFloat(v);
+  if(isNaN(n)) return '';
+  const ms = Math.round((n - 25569) * 86400 * 1000);
+  const d = new Date(ms);
+  if(isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+let _trazImportRows = [];
+let _trazImportMeses = [];
+
+function abrirModalImportarTrazabilidad() {
+  _trazImportRows = [];
+  document.getElementById('traz-file-input').value = '';
+  document.getElementById('traz-importar-preview').style.display = 'none';
+  document.getElementById('traz-importar-stats').style.display = 'none';
+  document.getElementById('btn-traz-importar-guardar').style.display = 'none';
+  document.getElementById('modal-importar-trazabilidad').classList.add('open');
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const fileInput = document.getElementById('traz-file-input');
+  if(fileInput) {
+    fileInput.addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, {type:'array'});
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+          procesarImportacionTrazabilidad(rows);
+        } catch(err) {
+          showNotif('❌ Error al leer Excel: '+err.message, 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+});
+
+function procesarImportacionTrazabilidad(rows) {
+  _trazImportRows = [];
+  _trazImportMeses = [];
+  if(!rows || rows.length < 2) { showNotif('⚠️ El archivo no tiene filas de datos', 'error'); return; }
+
+  const headerRow = rows[0];
+  const mesesUpper = MESES_ES.map(m=>m.toUpperCase());
+  let mesColCount = 0;
+  for(let c = 12; c < headerRow.length; c++) {
+    const h = (headerRow[c]||'').toString().trim().toUpperCase();
+    if(mesesUpper.includes(h)) mesColCount++;
+    else break;
+  }
+  if(mesColCount === 0) { showNotif('⚠️ No se encontraron columnas de mes (después de la columna L/Notas)', 'error'); return; }
+
+  let idx = MESES_ES.indexOf('Julio');
+  let anio = 2025;
+  for(let i=0;i<mesColCount;i++) {
+    _trazImportMeses.push(mesStrDesdeNum(anio, idx+1));
+    idx++; if(idx>11){ idx=0; anio++; }
+  }
+
+  let warnCount = 0;
+  for(let i=1;i<rows.length;i++) {
+    const row = rows[i];
+    if(!row || row.length===0) continue;
+    const nombre = (row[2]||'').toString().trim();
+    if(!nombre) continue;
+
+    let advertencias = [];
+    const fechaVenta = trazExcelSerialAFecha(row[0]);
+    const proveedor = (row[1]||'').toString().trim();
+    const fechaNacimiento = trazExcelSerialAFecha(row[3]);
+    const integrantes = parseInt(row[4]) || 0;
+    const estado = (row[5]||'').toString().trim();
+    const agente = trazNormalizarAgente((row[6]||'').toString().trim());
+    const status = (row[7]||'').toString().trim().replace(/^"+|"+$/g,'');
+    const renovaciones = (row[8]||'').toString().trim();
+    const prima = parseFloat(row[9]) || 0;
+    const npn = (row[10]||'').toString().trim();
+    let notas = (row[11]||'').toString().trim();
+
+    const pagosPorMes = {};
+    for(let m=0; m<mesColCount; m++) {
+      const raw = row[12+m];
+      if(raw === undefined || raw === null || raw === '') continue;
+      const num = parseFloat(raw);
+      if(isNaN(num)) {
+        advertencias.push(`mes "${_trazImportMeses[m]}" tenía "${raw}" (no numérico)`);
+        continue;
+      }
+      pagosPorMes[_trazImportMeses[m]] = num;
+    }
+    if(advertencias.length) {
+      notas = (notas ? notas + ' | ' : '') + '⚠️ ' + advertencias.join('; ');
+      warnCount++;
+    }
+
+    _trazImportRows.push({
+      fechaVenta, proveedor, nombre, fechaNacimiento, integrantes, estado, agente, status,
+      renovaciones, prima, npn, notas, pagosPorMes,
+      advertencia: advertencias.length>0,
+    });
+  }
+
+  mostrarPreviewImportacionTrazabilidad(warnCount);
+}
+
+function mostrarPreviewImportacionTrazabilidad(warnCount) {
+  const total = _trazImportRows.length;
+  document.getElementById('traz-importar-stats').style.display = 'block';
+  document.getElementById('traz-importar-stats').innerHTML =
+    `<span style="color:#00BDA5">✅ ${total} registros listos para importar</span>` +
+    (warnCount ? ` &nbsp; <span style="color:#F59E0B">⚠️ ${warnCount} con alguna advertencia (revisar Notas)</span>` : '') +
+    (_trazImportMeses.length ? ` &nbsp; <span style="color:#7C98B6">${_trazImportMeses.length} meses detectados: ${_trazImportMeses[0]} → ${_trazImportMeses[_trazImportMeses.length-1]}</span>` : '');
+
+  const preview = document.getElementById('traz-importar-preview');
+  preview.style.display = 'block';
+  preview.innerHTML = `<table style="font-size:11px"><thead><tr>
+    <th>Nombre</th><th>Proveedor</th><th>Agente</th><th>Status</th><th>Total</th><th>Notas</th>
+  </tr></thead><tbody>
+    ${_trazImportRows.slice(0,50).map(r=>`<tr ${r.advertencia?'style="background:#FFF9E5"':''}>
+      <td>${r.nombre}</td><td>${r.proveedor}</td><td>${r.agente}</td><td>${r.status}</td>
+      <td>${fmt(Object.values(r.pagosPorMes).reduce((s,v)=>s+v,0))}</td>
+      <td style="max-width:220px">${r.notas||'—'}</td>
+    </tr>`).join('')}
+  </tbody></table>` + (total>50 ? `<div style="text-align:center;padding:8px;color:#7C98B6">... y ${total-50} más</div>` : '');
+
+  document.getElementById('btn-traz-importar-guardar').style.display = total>0 ? 'inline-flex' : 'none';
+}
+
+function guardarImportacionTrazabilidad() {
+  if(!_trazImportRows.length) return;
+  _trazImportMeses.forEach(m => { if(!saludData.trazabilidadMeses.includes(m)) saludData.trazabilidadMeses.push(m); });
+  _trazImportRows.forEach(r => {
+    saludData.trazabilidad.push({
+      id: saludData.nextTrazId++,
+      fechaVenta: r.fechaVenta, proveedor: r.proveedor, nombre: r.nombre, fechaNacimiento: r.fechaNacimiento,
+      integrantes: r.integrantes, estado: r.estado, agente: r.agente, status: r.status,
+      renovaciones: r.renovaciones, prima: r.prima, npn: r.npn, notas: r.notas, pagosPorMes: r.pagosPorMes,
+    });
+  });
+  const count = _trazImportRows.length;
+  _trazImportRows = [];
+  guardarSalud();
+  closeModal('modal-importar-trazabilidad');
+  saludRenderTrazabilidad();
+  showNotif(`✅ ${count} registros de trazabilidad importados`);
 }
 
 // ─── Salud Modal Cliente ──────────────────────────────────────
