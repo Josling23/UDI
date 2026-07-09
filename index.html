@@ -1010,7 +1010,13 @@ table thead,table tbody{display:table;width:100%}
         <div class="form-group"><label>Integrantes</label><input type="number" id="traz-integrantes" min="0" placeholder="1"></div>
         <div class="form-group"><label>Estado (US)</label><input type="text" id="traz-estado" placeholder="Ej: FLORIDA, TEXAS..."></div>
         <div class="form-group"><label>Agente</label><input type="text" id="traz-agente" list="traz-agente-list" placeholder="Nombre del agente"><datalist id="traz-agente-list"></datalist></div>
-        <div class="form-group"><label>Status</label><input type="text" id="traz-status" placeholder="Ej: PAGADO, ACTIVO, CANCELADO..."></div>
+        <div class="form-group"><label>Estado</label>
+          <select id="traz-status">
+            <option value="activo">Activo</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
         <div class="form-group"><label>Renovaciones</label><input type="text" id="traz-renovaciones" placeholder="Ej: RENOVADO"></div>
         <div class="form-group"><label>Prima</label><input type="number" id="traz-prima" step="0.01" min="0" placeholder="0.00"></div>
         <div class="form-group"><label>NPN</label><input type="text" id="traz-npn" placeholder="Nombre en NPN"></div>
@@ -2916,7 +2922,61 @@ function normalizarSaludData() {
   if(!saludData.trazabilidad) saludData.trazabilidad = [];
   if(!saludData.trazabilidadMeses) saludData.trazabilidadMeses = [];
   if(!saludData.nextTrazId) saludData.nextTrazId = 1;
+  saludData.clientes.forEach(c => {
+    if(c.proveedor === undefined) c.proveedor = '';
+    if(c.fechaNacimiento === undefined) c.fechaNacimiento = '';
+    if(c.integrantes === undefined) c.integrantes = '';
+    if(c.npn === undefined) c.npn = '';
+    if(c.renovaciones === undefined) c.renovaciones = '';
+    if(c.estadoUS === undefined) c.estadoUS = '';
+    if(!c.pagosPorMes) c.pagosPorMes = {};
+  });
   migrarMesesSalud();
+}
+
+// Busca en saludData.clientes un registro con el mismo Nombre + Proveedor
+// (normalizados) — clave de emparejamiento usada tanto por la migración de
+// saludData.trazabilidad como por la importación de Excel de Trazabilidad,
+// para que un mismo cliente con pólizas de proveedores distintos quede como
+// registros separados (son comisiones distintas) pero no se duplique la
+// misma póliza si ya existía.
+function saludBuscarClienteMatch(nombre, proveedor) {
+  const nNombre = normNombre(nombre);
+  const nProv = normNombre(proveedor);
+  return saludData.clientes.find(c => normNombre(c.nombre) === nNombre && normNombre(c.proveedor||'') === nProv);
+}
+
+// Migración de un solo uso: mueve cualquier registro que haya quedado en el
+// arreglo aislado saludData.trazabilidad (de cuando esa pestaña todavía era
+// independiente de Clientes) hacia saludData.clientes, fusionando por
+// Nombre+Proveedor igual que la importación de Excel. IMPORTANTE: guarda la
+// bandera con guardarSalud() de forma INCONDICIONAL (no solo "si hubo algo
+// que migrar") — la migración de Quincena de Pago de este mismo día mostró
+// qué pasa si la bandera nunca se persiste cuando no hay nada que hacer en
+// la primera pasada.
+function migrarTrazabilidadAClientes() {
+  if(saludData._mig_trazAClientes_v1) return;
+  (saludData.trazabilidad||[]).forEach(r => {
+    let c = saludBuscarClienteMatch(r.nombre, r.proveedor);
+    if(!c) {
+      c = {
+        id: saludData.nextId++, nombre: r.nombre||'', cuenta:'', tel:'', email:'',
+        agente: r.agente||'Sin agente', tipo:'dental', prima: r.prima||0,
+        comResidualMensual:0, mesesCobradosSalud:0, fecha: r.fechaVenta||'',
+        fechaEfectiva:'', estado:'activo', mes: getSaludMeses().slice(-1)[0]||'',
+        campana:'', notas: r.notas||'', adelantoPagado:false, finalPagado:false,
+        comAgentePagada:false, comAgente:8, quincenaPago:'',
+        proveedor: r.proveedor||'', fechaNacimiento: r.fechaNacimiento||'',
+        integrantes: r.integrantes||'', npn: r.npn||'', renovaciones: r.renovaciones||'',
+        estadoUS: r.estado||'', pagosPorMes: {},
+      };
+      saludData.clientes.push(c);
+    }
+    Object.assign(c.pagosPorMes, r.pagosPorMes||{});
+  });
+  saludData.trazabilidad = [];
+  saludData._mig_trazAClientes_v1 = true;
+  guardarSalud();
 }
 
 function trazTotal(r) {
@@ -2998,6 +3058,7 @@ async function cargarSalud() {
     if (snap.exists()) {
       saludData = { ...saludData, ...snap.val() };
       normalizarSaludData();
+      migrarTrazabilidadAClientes();
       localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
       _saludLoaded = true;
       activarListenerSalud();
@@ -3010,6 +3071,7 @@ async function cargarSalud() {
   if (s) {
     saludData = { ...saludData, ...JSON.parse(s) };
     normalizarSaludData();
+    migrarTrazabilidadAClientes();
   }
   _saludLoaded = true;
   activarListenerSalud();
@@ -10346,31 +10408,28 @@ function saludEliminarCliente(id) {
   guardarSalud(); saludRenderClientes(); saludRenderDashboard(); showNotif('🗑️ Cliente eliminado');
 }
 
-// ─── Trazabilidad Mensual (Salud/Dental) — independiente de Clientes ──
-function saludTrazAgentesUnicos() {
-  const set = new Set();
-  (saludData.trazabilidad||[]).forEach(r => { if(r.agente) set.add(r.agente); });
-  (saludData.agentes||[]).forEach(a => set.add(a.nombre));
-  return [...set].sort();
-}
-
+// ─── Trazabilidad Mensual (Salud/Dental) — vista de cobro mes-a-mes sobre
+// los MISMOS registros de saludData.clientes (unificado, ya no es una
+// tabla aparte) ──
 function saludTrazPopFiltros() {
   const selProv = document.getElementById('traz-filter-proveedor');
   const selAg = document.getElementById('traz-filter-agente');
   const selStatus = document.getElementById('traz-filter-status');
   if(selProv) {
     const cur = selProv.value;
-    const provs = [...new Set((saludData.trazabilidad||[]).map(r=>r.proveedor).filter(Boolean))].sort();
+    const provs = [...new Set(saludData.clientes.map(c=>c.proveedor).filter(Boolean))].sort();
     selProv.innerHTML = '<option value="">Todos los Proveedores</option>' + provs.map(p=>`<option value="${p}" ${p===cur?'selected':''}>${p}</option>`).join('');
   }
   if(selAg) {
     const cur = selAg.value;
-    selAg.innerHTML = '<option value="">Todos los Agentes</option>' + saludTrazAgentesUnicos().map(a=>`<option value="${a}" ${a===cur?'selected':''}>${a}</option>`).join('');
+    selAg.innerHTML = '<option value="">Todos los Agentes</option>' + getSaludAgenteNombres().map(a=>`<option value="${a}" ${a===cur?'selected':''}>${a}</option>`).join('');
   }
   if(selStatus) {
     const cur = selStatus.value;
-    const stats = [...new Set((saludData.trazabilidad||[]).map(r=>r.status).filter(Boolean))].sort();
-    selStatus.innerHTML = '<option value="">Todos los Status</option>' + stats.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('');
+    selStatus.innerHTML = `<option value="">Todos los Estados</option>
+      <option value="activo" ${cur==='activo'?'selected':''}>Activo</option>
+      <option value="pendiente" ${cur==='pendiente'?'selected':''}>Pendiente</option>
+      <option value="cancelado" ${cur==='cancelado'?'selected':''}>Cancelado</option>`;
   }
 }
 
@@ -10380,21 +10439,23 @@ function saludRenderTrazabilidad() {
   const fProv = document.getElementById('traz-filter-proveedor')?.value||'';
   const fAgente = document.getElementById('traz-filter-agente')?.value||'';
   const fStatus = document.getElementById('traz-filter-status')?.value||'';
-  let list = (saludData.trazabilidad||[]).filter(r=>{
+  let list = saludData.clientes.filter(r=>{
     if(search && !(r.nombre||'').toLowerCase().includes(search) && !(r.npn||'').toLowerCase().includes(search)) return false;
     if(fProv && r.proveedor!==fProv) return false;
     if(fAgente && r.agente!==fAgente) return false;
-    if(fStatus && r.status!==fStatus) return false;
+    if(fStatus && r.estado!==fStatus) return false;
     return true;
   });
 
   const meses = saludData.trazabilidadMeses||[];
 
-  const recaudPorMes = meses.map(m => ({ mes:m, total:(saludData.trazabilidad||[]).reduce((s,r)=>s+(parseFloat(r.pagosPorMes?.[m])||0),0) }));
+  const recaudPorMes = meses.map(m => ({ mes:m, total:saludData.clientes.reduce((s,r)=>s+(parseFloat(r.pagosPorMes?.[m])||0),0) }));
   const totalPorAgente = {};
-  (saludData.trazabilidad||[]).forEach(r=>{
+  saludData.clientes.forEach(r=>{
+    const tot = trazTotal(r);
+    if(!tot) return;
     const ag = r.agente || 'Sin agente';
-    totalPorAgente[ag] = (totalPorAgente[ag]||0) + trazTotal(r);
+    totalPorAgente[ag] = (totalPorAgente[ag]||0) + tot;
   });
   document.getElementById('salud-traz-cards').innerHTML = `
     <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💰 Recaudación por Mes</div>
@@ -10403,13 +10464,13 @@ function saludRenderTrazabilidad() {
     </div>
     <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">👤 Total por Agente</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${Object.entries(totalPorAgente).sort((a,b)=>b[1]-a[1]).map(([ag,tot])=>`<div class="card teal" style="min-width:130px"><label>${ag}</label><div class="val">${fmt(tot)}</div></div>`).join('') || '<div style="color:#99ACC2;font-size:12px">Sin registros todavía.</div>'}
+      ${Object.entries(totalPorAgente).sort((a,b)=>b[1]-a[1]).map(([ag,tot])=>`<div class="card teal" style="min-width:130px"><label>${ag}</label><div class="val">${fmt(tot)}</div></div>`).join('') || '<div style="color:#99ACC2;font-size:12px">Sin cobros registrados todavía.</div>'}
     </div>`;
 
   const thead = document.getElementById('salud-traz-thead');
   thead.innerHTML = `<tr>
     <th>#</th><th>Fecha Venta</th><th>Proveedor</th><th>Nombre</th><th>F. Nac.</th><th>Integr.</th>
-    <th>Estado</th><th>Agente</th><th>Status</th><th>Renov.</th><th>Prima</th><th>NPN</th>
+    <th>Estado (US)</th><th>Agente</th><th>Estado</th><th>Renov.</th><th>Prima</th><th>NPN</th>
     ${meses.map(m=>`<th style="min-width:70px">${m}</th>`).join('')}
     <th>Total</th><th>Notas</th><th>Acciones</th>
   </tr>`;
@@ -10418,14 +10479,18 @@ function saludRenderTrazabilidad() {
   const iSty = 'background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 5px;border-radius:5px;font-size:11px;width:60px;text-align:right';
   body.innerHTML = list.length ? list.map((r,i)=>`<tr>
     <td style="color:#99ACC2">${i+1}</td>
-    <td>${r.fechaVenta||'—'}</td>
+    <td>${r.fecha||'—'}</td>
     <td>${r.proveedor||'—'}</td>
     <td style="font-weight:600">${r.nombre||'—'}</td>
     <td>${r.fechaNacimiento||'—'}</td>
     <td>${r.integrantes||'—'}</td>
-    <td>${r.estado||'—'}</td>
+    <td>${r.estadoUS||'—'}</td>
     <td>${r.agente||'—'}</td>
-    <td>${r.status||'—'}</td>
+    <td><select class="inline-sel" onchange="saludUpdateField(${r.id},'estado',this.value)">
+      <option value="activo" ${r.estado==='activo'?'selected':''}>Activo</option>
+      <option value="pendiente" ${r.estado==='pendiente'?'selected':''}>Pendiente</option>
+      <option value="cancelado" ${r.estado==='cancelado'?'selected':''}>Cancelado</option>
+    </select></td>
     <td>${r.renovaciones||'—'}</td>
     <td>${r.prima?fmt(r.prima):'—'}</td>
     <td>${r.npn||'—'}</td>
@@ -10440,7 +10505,7 @@ function saludRenderTrazabilidad() {
 }
 
 function saludTrazInlineEdit(id, mes, value) {
-  const r = saludData.trazabilidad.find(x=>x.id===id); if(!r) return;
+  const r = saludData.clientes.find(x=>x.id===id); if(!r) return;
   if(!r.pagosPorMes) r.pagosPorMes = {};
   const v = parseFloat(value);
   if(value === '' || isNaN(v)) delete r.pagosPorMes[mes];
@@ -10474,24 +10539,25 @@ function saludTrazOpenModal(id=null) {
   saludTrazEditId = id;
   const isEdit = id !== null;
   document.getElementById('modal-salud-traz-title').textContent = isEdit ? '✏️ Editar Registro' : '➕ Nuevo Registro de Trazabilidad';
-  document.getElementById('traz-agente-list').innerHTML = saludTrazAgentesUnicos().map(a=>`<option value="${a}"></option>`).join('');
-  const campos = ['traz-fecha-venta','traz-proveedor','traz-nombre','traz-fecha-nacimiento','traz-integrantes','traz-estado','traz-agente','traz-status','traz-renovaciones','traz-prima','traz-npn','traz-notas'];
+  document.getElementById('traz-agente-list').innerHTML = getSaludAgenteNombres().map(a=>`<option value="${a}"></option>`).join('');
+  const campos = ['traz-fecha-venta','traz-proveedor','traz-nombre','traz-fecha-nacimiento','traz-integrantes','traz-estado','traz-agente','traz-renovaciones','traz-prima','traz-npn','traz-notas'];
   if(isEdit) {
-    const r = saludData.trazabilidad.find(x=>x.id===id); if(!r) return;
-    document.getElementById('traz-fecha-venta').value = r.fechaVenta||'';
+    const r = saludData.clientes.find(x=>x.id===id); if(!r) return;
+    document.getElementById('traz-fecha-venta').value = r.fecha||'';
     document.getElementById('traz-proveedor').value = r.proveedor||'';
     document.getElementById('traz-nombre').value = r.nombre||'';
     document.getElementById('traz-fecha-nacimiento').value = r.fechaNacimiento||'';
     document.getElementById('traz-integrantes').value = r.integrantes||'';
-    document.getElementById('traz-estado').value = r.estado||'';
+    document.getElementById('traz-estado').value = r.estadoUS||'';
     document.getElementById('traz-agente').value = r.agente||'';
-    document.getElementById('traz-status').value = r.status||'';
+    document.getElementById('traz-status').value = r.estado||'activo';
     document.getElementById('traz-renovaciones').value = r.renovaciones||'';
     document.getElementById('traz-prima').value = r.prima||'';
     document.getElementById('traz-npn').value = r.npn||'';
     document.getElementById('traz-notas').value = r.notas||'';
   } else {
     campos.forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('traz-status').value = 'activo';
     document.getElementById('traz-fecha-venta').value = new Date().toISOString().split('T')[0];
   }
   document.getElementById('modal-salud-traz').classList.add('open');
@@ -10500,25 +10566,36 @@ function saludTrazOpenModal(id=null) {
 function saludTrazGuardar() {
   const nombre = document.getElementById('traz-nombre').value.trim();
   if(!nombre) { showNotif('⚠️ El nombre es obligatorio', 'error'); return; }
+  const proveedor = document.getElementById('traz-proveedor').value.trim();
   const datos = {
-    fechaVenta: document.getElementById('traz-fecha-venta').value,
-    proveedor: document.getElementById('traz-proveedor').value.trim(),
+    fecha: document.getElementById('traz-fecha-venta').value,
+    proveedor,
     nombre,
     fechaNacimiento: document.getElementById('traz-fecha-nacimiento').value,
     integrantes: parseInt(document.getElementById('traz-integrantes').value)||0,
-    estado: document.getElementById('traz-estado').value.trim(),
-    agente: document.getElementById('traz-agente').value.trim(),
-    status: document.getElementById('traz-status').value.trim(),
+    estadoUS: document.getElementById('traz-estado').value.trim(),
+    agente: document.getElementById('traz-agente').value.trim() || 'Sin agente',
+    estado: document.getElementById('traz-status').value,
     renovaciones: document.getElementById('traz-renovaciones').value.trim(),
     prima: parseFloat(document.getElementById('traz-prima').value)||0,
     npn: document.getElementById('traz-npn').value.trim(),
     notas: document.getElementById('traz-notas').value.trim(),
   };
   if(saludTrazEditId !== null) {
-    const r = saludData.trazabilidad.find(x=>x.id===saludTrazEditId);
+    const r = saludData.clientes.find(x=>x.id===saludTrazEditId);
     if(r) Object.assign(r, datos);
   } else {
-    saludData.trazabilidad.push({ id: saludData.nextTrazId++, ...datos, pagosPorMes: {} });
+    const existente = saludBuscarClienteMatch(nombre, proveedor);
+    if(existente) {
+      showNotif(`⚠️ Ya existe un cliente "${existente.nombre}" con proveedor "${existente.proveedor||'—'}" — edítalo en vez de crear uno nuevo`, 'error');
+      return;
+    }
+    saludData.clientes.push({
+      id: saludData.nextId++, ...datos, cuenta:'', tel:'', email:'', tipo:'dental',
+      comResidualMensual:0, mesesCobradosSalud:0, fechaEfectiva:'', mes: getSaludMeses().slice(-1)[0]||'',
+      campana:'', adelantoPagado:false, finalPagado:false, comAgentePagada:false, comAgente:8,
+      quincenaPago:'', pagosPorMes: {},
+    });
   }
   guardarSalud();
   closeModal('modal-salud-traz');
@@ -10527,8 +10604,8 @@ function saludTrazGuardar() {
 }
 
 function saludTrazEliminar(id) {
-  if(!confirm('¿Eliminar este registro de trazabilidad?')) return;
-  saludData.trazabilidad = saludData.trazabilidad.filter(r=>r.id!==id);
+  if(!confirm('¿Eliminar este registro? Esto también lo elimina de la pantalla de Clientes.')) return;
+  saludData.clientes = saludData.clientes.filter(r=>r.id!==id);
   guardarSalud();
   saludRenderTrazabilidad();
   showNotif('🗑️ Registro eliminado');
@@ -10536,9 +10613,9 @@ function saludTrazEliminar(id) {
 
 function saludTrazDescargar() {
   const meses = saludData.trazabilidadMeses||[];
-  const headers = ['ID','Fecha Venta','Proveedor','Nombre','F. Nacimiento','Integrantes','Estado','Agente','Status','Renovaciones','Prima','NPN', ...meses, 'Total','Notas'];
-  const rows = (saludData.trazabilidad||[]).map(r => [
-    r.id, r.fechaVenta||'', r.proveedor||'', r.nombre||'', r.fechaNacimiento||'', r.integrantes||0, r.estado||'', r.agente||'', r.status||'', r.renovaciones||'', r.prima||0, r.npn||'',
+  const headers = ['ID','Fecha Venta','Proveedor','Nombre','F. Nacimiento','Integrantes','Estado (US)','Agente','Estado','Renovaciones','Prima','NPN', ...meses, 'Total','Notas'];
+  const rows = saludData.clientes.map(r => [
+    r.id, r.fecha||'', r.proveedor||'', r.nombre||'', r.fechaNacimiento||'', r.integrantes||0, r.estadoUS||'', r.agente||'', r.estado||'', r.renovaciones||'', r.prima||0, r.npn||'',
     ...meses.map(m => r.pagosPorMes?.[m] || 0),
     trazTotal(r), r.notas||''
   ]);
@@ -10565,6 +10642,20 @@ function trazNormalizarAgente(nombre) {
     if(normNombre(k) === key) return TRAZ_AGENTE_ALIAS[k];
   }
   return nombre.trim();
+}
+
+// Mapea el texto libre de STATUS del Excel al enum de Estado ya usado por
+// Clientes (activo/pendiente/cancelado, del cual dependen Dashboard,
+// Comisiones, Resumen y Chargebacks). Regla confirmada con el usuario:
+// PAGADO/ACTIVO -> activo, CANCELADO -> cancelado, EN ESPERA -> pendiente,
+// cualquier otro texto no reconocido -> activo por defecto. El texto
+// original siempre se preserva en Notas, nunca se pierde.
+function trazMapearEstado(statusTexto) {
+  const s = normNombre((statusTexto||'').replace(/^"+|"+$/g,''));
+  if(!s) return 'activo';
+  if(s.includes('cancel')) return 'cancelado';
+  if(s.includes('espera')) return 'pendiente';
+  return 'activo';
 }
 
 function trazExcelSerialAFecha(v) {
@@ -10647,13 +10738,15 @@ function procesarImportacionTrazabilidad(rows) {
     const proveedor = (row[1]||'').toString().trim();
     const fechaNacimiento = trazExcelSerialAFecha(row[3]);
     const integrantes = parseInt(row[4]) || 0;
-    const estado = (row[5]||'').toString().trim();
+    const estadoUS = (row[5]||'').toString().trim();
     const agente = trazNormalizarAgente((row[6]||'').toString().trim());
-    const status = (row[7]||'').toString().trim().replace(/^"+|"+$/g,'');
+    const statusOriginal = (row[7]||'').toString().trim().replace(/^"+|"+$/g,'');
+    const estado = trazMapearEstado(statusOriginal);
     const renovaciones = (row[8]||'').toString().trim();
     const prima = parseFloat(row[9]) || 0;
     const npn = (row[10]||'').toString().trim();
     let notas = (row[11]||'').toString().trim();
+    if(statusOriginal) notas = (notas ? notas + ' | ' : '') + 'Status original: ' + statusOriginal;
 
     const pagosPorMes = {};
     for(let m=0; m<mesColCount; m++) {
@@ -10671,10 +10764,12 @@ function procesarImportacionTrazabilidad(rows) {
       warnCount++;
     }
 
+    const match = saludBuscarClienteMatch(nombre, proveedor);
     _trazImportRows.push({
-      fechaVenta, proveedor, nombre, fechaNacimiento, integrantes, estado, agente, status,
+      fechaVenta, proveedor, nombre, fechaNacimiento, integrantes, estadoUS, agente, estado, statusOriginal,
       renovaciones, prima, npn, notas, pagosPorMes,
       advertencia: advertencias.length>0,
+      matchId: match ? match.id : null,
     });
   }
 
@@ -10692,11 +10787,12 @@ function mostrarPreviewImportacionTrazabilidad(warnCount) {
   const preview = document.getElementById('traz-importar-preview');
   preview.style.display = 'block';
   preview.innerHTML = `<table style="font-size:11px"><thead><tr>
-    <th>Nombre</th><th>Proveedor</th><th>Agente</th><th>Status</th><th>Total</th><th>Notas</th>
+    <th>Nombre</th><th>Proveedor</th><th>Agente</th><th>Estado</th><th>Total</th><th>Acción</th><th>Notas</th>
   </tr></thead><tbody>
     ${_trazImportRows.slice(0,50).map(r=>`<tr ${r.advertencia?'style="background:#FFF9E5"':''}>
-      <td>${r.nombre}</td><td>${r.proveedor}</td><td>${r.agente}</td><td>${r.status}</td>
+      <td>${r.nombre}</td><td>${r.proveedor}</td><td>${r.agente}</td><td>${r.estado}</td>
       <td>${fmt(Object.values(r.pagosPorMes).reduce((s,v)=>s+v,0))}</td>
+      <td>${r.matchId ? `🔗 Fusiona con cliente #${r.matchId}` : '🆕 Nuevo cliente'}</td>
       <td style="max-width:220px">${r.notas||'—'}</td>
     </tr>`).join('')}
   </tbody></table>` + (total>50 ? `<div style="text-align:center;padding:8px;color:#7C98B6">... y ${total-50} más</div>` : '');
@@ -10707,20 +10803,39 @@ function mostrarPreviewImportacionTrazabilidad(warnCount) {
 function guardarImportacionTrazabilidad() {
   if(!_trazImportRows.length) return;
   _trazImportMeses.forEach(m => { if(!saludData.trazabilidadMeses.includes(m)) saludData.trazabilidadMeses.push(m); });
+  let creados = 0, fusionados = 0;
   _trazImportRows.forEach(r => {
-    saludData.trazabilidad.push({
-      id: saludData.nextTrazId++,
-      fechaVenta: r.fechaVenta, proveedor: r.proveedor, nombre: r.nombre, fechaNacimiento: r.fechaNacimiento,
-      integrantes: r.integrantes, estado: r.estado, agente: r.agente, status: r.status,
-      renovaciones: r.renovaciones, prima: r.prima, npn: r.npn, notas: r.notas, pagosPorMes: r.pagosPorMes,
-    });
+    const c = saludBuscarClienteMatch(r.nombre, r.proveedor);
+    if(c) {
+      Object.assign(c.pagosPorMes, r.pagosPorMes);
+      if(!c.fechaNacimiento) c.fechaNacimiento = r.fechaNacimiento;
+      if(!c.integrantes) c.integrantes = r.integrantes;
+      if(!c.npn) c.npn = r.npn;
+      if(!c.renovaciones) c.renovaciones = r.renovaciones;
+      if(!c.estadoUS) c.estadoUS = r.estadoUS;
+      if((!c.agente || c.agente==='Sin agente') && r.agente) c.agente = r.agente;
+      if(r.notas) c.notas = (c.notas ? c.notas + ' | ' : '') + r.notas;
+      fusionados++;
+    } else {
+      saludData.clientes.push({
+        id: saludData.nextId++, nombre: r.nombre, cuenta:'', tel:'', email:'',
+        agente: r.agente || 'Sin agente', tipo:'dental', prima: r.prima,
+        comResidualMensual:0, mesesCobradosSalud:0, fecha: r.fechaVenta,
+        fechaEfectiva:'', estado: r.estado, mes: getSaludMeses().slice(-1)[0]||'',
+        campana:'', notas: r.notas, adelantoPagado:false, finalPagado:false,
+        comAgentePagada:false, comAgente:8, quincenaPago:'',
+        proveedor: r.proveedor, fechaNacimiento: r.fechaNacimiento, integrantes: r.integrantes,
+        npn: r.npn, renovaciones: r.renovaciones, estadoUS: r.estadoUS, pagosPorMes: r.pagosPorMes,
+      });
+      creados++;
+    }
   });
   const count = _trazImportRows.length;
   _trazImportRows = [];
   guardarSalud();
   closeModal('modal-importar-trazabilidad');
   saludRenderTrazabilidad();
-  showNotif(`✅ ${count} registros de trazabilidad importados`);
+  showNotif(`✅ ${count} filas procesadas — ${creados} clientes nuevos, ${fusionados} fusionados con clientes existentes`);
 }
 
 // ─── Salud Modal Cliente ──────────────────────────────────────
