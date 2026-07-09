@@ -9035,6 +9035,20 @@ function renderTopSalud() {
   `;
 }
 
+// Suma los gastos que Bravo ya registra en su propia lista (Bravo -> ROI de
+// Bravo -> "+ Nuevo Gasto") para un mes/año dado. Es la ÚNICA fuente de
+// verdad — se calcula en vivo desde appData.bravo.gastos[] cada vez (no se
+// guarda una copia separada en ningún lado), y se reutiliza tanto para
+// restarlo de la Ganancia de Bravo como para mostrarlo automáticamente en
+// Admin/TOP -> Gastos & Nómina, para no tener que escribir el mismo gasto
+// dos veces en dos lugares distintos.
+function calcCostosBravoMes(mes, anio) {
+  return (appData.bravo?.gastos||[]).reduce((s,g) => {
+    const gd = new Date(g.fecha);
+    return (gd.getMonth()+1===mes && gd.getFullYear()===anio) ? s+parseFloat(g.monto||0) : s;
+  }, 0);
+}
+
 function calcBravoMes(mes, anio) {
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
 
@@ -9052,9 +9066,12 @@ function calcBravoMes(mes, anio) {
   const gananciaLycaMes = lycaLineasMes.reduce((s, l) => s + (l.ganancia || 0), 0);
   const gananciaMes = reportesMes.reduce((s, r) => s + (r.gananciaTotal || 0), 0) + gananciaReparacionesMes + gananciaLycaMes;
 
-  // Renta y sueldo de Bravo ya se contabilizan en Admin -> Gastos & Nómina,
-  // así que aquí no se vuelven a restar: gananciaNeta = ganancia bruta de Bravo.
-  const gananciaNeta = gananciaMes;
+  const costosBravoMes = calcCostosBravoMes(mes, anio);
+  // Los gastos que Bravo registra en su propia lista (renta, compras al por
+  // mayor, etc. vía "+ Nuevo Gasto") se restan aquí Y se reflejan
+  // automáticamente en Admin/TOP -> Gastos & Nómina como columna aparte —
+  // una sola fuente, sin captura doble.
+  const gananciaNeta = gananciaMes - costosBravoMes;
 
   const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
   const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
@@ -9062,7 +9079,7 @@ function calcBravoMes(mes, anio) {
   const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
   const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
 
-  return { reportesMes, gananciaMes, gananciaNeta, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
+  return { reportesMes, gananciaMes, gananciaNeta, costosBravoMes, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
 }
 
 function renderTopBravo() {
@@ -9846,7 +9863,7 @@ function renderAdminGastoNominaTable() {
 
   // Calcular totales por mes
   let datos = [];
-  let totalAnualNominas = 0, totalAnualComisiones = 0, totalAnualGastosVar = 0, totalAnualGastosFijos = 0, totalAnualSaraplus = 0;
+  let totalAnualNominas = 0, totalAnualComisiones = 0, totalAnualGastosVar = 0, totalAnualGastosFijos = 0, totalAnualSaraplus = 0, totalAnualCostosBravo = 0;
 
   meses.forEach(mes => {
     const nominas = (appData.gastosNomina[mes]?.nominas || 0);
@@ -9854,17 +9871,22 @@ function renderAdminGastoNominaTable() {
     const gastosVar = (appData.gastosNomina[mes]?.gastosVar || 0);
     const gastosFijos = (appData.gastosNomina[mes]?.gastosFijos || 0);
     const saraplus = (appData.gastosNomina[mes]?.saraplus || 0);
-    const totalMes = nominas + comisiones + gastosVar + gastosFijos + saraplus;
+    const [mesNombre, anioStr] = mes.split(' ');
+    const mesNum = MESES_ES.indexOf(mesNombre) + 1;
+    const anioNum = parseInt(anioStr) || new Date().getFullYear();
+    const costosBravo = mesNum > 0 ? calcCostosBravoMes(mesNum, anioNum) : 0;
+    const totalMes = nominas + comisiones + gastosVar + gastosFijos + saraplus + costosBravo;
 
-    datos.push({ mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, totalMes });
+    datos.push({ mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, costosBravo, totalMes });
     totalAnualNominas += nominas;
     totalAnualComisiones += comisiones;
     totalAnualGastosVar += gastosVar;
     totalAnualGastosFijos += gastosFijos;
     totalAnualSaraplus += saraplus;
+    totalAnualCostosBravo += costosBravo;
   });
 
-  const totalAnual = totalAnualNominas + totalAnualComisiones + totalAnualGastosVar + totalAnualGastosFijos + totalAnualSaraplus;
+  const totalAnual = totalAnualNominas + totalAnualComisiones + totalAnualGastosVar + totalAnualGastosFijos + totalAnualSaraplus + totalAnualCostosBravo;
 
   const html = `
     <div class="tbl-wrap" style="overflow-x:auto">
@@ -9877,6 +9899,7 @@ function renderAdminGastoNominaTable() {
             <th style="text-align:right;min-width:150px">📊 Gastos Var.</th>
             <th style="text-align:right;min-width:130px">📌 Gastos Fijos</th>
             <th style="text-align:right;min-width:120px">🔌 Saraplus</th>
+            <th style="text-align:right;min-width:140px;background:#FFF3EE" title="Se calcula automático desde Bravo → ROI de Bravo → Nuevo Gasto. No editable aquí.">🏪 Costos Bravo</th>
             <th style="text-align:right;min-width:130px">💵 Total Mensual</th>
           </tr>
         </thead>
@@ -9889,6 +9912,7 @@ function renderAdminGastoNominaTable() {
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.saraplus}" data-field="saraplus" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#6A78D1" /></td>
+              <td style="padding:12px;text-align:right;font-weight:700;background:#FFFAF7;color:#B94A00">${fmt(d.costosBravo)}</td>
               <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
             </tr>
           `).join('')}
@@ -9899,6 +9923,7 @@ function renderAdminGastoNominaTable() {
             <td style="padding:12px;text-align:right;color:#FF7A59">${fmt(totalAnualGastosVar)}</td>
             <td style="padding:12px;text-align:right;color:#F2545B">${fmt(totalAnualGastosFijos)}</td>
             <td style="padding:12px;text-align:right;color:#6A78D1">${fmt(totalAnualSaraplus)}</td>
+            <td style="padding:12px;text-align:right;color:#B94A00">${fmt(totalAnualCostosBravo)}</td>
             <td style="padding:12px;text-align:right;color:#009FDB;font-size:16px">${fmt(totalAnual)}</td>
           </tr>
         </tbody>
@@ -9933,13 +9958,14 @@ function renderTopGastoNominaGanancias() {
     const gastosVar = (appData.gastosNomina[mes]?.gastosVar || 0);
     const gastosFijos = (appData.gastosNomina[mes]?.gastosFijos || 0);
     const saraplus = (appData.gastosNomina[mes]?.saraplus || 0);
-    const totalMes = nominas + comisiones + gastosVar + gastosFijos + saraplus;
 
     const [mesNombre, anioStr] = mes.split(' ');
     const mesNum = MESES_ES.indexOf(mesNombre) + 1;
     const anioNum = parseInt(anioStr) || new Date().getFullYear();
 
-    const bravo = mesNum > 0 ? calcBravoMes(mesNum, anioNum) : { gananciaNeta: 0 };
+    const bravo = mesNum > 0 ? calcBravoMes(mesNum, anioNum) : { gananciaNeta: 0, costosBravoMes: 0 };
+    const costosBravo = bravo.costosBravoMes || 0;
+    const totalMes = nominas + comisiones + gastosVar + gastosFijos + saraplus + costosBravo;
     // Ganancia Salud/Dental se ingresa manualmente aquí mismo (igual que
     // Nóminas, Comisiones, etc.) en vez de tomarse de Salud → ROI Mensual,
     // a pedido del usuario, para que no dependa de la sincronización con el
@@ -9964,7 +9990,7 @@ function renderTopGastoNominaGanancias() {
     // mide sobre los Ingresos Totales (RS&I Neto + Bravo + Salud).
     const margenOperativoPct = ingresosTotales > 0 ? (utilidadGlobal / ingresosTotales * 100) : 0;
 
-    return { mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, totalMes,
+    return { mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, costosBravo, totalMes,
       rsiBruto, rsiNeto, ingresosTotales, roiPct, margenOperativoPct,
       gananciaBravo: bravo.gananciaNeta, gananciaSalud, utilidadGlobal };
   });
@@ -9993,6 +10019,7 @@ function renderTopGastoNominaGanancias() {
             <th style="text-align:right;min-width:150px">📊 Gastos Var.</th>
             <th style="text-align:right;min-width:130px">📌 Gastos Fijos</th>
             <th style="text-align:right;min-width:120px">🔌 Saraplus</th>
+            <th style="text-align:right;min-width:140px;background:#FFF3EE" title="Se calcula automático desde Bravo → ROI de Bravo → Nuevo Gasto. No editable aquí.">🏪 Costos Bravo</th>
             <th style="text-align:right;min-width:130px">💵 Total Gastos</th>
             <th style="text-align:right;min-width:120px;background:#FFF9F0">🔴 RS&I Bruto</th>
             <th style="text-align:right;min-width:120px;background:#FFF9F0">🔴 RS&I Neto</th>
@@ -10012,6 +10039,7 @@ function renderTopGastoNominaGanancias() {
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.saraplus}" data-field="saraplus" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#6A78D1" /></td>
+              <td style="padding:12px;text-align:right;font-weight:700;background:#FFFAF7;color:#B94A00">${fmt(d.costosBravo)}</td>
               <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
               <td style="padding:12px;text-align:right;background:#FFF9F0"><input type="number" value="${d.rsiBruto||''}" placeholder="0.00" step="0.01" data-field="bruto" data-mes="${d.mes}" onchange="guardarRSIReporteCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#B94A00" /></td>
               <td style="padding:12px;text-align:right;background:#FFF9F0"><input type="number" value="${d.rsiNeto||''}" placeholder="0.00" step="0.01" data-field="neto" data-mes="${d.mes}" onchange="guardarRSIReporteCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#B94A00" /></td>
@@ -10021,7 +10049,7 @@ function renderTopGastoNominaGanancias() {
               <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF">${roiPctBadge(d.roiPct)}</td>
               <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF">${roiPctBadge(d.margenOperativoPct)}</td>
             </tr>
-          `).join('') || `<tr><td colspan="14" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
+          `).join('') || `<tr><td colspan="15" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
           <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
             <td style="padding:12px;color:#33475B">📊 Total${selAnio?' '+selAnio:' (todos los años)'}</td>
             <td style="padding:12px;text-align:right;color:#009FDB">${fmt(sum('nominas'))}</td>
@@ -10029,6 +10057,7 @@ function renderTopGastoNominaGanancias() {
             <td style="padding:12px;text-align:right;color:#FF7A59">${fmt(sum('gastosVar'))}</td>
             <td style="padding:12px;text-align:right;color:#F2545B">${fmt(sum('gastosFijos'))}</td>
             <td style="padding:12px;text-align:right;color:#6A78D1">${fmt(sum('saraplus'))}</td>
+            <td style="padding:12px;text-align:right;color:#B94A00">${fmt(sum('costosBravo'))}</td>
             <td style="padding:12px;text-align:right;color:#009FDB;font-size:15px">${fmt(sum('totalMes'))}</td>
             <td style="padding:12px;text-align:right;color:#B94A00;background:#FFF9F0">${fmt(sum('rsiBruto'))}</td>
             <td style="padding:12px;text-align:right;color:#B94A00;background:#FFF9F0">${fmt(sum('rsiNeto'))}</td>
@@ -13266,8 +13295,11 @@ function bravoROI() {
     const gd = new Date(g.fecha);
     return gd.getMonth() + 1 === mesSel && gd.getFullYear() === anioSel;
   }).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-  const totalGastosMes = gastosMes.reduce((s,g)=>s+parseFloat(g.monto||0),0);
-  const roiIndependiente = d.gananciaMes - totalGastosMes;
+  // d.costosBravoMes (de calcBravoMes) ya es esta misma suma — se reutiliza
+  // en vez de recalcularla, para que no haya dos fuentes que puedan
+  // desincronizarse. d.gananciaNeta ya viene neta de este costo.
+  const totalGastosMes = d.costosBravoMes;
+  const roiIndependiente = d.gananciaNeta;
   const roiPct = d.gananciaMes > 0 ? (roiIndependiente / d.gananciaMes * 100) : 0;
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
@@ -13289,7 +13321,7 @@ function bravoROI() {
           <button class="btn btn-primary btn-sm" onclick="abrirModalGastoBravo()">➕ Nuevo Gasto</button>
         </div>
       </div>
-      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Este ROI es solo informativo para Bravo — no afecta el ROI Real de TOP ni los Gastos & Nómina de Admin (esos ya cuentan la renta y el sueldo de Douglas). Oriana puede ver estos gastos desde Admin → Gastos & Nómina como referencia para decidir qué registrar allá como fijo o variable.</div>
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Estos gastos se registran aquí UNA sola vez — ya no hace falta volver a escribirlos en Admin. Se reflejan automáticamente como "🏪 Costos Bravo" en Admin → Gastos & Nómina y en TOP, y ya están restados de la Ganancia de Bravo que se muestra ahí.</div>
 
       <div class="cards">
         <div class="card green">
