@@ -375,6 +375,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('bravo-lyca',this)"><span class="icon">📱</span><span>Líneas Lyca</span></div>
     <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
     <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
+    <div class="nav-item" onclick="showPage('enlaces-bravo',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -585,6 +586,11 @@ table thead,table tbody{display:table;width:100%}
     <!-- ===== ENLACES (ADMIN) ===== -->
     <div class="page" id="page-enlaces-admin">
       <div id="enlaces-admin-content"></div>
+    </div>
+
+    <!-- ===== ENLACES (BRAVO) ===== -->
+    <div class="page" id="page-enlaces-bravo">
+      <div id="enlaces-bravo-content"></div>
     </div>
 
     <!-- ===== CAMPAÑAS AT&T ===== -->
@@ -2594,9 +2600,10 @@ function normalizarAppData() {
   if(!appData.gastosNomina) appData.gastosNomina = {};
   if(!appData.quincenasCerradas) appData.quincenasCerradas = {};
   if(!appData.auditLog) appData.auditLog = [];
-  if(!appData.enlaces) appData.enlaces = { admin: [], top: [] };
+  if(!appData.enlaces) appData.enlaces = { admin: [], top: [], bravo: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
+  if(!appData.enlaces.bravo) appData.enlaces.bravo = [];
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
   if(!appData.bravo.reportesDiarios) appData.bravo.reportesDiarios = [];
   if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
@@ -3317,7 +3324,8 @@ const PAGE_TITLES = {
   'salud-chargebacks':'💚 Salud — Chargebacks',
   'enlaces-admin':'🔗 Enlaces',
   'enlaces-top':'🔗 Enlaces',
-  'enlaces-salud':'🔗 Enlaces'
+  'enlaces-salud':'🔗 Enlaces',
+  'enlaces-bravo':'🔗 Enlaces'
 };
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -3366,6 +3374,7 @@ function renderPage(name) {
   if(name==='enlaces-admin') renderEnlaces('admin');
   if(name==='enlaces-top') renderEnlaces('top');
   if(name==='enlaces-salud') renderEnlaces('salud');
+  if(name==='enlaces-bravo') renderEnlaces('bravo');
 }
 
 
