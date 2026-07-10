@@ -14208,24 +14208,6 @@ function bravoGuardarRegistro() {
     else appData.bravo.caja.push({ id: appData.bravo.nextCajaId++, ...datosCaja });
   }
 
-  // Caja Chica del día (pestaña opcional de este mismo modal) — upsert por
-  // fecha en appData.bravo.caja[], mismo patrón que ya usa
-  // bravoGuardarReportesImportados() al pegar reportes. Solo se toca si el
-  // usuario metió algo ahí, para no pisar con ceros una caja ya registrada
-  // aparte (p.ej. desde Bravo -> Caja Chica) si no se usó esta pestaña.
-  const cajaInicial = parseFloat(document.getElementById('bravo-reg-caja-inicial').value) || 0;
-  const cajaEntradas = parseFloat(document.getElementById('bravo-reg-caja-entradas').value) || 0;
-  const cajaSalidas = parseFloat(document.getElementById('bravo-reg-caja-salidas').value) || 0;
-  const cajaNotas = document.getElementById('bravo-reg-caja-notas').value.trim();
-  if(cajaInicial || cajaEntradas || cajaSalidas || cajaNotas) {
-    if(!appData.bravo.caja) appData.bravo.caja = [];
-    if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
-    const datosCaja = { fecha, cajaInicial, totalEntradas: cajaEntradas, totalSalidas: cajaSalidas, notas: cajaNotas };
-    const cajaExistente = appData.bravo.caja.find(c => c.fecha === fecha);
-    if(cajaExistente) Object.assign(cajaExistente, datosCaja);
-    else appData.bravo.caja.push({ id: appData.bravo.nextCajaId++, ...datosCaja });
-  }
-
   if(bravoRegistroTemp.id) {
     // EDITAR REGISTRO EXISTENTE (upsert: si por alguna razón el registro ya
     // no está en el array local — p.ej. una sincronización en curso — lo
