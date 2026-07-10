@@ -12275,6 +12275,20 @@ function ejecutarMigraciones() {
     appData._mig_grabacionPropsV1 = true;
     if(converted > 0) { guardar(); showNotif(`📞 ${Math.floor(converted/2)} grabaciones migradas a nuevo formato`); }
   }
+
+  // Migración: mover el producto personalizado "Grabación Sola" (guardado antes
+  // de que existiera la categoría "Llamada Grabada") a su categoría correcta.
+  if(!appData._mig_grabacionSolaCatV1) {
+    let movidos = 0;
+    (appData.productosCustom||[]).forEach(p => {
+      if(normNombre(p.nombre) === 'grabacion sola' && p.cat !== 'grabada') {
+        p.cat = 'grabada';
+        movidos++;
+      }
+    });
+    appData._mig_grabacionSolaCatV1 = true;
+    if(movidos > 0) { guardar(); showNotif(`📞 "Grabación Sola" movido a la categoría Llamada Grabada`); }
+  }
 } // fin ejecutarMigraciones()
 
 
