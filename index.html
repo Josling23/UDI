@@ -2398,6 +2398,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-body">
       <div style="font-size:11px;color:#7C98B6;margin-bottom:10px">
         Pega uno o varios reportes con el formato <code>---REPORTE | FECHA</code>. Puedes pegar varios días juntos, uno tras otro.
+        <br>💡 Opcional: agrega <code>Ganancia: $XX</code> en cualquier línea para que se use ese monto tal cual (sin recalcular a partir de Precio/Costo) — útil para casos como reparaciones con un tercero, donde la ganancia no es una resta simple.
       </div>
       <textarea id="bravo-importar-textarea" placeholder="---REPORTE | 1-MAYO-2026&#10;&#10;ACCESORIOS:&#10;- Tipo: Funda | Cantidad: 1 | Precio Venta: $20 | Costo: $5 | Método: Punto | Nota: ...&#10;&#10;LYCAS:&#10;- Sin ventas Lyca registradas&#10;..." style="width:100%;min-height:220px;padding:10px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:12px;font-family:monospace"></textarea>
       <div style="margin-top:10px">
@@ -14348,7 +14349,9 @@ function bravoParsearAccesoriosTexto(texto) {
     const costo = bravoParseMonto(kv['costo']);
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio * cantidad;
+    // Ganancia explícita opcional (ej. generada por un prompt de IA externo)
+    // — si viene, se usa tal cual sin recalcular; si no, igual que siempre.
+    const ganancia = kv['ganancia'] !== undefined ? bravoParseMonto(kv['ganancia']) : precio * cantidad;
     return { tipo, cantidad, precio, costo, metodo, ganancia, notas };
   });
 }
@@ -14366,7 +14369,7 @@ function bravoParsearLycasTexto(texto) {
     const costo = bravoParseMonto(kv['costo']);
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio;
+    const ganancia = kv['ganancia'] !== undefined ? bravoParseMonto(kv['ganancia']) : precio;
     return { tipo, cliente, precio, costo, metodo, ganancia, notas };
   });
 }
@@ -14386,7 +14389,10 @@ function bravoParsearReparacionesTexto(texto) {
     const abono = bravoParseMonto(kv['abono']);
     const estado = bravoMapearValor(ESTADO_MAP, kv['estado'], 'entregada');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio;
+    // Caso Diomedes/Douglas: la Ganancia no siempre es Precio - Costo (ej.
+    // reparaciones de terceros) — si el reporte la trae explícita, se usa
+    // tal cual sin recalcular.
+    const ganancia = kv['ganancia'] !== undefined ? bravoParseMonto(kv['ganancia']) : precio;
     const resta = Math.max(0, precio - abono);
     return { equipo, tipo, precio, costo, abono, resta, estado, ganancia, notas };
   });
@@ -14402,7 +14408,7 @@ function bravoParsearCombosTexto(texto) {
     const comision = bravoParseMonto(kv['comision']);
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio - comision;
+    const ganancia = kv['ganancia'] !== undefined ? bravoParseMonto(kv['ganancia']) : precio - comision;
     return { desc, precio, costo, comision, metodo, ganancia, notas };
   });
 }
@@ -14418,7 +14424,7 @@ function bravoParsearTelefonosTexto(texto) {
     const tipo = bravoMapearValor(TIPOTEL_MAP, kv['tipo'], 'desbloqueado');
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio;
+    const ganancia = kv['ganancia'] !== undefined ? bravoParseMonto(kv['ganancia']) : precio;
     return { modelo, costo, precio, tipo, metodo, ganancia, notas };
   });
 }
