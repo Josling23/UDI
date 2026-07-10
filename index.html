@@ -2344,6 +2344,7 @@ table thead,table tbody{display:table;width:100%}
           <div><span style="color:#7C98B6">Actividades Douglas:</span> <span id="bravo-count-douglas" style="font-weight:700;color:#33475B">0</span></div>
           <div><span style="color:#7C98B6">Ganancia Total:</span> <span id="bravo-ganancia-total" style="font-weight:700;color:#00BDA5">$0.00</span></div>
         </div>
+        <div style="font-size:10px;color:#7C98B6;margin-top:10px">💡 El costo de cada producto se registra automáticamente como Gasto en ROI de Bravo al guardar — no hace falta anotarlo ahí de nuevo.</div>
         <div id="bravo-resumen-douglas-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #CBD6E2">
           <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:6px">👤 Resumen de Actividades de Douglas</div>
           <div id="bravo-resumen-douglas" style="font-size:11px;color:#33475B;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px"></div>
@@ -13396,11 +13397,11 @@ function bravoROI() {
           <tbody>
             ${gastosMes.length ? gastosMes.map(g=>`<tr>
               <td>${g.fecha}</td>
-              <td>${g.nombre||'—'}</td>
+              <td>${g.nombre||'—'}${g.origen==='registro-diario' ? ' <span style="font-size:10px;color:#7C98B6;font-weight:600">🔗 Desde Registro Diario</span>' : ''}</td>
               <td style="text-align:center;color:#7C98B6">${g.cantidad || 1}</td>
               <td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
               <td style="text-align:right;font-weight:700;color:#E04048">${fmt(g.monto)}</td>
-              <td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="abrirModalGastoBravo(${g.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="eliminarGastoBravo(${g.id})" style="margin-left:4px">✕</button></td>
+              <td style="text-align:right;white-space:nowrap">${g.origen==='registro-diario' ? '' : `<button class="btn btn-ghost btn-xs" onclick="abrirModalGastoBravo(${g.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="eliminarGastoBravo(${g.id})" style="margin-left:4px">✕</button>`}</td>
             </tr>`).join('') : `<tr><td colspan="6" class="tbl-empty">Sin gastos registrados para este mes</td></tr>`}
           </tbody>
           ${gastosMes.length ? `<tfoot><tr><td colspan="4" style="font-weight:700">Total</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(totalGastosMes)}</td><td></td></tr></tfoot>` : ''}
@@ -13493,6 +13494,67 @@ function eliminarGastoBravo(id) {
   guardar();
   bravoROI();
   showNotif('🗑️ Gasto eliminado');
+}
+
+// Convierte una línea de un reporte de Registro Diario (accesorio/lyca/
+// reparación/combo/teléfono) en un gasto de Bravo, reutilizando el mismo
+// catálogo tipo->nombre que ya usa "+ Nuevo Gasto" (BRAVO_GASTO_TIPO_LABELS).
+// Devuelve null si la línea no tiene costo (nada que registrar como gasto).
+function bravoLineaAGasto(categoria, item, fecha, reporteId) {
+  const costo = parseFloat(item.costo) || 0;
+  if(costo <= 0) return null;
+
+  let tipoGasto, nombre, cantidad;
+  if(categoria === 'accesorio') {
+    tipoGasto = BRAVO_GASTO_TIPO_LABELS[item.tipo] ? item.tipo : 'otro';
+    nombre = BRAVO_GASTO_TIPO_LABELS[item.tipo] || 'Accesorio (Otros)';
+    cantidad = item.cantidad || 1;
+  } else if(categoria === 'reparacion') {
+    tipoGasto = BRAVO_GASTO_TIPO_LABELS[item.tipo] ? item.tipo : 'otro';
+    nombre = BRAVO_GASTO_TIPO_LABELS[item.tipo] || 'Repuesto de Reparación (Otro)';
+    cantidad = 1;
+  } else if(categoria === 'combo') {
+    tipoGasto = 'combo';
+    nombre = item.desc || 'Combo';
+    cantidad = 1;
+  } else if(categoria === 'telefono') {
+    tipoGasto = 'telefono';
+    nombre = item.modelo || 'Teléfono';
+    cantidad = 1;
+  } else if(categoria === 'lyca') {
+    tipoGasto = 'lyca';
+    nombre = BRAVO_GASTO_TIPO_LABELS['lyca'];
+    cantidad = 1;
+  }
+
+  const metodoMap = { efectivo:'efectivo', zelle:'zelle', paypal:'paypal', punto:'otro', otro:'otro' };
+  const tipoPago = item.metodo ? (metodoMap[item.metodo] || 'otro') : 'efectivo';
+
+  return {
+    fecha, tipoGasto, cantidad, costoUnitario: costo, monto: cantidad * costo,
+    nombre, tipoPago, origenReporteId: reporteId, origen: 'registro-diario'
+  };
+}
+
+// Mantiene sincronizados los gastos automáticos de ROI Bravo con el costo
+// de cada línea del reporte — mismo patrón "borrar y re-crear" que ya usa
+// la Llamada Grabada de Ventas: borra los gastos ligados a este reporte y
+// crea uno nuevo por cada línea con costo > 0, para que el costo anotado
+// en Registro Diario no haya que volver a escribirlo a mano en Gastos.
+function bravoSincronizarGastosDeReporte(reporte) {
+  if(!appData.bravo.gastos) appData.bravo.gastos = [];
+  if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
+
+  appData.bravo.gastos = appData.bravo.gastos.filter(g => g.origenReporteId !== reporte.id);
+
+  const nuevos = [];
+  (reporte.accesorios||[]).forEach(a => { const g = bravoLineaAGasto('accesorio', a, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
+  (reporte.lycas||[]).forEach(l => { const g = bravoLineaAGasto('lyca', l, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
+  (reporte.reparaciones||[]).forEach(r => { const g = bravoLineaAGasto('reparacion', r, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
+  (reporte.combos||[]).forEach(c => { const g = bravoLineaAGasto('combo', c, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
+  (reporte.telefonos||[]).forEach(t => { const g = bravoLineaAGasto('telefono', t, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
+
+  nuevos.forEach(g => { g.id = appData.bravo.nextGastoId++; appData.bravo.gastos.push(g); });
 }
 
 // Estructura de datos temporal para el formulario
@@ -13601,7 +13663,9 @@ function bravoAgregarAccesorio() {
 
   if(!tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
-  const ganancia = (precio - costo) * cantidad;
+  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
+  // guardar el reporte (ver bravoSincronizarGastosDeReporte).
+  const ganancia = precio * cantidad;
 
   bravoRegistroTemp.accesorios.push({
     tipo, cantidad, precio, costo, metodo, ganancia, notas
@@ -13646,7 +13710,9 @@ function bravoAgregarLyca() {
 
   if(!cliente || !precio) { showNotif('⚠️ Completa Cliente/Agente y Precio Vendido','error'); return; }
 
-  const ganancia = precio - costo;
+  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
+  // guardar el reporte (ver bravoSincronizarGastosDeReporte).
+  const ganancia = precio;
 
   bravoRegistroTemp.lycas.push({
     tipo, cliente, precio, costo, metodo, ganancia, notas
@@ -13698,7 +13764,9 @@ function bravoAgregarReparacion() {
 
   if(!equipo || !tipo || !precio) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
-  const ganancia = precio - costo;
+  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
+  // guardar el reporte (ver bravoSincronizarGastosDeReporte).
+  const ganancia = precio;
   const resta = Math.max(0, precio - abono);
 
   bravoRegistroTemp.reparaciones.push({
@@ -13748,7 +13816,10 @@ function bravoAgregarCombo() {
 
   if(!desc || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
-  const ganancia = precio - costo - comision;
+  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
+  // guardar el reporte (ver bravoSincronizarGastosDeReporte). La comisión
+  // del vendedor sí se sigue restando de la ganancia.
+  const ganancia = precio - comision;
 
   bravoRegistroTemp.combos.push({
     desc, precio, costo, comision, metodo, ganancia, notas
@@ -13793,7 +13864,9 @@ function bravoAgregarTelefono() {
 
   if(!modelo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
-  const ganancia = precio - costo;
+  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
+  // guardar el reporte (ver bravoSincronizarGastosDeReporte).
+  const ganancia = precio;
 
   bravoRegistroTemp.telefonos.push({
     modelo, costo, precio, tipo, metodo, ganancia, notas
@@ -14093,6 +14166,8 @@ function bravoGuardarRegistro() {
     if(idx !== -1) appData.bravo.reportesDiarios[idx] = registroActualizado;
     else appData.bravo.reportesDiarios.push(registroActualizado);
 
+    bravoSincronizarGastosDeReporte(registroActualizado);
+
     guardar();
     closeModal('modal-bravo-registro');
     bravoRefrescarVistaActual();
@@ -14117,6 +14192,8 @@ function bravoGuardarRegistro() {
 
     appData.bravo.reportesDiarios.push(registro);
     appData.bravo.nextDiarioId++;
+
+    bravoSincronizarGastosDeReporte(registro);
 
     guardar();
     closeModal('modal-bravo-registro');
@@ -14214,7 +14291,7 @@ function bravoParsearAccesoriosTexto(texto) {
     const costo = bravoParseMonto(kv['costo']);
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = (precio - costo) * cantidad;
+    const ganancia = precio * cantidad;
     return { tipo, cantidad, precio, costo, metodo, ganancia, notas };
   });
 }
@@ -14232,7 +14309,7 @@ function bravoParsearLycasTexto(texto) {
     const costo = bravoParseMonto(kv['costo']);
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio - costo;
+    const ganancia = precio;
     return { tipo, cliente, precio, costo, metodo, ganancia, notas };
   });
 }
@@ -14252,7 +14329,7 @@ function bravoParsearReparacionesTexto(texto) {
     const abono = bravoParseMonto(kv['abono']);
     const estado = bravoMapearValor(ESTADO_MAP, kv['estado'], 'entregada');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio - costo;
+    const ganancia = precio;
     const resta = Math.max(0, precio - abono);
     return { equipo, tipo, precio, costo, abono, resta, estado, ganancia, notas };
   });
@@ -14268,7 +14345,7 @@ function bravoParsearCombosTexto(texto) {
     const comision = bravoParseMonto(kv['comision']);
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio - costo - comision;
+    const ganancia = precio - comision;
     return { desc, precio, costo, comision, metodo, ganancia, notas };
   });
 }
@@ -14284,7 +14361,7 @@ function bravoParsearTelefonosTexto(texto) {
     const tipo = bravoMapearValor(TIPOTEL_MAP, kv['tipo'], 'desbloqueado');
     const metodo = bravoMapearValor(BRAVO_METODO_MAP, kv['metodo'] || kv['método'], 'efectivo');
     const notas = kv['nota'] || kv['notas'] || '';
-    const ganancia = precio - costo;
+    const ganancia = precio;
     return { modelo, costo, precio, tipo, metodo, ganancia, notas };
   });
 }
@@ -14435,6 +14512,7 @@ function bravoGuardarReportesImportados() {
         timestamp: new Date().toISOString()
       };
       appData.bravo.reportesDiarios.push(registro);
+      bravoSincronizarGastosDeReporte(registro);
       creados++;
     }
     if(r.caja) {
@@ -14653,6 +14731,7 @@ function editarRegistroDiario(id) {
 function eliminarRegistroDiario(id) {
   if(!confirm('¿Eliminar este registro diario?')) return;
   appData.bravo.reportesDiarios = (appData.bravo.reportesDiarios||[]).filter(r => r.id !== id);
+  appData.bravo.gastos = (appData.bravo.gastos||[]).filter(g => g.origenReporteId !== id);
   guardar();
   bravoRefrescarVistaActual();
   showNotif('🗑️ Registro eliminado');
