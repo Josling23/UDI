@@ -713,7 +713,15 @@ table thead,table tbody{display:table;width:100%}
       <div class="section">
         <div class="section-header">
           <h2>👥 Gestión de Clientes</h2>
-          <button class="btn btn-primary" onclick="saludOpenClienteModal()">➕ Nuevo Cliente</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-ghost" onclick="saludDescargarClientesFiltrados()">⬇️ Descargar Excel</button>
+            <input type="file" id="salud-clientes-file-input" accept=".xlsx,.xls" style="display:none" onchange="saludSubirClientesExcel(event)">
+            <button class="btn btn-ghost" onclick="document.getElementById('salud-clientes-file-input').click()">⬆️ Cargar Excel</button>
+            <button class="btn btn-primary" onclick="saludOpenClienteModal()">➕ Nuevo Cliente</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#7C98B6;margin-bottom:10px">
+          Descarga los clientes con los filtros de abajo aplicados (o todos, si no filtras nada), exactamente como están ingresados. Sube ese mismo archivo para agregar clientes nuevos o actualizar los que ya existan (por columna ID) — no borra ni afecta nada más.
         </div>
         <div class="filters">
           <input type="text" id="salud-search-clientes" placeholder="🔍 Buscar cliente, cuenta..." oninput="saludRenderClientes()">
@@ -732,6 +740,7 @@ table thead,table tbody{display:table;width:100%}
             <option value="cancelado">Desconectado</option>
           </select>
           <select id="salud-filter-mes-cli" onchange="saludRenderClientes()"><option value="">Todos los Meses</option></select>
+          <select id="salud-filter-anio-cli" onchange="saludRenderClientes()"><option value="">Todos los Años</option></select>
         </div>
         <div class="quick-stats" id="salud-clientes-stats"></div>
         <div id="salud-clientes-seleccion-bar" style="margin-bottom:10px"></div>
@@ -10292,6 +10301,19 @@ function saludPopFilterMes(selId) {
   const cur = sel.value;
   sel.innerHTML = '<option value="">Todos los Meses</option>' + getSaludMeses().map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
 }
+// Años disponibles para el filtro de Clientes — se calculan de los meses ya
+// usados por los clientes (c.mes = "NombreMes AAAA") y siempre se incluye el
+// año en curso, aunque todavía no tenga clientes, para que se pueda buscar
+// ahí desde el primer día del año nuevo sin esperar a que exista un dato.
+function saludPopFilterAnioClientes() {
+  const sel = document.getElementById('salud-filter-anio-cli'); if(!sel) return;
+  const cur = sel.value;
+  const años = [...new Set(saludData.clientes.map(c => (c.mes||'').split(' ').pop()).filter(Boolean))];
+  const añoActual = String(new Date().getFullYear());
+  if(!años.includes(añoActual)) años.push(añoActual);
+  años.sort((a,b) => b.localeCompare(a));
+  sel.innerHTML = '<option value="">Todos los Años</option>' + años.map(a=>`<option value="${a}" ${a===cur?'selected':''}>${a}</option>`).join('');
+}
 function saludPopFilterAgente(selId, addSin=true) {
   const sel = document.getElementById(selId); if(!sel) return;
   const cur = sel.value;
@@ -10383,17 +10405,20 @@ function saludRenderClientes() {
   saludClientesSeleccionados = new Set();
   saludPopFilterAgente('salud-filter-agente');
   saludPopFilterMes('salud-filter-mes-cli');
+  saludPopFilterAnioClientes();
   const search = (document.getElementById('salud-search-clientes')?.value||'').toLowerCase();
   const fAgente = document.getElementById('salud-filter-agente')?.value||'';
   const fTipo   = document.getElementById('salud-filter-tipo')?.value||'';
   const fEstado = document.getElementById('salud-filter-estado')?.value||'';
   const fMes    = document.getElementById('salud-filter-mes-cli')?.value||'';
+  const fAnio   = document.getElementById('salud-filter-anio-cli')?.value||'';
   let list = saludData.clientes.filter(c=>{
     if(search && !c.nombre.toLowerCase().includes(search) && !(c.cuenta||'').toLowerCase().includes(search)) return false;
     if(fAgente && c.agente!==fAgente) return false;
     if(fTipo && c.tipo!==fTipo) return false;
     if(fEstado && c.estado!==fEstado) return false;
     if(fMes && c.mes!==fMes) return false;
+    if(fAnio && (c.mes||'').split(' ').pop()!==fAnio) return false;
     return true;
   });
   const totalPrimas = list.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+c.prima,0);
@@ -10491,6 +10516,145 @@ function saludEliminarClientesSeleccionados() {
   saludRenderDashboard();
   showNotif(`🗑️ ${ids.length} cliente${ids.length!==1?'s':''} eliminado${ids.length!==1?'s':''}`);
 }
+
+// Descarga los clientes con los filtros actuales de la pantalla aplicados
+// (o todos, si no hay ningún filtro puesto) — mismo patrón que "Ventas
+// Filtradas" en Admin: cada cliente se exporta con su columna ID, para
+// poder subir el mismo archivo después y actualizar (por ID) en vez de
+// duplicar, sin afectar el resto de los datos.
+function saludDescargarClientesFiltrados() {
+  const search = (document.getElementById('salud-search-clientes')?.value||'').toLowerCase();
+  const fAgente = document.getElementById('salud-filter-agente')?.value||'';
+  const fTipo   = document.getElementById('salud-filter-tipo')?.value||'';
+  const fEstado = document.getElementById('salud-filter-estado')?.value||'';
+  const fMes    = document.getElementById('salud-filter-mes-cli')?.value||'';
+  const fAnio   = document.getElementById('salud-filter-anio-cli')?.value||'';
+  const list = saludData.clientes.filter(c=>{
+    if(search && !c.nombre.toLowerCase().includes(search) && !(c.cuenta||'').toLowerCase().includes(search)) return false;
+    if(fAgente && c.agente!==fAgente) return false;
+    if(fTipo && c.tipo!==fTipo) return false;
+    if(fEstado && c.estado!==fEstado) return false;
+    if(fMes && c.mes!==fMes) return false;
+    if(fAnio && (c.mes||'').split(' ').pop()!==fAnio) return false;
+    return true;
+  });
+  if(!list.length) { showNotif('⚠️ No hay clientes que cumplan esos filtros', 'error'); return; }
+
+  const rows = list.map(c => ({
+    ID: c.id,
+    Cuenta: c.cuenta||'',
+    Cliente: c.nombre||'',
+    'Teléfono': c.tel||'',
+    Email: c.email||'',
+    Agente: c.agente||'',
+    Tipo: c.tipo||'',
+    'Prima/Mes': c.prima||0,
+    'Comisión Residual Mensual': c.comResidualMensual||0,
+    'Com. Agente (%)': c.comAgente!=null ? c.comAgente : 8,
+    Estado: SALUD_ESTADO_LABELS[c.estado]||c.estado||'',
+    'Fecha Venta': c.fecha||'',
+    'Fecha Efectiva': c.fechaEfectiva||'',
+    Mes: c.mes||'',
+    'Quincena Pago': c.quincenaPago||'',
+    'Campaña': c.campana||'',
+    Notas: c.notas||''
+  }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Clientes');
+  const tieneFiltro = search || fAgente || fTipo || fEstado || fMes || fAnio;
+  XLSX.writeFile(wb, `clientes-salud${tieneFiltro?'-filtrado':''}-${new Date().toISOString().split('T')[0]}.xlsx`);
+  showNotif(`✅ ${list.length} cliente${list.length!==1?'s':''} descargado${list.length!==1?'s':''}`);
+}
+
+function saludParsearEstadoImportado(valor) {
+  const v = String(valor||'').trim().toLowerCase();
+  if(v==='desconectado' || v==='cancelado') return 'cancelado';
+  if(v==='pendiente') return 'pendiente';
+  return 'activo';
+}
+
+// Sube ese mismo Excel de vuelta: actualiza (por columna ID) los clientes
+// que ya existan y agrega como nuevos los que no traigan un ID reconocido —
+// mismo patrón que "Ventas Filtradas" en Admin. No borra ni toca ningún
+// otro dato de la app.
+function saludSubirClientesExcel(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let rows;
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:'array'});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet);
+    } catch(err) {
+      showNotif('❌ Error al leer el Excel: '+err.message, 'error');
+      event.target.value = '';
+      return;
+    }
+    if(!rows.length) { showNotif('⚠️ El archivo no tiene filas', 'error'); event.target.value = ''; return; }
+
+    const plan = []; // {tipo:'actualizar'|'nueva', id?, datos}
+    let errores = 0;
+
+    rows.forEach(row => {
+      const id = parseInt(row.ID ?? row.Id ?? row.id) || null;
+      const nombre = String(row.Cliente ?? row.Nombre ?? row.cliente ?? '').trim();
+      if(!nombre) { errores++; return; }
+      const datos = {
+        nombre,
+        cuenta: String(row.Cuenta ?? row.cuenta ?? '').trim(),
+        tel: String(row['Teléfono'] ?? row.Telefono ?? row.tel ?? '').trim(),
+        email: String(row.Email ?? row.email ?? '').trim(),
+        agente: String(row.Agente ?? row.agente ?? '').trim(),
+        tipo: String(row.Tipo ?? row.tipo ?? 'dental').trim().toLowerCase(),
+        prima: parseFloat(row['Prima/Mes'] ?? row.Prima ?? row.prima ?? 0) || 0,
+        comResidualMensual: parseFloat(row['Comisión Residual Mensual'] ?? row.comResidualMensual ?? 0) || 0,
+        comAgente: parseFloat(row['Com. Agente (%)'] ?? row.ComAgente ?? row.comAgente ?? 8) || 8,
+        estado: saludParsearEstadoImportado(row.Estado ?? row.estado),
+        fecha: String(row['Fecha Venta'] ?? row.Fecha ?? row.fecha ?? '').trim(),
+        fechaEfectiva: String(row['Fecha Efectiva'] ?? row.fechaEfectiva ?? '').trim(),
+        mes: String(row.Mes ?? row.mes ?? '').trim(),
+        quincenaPago: String(row['Quincena Pago'] ?? row.quincenaPago ?? '').trim(),
+        campana: String(row['Campaña'] ?? row.Campana ?? row.campana ?? '').trim(),
+        notas: String(row.Notas ?? row.notas ?? '').trim()
+      };
+      const existente = id ? saludData.clientes.find(c=>c.id===id) : null;
+      plan.push(existente ? { tipo:'actualizar', id, datos } : { tipo:'nueva', datos });
+    });
+
+    const nuevos = plan.filter(p=>p.tipo==='nueva').length;
+    const actualizados = plan.filter(p=>p.tipo==='actualizar').length;
+
+    if(!plan.length) {
+      showNotif(`❌ No se pudo procesar ninguna fila (${errores} con error)`, 'error');
+      event.target.value = '';
+      return;
+    }
+
+    const ok = confirm(`Se agregarán ${nuevos} cliente(s) nuevo(s) y se actualizarán ${actualizados} existente(s)${errores?` (${errores} fila(s) con error se omitirán)`:''}.\n\nEsto NO afecta el resto de tus datos. ¿Deseas continuar?`);
+    if(!ok) { event.target.value = ''; return; }
+
+    plan.forEach(p => {
+      if(p.tipo==='actualizar') {
+        const c = saludData.clientes.find(x=>x.id===p.id);
+        if(c) Object.assign(c, p.datos);
+      } else {
+        saludData.clientes.push({ id: saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0, ...p.datos });
+      }
+    });
+
+    guardarSalud();
+    showNotif(`✅ ${nuevos} cliente(s) agregado(s), ${actualizados} actualizado(s)`);
+    event.target.value = '';
+    saludRenderClientes();
+    saludRenderDashboard();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function saludUpdateField(id, field, value) {
   const c = saludData.clientes.find(x=>x.id===id); if(!c) return;
   c[field] = value; guardarSalud(); showNotif('✅ Actualizado');
