@@ -375,6 +375,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('bravo-lyca',this)"><span class="icon">📱</span><span>Líneas Lyca</span></div>
     <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
     <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
+    <div class="nav-item" onclick="showPage('bravo-compras',this)"><span class="icon">🛒</span><span>Compras Inventario</span></div>
     <div class="nav-item" onclick="showPage('enlaces-bravo',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -664,6 +665,10 @@ table thead,table tbody{display:table;width:100%}
 
     <div class="page" id="page-bravo-caja">
       <div id="bravo-caja-content"></div>
+    </div>
+
+    <div class="page" id="page-bravo-compras">
+      <div id="bravo-compras-content"></div>
     </div>
 
     <!-- ====================================================== -->
@@ -1774,6 +1779,29 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - COMPRA DE INVENTARIO ===== -->
+<div class="modal-overlay" id="modal-bravo-compra">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="modal-bravo-compra-title">🛒 Registrar Compra de Inventario</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-compra')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="compra-fecha"></div>
+        <div class="form-group"><label>Proveedor</label><input type="text" id="compra-proveedor" placeholder="Ej: Distribuidor XYZ"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Descripción *</label><textarea id="compra-descripcion" placeholder="Qué se compró (ej: fundas, vidrios, repuestos varios...)" style="min-height:48px"></textarea></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Monto ($) *</label><input type="number" id="compra-monto" step="0.01" min="0" placeholder="0.00"></div>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin-top:8px">📌 Este registro es solo informativo — no se resta de la Ganancia ni del ROI de Bravo. Es únicamente para llevar cuenta de cuánto se gasta comprando inventario.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-compra')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarCompraBravo()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - GASTO INDEPENDIENTE ===== -->
 <div class="modal-overlay" id="modal-bravo-gasto">
   <div class="modal" style="max-width:420px">
@@ -2615,7 +2643,9 @@ let appData = {
     nextDiarioId: 1,
     caja: [],
     gastos: [],
-    nextGastoId: 1
+    nextGastoId: 1,
+    compras: [],
+    nextCompraId: 1
   }
 };
 
@@ -2658,6 +2688,8 @@ function normalizarAppData() {
   if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
   if(!appData.bravo.gastos) appData.bravo.gastos = [];
   if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
+  if(!appData.bravo.compras) appData.bravo.compras = [];
+  if(!appData.bravo.nextCompraId) appData.bravo.nextCompraId = 1;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
   if(!appData.bravo.nextReparacionId) appData.bravo.nextReparacionId = 1;
   if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
@@ -2775,6 +2807,7 @@ function activarListenerAppData() {
           'bravo-lyca':         bravoLineasLyca,
           'bravo-roi':          bravoROI,
           'bravo-caja':         bravoCaja,
+          'bravo-compras':      bravoCompras,
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -3359,6 +3392,7 @@ const PAGE_TITLES = {
   'bravo-lyca':'📱 Bravo — Líneas Lyca',
   'bravo-roi':'🏪 Bravo — ROI',
   'bravo-caja':'💵 Caja Chica — Bravo',
+  'bravo-compras':'🛒 Bravo — Compras de Inventario',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
@@ -3408,6 +3442,7 @@ function renderPage(name) {
   if(name==='bravo-lyca') bravoLineasLyca();
   if(name==='bravo-roi') bravoROI();
   if(name==='bravo-caja') bravoCaja();
+  if(name==='bravo-compras') bravoCompras();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
@@ -12733,6 +12768,7 @@ function bravoRefrescarVistaActual() {
     'bravo-lyca':         bravoLineasLyca,
     'bravo-roi':          bravoROI,
     'bravo-caja':         bravoCaja,
+    'bravo-compras':      bravoCompras,
   };
   if(mapa[pageId]) mapa[pageId]();
 }
@@ -15145,6 +15181,173 @@ function guardarCajaChica() {
 function eliminarCajaChica(id) {
   if(!confirm('¿Eliminar este registro de caja?')) return;
   appData.bravo.caja = (appData.bravo.caja||[]).filter(c => c.id !== id);
+  guardar();
+  bravoRefrescarVistaActual();
+  showNotif('🗑️ Registro eliminado');
+}
+
+// ============================================================
+// BRAVO — COMPRAS DE INVENTARIO
+// Registro puramente informativo de cuánto se gasta comprando inventario
+// (accesorios, repuestos, etc.). A propósito NO se lee en
+// calcCostosBravoMes()/calcBravoMes() — no afecta la Ganancia ni el ROI
+// de Bravo, es solo para llevar la cuenta mensual de este gasto.
+// ============================================================
+function bravoCompras() {
+  if(!validarAccesoBravo()) return;
+  if(!appData.bravo.compras) appData.bravo.compras = [];
+
+  const añosDisponibles = [...new Set((appData.bravo.compras||[]).map(c => (c.fecha||'').slice(0,4)).filter(Boolean))];
+  const añoActual = String(new Date().getFullYear());
+  if(!añosDisponibles.includes(añoActual)) añosDisponibles.push(añoActual);
+  añosDisponibles.sort((a,b) => b.localeCompare(a));
+
+  document.getElementById('bravo-compras-content').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>🛒 Compras de Inventario</h2>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalCompraBravo()">➕ Registrar Compra</button>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Solo informativo — para llevar cuenta de cuánto se gasta comprando inventario. No afecta la Ganancia ni el ROI de Bravo.</div>
+
+      <div class="cards" id="bravo-compras-cards" style="margin-bottom:18px"></div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+        <input type="date" id="compras-f-fecha" onchange="bravoRenderComprasTabla()" title="Buscar por día específico" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+        <select id="compras-f-mes" onchange="bravoRenderComprasTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">📅 Todos los meses</option>
+          ${MESES_ES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
+        </select>
+        <select id="compras-f-anio" onchange="bravoRenderComprasTabla()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">Todos los años</option>
+          ${añosDisponibles.map(a=>`<option value="${a}">${a}</option>`).join('')}
+        </select>
+        <button onclick="document.getElementById('compras-f-fecha').value='';document.getElementById('compras-f-mes').value='';document.getElementById('compras-f-anio').value='';bravoRenderComprasTabla()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+      </div>
+
+      <div class="section" style="margin-top:0">
+        <div class="section-header">
+          <h2>📋 Histórico de Compras</h2>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Proveedor</th>
+                <th>Descripción</th>
+                <th style="text-align:right">Monto</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="bravo-compras-body"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" style="font-weight:700;text-align:right">Total:</td>
+                <td id="bravo-compras-total" style="text-align:right;font-weight:800;color:#009FDB"></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  bravoRenderComprasTabla();
+}
+
+function bravoRenderComprasTabla() {
+  const mesActual = new Date().getMonth() + 1;
+  const añoActualNum = new Date().getFullYear();
+  const comprasMes = (appData.bravo.compras||[]).filter(c => {
+    if(!c.fecha) return false;
+    const [y, m] = c.fecha.split('-');
+    return parseInt(m,10) === mesActual && parseInt(y,10) === añoActualNum;
+  });
+  const totalMes = comprasMes.reduce((s,c) => s + (parseFloat(c.monto)||0), 0);
+
+  document.getElementById('bravo-compras-cards').innerHTML = `
+    <div class="card blue"><label>🛒 Compras Este Mes</label><div class="val">${comprasMes.length}</div></div>
+    <div class="card purple"><label>💰 Total Gastado Este Mes</label><div class="val">${fmt(totalMes)}</div></div>
+  `;
+
+  const filtroFecha = document.getElementById('compras-f-fecha')?.value || '';
+  const filtroMes = document.getElementById('compras-f-mes')?.value || '';
+  const filtroAnio = document.getElementById('compras-f-anio')?.value || '';
+
+  const filtradas = (appData.bravo.compras||[]).filter(c => {
+    if(!c.fecha) return false;
+    if(filtroFecha && c.fecha !== filtroFecha) return false;
+    const [y, m] = c.fecha.split('-');
+    if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
+    if(filtroAnio && y !== filtroAnio) return false;
+    return true;
+  }).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+  const body = document.getElementById('bravo-compras-body');
+  body.innerHTML = filtradas.length ? filtradas.map(c => `
+    <tr>
+      <td style="font-weight:600">${c.fecha}</td>
+      <td style="color:#7C98B6">${c.proveedor || '—'}</td>
+      <td>${c.descripcion || '—'}</td>
+      <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(parseFloat(c.monto)||0)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="abrirModalCompraBravo(${c.id})">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarCompraBravo(${c.id})">✕</button>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="5" class="tbl-empty">Sin compras registradas</td></tr>';
+
+  const totalFiltrado = filtradas.reduce((s,c) => s + (parseFloat(c.monto)||0), 0);
+  document.getElementById('bravo-compras-total').textContent = fmt(totalFiltrado);
+}
+
+function abrirModalCompraBravo(id=null) {
+  if(!validarAccesoBravo()) return;
+  const c = id ? (appData.bravo.compras||[]).find(x=>x.id===id) : null;
+  document.getElementById('modal-bravo-compra').dataset.editId = id||'';
+  document.getElementById('modal-bravo-compra-title').textContent = id ? '✏️ Editar Compra de Inventario' : '🛒 Registrar Compra de Inventario';
+  document.getElementById('compra-fecha').value = c?.fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('compra-proveedor').value = c?.proveedor || '';
+  document.getElementById('compra-descripcion').value = c?.descripcion || '';
+  document.getElementById('compra-monto').value = c?.monto != null ? c.monto : '';
+  document.getElementById('modal-bravo-compra').classList.add('open');
+}
+
+function guardarCompraBravo() {
+  const fecha = document.getElementById('compra-fecha').value;
+  const descripcion = document.getElementById('compra-descripcion').value.trim();
+  const monto = parseFloat(document.getElementById('compra-monto').value) || 0;
+  const proveedor = document.getElementById('compra-proveedor').value.trim();
+
+  if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+  if(!descripcion) { showNotif('⚠️ Escribe una descripción','error'); return; }
+  if(monto <= 0) { showNotif('⚠️ Ingresa un monto mayor a $0','error'); return; }
+
+  if(!appData.bravo.compras) appData.bravo.compras = [];
+  const editId = parseInt(document.getElementById('modal-bravo-compra').dataset.editId) || null;
+  const datos = { fecha, proveedor, descripcion, monto };
+
+  if(editId) {
+    const c = appData.bravo.compras.find(x=>x.id===editId);
+    if(c) Object.assign(c, datos);
+    showNotif('✅ Compra actualizada');
+  } else {
+    const id = appData.bravo.nextCompraId || 1;
+    appData.bravo.compras.push({ id, ...datos });
+    appData.bravo.nextCompraId = id + 1;
+    showNotif('✅ Compra registrada');
+  }
+
+  guardar();
+  closeModal('modal-bravo-compra');
+  bravoRefrescarVistaActual();
+}
+
+function eliminarCompraBravo(id) {
+  if(!confirm('¿Eliminar este registro de compra?')) return;
+  appData.bravo.compras = (appData.bravo.compras||[]).filter(c => c.id !== id);
   guardar();
   bravoRefrescarVistaActual();
   showNotif('🗑️ Registro eliminado');
