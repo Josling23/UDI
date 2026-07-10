@@ -1791,14 +1791,34 @@ table thead,table tbody{display:table;width:100%}
         <div class="form-group"><label>Fecha *</label><input type="date" id="compra-fecha"></div>
         <div class="form-group"><label>Proveedor</label><input type="text" id="compra-proveedor" placeholder="Ej: Distribuidor XYZ"></div>
         <div class="form-group" style="grid-column:1/-1"><label>Descripción *</label><textarea id="compra-descripcion" placeholder="Qué se compró (ej: fundas, vidrios, repuestos varios...)" style="min-height:48px"></textarea></div>
-        <div class="form-group" style="grid-column:1/-1"><label>Monto ($) *</label><input type="number" id="compra-monto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group"><label>Monto ($) *</label><input type="number" id="compra-monto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group">
+          <label>Tipo de Pago (al proveedor)</label>
+          <select id="compra-tipo-pago">
+            <option value="efectivo">💵 Efectivo</option>
+            <option value="paypal">🅿️ PayPal</option>
+            <option value="zelle">📲 Zelle</option>
+            <option value="otro">📝 Otro</option>
+          </select>
+        </div>
         <div class="form-group" style="grid-column:1/-1;display:flex;align-items:center;gap:8px">
           <input type="checkbox" id="compra-vendido" onchange="toggleCompraVendida()" style="width:16px;height:16px">
           <label for="compra-vendido" style="margin:0">✅ Ya se vendió</label>
         </div>
         <div class="form-group" id="compra-vendido-fields" style="display:none;grid-column:1/-1">
-          <label>Fecha de Venta *</label>
-          <input type="date" id="compra-fecha-venta">
+          <div class="form-grid">
+            <div class="form-group"><label>Fecha de Venta *</label><input type="date" id="compra-fecha-venta"></div>
+            <div class="form-group"><label>Nombre del Cliente</label><input type="text" id="compra-cliente" placeholder="Quién lo compró"></div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Tipo de Pago (del cliente)</label>
+              <select id="compra-tipo-pago-venta">
+                <option value="efectivo">💵 Efectivo</option>
+                <option value="paypal">🅿️ PayPal</option>
+                <option value="zelle">📲 Zelle</option>
+                <option value="otro">📝 Otro</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
       <div style="font-size:11px;color:#99ACC2;margin-top:8px">📌 Este registro es solo informativo — no se resta de la Ganancia ni del ROI de Bravo. Es únicamente para llevar cuenta de cuánto se gasta comprando inventario y cuándo se vende.</div>
@@ -15308,15 +15328,16 @@ function bravoRenderComprasTabla() {
   body.innerHTML = filtradas.length ? filtradas.map(c => `
     <tr>
       <td style="font-weight:600">${c.fecha}</td>
-      <td style="color:#7C98B6">${c.proveedor || '—'}</td>
+      <td style="color:#7C98B6">${c.proveedor || '—'}${c.tipoPago ? `<div style="font-size:10px;color:#99ACC2;margin-top:2px">${LYCA_PAGO_LABELS[c.tipoPago]||c.tipoPago}</div>` : ''}</td>
       <td>${c.descripcion || '—'}</td>
       <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(parseFloat(c.monto)||0)}</td>
       <td>${c.vendido
-        ? `<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap">✅ Vendido ${c.fechaVenta||''}</span>`
+        ? `<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap">✅ Vendido ${c.fechaVenta||''}</span>
+           ${(c.cliente || c.tipoPagoVenta) ? `<div style="font-size:10px;color:#7C98B6;margin-top:3px">${c.cliente?('👤 '+c.cliente):''}${c.cliente && c.tipoPagoVenta?' · ':''}${c.tipoPagoVenta?(LYCA_PAGO_LABELS[c.tipoPagoVenta]||c.tipoPagoVenta):''}</div>` : ''}`
         : `<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap">🟡 En inventario</span>`}
       </td>
       <td style="white-space:nowrap">
-        ${!c.vendido ? `<button class="btn btn-ghost btn-xs" onclick="marcarCompraVendida(${c.id})" title="Marcar como vendido">✅</button>` : ''}
+        ${!c.vendido ? `<button class="btn btn-ghost btn-xs" onclick="abrirModalCompraBravo(${c.id},true)" title="Marcar como vendido">✅</button>` : ''}
         <button class="btn btn-ghost btn-xs" onclick="abrirModalCompraBravo(${c.id})">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarCompraBravo(${c.id})">✕</button>
       </td>
@@ -15338,7 +15359,7 @@ function toggleCompraVendida() {
   }
 }
 
-function abrirModalCompraBravo(id=null) {
+function abrirModalCompraBravo(id=null, marcarVendido=false) {
   if(!validarAccesoBravo()) return;
   const c = id ? (appData.bravo.compras||[]).find(x=>x.id===id) : null;
   document.getElementById('modal-bravo-compra').dataset.editId = id||'';
@@ -15347,25 +15368,13 @@ function abrirModalCompraBravo(id=null) {
   document.getElementById('compra-proveedor').value = c?.proveedor || '';
   document.getElementById('compra-descripcion').value = c?.descripcion || '';
   document.getElementById('compra-monto').value = c?.monto != null ? c.monto : '';
-  document.getElementById('compra-vendido').checked = !!c?.vendido;
-  document.getElementById('compra-fecha-venta').value = c?.fechaVenta || '';
+  document.getElementById('compra-tipo-pago').value = c?.tipoPago || 'efectivo';
+  document.getElementById('compra-vendido').checked = marcarVendido || !!c?.vendido;
+  document.getElementById('compra-fecha-venta').value = c?.fechaVenta || (marcarVendido ? new Date().toISOString().split('T')[0] : '');
+  document.getElementById('compra-cliente').value = c?.cliente || '';
+  document.getElementById('compra-tipo-pago-venta').value = c?.tipoPagoVenta || 'efectivo';
   toggleCompraVendida();
   document.getElementById('modal-bravo-compra').classList.add('open');
-}
-
-// Acción rápida desde la tabla: marca una compra como vendida pidiendo solo
-// la fecha, sin necesidad de abrir el modal completo.
-function marcarCompraVendida(id) {
-  const c = (appData.bravo.compras||[]).find(x=>x.id===id);
-  if(!c) return;
-  const fechaVenta = prompt('¿En qué fecha se vendió?', new Date().toISOString().split('T')[0]);
-  if(fechaVenta === null) return;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(fechaVenta.trim())) { showNotif('⚠️ Fecha inválida — usa el formato AAAA-MM-DD','error'); return; }
-  c.vendido = true;
-  c.fechaVenta = fechaVenta.trim();
-  guardar();
-  bravoRefrescarVistaActual();
-  showNotif('✅ Marcado como vendido');
 }
 
 function guardarCompraBravo() {
@@ -15373,8 +15382,11 @@ function guardarCompraBravo() {
   const descripcion = document.getElementById('compra-descripcion').value.trim();
   const monto = parseFloat(document.getElementById('compra-monto').value) || 0;
   const proveedor = document.getElementById('compra-proveedor').value.trim();
+  const tipoPago = document.getElementById('compra-tipo-pago').value;
   const vendido = document.getElementById('compra-vendido').checked;
   const fechaVenta = vendido ? document.getElementById('compra-fecha-venta').value : '';
+  const cliente = vendido ? document.getElementById('compra-cliente').value.trim() : '';
+  const tipoPagoVenta = vendido ? document.getElementById('compra-tipo-pago-venta').value : '';
 
   if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
   if(!descripcion) { showNotif('⚠️ Escribe una descripción','error'); return; }
@@ -15383,7 +15395,7 @@ function guardarCompraBravo() {
 
   if(!appData.bravo.compras) appData.bravo.compras = [];
   const editId = parseInt(document.getElementById('modal-bravo-compra').dataset.editId) || null;
-  const datos = { fecha, proveedor, descripcion, monto, vendido, fechaVenta };
+  const datos = { fecha, proveedor, descripcion, monto, tipoPago, vendido, fechaVenta, cliente, tipoPagoVenta };
 
   if(editId) {
     const c = appData.bravo.compras.find(x=>x.id===editId);
