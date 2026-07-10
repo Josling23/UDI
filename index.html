@@ -9111,6 +9111,15 @@ function renderTopSalud() {
   `;
 }
 
+// Suma el campo `cantidad` de cada línea (Accesorios y Actividades Douglas
+// son las únicas categorías de Registro Diario que tienen su propio campo
+// `cantidad` por línea — una sola línea puede representar varias unidades).
+// Se usa en vez de `.length` en todo conteo mostrado al usuario, porque
+// `.length` cuenta líneas del arreglo, no unidades vendidas/registradas.
+function bravoSumarCantidad(items) {
+  return (items||[]).reduce((s,a) => s + (parseInt(a.cantidad)||1), 0);
+}
+
 // Suma los gastos que Bravo ya registra en su propia lista (Bravo -> ROI de
 // Bravo -> "+ Nuevo Gasto") para un mes/año dado. Es la ÚNICA fuente de
 // verdad — se calcula en vivo desde appData.bravo.gastos[] cada vez (no se
@@ -9149,7 +9158,7 @@ function calcBravoMes(mes, anio) {
   // una sola fuente, sin captura doble.
   const gananciaNeta = gananciaMes - costosBravoMes;
 
-  const accesoriosMes = reportesMes.reduce((s, r) => s + (r.accesorios ? r.accesorios.length : 0), 0);
+  const accesoriosMes = reportesMes.reduce((s, r) => s + bravoSumarCantidad(r.accesorios), 0);
   const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
   const reparacionesMes = reportesMes.reduce((s, r) => s + (r.reparaciones ? r.reparaciones.length : 0), 0) + repTicketsMes.length;
   const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
@@ -12602,8 +12611,9 @@ function bravoRenderRegistrosTabla() {
   }).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
   const sum = (arr, key) => arr.reduce((s,r)=> s + ((r[key]||[]).length), 0);
+  const sumAccesorios = (arr) => arr.reduce((s,r)=> s + bravoSumarCantidad(r.accesorios), 0);
   const totalGanancia = filtrados.reduce((s,r)=>s+(r.gananciaTotal||0),0);
-  const totalProductos = filtrados.reduce((s,r)=>s+(r.productosCount || (r.accesorios||[]).length+(r.lycas||[]).length+(r.reparaciones||[]).length+(r.combos||[]).length+(r.telefonos||[]).length),0);
+  const totalProductos = filtrados.reduce((s,r)=>s+(r.productosCount || bravoSumarCantidad(r.accesorios)+(r.lycas||[]).length+(r.reparaciones||[]).length+(r.combos||[]).length+(r.telefonos||[]).length),0);
 
   const etiquetaResumen = filtroFecha ? `Resumen del Día (${filtroFecha})` : filtroMes ? `Resumen Mensual (${MESES_ES[parseInt(filtroMes,10)-1]}${filtroAnio?' '+filtroAnio:''})` : 'Resumen (todo el histórico)';
 
@@ -12611,7 +12621,7 @@ function bravoRenderRegistrosTabla() {
     <div class="card blue"><label>📋 ${etiquetaResumen}</label><div class="val">${filtrados.length} registro${filtrados.length!==1?'s':''}</div></div>
     <div class="card green"><label>💰 Ganancia Total</label><div class="val">${fmt(totalGanancia)}</div></div>
     <div class="card purple"><label>🏷️ Productos Vendidos</label><div class="val">${totalProductos}</div></div>
-    <div class="card navy"><label>🏷️ Accesorios</label><div class="val">${sum(filtrados,'accesorios')}</div></div>
+    <div class="card navy"><label>🏷️ Accesorios</label><div class="val">${sumAccesorios(filtrados)}</div></div>
     <div class="card teal"><label>📱 Lycas</label><div class="val">${sum(filtrados,'lycas')}</div></div>
     <div class="card orange"><label>🔧 Reparaciones</label><div class="val">${sum(filtrados,'reparaciones')}</div></div>
   `;
@@ -12621,7 +12631,7 @@ function bravoRenderRegistrosTabla() {
     <tr>
       <td>${i+1}</td>
       <td style="font-weight:600">${r.fecha}</td>
-      <td>${r.accesorios ? r.accesorios.length : 0}</td>
+      <td>${bravoSumarCantidad(r.accesorios)}</td>
       <td>${r.lycas ? r.lycas.length : 0}</td>
       <td>${r.reparaciones ? r.reparaciones.length : 0}</td>
       <td>${r.combos ? r.combos.length : 0}</td>
@@ -12731,7 +12741,7 @@ function bravoDescargarReportesExcel() {
     const actividadesResumen = (r.actividades||[]).map(a => `${DOUGLAS_ACTIVIDAD_LABELS[a.tipo]||a.tipo} (${a.cantidad})`).join(' | ');
     return [
       r.fecha, diaSemana,
-      (r.accesorios||[]).length, (r.lycas||[]).length, (r.reparaciones||[]).length, (r.combos||[]).length, (r.telefonos||[]).length,
+      bravoSumarCantidad(r.accesorios), (r.lycas||[]).length, (r.reparaciones||[]).length, (r.combos||[]).length, (r.telefonos||[]).length,
       r.gananciaTotal||0, cajaPorFecha[r.fecha] != null ? cajaPorFecha[r.fecha] : '',
       actividadesResumen, notasGenerales
     ];
@@ -14121,12 +14131,12 @@ function bravoActualizarResumen() {
     }
   }
 
-  document.getElementById('bravo-count-acc').textContent = bravoRegistroTemp.accesorios.length;
+  document.getElementById('bravo-count-acc').textContent = bravoSumarCantidad(bravoRegistroTemp.accesorios);
   document.getElementById('bravo-count-lyca').textContent = bravoRegistroTemp.lycas.length;
   document.getElementById('bravo-count-rep').textContent = bravoRegistroTemp.reparaciones.length;
   document.getElementById('bravo-count-combo').textContent = bravoRegistroTemp.combos.length;
   document.getElementById('bravo-count-tel').textContent = bravoRegistroTemp.telefonos.length;
-  document.getElementById('bravo-count-douglas').textContent = bravoRegistroTemp.actividades.length;
+  document.getElementById('bravo-count-douglas').textContent = bravoSumarCantidad(bravoRegistroTemp.actividades);
 
   const totalGanancia =
     bravoRegistroTemp.accesorios.reduce((s,a) => s + (a.ganancia||0), 0) +
@@ -14178,7 +14188,7 @@ function bravoGuardarRegistro() {
     bravoRegistroTemp.combos.reduce((s,c) => s + (c.ganancia||0), 0) +
     bravoRegistroTemp.telefonos.reduce((s,t) => s + (t.ganancia||0), 0);
 
-  const productosCount = bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length;
+  const productosCount = bravoSumarCantidad(bravoRegistroTemp.accesorios) + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length;
 
   // Caja Chica del día (pestaña opcional de este mismo modal) — upsert por
   // fecha en appData.bravo.caja[], mismo patrón que ya usa
@@ -14216,7 +14226,7 @@ function bravoGuardarRegistro() {
       actividades: bravoRegistroTemp.actividades,
       gananciaTotal,
       productosCount,
-      actividadesCount: bravoRegistroTemp.actividades.length,
+      actividadesCount: bravoSumarCantidad(bravoRegistroTemp.actividades),
       categoria: 'Múltiple',
       timestamp: timestampOriginal
     };
@@ -14243,7 +14253,7 @@ function bravoGuardarRegistro() {
       actividades: bravoRegistroTemp.actividades,
       gananciaTotal,
       productosCount,
-      actividadesCount: bravoRegistroTemp.actividades.length,
+      actividadesCount: bravoSumarCantidad(bravoRegistroTemp.actividades),
       categoria: 'Múltiple',
       timestamp: new Date().toISOString()
     };
@@ -14470,7 +14480,7 @@ function bravoParsearBloqueReporte(bloque, fechaHeader) {
 
   const gananciaTotal = accesorios.reduce((s,a)=>s+a.ganancia,0) + lycas.reduce((s,l)=>s+l.ganancia,0) +
     reparaciones.reduce((s,r)=>s+r.ganancia,0) + combos.reduce((s,c)=>s+c.ganancia,0) + telefonos.reduce((s,t)=>s+t.ganancia,0);
-  const productosCount = accesorios.length + lycas.length + reparaciones.length + combos.length + telefonos.length;
+  const productosCount = bravoSumarCantidad(accesorios) + lycas.length + reparaciones.length + combos.length + telefonos.length;
 
   const warnings = [];
   if(!fecha) warnings.push('No se pudo interpretar la fecha: "' + fechaHeader + '"');
@@ -14525,7 +14535,7 @@ function bravoToggleReporteParseado(i) {
 function bravoRenderPreviewReportes() {
   document.getElementById('bravo-importar-preview').innerHTML = bravoReportesParseados.map((r, i) => {
     const items = [];
-    if(r.accesorios.length) items.push(`🏷️ ${r.accesorios.length} accesorio(s)`);
+    if(r.accesorios.length) items.push(`🏷️ ${bravoSumarCantidad(r.accesorios)} accesorio(s)`);
     if(r.lycas.length) items.push(`📱 ${r.lycas.length} lyca(s)`);
     if(r.reparaciones.length) items.push(`🔧 ${r.reparaciones.length} reparación(es)`);
     if(r.combos.length) items.push(`📦 ${r.combos.length} combo(s)`);
@@ -14570,7 +14580,7 @@ function bravoGuardarReportesImportados() {
         actividades: r.actividades,
         gananciaTotal: r.gananciaTotal,
         productosCount: r.productosCount,
-        actividadesCount: r.actividades.length,
+        actividadesCount: bravoSumarCantidad(r.actividades),
         categoria: 'Múltiple',
         timestamp: new Date().toISOString()
       };
