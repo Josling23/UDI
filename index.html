@@ -9413,6 +9413,11 @@ async function guardarPin(area) {
 // ADMINISTRACIÓN — RENDER
 // ============================================================
 function renderAdmin() {
+  const añosGastosBravoRef = [...new Set((appData.bravo?.gastos||[]).map(g => (g.fecha||'').slice(0,4)).filter(Boolean))];
+  const añoActualGBR = String(new Date().getFullYear());
+  if(!añosGastosBravoRef.includes(añoActualGBR)) añosGastosBravoRef.push(añoActualGBR);
+  añosGastosBravoRef.sort((a,b) => b.localeCompare(a));
+
   document.getElementById('admin-content').innerHTML = `
     <div style="margin-bottom:20px">
       <h2 style="font-size:18px;font-weight:800;color:#33475B">💸 Gastos & Nómina</h2>
@@ -9428,6 +9433,18 @@ function renderAdmin() {
       </div>
       <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">
         Esto es lo que Douglas reporta desde Bravo → ROI Bravo — es solo informativo, no se suma automáticamente a nada. Úsalo para decidir qué registrar arriba como Gasto Fijo o Variable.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;background:#fff;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+        <input type="date" id="agbr-f-fecha" onchange="renderAdminGastosBravoReferencia()" title="Buscar por día específico" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+        <select id="agbr-f-mes" onchange="renderAdminGastosBravoReferencia()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">📅 Todos los meses</option>
+          ${MESES_ES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
+        </select>
+        <select id="agbr-f-anio" onchange="renderAdminGastosBravoReferencia()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <option value="">Todos los años</option>
+          ${añosGastosBravoRef.map(a=>`<option value="${a}">${a}</option>`).join('')}
+        </select>
+        <button onclick="document.getElementById('agbr-f-fecha').value='';document.getElementById('agbr-f-mes').value='';document.getElementById('agbr-f-anio').value='';renderAdminGastosBravoReferencia()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
       </div>
       <div id="admin-gastos-bravo-referencia"></div>
     </div>
@@ -9600,9 +9617,29 @@ function renderAdminQuincenas() {
 function renderAdminGastosBravoReferencia() {
   const el = document.getElementById('admin-gastos-bravo-referencia');
   if(!el) return;
-  const gastos = [...(appData.bravo?.gastos||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  if(!gastos.length) { el.innerHTML = '<div style="color:#99ACC2;font-size:12px">Bravo no ha reportado gastos todavía.</div>'; return; }
+
+  const filtroFecha = document.getElementById('agbr-f-fecha')?.value || '';
+  const filtroMes = document.getElementById('agbr-f-mes')?.value || '';
+  const filtroAnio = document.getElementById('agbr-f-anio')?.value || '';
+
+  const gastos = [...(appData.bravo?.gastos||[])].filter(g => {
+    if(!g.fecha) return false;
+    if(filtroFecha && g.fecha !== filtroFecha) return false;
+    const [y, m] = g.fecha.split('-');
+    if(filtroMes && String(parseInt(m,10)) !== filtroMes) return false;
+    if(filtroAnio && y !== filtroAnio) return false;
+    return true;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  if(!gastos.length) {
+    const hayFiltro = filtroFecha || filtroMes || filtroAnio;
+    el.innerHTML = `<div style="color:#99ACC2;font-size:12px">${hayFiltro ? 'No hay gastos de Bravo para este filtro.' : 'Bravo no ha reportado gastos todavía.'}</div>`;
+    return;
+  }
+
   const total = gastos.reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  const etiquetaTotal = filtroFecha ? 'Total del día' : filtroMes ? 'Total del mes' : filtroAnio ? `Total de ${filtroAnio}` : 'Total reportado por Bravo';
+
   el.innerHTML = `
     <div class="tbl-wrap" style="overflow-x:auto">
       <table>
@@ -9611,7 +9648,7 @@ function renderAdminGastosBravoReferencia() {
           <td>${g.fecha}</td><td>${g.nombre||'—'}</td><td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
           <td style="text-align:right;font-weight:700;color:#E04048">${fmt(g.monto)}</td>
         </tr>`).join('')}</tbody>
-        <tfoot><tr><td colspan="3" style="font-weight:700">Total reportado por Bravo</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(total)}</td></tr></tfoot>
+        <tfoot><tr><td colspan="3" style="font-weight:700">${etiquetaTotal}</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(total)}</td></tr></tfoot>
       </table>
     </div>
   `;
