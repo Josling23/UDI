@@ -729,7 +729,7 @@ table thead,table tbody{display:table;width:100%}
             <option value="">Todos los Estados</option>
             <option value="activo">Activo</option>
             <option value="pendiente">Pendiente</option>
-            <option value="cancelado">Cancelado</option>
+            <option value="cancelado">Desconectado</option>
           </select>
           <select id="salud-filter-mes-cli" onchange="saludRenderClientes()"><option value="">Todos los Meses</option></select>
         </div>
@@ -937,7 +937,7 @@ table thead,table tbody{display:table;width:100%}
           <select id="sc-estado">
             <option value="activo">Activo</option>
             <option value="pendiente">Pendiente</option>
-            <option value="cancelado">Cancelado</option>
+            <option value="cancelado">Desconectado</option>
           </select>
         </div>
         <div class="form-group"><label>Mes de Registro</label><select id="sc-mes"></select></div>
@@ -10333,7 +10333,7 @@ function saludRenderDashboard() {
     const cc = saludClienteCom(c);
     const primaCell = c.tipo==='salud' ? `<span style="color:#00A492">${fmt(cc.mensual)}/mes 💚</span>` : `${fmt(c.prima)}/mo`;
     const comCell   = c.tipo==='salud' ? `<span style="color:#00A492">${fmt(cc.cobrado)} (${cc.meses}m)</span>` : fmt(cc.adelanto);
-    return `<tr><td><b>${c.nombre}</b></td><td>${c.agente}</td><td>${primaCell}</td><td>${comCell}</td><td><span class="badge badge-${c.estado}">${c.estado}</span></td></tr>`;
+    return `<tr><td><b>${c.nombre}</b></td><td>${c.agente}</td><td>${primaCell}</td><td>${comCell}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td></tr>`;
   }).join('') || '<tr><td colspan="5" class="tbl-empty">Sin ventas aún</td></tr>';
   const mesCount = {};
   saludData.clientes.forEach(c=>{ mesCount[c.mes]=(mesCount[c.mes]||0)+1; });
@@ -10369,6 +10369,10 @@ function saludRenderDashboard() {
 }
 
 // ─── Salud Clientes ───────────────────────────────────────────
+// El valor interno del estado sigue siendo 'cancelado' (sin migrar datos
+// existentes) — solo cambia la palabra que se muestra al usuario.
+const SALUD_ESTADO_LABELS = { activo:'Activo', pendiente:'Pendiente', cancelado:'Desconectado' };
+
 // Selección de clientes para borrado múltiple en Salud -> Clientes. Se
 // reinicia cada vez que se vuelve a renderizar la tabla completa (cambio de
 // filtro/búsqueda) para nunca dejar seleccionado un cliente que ya no está
@@ -10429,7 +10433,7 @@ function saludRenderClientes() {
       <td><select class="inline-sel" onchange="saludUpdateField(${c.id},'estado',this.value)">
         <option value="activo" ${c.estado==='activo'?'selected':''}>Activo</option>
         <option value="pendiente" ${c.estado==='pendiente'?'selected':''}>Pendiente</option>
-        <option value="cancelado" ${c.estado==='cancelado'?'selected':''}>Cancelado</option>
+        <option value="cancelado" ${c.estado==='cancelado'?'selected':''}>Desconectado</option>
       </select></td>
       <td>${c.fecha||'—'}</td><td>${c.mes}</td>
       <td class="note-cell" title="${c.notas||''}">${c.notas||'—'}</td>
@@ -10672,7 +10676,7 @@ function saludRenderAgenteVentas() {
       <td><select class="inline-sel" onchange="saludUpdateField(${c.id},'estado',this.value)">
         <option value="activo" ${c.estado==='activo'?'selected':''}>Activo</option>
         <option value="pendiente" ${c.estado==='pendiente'?'selected':''}>Pendiente</option>
-        <option value="cancelado" ${c.estado==='cancelado'?'selected':''}>Cancelado</option>
+        <option value="cancelado" ${c.estado==='cancelado'?'selected':''}>Desconectado</option>
       </select></td>
       <td><input style="${iSty};width:110px;font-size:11px" type="date" value="${c.fecha||''}" onchange="saludUpdateField(${c.id},'fecha',this.value)"></td>
       <td><button class="btn btn-danger btn-xs" onclick="saludEliminarCliente(${c.id});saludRenderAgenteVentas()">✕</button></td>
@@ -10780,7 +10784,7 @@ function saludRenderComisiones() {
         <td><input type="number" step="0.01" min="0" style="${iSty};width:70px;color:#6A78D1;font-weight:700" value="${comAg}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
         <td><button class="toggle-btn ${c.comAgentePagada?'toggle-paid':'toggle-pending'}" onclick="saludToggleCom(${c.id},'comAgentePagada')">${c.comAgentePagada?'✅ PAGADO':'⏳ PENDIENTE'}</button></td>
         <td><input type="date" style="${iSty}" value="${c.fechaComAgente||''}" onchange="saludUpdateField(${c.id},'fechaComAgente',this.value)"></td>
-        <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${c.estado}</span></td>
+        <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
       </tr>`;
     }
     const com = saludCalcCom(c.prima);
@@ -10799,7 +10803,7 @@ function saludRenderComisiones() {
       <td><input type="number" step="0.01" min="0" style="${iSty};width:70px;color:#6A78D1;font-weight:700" value="${comAg}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
       <td><button class="toggle-btn ${c.comAgentePagada?'toggle-paid':'toggle-pending'}" onclick="saludToggleCom(${c.id},'comAgentePagada')">${c.comAgentePagada?'✅ PAGADO':'⏳ PENDIENTE'}</button></td>
       <td><input type="date" style="${iSty}" value="${c.fechaComAgente||''}" onchange="saludUpdateField(${c.id},'fechaComAgente',this.value)"></td>
-      <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${c.estado}</span></td>
+      <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
     </tr>`;
   }).join('') : '<tr><td colspan="16" class="tbl-empty">Sin comisiones</td></tr>';
   const sueldos = saludData.sueldos;
@@ -11301,7 +11305,7 @@ function saludRenderResumen() {
         <td style="color:#00BDA5">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
         <td>${isSalud?`<span class="badge badge-salud">${cc.meses}m cobrados</span>`:(c.adelantoPagado?'<span class="badge badge-paid">COBRADO</span>':'<span class="badge badge-pending">PENDIENTE</span>')}</td>
         <td style="color:#FF7A59">${isSalud?'<span style="color:#7C98B6">residual</span>':fmt(cc.final)}</td>
-        <td><span class="badge badge-${c.estado}">${c.estado}</span></td>
+        <td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
       </tr>`;
     }).join('')}</tbody></table>` : '<div class="tbl-empty">Sin clientes en este mes</div>';
   document.getElementById('salud-resumen-alerta-sueldo').innerHTML = '';
