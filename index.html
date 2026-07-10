@@ -1983,6 +1983,7 @@ table thead,table tbody{display:table;width:100%}
         <button class="bravo-tab" data-tab="combos" onclick="bravoCambiarTab('combos')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">📦 Combos</button>
         <button class="bravo-tab" data-tab="telefonos" onclick="bravoCambiarTab('telefonos')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">📲 Teléfonos</button>
         <button class="bravo-tab" data-tab="douglas" onclick="bravoCambiarTab('douglas')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">👤 Actividades Douglas</button>
+        <button class="bravo-tab" data-tab="caja" onclick="bravoCambiarTab('caja')" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-weight:600;color:#7C98B6">💵 Caja Chica</button>
       </div>
 
       <!-- TAB: ACCESORIOS -->
@@ -2329,6 +2330,34 @@ table thead,table tbody{display:table;width:100%}
         <div id="bravo-douglas-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin actividades registradas</div>
         </div>
+      </div>
+
+      <!-- TAB: CAJA CHICA -->
+      <div id="tab-caja" class="bravo-tab-content" style="display:none">
+        <h4 style="margin-bottom:12px;color:#33475B">💵 Caja Chica del Día</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Caja Inicial ($)</label>
+            <input type="number" id="bravo-reg-caja-inicial" step="0.01" min="0" placeholder="0.00" oninput="bravoRegCalcularCajaFinal()" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Total Entradas ($)</label>
+            <input type="number" id="bravo-reg-caja-entradas" step="0.01" min="0" placeholder="0.00" oninput="bravoRegCalcularCajaFinal()" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Total Salidas ($)</label>
+            <input type="number" id="bravo-reg-caja-salidas" step="0.01" min="0" placeholder="0.00" oninput="bravoRegCalcularCajaFinal()" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Caja Final ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
+          <input type="number" id="bravo-reg-caja-final" step="0.01" readonly style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;background:#F5F8FA;color:#7C98B6">
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+          <textarea id="bravo-reg-caja-notas" placeholder="Observaciones del día" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:48px;font-family:inherit"></textarea>
+        </div>
+        <div style="font-size:10px;color:#7C98B6">💡 Opcional — si la llenas, se guarda automáticamente en Bravo → Caja Chica para este día.</div>
       </div>
 
       <!-- RESUMEN -->
@@ -13609,6 +13638,16 @@ function abrirFormularioRegistroDiario(id=null) {
 
   document.getElementById('bravo-fecha').value = bravoRegistroTemp.fecha;
 
+  // Precargar la Caja Chica de este día si ya existe (creada aquí mismo,
+  // desde Bravo -> Caja Chica, o desde "Pegar Reporte(s)") — si no existe,
+  // dejar los campos vacíos.
+  const cajaDelDia = (appData.bravo.caja||[]).find(c => c.fecha === bravoRegistroTemp.fecha);
+  document.getElementById('bravo-reg-caja-inicial').value = cajaDelDia ? cajaDelDia.cajaInicial : '';
+  document.getElementById('bravo-reg-caja-entradas').value = cajaDelDia ? cajaDelDia.totalEntradas : '';
+  document.getElementById('bravo-reg-caja-salidas').value = cajaDelDia ? cajaDelDia.totalSalidas : '';
+  document.getElementById('bravo-reg-caja-notas').value = cajaDelDia ? (cajaDelDia.notas||'') : '';
+  bravoRegCalcularCajaFinal();
+
   // Limpiar todas las listas
   document.getElementById('bravo-accesorios-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin accesorios agregados</div>';
   document.getElementById('bravo-lycas-lista').innerHTML = '<div style="color:#99ACC2;font-size:12px">Sin lycas agregadas</div>';
@@ -14140,6 +14179,24 @@ function bravoGuardarRegistro() {
 
   const productosCount = bravoRegistroTemp.accesorios.length + bravoRegistroTemp.lycas.length + bravoRegistroTemp.reparaciones.length + bravoRegistroTemp.combos.length + bravoRegistroTemp.telefonos.length;
 
+  // Caja Chica del día (pestaña opcional de este mismo modal) — upsert por
+  // fecha en appData.bravo.caja[], mismo patrón que ya usa
+  // bravoGuardarReportesImportados() al pegar reportes. Solo se toca si el
+  // usuario metió algo ahí, para no pisar con ceros una caja ya registrada
+  // aparte (p.ej. desde Bravo -> Caja Chica) si no se usó esta pestaña.
+  const cajaInicial = parseFloat(document.getElementById('bravo-reg-caja-inicial').value) || 0;
+  const cajaEntradas = parseFloat(document.getElementById('bravo-reg-caja-entradas').value) || 0;
+  const cajaSalidas = parseFloat(document.getElementById('bravo-reg-caja-salidas').value) || 0;
+  const cajaNotas = document.getElementById('bravo-reg-caja-notas').value.trim();
+  if(cajaInicial || cajaEntradas || cajaSalidas || cajaNotas) {
+    if(!appData.bravo.caja) appData.bravo.caja = [];
+    if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
+    const datosCaja = { fecha, cajaInicial, totalEntradas: cajaEntradas, totalSalidas: cajaSalidas, notas: cajaNotas };
+    const cajaExistente = appData.bravo.caja.find(c => c.fecha === fecha);
+    if(cajaExistente) Object.assign(cajaExistente, datosCaja);
+    else appData.bravo.caja.push({ id: appData.bravo.nextCajaId++, ...datosCaja });
+  }
+
   if(bravoRegistroTemp.id) {
     // EDITAR REGISTRO EXISTENTE (upsert: si por alguna razón el registro ya
     // no está en el array local — p.ej. una sincronización en curso — lo
@@ -14649,6 +14706,16 @@ function bravoCalcularCajaFinal() {
   const entradas = parseFloat(document.getElementById('caja-entradas')?.value) || 0;
   const salidas = parseFloat(document.getElementById('caja-salidas')?.value) || 0;
   document.getElementById('caja-final').value = (inicial + entradas - salidas).toFixed(2);
+}
+
+// Misma cuenta que bravoCalcularCajaFinal(), pero para la pestaña de Caja
+// Chica dentro del modal de Registro Diario (IDs propios: bravo-reg-caja-*,
+// distintos a los de modal-bravo-caja, porque ambos modales conviven en el DOM).
+function bravoRegCalcularCajaFinal() {
+  const inicial = parseFloat(document.getElementById('bravo-reg-caja-inicial')?.value) || 0;
+  const entradas = parseFloat(document.getElementById('bravo-reg-caja-entradas')?.value) || 0;
+  const salidas = parseFloat(document.getElementById('bravo-reg-caja-salidas')?.value) || 0;
+  document.getElementById('bravo-reg-caja-final').value = (inicial + entradas - salidas).toFixed(2);
 }
 
 // Abrir modal para registrar/editar caja chica
