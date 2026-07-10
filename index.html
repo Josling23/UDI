@@ -401,6 +401,8 @@ table thead,table tbody{display:table;width:100%}
   <nav class="sidebar-nav" id="sidebar-nav-agente" style="display:none">
     <div class="nav-section">📝 MIS VENTAS</div>
     <div class="nav-item active" onclick="showPage('agente-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
+    <div class="nav-item" onclick="showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
+    <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -683,6 +685,73 @@ table thead,table tbody{display:table;width:100%}
     <!-- ====================================================== -->
     <div class="page" id="page-agente-dashboard">
       <div id="agente-dashboard-content"></div>
+    </div>
+
+    <div class="page" id="page-agente-reportar">
+      <div class="section">
+        <div class="section-header"><h2>📝 Reportar Venta</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Tu reporte queda pendiente hasta que Admin lo revise y lo apruebe.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div class="form-group" style="margin:0">
+            <label>Fecha de Activación *</label>
+            <input type="date" id="agv-fecha">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Agente</label>
+            <input type="text" id="agv-agente-nombre" readonly style="background:#F5F8FA;color:#7C98B6;font-weight:600">
+          </div>
+        </div>
+
+        <div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">👤 Datos del Cliente</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin:0">
+              <label>Nombre del Cliente *</label>
+              <input type="text" id="agv-cliente" placeholder="Nombre completo">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label># Cuenta / Order</label>
+              <input type="text" id="agv-cuenta" placeholder="Número de cuenta u orden">
+            </div>
+          </div>
+          <div class="form-group" style="margin:10px 0 0">
+            <label>📢 Campaña</label>
+            <select id="agv-campana"><option value="">— Sin campaña / Orgánico —</option></select>
+          </div>
+          <div class="form-group" style="margin:10px 0 0">
+            <label>Notas</label>
+            <textarea id="agv-notas" placeholder="Observaciones del cliente o la venta..." style="min-height:48px"></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase">📦 Productos / Servicios</div>
+          <button onclick="agenteAgregarLineaVenta()" style="background:#009FDB;color:#fff;border:none;border-radius:7px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar producto</button>
+        </div>
+        <div id="agv-lineas-container"></div>
+
+        <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;color:#0057A8;font-weight:600">Total comisiones esta venta</div>
+          <div style="font-size:22px;font-weight:800;color:#00BDA5" id="agv-total-preview">$0.00</div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn-primary" onclick="guardarVentaAgente()">🕓 Enviar Reporte</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-agente-mis-reportes">
+      <div class="section">
+        <div class="section-header"><h2>📋 Mis Reportes</h2></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th style="text-align:right">Comisión</th><th>Estado</th></tr></thead>
+            <tbody id="agente-mis-reportes-body"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ====================================================== -->
@@ -2707,6 +2776,9 @@ let appData = {
   gastosNomina: {},
   quincenasCerradas: {}, // Formato: { "Junio 2026-1": true, "Junio 2026-2": false }
   auditLog: [], // Array de eventos: { timestamp, user, action, mes, quincena }
+  ventasPendientes: [], // Reportes de agentes (área "Agente") sin aprobar aún
+  nextVentaPendienteId: 1,
+  ventasRechazadas: [], // Reportes de agentes rechazados por Admin, con motivo (no se borran)
   bravo: {
     reportesDiarios: [],
     nextDiarioId: 1,
@@ -2746,6 +2818,9 @@ function normalizarAppData() {
   if(!appData.gastosNomina) appData.gastosNomina = {};
   if(!appData.quincenasCerradas) appData.quincenasCerradas = {};
   if(!appData.auditLog) appData.auditLog = [];
+  if(!appData.ventasPendientes) appData.ventasPendientes = [];
+  if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
+  if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
   if(!appData.enlaces) appData.enlaces = { admin: [], top: [], bravo: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
@@ -2878,6 +2953,8 @@ function activarListenerAppData() {
           'bravo-caja':         bravoCaja,
           'bravo-compras':      bravoCompras,
           'agente-dashboard':   renderAgenteDashboard,
+          'agente-reportar':    renderAgenteReportar,
+          'agente-mis-reportes':renderAgenteMisReportes,
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -3464,6 +3541,8 @@ const PAGE_TITLES = {
   'bravo-caja':'💵 Caja Chica — Bravo',
   'bravo-compras':'🛒 Bravo — Compras Diarias',
   'agente-dashboard':'📝 Mis Ventas',
+  'agente-reportar':'📝 Reportar Venta',
+  'agente-mis-reportes':'📋 Mis Reportes',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
@@ -3515,6 +3594,8 @@ function renderPage(name) {
   if(name==='bravo-caja') bravoCaja();
   if(name==='bravo-compras') bravoCompras();
   if(name==='agente-dashboard') renderAgenteDashboard();
+  if(name==='agente-reportar') renderAgenteReportar();
+  if(name==='agente-mis-reportes') renderAgenteMisReportes();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
@@ -6638,15 +6719,216 @@ function abrirArea(area) {
 function renderAgenteDashboard() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const nombre = perms ? perms.nombre : '';
+  const pendientes = (appData.ventasPendientes||[]).filter(v => v.reportadoPor === perms?.agenteId);
+  const gruposPendientes = new Set(pendientes.map(v => v.grupoId)).size;
   document.getElementById('agente-dashboard-content').innerHTML = `
     <div class="section">
       <div class="section-header"><h2>👋 Hola, ${nombre}</h2></div>
+      <div class="cards" style="margin-bottom:16px">
+        <div class="card orange"><label>🟡 Reportes Pendientes</label><div class="val">${gruposPendientes}</div></div>
+      </div>
       <div style="background:#F4F5FF;border:1.5px solid #6A78D1;border-radius:10px;padding:18px;color:#33475B;font-size:13px">
-        Tu acceso de agente ya está activo. Muy pronto podrás reportar tus propias ventas
-        aquí mismo y ver el estado de tus reportes.
+        Usa <b>📝 Reportar Venta</b> cuando actives una venta nueva, y revisa <b>📋 Mis Reportes</b>
+        para ver si Admin ya la aprobó.
       </div>
     </div>
   `;
+}
+
+// ============================================================
+// AGENTE — REPORTAR VENTA (Fase 2)
+// Reutiliza el patron de lineas multi-producto de "+ Nueva Venta"
+// (catOptsAll()/buildCatOpts(), reusados tal cual porque son puros — no
+// dependen de IDs fijos), pero con IDs propios (agv-*) porque este
+// formulario convive en el DOM con el modal de Admin. El campo Agente
+// queda fijo al agente logueado (no es un <select>), así nunca se pueden
+// ver ni elegir las tarifas de otro agente. El envío NO toca appData.ventas
+// — va a appData.ventasPendientes, invisible para el resto del sitio hasta
+// que Admin lo apruebe (Fase 3).
+// ============================================================
+let _agvLineaCount = 0;
+
+function renderAgenteReportar() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  document.getElementById('agv-agente-nombre').value = perms ? perms.nombre : '';
+  document.getElementById('agv-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('agv-cliente').value = '';
+  document.getElementById('agv-cuenta').value = '';
+  document.getElementById('agv-notas').value = '';
+  document.getElementById('agv-campana').innerHTML = '<option value="">— Sin campaña / Orgánico —</option>' +
+    (appData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  document.getElementById('agv-lineas-container').innerHTML = '';
+  _agvLineaCount = 0;
+  agenteAgregarLineaVenta();
+  agenteUpdateVentaTotal();
+}
+
+function agenteAgregarLineaVenta() {
+  _agvLineaCount++;
+  const idx = _agvLineaCount;
+  const iSty = 'border:1.5px solid #CBD6E2;border-radius:7px;padding:7px 9px;font-size:12px;color:#33475B;outline:none;background:#fff;width:100%;font-family:inherit';
+  const div = document.createElement('div');
+  div.id = 'agvlinea-'+idx;
+  div.style.cssText = 'background:#F5F8FA;border:1px solid #CBD6E2;border-radius:10px;padding:12px;margin-bottom:8px;position:relative';
+  div.innerHTML = `
+    <button onclick="document.getElementById('agvlinea-${idx}').remove();agenteUpdateVentaTotal()" title="Quitar" style="position:absolute;top:8px;right:8px;background:#FFF0F0;border:1px solid #F2545B;color:#F2545B;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;font-weight:700;line-height:1">✕</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Categoría *</div>
+        <select id="agv-cat-${idx}" style="${iSty}" onchange="agenteOnLineCatChange(${idx})">
+          ${catOptsAll()}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Producto *</div>
+        <select id="agv-prod-${idx}" style="${iSty}" onchange="agenteOnLineProdChange(${idx})">
+          <option value="">— Selecciona categoría primero —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:80px 110px 1fr;gap:8px;align-items:end">
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Cantidad</div>
+        <input type="number" id="agv-qty-${idx}" min="1" value="1" style="${iSty}" oninput="agenteUpdateVentaTotal()">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#009FDB;margin-bottom:4px">Comisión/u ($)</div>
+        <input type="number" id="agv-com-${idx}" step="0.01" min="0" placeholder="0.00" readonly style="${iSty};color:#009FDB;font-weight:700;background:#F5F8FA" title="Tu tarifa — se calcula sola según el producto">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Notas del producto</div>
+        <input type="text" id="agv-nota-${idx}" placeholder="Ej: iPhone 17 Pro Max, Protect ✅..." style="${iSty}">
+      </div>
+    </div>`;
+  document.getElementById('agv-lineas-container').appendChild(div);
+}
+
+function agenteOnLineCatChange(idx) {
+  const cat = document.getElementById('agv-cat-'+idx)?.value||'';
+  const sel = document.getElementById('agv-prod-'+idx);
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Selecciona producto —</option>' + buildCatOpts(cat);
+  document.getElementById('agv-com-'+idx).value = '';
+  agenteUpdateVentaTotal();
+}
+
+function agenteOnLineProdChange(idx) {
+  const pid = document.getElementById('agv-prod-'+idx)?.value||'';
+  const agente = document.getElementById('agv-agente-nombre')?.value||'';
+  if(pid) {
+    const com = getComisionParaAgente(pid, agente);
+    document.getElementById('agv-com-'+idx).value = (com !== null && com !== undefined) ? com : '';
+  }
+  agenteUpdateVentaTotal();
+}
+
+function agenteUpdateVentaTotal() {
+  let total = 0;
+  document.querySelectorAll('[id^="agv-com-"]').forEach(inp=>{
+    const idx = inp.id.replace('agv-com-','');
+    const com = parseFloat(inp.value)||0;
+    const qty = parseInt(document.getElementById('agv-qty-'+idx)?.value)||1;
+    total += com*qty;
+  });
+  const el = document.getElementById('agv-total-preview');
+  if(el) el.textContent = fmt(total);
+}
+
+function guardarVentaAgente() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(!perms || !perms.agenteId) { showNotif('⚠️ No se pudo identificar tu perfil de agente','error'); return; }
+
+  const fecha   = document.getElementById('agv-fecha').value;
+  const cliente = document.getElementById('agv-cliente').value.trim();
+  const cuenta  = document.getElementById('agv-cuenta').value.trim();
+  const campana = document.getElementById('agv-campana').value;
+  const notas   = document.getElementById('agv-notas').value.trim();
+
+  if(!fecha) { showNotif('⚠️ Selecciona la fecha de activación','error'); return; }
+  if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
+
+  const [y, m] = fecha.split('-');
+  const mes = mesStrDesdeNum(parseInt(y,10), parseInt(m,10));
+
+  const lineas = [];
+  let hasIncompleteLines = false;
+  document.querySelectorAll('[id^="agvlinea-"]').forEach(div=>{
+    const idx = div.id.replace('agvlinea-','');
+    const cat  = document.getElementById('agv-cat-'+idx)?.value||'';
+    const prod = document.getElementById('agv-prod-'+idx)?.value||'';
+    const qty  = parseInt(document.getElementById('agv-qty-'+idx)?.value)||1;
+    const com  = parseFloat(document.getElementById('agv-com-'+idx)?.value)||0;
+    const nota = document.getElementById('agv-nota-'+idx)?.value?.trim()||'';
+    if(!cat || !prod) { hasIncompleteLines = true; return; }
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota });
+  });
+
+  if(hasIncompleteLines) { showNotif('⚠️ Completa Categoría y Producto en todas las líneas','error'); return; }
+  if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
+
+  if(!appData.ventasPendientes) appData.ventasPendientes = [];
+  if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
+
+  const grupoId = Date.now();
+  lineas.forEach(l=>{
+    const id = appData.nextVentaPendienteId++;
+    appData.ventasPendientes.push({
+      id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana,
+      notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
+      productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
+      reportadoPor: perms.agenteId, creadoEn: new Date().toISOString(),
+    });
+  });
+
+  guardar();
+  showNotif(`🕓 Reporte enviado — pendiente de revisión (${lineas.length} producto${lineas.length>1?'s':''})`);
+  renderAgenteReportar();
+}
+
+// ============================================================
+// AGENTE — MIS REPORTES (Fase 2)
+// ============================================================
+function renderAgenteMisReportes() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms ? perms.agenteId : null;
+
+  const pendientes = (appData.ventasPendientes||[]).filter(v => v.reportadoPor === agenteId);
+  const rechazadas = (appData.ventasRechazadas||[]).filter(v => v.reportadoPor === agenteId);
+  // Una vez aprobadas, las líneas ya viven en appData.ventas como una venta
+  // normal (Fase 3) — se siguen mostrando aquí porque conservan reportadoPor.
+  const aprobadas  = (appData.ventas||[]).filter(v => v.reportadoPor === agenteId);
+
+  function agrupar(lista, estado) {
+    const grupos = {};
+    lista.forEach(v=>{
+      const gid = v.grupoId || v.id;
+      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, motivo: v.motivoRechazo||'', lineas: [] };
+      grupos[gid].lineas.push(v);
+    });
+    return Object.values(grupos).map(g => ({ ...g, estado }));
+  }
+
+  const todos = [...agrupar(pendientes,'pendiente'), ...agrupar(rechazadas,'rechazado'), ...agrupar(aprobadas,'aprobado')]
+    .sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+
+  const badges = {
+    pendiente: '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
+    aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Aprobado</span>',
+    rechazado: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
+  };
+
+  const body = document.getElementById('agente-mis-reportes-body');
+  body.innerHTML = todos.length ? todos.map(g => {
+    const productos = g.lineas.map(l => getProdNombre(l.productoId)).join(', ');
+    const total = g.lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
+    return `<tr>
+      <td style="font-weight:600">${g.fecha}</td>
+      <td>${g.cliente||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${productos}</td>
+      <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(total)}</td>
+      <td>${badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
 }
 
 function volverAreas() {
