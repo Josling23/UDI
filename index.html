@@ -734,9 +734,11 @@ table thead,table tbody{display:table;width:100%}
           <select id="salud-filter-mes-cli" onchange="saludRenderClientes()"><option value="">Todos los Meses</option></select>
         </div>
         <div class="quick-stats" id="salud-clientes-stats"></div>
+        <div id="salud-clientes-seleccion-bar" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
             <thead><tr>
+              <th><input type="checkbox" id="salud-clientes-check-todos" onchange="saludToggleSeleccionarTodosClientes(this)" title="Seleccionar todos"></th>
               <th>#</th><th>Cuenta</th><th>Cliente</th><th>Teléfono</th><th>Agente</th>
               <th>Tipo</th><th>Prima/Mes</th><th>Com. Total</th><th>Adelanto (9m)</th><th>Final (3m)</th>
               <th>Com. Agente</th><th>Estado</th><th>Fecha Venta</th><th>Mes</th><th>Notas</th><th>Acciones</th>
@@ -10367,7 +10369,14 @@ function saludRenderDashboard() {
 }
 
 // ─── Salud Clientes ───────────────────────────────────────────
+// Selección de clientes para borrado múltiple en Salud -> Clientes. Se
+// reinicia cada vez que se vuelve a renderizar la tabla completa (cambio de
+// filtro/búsqueda) para nunca dejar seleccionado un cliente que ya no está
+// visible con los filtros actuales.
+let saludClientesSeleccionados = new Set();
+
 function saludRenderClientes() {
+  saludClientesSeleccionados = new Set();
   saludPopFilterAgente('salud-filter-agente');
   saludPopFilterMes('salud-filter-mes-cli');
   const search = (document.getElementById('salud-search-clientes')?.value||'').toLowerCase();
@@ -10400,6 +10409,7 @@ function saludRenderClientes() {
     const agenteOpts = getSaludAgenteNombres().map(n=>`<option value="${n}" ${c.agente===n?'selected':''}>${n}</option>`).join('');
     const isSalud = c.tipo==='salud';
     return `<tr ${isSalud?'style="background:#F0FDF9"':''}>
+      <td><input type="checkbox" data-cliente-id="${c.id}" onchange="saludToggleSeleccionCliente(${c.id},this.checked)"></td>
       <td style="color:#7C98B6">${i+1}</td>
       <td><input style="${iSty};width:90px" value="${c.cuenta||''}" onchange="saludUpdateField(${c.id},'cuenta',this.value)" placeholder="—"></td>
       <td><input style="${iSty};width:140px;font-size:12px;font-weight:600" value="${c.nombre||''}" onchange="saludUpdateField(${c.id},'nombre',this.value)"></td>
@@ -10428,7 +10438,54 @@ function saludRenderClientes() {
         <button class="btn btn-xs" style="background:#1c0a00;color:#64748b;border:1px solid #334155" onclick="saludOpenChargebackModal(${c.id})" title="Chargeback">⚠️</button>
         <button class="btn btn-danger btn-xs" onclick="saludEliminarCliente(${c.id})">✕</button>
       </td></tr>`;
-  }).join('') : '<tr><td colspan="16" class="tbl-empty">No hay clientes con esos filtros</td></tr>';
+  }).join('') : '<tr><td colspan="17" class="tbl-empty">No hay clientes con esos filtros</td></tr>';
+
+  const checkTodos = document.getElementById('salud-clientes-check-todos');
+  if(checkTodos) checkTodos.checked = false;
+  saludActualizarBarraSeleccionClientes();
+}
+
+// Marca/desmarca un cliente para el borrado múltiple.
+function saludToggleSeleccionCliente(id, checked) {
+  if(checked) saludClientesSeleccionados.add(id);
+  else saludClientesSeleccionados.delete(id);
+  saludActualizarBarraSeleccionClientes();
+}
+
+// Selecciona/deselecciona todos los clientes actualmente visibles (con los
+// filtros de hoy) — no toca clientes que no están en la vista actual.
+function saludToggleSeleccionarTodosClientes(checkboxMaestro) {
+  const marcar = checkboxMaestro.checked;
+  document.querySelectorAll('#salud-clientes-body input[type="checkbox"][data-cliente-id]').forEach(cb => {
+    cb.checked = marcar;
+    const id = parseInt(cb.getAttribute('data-cliente-id'));
+    if(marcar) saludClientesSeleccionados.add(id);
+    else saludClientesSeleccionados.delete(id);
+  });
+  saludActualizarBarraSeleccionClientes();
+}
+
+// Muestra/oculta el botón "Eliminar Seleccionados" con el conteo actual.
+function saludActualizarBarraSeleccionClientes() {
+  const el = document.getElementById('salud-clientes-seleccion-bar');
+  if(!el) return;
+  const n = saludClientesSeleccionados.size;
+  el.innerHTML = n > 0
+    ? `<button class="btn btn-danger btn-sm" onclick="saludEliminarClientesSeleccionados()">🗑️ Eliminar Seleccionados (${n})</button>`
+    : '';
+}
+
+// Borra de una sola vez todos los clientes marcados con el checkbox.
+function saludEliminarClientesSeleccionados() {
+  const ids = [...saludClientesSeleccionados];
+  if(ids.length === 0) return;
+  if(!confirm(`¿Eliminar ${ids.length} cliente${ids.length!==1?'s':''} seleccionado${ids.length!==1?'s':''}? Esta acción no se puede deshacer.`)) return;
+  saludData.clientes = saludData.clientes.filter(c => !ids.includes(c.id));
+  saludClientesSeleccionados = new Set();
+  guardarSalud();
+  saludRenderClientes();
+  saludRenderDashboard();
+  showNotif(`🗑️ ${ids.length} cliente${ids.length!==1?'s':''} eliminado${ids.length!==1?'s':''}`);
 }
 function saludUpdateField(id, field, value) {
   const c = saludData.clientes.find(x=>x.id===id); if(!c) return;
