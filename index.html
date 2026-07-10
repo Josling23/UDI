@@ -670,6 +670,10 @@ table thead,table tbody{display:table;width:100%}
     <!-- SALUD & DENTAL PAGES                                    -->
     <!-- ====================================================== -->
     <div class="page" id="page-salud-dashboard">
+      <div style="background:#F0FFFB;border:1.5px solid #00A492;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:#00A492;text-transform:uppercase;margin-bottom:8px">💰 Dinero Real (lo que ya entró al banco)</div>
+        <div class="cards" id="salud-dash-real-cards"></div>
+      </div>
       <div class="cards" id="salud-dash-cards"></div>
       <div id="salud-dash-alerta-sueldo" style="margin-bottom:20px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -9050,18 +9054,30 @@ function eliminarRSIPago(cliente, fecha) {
   showNotif('🗑️ Cliente desmarcado como pagado');
 }
 
+// Suma los pagos reales que ya están anotados uno por uno en Salud -> Pagos
+// Recibidos para un mes dado. Es la ÚNICA fuente de verdad para "dinero real
+// recibido" — se calcula en vivo desde saludData.pagos[] cada vez, para no
+// tener que volver a escribir el mismo total a mano en ROI Mensual. Si ese
+// mes nunca se itemizó en Pagos Recibidos (meses históricos de antes de esta
+// función), se respeta el valor manual que ya estaba guardado en ROI
+// Mensual, para no hacer desaparecer un número que el usuario ya veía.
+function calcPagosRecibidosMes(mes) {
+  const pagosDelMes = (saludData.pagos||[]).filter(p => p.mes === mes);
+  if(pagosDelMes.length > 0) return pagosDelMes.reduce((s,p)=>s+parseFloat(p.monto||0),0);
+  return parseFloat((saludData.roiMensual||{})[mes]?.pagos || 0);
+}
+
 function calcSaludMes(m) {
   const clientes = saludData.clientes.filter(c=>c.mes===m);
   const activos = clientes.filter(c=>c.estado==='activo');
   const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
   const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
 
-  // Ganancia Neta real: sale del ROI Mensual (Salud → ROI Mensual), donde se
-  // ingresan a mano Pagos Recibidos/Comisiones/Sueldos por mes — ya no se
-  // calculan automáticamente de clientes/agentes/quincenas ni se suman los
-  // pagos individuales de "Pagos Recibidos".
+  // Ganancia Neta real: Pagos Recibidos ya no se escribe a mano aquí — se
+  // suma automáticamente desde Salud -> Pagos Recibidos (calcPagosRecibidosMes).
+  // Comisiones/Sueldos se siguen ingresando a mano por mes en ROI Mensual.
   const rm = (saludData.roiMensual||{})[m] || {};
-  const totalPagosReales = parseFloat(rm.pagos || 0);
+  const totalPagosReales = calcPagosRecibidosMes(m);
   const comAgentes = parseFloat(rm.comisiones || 0);
   const sueldosMes = parseFloat(rm.sueldos || 0);
   const gananciaNeta = totalPagosReales - comAgentes - sueldosMes;
@@ -10293,11 +10309,20 @@ function saludRenderDashboard() {
   const totalLeads = saludData.campanas.reduce((s,c)=>s+(parseInt(c.leads)||0),0);
   const totalGasto = saludData.campanas.reduce((s,c)=>s+(parseFloat(c.gasto)||0),0);
   const cpl = totalLeads ? (totalGasto/totalLeads) : 0;
+
+  // Dinero real (lo que ya entró al banco) — siempre primero, arriba de todo
+  // lo demás en este dashboard, que es proyectado/pipeline.
+  const dMesActual = calcSaludMes(mesActual);
+  document.getElementById('salud-dash-real-cards').innerHTML = `
+    <div class="card green"><label>💰 Pagos Recibidos</label><div class="val">${fmt(dMesActual.totalPagosReales)}</div><div class="sub">${mesActual} — real, de Pagos Recibidos</div></div>
+    <div class="card teal"><label>💚 Ganancia Neta Real</label><div class="val">${fmt(dMesActual.gananciaNeta)}</div><div class="sub">pagos reales − comisiones − sueldos</div></div>
+  `;
+
   document.getElementById('salud-dash-cards').innerHTML = `
     <div class="card blue"><label>Total Clientes Activos</label><div class="val">${activos.length}</div><div class="sub">de ${saludData.clientes.length} totales</div></div>
-    <div class="card green"><label>Primas Dentales Mensuales</label><div class="val">${fmt(totalPrimas)}</div><div class="sub">ingresos recurrentes dental</div></div>
-    <div class="card purple"><label>Comisiones Totales</label><div class="val">${fmt(totalCom)}</div><div class="sub">dental + salud proyectado</div></div>
-    <div class="card orange"><label>Com. Pendiente de Cobrar</label><div class="val">${fmt(comPendiente)}</div><div class="sub">adelantos + salud residual</div></div>
+    <div class="card green"><label>Primas Dentales Mensuales</label><div class="val">${fmt(totalPrimas)}</div><div class="sub">cartera activa dental</div></div>
+    <div class="card purple"><label>Comisiones Totales (proyectado)</label><div class="val">${fmt(totalCom)}</div><div class="sub">dental + salud, no es dinero recibido aún</div></div>
+    <div class="card orange"><label>Com. Pendiente de Cobrar (proyectado)</label><div class="val">${fmt(comPendiente)}</div><div class="sub">adelantos + salud residual</div></div>
     <div class="card teal"><label>Ventas Este Mes</label><div class="val">${ventasMes}</div><div class="sub">${mesActual}</div></div>
     <div class="card yellow"><label>Costo por Lead</label><div class="val">${fmt(cpl)}</div><div class="sub">${totalLeads} leads / ${fmt(totalGasto)}</div></div>
   `;
@@ -10360,10 +10385,13 @@ function saludRenderClientes() {
   });
   const totalPrimas = list.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+c.prima,0);
   const totalCom = list.reduce((s,c)=>s+saludClienteCom(c).total,0);
+  const mesActualCli = MESES_ES[new Date().getMonth()]+' '+new Date().getFullYear();
+  const dineroRealMesCli = calcPagosRecibidosMes(mesActualCli);
   document.getElementById('salud-clientes-stats').innerHTML = `
+    <span style="color:#00A492;font-weight:700">💰 Dinero real recibido (${mesActualCli}): <b>${fmt(dineroRealMesCli)}</b></span>
     <span><b>${list.length}</b> clientes</span>
     <span>Primas totales: <b>${fmt(totalPrimas)}/mes</b></span>
-    <span>Comisiones totales: <b>${fmt(totalCom)}</b></span>
+    <span>Comisiones totales (proyectado): <b>${fmt(totalCom)}</b></span>
     <span>Activos: <b>${list.filter(c=>c.estado==='activo').length}</b></span>`;
   const body = document.getElementById('salud-clientes-body');
   const iSty = 'background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 7px;border-radius:5px;font-size:11px';
@@ -10868,7 +10896,7 @@ function saludRenderROIMensual() {
 
   const datos = meses.map(mes => {
     const rm = (saludData.roiMensual||{})[mes] || {};
-    const pagos = parseFloat(rm.pagos || 0);
+    const pagos = calcPagosRecibidosMes(mes);
     const comisiones = parseFloat(rm.comisiones || 0);
     const sueldos = parseFloat(rm.sueldos || 0);
     const gananciaNeta = pagos - comisiones - sueldos;
@@ -10887,14 +10915,14 @@ function saludRenderROIMensual() {
         <h2>📊 ROI Mensual — Salud/Dental</h2>
       </div>
       <div style="font-size:11px;color:#7C98B6;margin-bottom:14px">
-        Ingresa manualmente el total de Pagos Recibidos, Comisiones y Sueldos de cada mes — la Ganancia Neta y el ROI% que calcula aquí son los que se reflejan en TOP → 💸 Gastos & Nómina + Ganancias por Mes → 💚 Ganancia Salud/Dental.
+        💰 Pagos Recibidos se calcula solo, sumando lo que ya anotaste uno por uno en Salud → Pagos Recibidos — no hace falta escribirlo de nuevo aquí. Ingresa manualmente Comisiones y Sueldos de cada mes. La Ganancia Neta y el ROI% que calcula aquí son los que se reflejan en TOP → Salud.
       </div>
       <div class="tbl-wrap">
         <table style="width:100%">
           <thead>
             <tr style="background:#F5F8FA">
               <th style="text-align:left;min-width:140px">📅 Mes</th>
-              <th style="text-align:right;min-width:140px">💰 Pagos Recibidos</th>
+              <th style="text-align:right;min-width:140px" title="Se calcula automático desde Salud → Pagos Recibidos. No editable aquí.">💰 Pagos Recibidos</th>
               <th style="text-align:right;min-width:130px">💵 Comisiones</th>
               <th style="text-align:right;min-width:120px">💼 Sueldos</th>
               <th style="text-align:right;min-width:140px">💚 Ganancia Neta</th>
@@ -10905,7 +10933,7 @@ function saludRenderROIMensual() {
             ${datos.map(d => `
               <tr style="border-bottom:1px solid #CBD6E2">
                 <td style="padding:12px;font-weight:600;color:#33475B">${d.mes}</td>
-                <td style="padding:12px;text-align:right"><input type="number" value="${d.pagos}" data-field="pagos" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:120px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00A492" /></td>
+                <td style="padding:12px;text-align:right;font-weight:700;color:#00A492">${fmt(d.pagos)}</td>
                 <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#D4A017" /></td>
                 <td style="padding:12px;text-align:right"><input type="number" value="${d.sueldos}" data-field="sueldos" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
                 <td style="padding:12px;text-align:right;font-weight:800;color:${d.gananciaNeta>=0?'#00BDA5':'#E04048'}">${fmt(d.gananciaNeta)}</td>
