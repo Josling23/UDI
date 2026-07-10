@@ -5960,9 +5960,11 @@ function renderPagos() {
           : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
 
         const grabCell = comGrab>0
-          ? `<div style="background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:3px 7px;font-size:11px">
+          ? `<div style="background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:5px 8px;font-size:11px">
               📞 <b style="color:#6A78D1">${fmt(comGrab)}</b>
-              <div style="color:#99ACC2;font-size:10px">${grabRows.map(v=>v.cliente||v.productoId).join(', ')}</div>
+              <ul style="margin:4px 0 0;padding-left:16px;color:#33475B;font-size:12px;font-weight:600;text-align:left">
+                ${grabRows.map(v=>`<li>${v.cliente||getProdNombre(v.productoId)}</li>`).join('')}
+              </ul>
              </div>`
           : `<span style="color:#CBD6E2;font-size:11px">—</span>`;
 
@@ -5982,7 +5984,9 @@ function renderPagos() {
         const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
 
         let ventasDesglose = '';
-        if(ventasQuincena.length > 0 || extrasDelMes.length > 0) {
+        const hayAlgoQuePagar = ventasQuincena.length > 0 || extrasDelMes.length > 0 || grabRows.length > 0
+          || basico > 0 || bonos > 0 || prestamo > 0 || deAnt > 0 || desc > 0;
+        if(hayAlgoQuePagar) {
           const filasHTML = ventasQuincena.map(v=>{
             // Misma lógica de respaldo que getComisionesQuincena(): si la venta
             // se guardó con comisión $0 (ej. catálogo con tarifa $0 por defecto),
@@ -6016,12 +6020,41 @@ function renderPagos() {
             </tr>`;
           }).join('');
 
-          ventasDesglose = `<tr style="background:#F9FAFB">
-            <td colspan="11" style="padding:8px 12px;border:none">
-              <div style="font-weight:600;color:#7C98B6;font-size:10px;margin-bottom:6px;text-transform:uppercase">📋 Desglose de comisiones:</div>
-              <table style="width:100%;font-size:11px;border-collapse:collapse">
+          const filasGrabHTML = grabRows.map(v=>{
+            const comG = parseFloat(v.comision)||0;
+            return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#F4F5FF">
+              <td style="padding:4px 8px;color:#33475B;font-weight:600">📞 ${v.cliente||'Llamada grabada'}</td>
+              <td style="padding:4px 8px;color:#7C98B6">Llamada Grabada</td>
+              <td style="padding:4px 8px;color:#33475B;text-align:right">1</td>
+              <td style="padding:4px 8px;color:#6A78D1;text-align:right;font-weight:600">$${comG.toFixed(2)}</td>
+              <td style="padding:4px 8px;color:#6A78D1;text-align:right;font-weight:700">$${comG.toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+
+          // Todo lo demás que compone el TOTAL A PAGAR y que no es una venta
+          // individual (sueldo, bonos, préstamos, saldo de la quincena
+          // anterior, descuentos) — para que este resumen incluya
+          // absolutamente todo lo que se le está pagando al agente, no solo
+          // las comisiones de ventas.
+          const otrosPagos = [];
+          if(basico>0)   otrosPagos.push({ label:'🏠 Sueldo Base',       monto:basico });
+          if(bonos>0)    otrosPagos.push({ label:'🎁 Bonos',             monto:bonos });
+          if(prestamo>0) otrosPagos.push({ label:'💵 Préstamo',          monto:prestamo });
+          if(deAnt>0)    otrosPagos.push({ label:'🔄 De Q. Anterior',    monto:deAnt });
+          if(desc>0)     otrosPagos.push({ label:'➖ Descuento',         monto:-desc });
+
+          const otrosPagosHTML = otrosPagos.length ? `
+              <div style="font-weight:600;color:#7C98B6;font-size:11px;margin:12px 0 6px;text-transform:uppercase">💰 Otros pagos de esta quincena:</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                ${otrosPagos.map(o=>`<div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:6px;padding:6px 10px;font-size:12px">
+                  <span style="color:#7C98B6">${o.label}:</span> <b style="color:${o.monto<0?'#F2545B':'#33475B'}">${o.monto<0?'−':''}${fmt(Math.abs(o.monto))}</b>
+                </div>`).join('')}
+              </div>` : '';
+
+          const filasTabla = filasHTML + filasExtraHTML + filasGrabHTML;
+          const tablaHTML = filasTabla ? `<table style="width:100%;font-size:12px;border-collapse:collapse">
                 <thead style="background:#F5F8FA">
-                  <tr style="font-size:10px;font-weight:600;color:#33475B">
+                  <tr style="font-size:11px;font-weight:600;color:#33475B">
                     <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Cliente</th>
                     <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Producto</th>
                     <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2">Cant.</th>
@@ -6030,10 +6063,16 @@ function renderPagos() {
                   </tr>
                 </thead>
                 <tbody>
-                  ${filasHTML}${filasExtraHTML}
+                  ${filasTabla}
                 </tbody>
-              </table>
-              ${extrasDelMes.length ? `<div style="font-size:9px;color:#D4A017;margin-top:4px">⚠️ Los productos extra son por mes, no por quincena — si ves Q1 y Q2 del mismo mes juntos, este monto puede estar contado en ambas filas. Configúralos en la página de Agentes.</div>` : ''}
+              </table>` : '';
+
+          ventasDesglose = `<tr style="background:#F9FAFB">
+            <td colspan="11" style="padding:8px 12px;border:none">
+              <div style="font-weight:600;color:#7C98B6;font-size:11px;margin-bottom:6px;text-transform:uppercase">📋 Resumen completo de pago (todo lo que se le paga en esta quincena):</div>
+              ${tablaHTML}
+              ${otrosPagosHTML}
+              ${extrasDelMes.length ? `<div style="font-size:10px;color:#D4A017;margin-top:6px">⚠️ Los productos extra son por mes, no por quincena — si ves Q1 y Q2 del mismo mes juntos, este monto puede estar contado en ambas filas. Configúralos en la página de Agentes.</div>` : ''}
             </td>
           </tr>`;
         }
