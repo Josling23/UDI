@@ -398,6 +398,13 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-agente" style="display:none">
+    <div class="nav-section">📝 MIS VENTAS</div>
+    <div class="nav-item active" onclick="showPage('agente-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
   <div class="sidebar-footer">USA Distributor</div>
 </aside>
 <div class="mobile-sidebar-backdrop" id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
@@ -669,6 +676,13 @@ table thead,table tbody{display:table;width:100%}
 
     <div class="page" id="page-bravo-compras">
       <div id="bravo-compras-content"></div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- ÁREA AGENTE (autoreporte de ventas)                      -->
+    <!-- ====================================================== -->
+    <div class="page" id="page-agente-dashboard">
+      <div id="agente-dashboard-content"></div>
     </div>
 
     <!-- ====================================================== -->
@@ -1509,6 +1523,27 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-agente')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarAgente()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL HABILITAR LOGIN DE AGENTE ===== -->
+<div class="modal-overlay" id="modal-login-agente">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3 id="modal-login-agente-title">🔑 Habilitar Login</h3>
+      <button class="modal-close" onclick="closeModal('modal-login-agente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1"><label>Correo *</label><input type="email" id="la-email" placeholder="correo@ejemplo.com"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Contraseña inicial * (mínimo 6 caracteres)</label><input type="text" id="la-pass" placeholder="El agente la puede cambiar después con 'Reset'"></div>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin-top:8px">📌 El agente entrará con este correo y contraseña, y solo verá el área "Mis Ventas" — no tiene acceso a Admin, TOP, Bravo ni Salud.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-login-agente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="habilitarLoginAgente()">💾 Crear Acceso</button>
     </div>
   </div>
 </div>
@@ -2624,7 +2659,13 @@ const USERS_CONFIG = {
 // Helper function to get user permissions from email
 function getUserPermissions(email) {
   const email_lower = (email || '').toLowerCase();
-  return USERS_CONFIG[email_lower] || null;
+  if (USERS_CONFIG[email_lower]) return USERS_CONFIG[email_lower];
+  // Login dinámico de agentes: no vive en USERS_CONFIG (whitelist fija de
+  // back-office), sino en el propio perfil del agente (appData.agentes),
+  // habilitado/deshabilitado desde la pantalla Agentes sin tocar código.
+  const agente = (appData.agentes||[]).find(a => a.loginHabilitado && (a.loginEmail||'').toLowerCase() === email_lower);
+  if (agente) return { nombre: agente.nombre, areas: ['agente'], fullAccess: false, agenteId: agente.id };
+  return null;
 }
 
 // Helper function to check if user can access an area
@@ -2836,6 +2877,7 @@ function activarListenerAppData() {
           'bravo-roi':          bravoROI,
           'bravo-caja':         bravoCaja,
           'bravo-compras':      bravoCompras,
+          'agente-dashboard':   renderAgenteDashboard,
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -3421,6 +3463,7 @@ const PAGE_TITLES = {
   'bravo-roi':'🏪 Bravo — ROI',
   'bravo-caja':'💵 Caja Chica — Bravo',
   'bravo-compras':'🛒 Bravo — Compras Diarias',
+  'agente-dashboard':'📝 Mis Ventas',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
@@ -3471,6 +3514,7 @@ function renderPage(name) {
   if(name==='bravo-roi') bravoROI();
   if(name==='bravo-caja') bravoCaja();
   if(name==='bravo-compras') bravoCompras();
+  if(name==='agente-dashboard') renderAgenteDashboard();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
@@ -5096,6 +5140,15 @@ function renderAgentes() {
           <button class="btn btn-danger btn-xs" onclick="eliminarAgente(${a.id})">✕</button>
         </div>
       </div>
+      <div style="margin-bottom:12px">
+        ${a.loginHabilitado
+          ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#F0FFFB;border:1px solid #00A492;border-radius:8px;padding:6px 10px">
+              <span style="font-size:11px;color:#00A492;font-weight:600">🔑 Login activo — ${a.loginEmail}</span>
+              <button class="btn btn-ghost btn-xs" onclick="reenviarResetPasswordAgente(${a.id})" title="Enviar correo para que el agente cambie su contraseña">✉️ Reset</button>
+              <button class="btn btn-ghost btn-xs" onclick="deshabilitarLoginAgente(${a.id})" title="Revocar acceso (no borra la cuenta)">🔒 Deshabilitar</button>
+             </div>`
+          : `<button class="btn btn-ghost btn-xs" onclick="abrirModalLoginAgente(${a.id})">🔑 Habilitar Login</button>`}
+      </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
           <div style="font-size:9px;color:#7C98B6;text-transform:uppercase">Com. Este Mes</div>
@@ -5366,6 +5419,67 @@ function eliminarAgente(id) {
   guardar();
   renderAgentes();
   showNotif('🗑️ Agente eliminado');
+}
+
+// ============================================================
+// LOGIN DINÁMICO DE AGENTES (Fase 1 del área "Agente")
+// No toca USERS_CONFIG (whitelist fija de back-office) — vive en el propio
+// perfil del agente (loginEmail/loginHabilitado), leído por
+// getUserPermissions(). "Deshabilitar" no borra la cuenta de Firebase (no
+// se puede desde el cliente por diseño de seguridad de Firebase Auth) — solo
+// le quita el acceso a la app.
+// ============================================================
+let _loginAgenteId = null;
+function abrirModalLoginAgente(id) {
+  _loginAgenteId = id;
+  const a = appData.agentes.find(x=>x.id===id);
+  document.getElementById('la-email').value = a?.loginEmail || '';
+  document.getElementById('la-pass').value = '';
+  document.getElementById('modal-login-agente').classList.add('open');
+}
+
+async function habilitarLoginAgente() {
+  const a = appData.agentes.find(x=>x.id===_loginAgenteId);
+  if(!a) return;
+  const email = document.getElementById('la-email').value.trim();
+  const pass  = document.getElementById('la-pass').value;
+  if(!email || !pass) { showNotif('⚠️ Completa correo y contraseña','error'); return; }
+  if(pass.length < 6) { showNotif('⚠️ Contraseña mínimo 6 caracteres','error'); return; }
+  try {
+    // Misma técnica que crearUsuario(): instancia secundaria de Firebase
+    // para no cerrar la sesión de quien está creando el acceso.
+    const secondApp = firebase.initializeApp(firebaseConfig, 'secondApp_' + Date.now());
+    await secondApp.auth().createUserWithEmailAndPassword(email, pass);
+    await secondApp.auth().signOut();
+    secondApp.delete();
+    a.loginEmail = email;
+    a.loginHabilitado = true;
+    guardar();
+    closeModal('modal-login-agente');
+    renderAgentes();
+    showNotif(`✅ Login habilitado para ${a.nombre}`);
+  } catch(e) {
+    const msgs = { 'auth/email-already-in-use':'Este correo ya está registrado.', 'auth/weak-password':'Contraseña muy débil.', 'auth/invalid-email':'Correo inválido.' };
+    showNotif('❌ ' + (msgs[e.code] || e.message), 'error');
+  }
+}
+
+function deshabilitarLoginAgente(id) {
+  const a = appData.agentes.find(x=>x.id===id);
+  if(!a) return;
+  if(!confirm(`¿Quitarle el acceso a "Mis Ventas" a ${a.nombre}? Podrás volver a habilitarlo cuando quieras.`)) return;
+  a.loginHabilitado = false;
+  guardar();
+  renderAgentes();
+  showNotif('🔒 Login deshabilitado');
+}
+
+function reenviarResetPasswordAgente(id) {
+  const a = appData.agentes.find(x=>x.id===id);
+  if(!a || !a.loginEmail) return;
+  fbAuth.sendPasswordResetEmail(a.loginEmail)
+    .then(()=> showNotif(`✅ Correo de restablecimiento enviado a ${a.loginEmail}`))
+    .catch(e => showNotif('❌ ' + e.message, 'error'));
 }
 
 // ── Productos Extra ─────────────────────────────────────────
@@ -6428,6 +6542,7 @@ function mostrarAreas() {
   const puedeTop    = perms.areas.includes('top');
   const puedeBravo  = perms.areas.includes('bravo');
   const puedeSalud  = perms.areas.includes('salud');
+  const puedeAgente = perms.areas.includes('agente');
 
   const userDisplay = perms.nombre || email.split('@')[0];
   document.getElementById('area-user-badge').textContent = '👤 ' + userDisplay;
@@ -6474,6 +6589,12 @@ function mostrarAreas() {
       <div style="color:#00BDA5;font-size:15px;font-weight:800">SALUD & DENTAL</div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Clientes · Comisiones<br>Campañas · Pagos</div>
     </button>`;
+  if(puedeAgente) btns += `
+    <button onclick="abrirArea('agente')" style="${btnStyle};border-color:rgba(106,120,209,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(106,120,209,0.4)'">
+      <div style="font-size:34px;margin-bottom:8px">📝</div>
+      <div style="color:#6A78D1;font-size:15px;font-weight:800">MIS VENTAS</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Reportar Venta<br>Mis Reportes</div>
+    </button>`;
 
   document.getElementById('area-buttons').innerHTML = btns;
   document.getElementById('login-screen').style.display = 'none';
@@ -6496,6 +6617,7 @@ function abrirArea(area) {
   document.getElementById('sidebar-nav-top').style.display   = area==='top'    ? 'block' : 'none';
   document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
   document.getElementById('sidebar-nav-bravo').style.display = area==='bravo'  ? 'block' : 'none';
+  document.getElementById('sidebar-nav-agente').style.display = area==='agente' ? 'block' : 'none';
 
   // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
   if (area === 'hq') {
@@ -6508,6 +6630,23 @@ function abrirArea(area) {
   else if(area==='top')   showPage('top', null);
   else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
+  else if(area==='agente') { showPage('agente-dashboard', null); }
+}
+
+// Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
+// pantallas reales de "Reportar Venta" y "Mis Reportes" llegan en la Fase 2.
+function renderAgenteDashboard() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const nombre = perms ? perms.nombre : '';
+  document.getElementById('agente-dashboard-content').innerHTML = `
+    <div class="section">
+      <div class="section-header"><h2>👋 Hola, ${nombre}</h2></div>
+      <div style="background:#F4F5FF;border:1.5px solid #6A78D1;border-radius:10px;padding:18px;color:#33475B;font-size:13px">
+        Tu acceso de agente ya está activo. Muy pronto podrás reportar tus propias ventas
+        aquí mismo y ver el estado de tus reportes.
+      </div>
+    </div>
+  `;
 }
 
 function volverAreas() {
@@ -6518,6 +6657,7 @@ function volverAreas() {
   document.getElementById('sidebar-nav-top').style.display = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
   document.getElementById('sidebar-nav-bravo').style.display = 'none';
+  document.getElementById('sidebar-nav-agente').style.display = 'none';
 
   // Mostrar la pantalla de selección de áreas
   mostrarAreas();
@@ -6587,6 +6727,8 @@ async function cerrarSesion() {
   document.getElementById('sidebar-nav-hq').style.display    = 'none';
   document.getElementById('sidebar-nav-top').style.display   = 'none';
   document.getElementById('sidebar-nav-salud').style.display = 'none';
+  document.getElementById('sidebar-nav-bravo').style.display = 'none';
+  document.getElementById('sidebar-nav-agente').style.display = 'none';
 
   // onAuthStateChanged se encargará de mostrar la pantalla de login
   showNotif('🔒 Sesión cerrada');
