@@ -335,6 +335,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-section">Principal</div>
     <div class="nav-item" onclick="showPage('dashboard',this)" id="nav-dashboard"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('ventas',this)"><span class="icon">📝</span><span>Registro Diario</span></div>
+    <div class="nav-item" onclick="showPage('ventas-pendientes',this)"><span class="icon">🕓</span><span>Ventas Pendientes</span><span id="nav-pendientes-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-item" onclick="showPage('agentes',this)"><span class="icon">👥</span><span>Agentes</span></div>
     <div class="nav-section">Reportes</div>
     <div class="nav-item" onclick="showPage('resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
@@ -512,6 +513,28 @@ table thead,table tbody{display:table;width:100%}
           <table>
             <thead><tr><th>#</th><th>Fecha</th><th>Agente</th><th>Producto</th><th>Categoría</th><th>Cant.</th><th>Com./u</th><th>Total Com.</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th>📞 Grabación</th><th>Notas</th><th>Acc.</th></tr></thead>
             <tbody id="ventas-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VENTAS PENDIENTES (reportadas por agentes, area "Agente") ===== -->
+    <div class="page" id="page-ventas-pendientes">
+      <div class="section">
+        <div class="section-header">
+          <h2>🕓 Ventas Pendientes</h2>
+          <button class="btn btn-success btn-sm" onclick="aprobarVisiblesVentasPendientes()">✅ Aprobar todas las visibles</button>
+        </div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Reportes enviados por agentes desde "Mis Ventas" — revisa/corrige los datos y aprueba para que cuenten oficialmente, o rechaza con un motivo.</div>
+        <div class="filters">
+          <input type="text" id="vp-search" placeholder="🔍 Buscar cliente, agente..." oninput="renderVentasPendientesTabla()">
+          <select id="vp-f-agente" onchange="renderVentasPendientesTabla()"><option value="">Todos los Agentes</option></select>
+          <select id="vp-f-mes" onchange="renderVentasPendientesTabla()"><option value="">Todos los Meses</option></select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th style="text-align:right">Total</th><th>Acciones</th></tr></thead>
+            <tbody id="ventas-pendientes-body"></tbody>
           </table>
         </div>
       </div>
@@ -2937,6 +2960,7 @@ function activarListenerAppData() {
           'dashboard':  renderDashboard,
           'ventas':     renderVentas,
           'agentes':    renderAgentes,
+          'ventas-pendientes': renderVentasPendientes,
           'resumen':    renderResumen,
           'pagos':      renderPagos,
           'productos':  renderProductos,
@@ -3530,6 +3554,7 @@ function mesPorDefecto() {
 // ============================================================
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
+  'ventas-pendientes':'🕓 Ventas Pendientes',
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
@@ -3578,6 +3603,7 @@ function renderPage(name) {
   if(name==='dashboard') renderDashboard();
   if(name==='ventas') renderVentas();
   if(name==='agentes') renderAgentes();
+  if(name==='ventas-pendientes') renderVentasPendientes();
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
   if(name==='productos') renderProductos();
@@ -3916,6 +3942,163 @@ function asignarQuincenaFiltradas(q) {
   guardar();
   renderVentas();
   showNotif(`✅ ${count} venta${count>1?'s':''} asignada${count>1?'s':''} a ${qStr?'Q'+qStr:'Auto (por fecha)'}`);
+}
+
+// ============================================================
+// VENTAS PENDIENTES (Fase 3 del área "Agente")
+// Cola de revisión de Admin: cada reporte enviado desde "Mis Ventas" queda
+// agrupado por grupoId. Aprobar convierte sus líneas en ventas oficiales
+// con la MISMA forma exacta que arma guardarVenta() — a partir de ese push,
+// ninguna otra función del sitio (comisiones, dashboard, TOP, pagos,
+// exports) necesita cambiar. Rechazar mueve las líneas a
+// appData.ventasRechazadas (con motivo) en vez de borrarlas.
+// ============================================================
+function actualizarBadgePendientes() {
+  const badge = document.getElementById('nav-pendientes-badge');
+  if(!badge) return;
+  const grupos = new Set((appData.ventasPendientes||[]).map(v=>v.grupoId)).size;
+  badge.style.display = grupos > 0 ? 'inline-block' : 'none';
+  badge.textContent = grupos;
+}
+
+function renderVentasPendientes() {
+  populateAgente('vp-f-agente', true);
+  populateMes('vp-f-mes', true);
+  renderVentasPendientesTabla();
+}
+
+function filtrarVentasPendientes() {
+  const fAg     = document.getElementById('vp-f-agente')?.value||'';
+  const fMes    = document.getElementById('vp-f-mes')?.value||'';
+  const fSearch = (document.getElementById('vp-search')?.value||'').toLowerCase();
+  return (appData.ventasPendientes||[]).filter(v=>{
+    if(fAg && v.agente!==fAg) return false;
+    if(fMes && v.mes!==fMes) return false;
+    if(fSearch && !`${v.cliente} ${v.agente}`.toLowerCase().includes(fSearch)) return false;
+    return true;
+  });
+}
+
+function renderVentasPendientesTabla() {
+  actualizarBadgePendientes();
+  const filtradas = filtrarVentasPendientes();
+
+  // Agrupar por grupoId, preservando el orden de llegada más reciente primero.
+  const grupos = {};
+  const ordenGrupos = [];
+  filtradas.forEach(v=>{
+    if(!grupos[v.grupoId]) { grupos[v.grupoId] = []; ordenGrupos.push(v.grupoId); }
+    grupos[v.grupoId].push(v);
+  });
+  ordenGrupos.sort((a,b)=> (grupos[b][0].fecha||'').localeCompare(grupos[a][0].fecha||'') || b-a);
+
+  const body = document.getElementById('ventas-pendientes-body');
+  if(!ordenGrupos.length) {
+    body.innerHTML = '<tr><td colspan="8" class="tbl-empty">No hay ventas pendientes de revisión</td></tr>';
+    return;
+  }
+
+  body.innerHTML = ordenGrupos.map(grupoId=>{
+    const lineas = grupos[grupoId];
+    const g = lineas[0];
+    const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
+
+    const filasProductos = lineas.map(l=>`
+      <tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBEF">
+        <td style="padding:4px 8px;color:#99ACC2;font-style:italic">— producto</td>
+        <td style="padding:4px 8px">
+          <select style="border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px" onchange="ventaPendienteInlineEdit(${l.id},'productoId',this.value)">
+            ${buildCatOpts(l.categoria).replace(`value="${l.productoId}"`, `value="${l.productoId}" selected`)}
+          </select>
+        </td>
+        <td style="padding:4px 8px;color:#7C98B6">${CAT_LABELS[l.categoria]||l.categoria}</td>
+        <td style="padding:4px 8px;text-align:right"><input type="number" min="1" value="${l.cantidad}" style="width:50px;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right" onchange="ventaPendienteInlineEdit(${l.id},'cantidad',parseInt(this.value)||1)"></td>
+        <td style="padding:4px 8px;text-align:right"><input type="number" step="0.01" min="0" value="${l.comision}" style="width:70px;border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right;color:#009FDB;font-weight:700" onchange="ventaPendienteInlineEdit(${l.id},'comision',parseFloat(this.value)||0)"></td>
+        <td style="padding:4px 8px;color:#7C98B6;font-size:10px" colspan="2">${l.notas||''}</td>
+      </tr>`).join('');
+
+    return `<tr style="background:#F9FAFB;border-top:2px solid #F5C26B">
+        <td style="font-weight:600">${g.fecha}</td>
+        <td style="font-weight:600">${g.agente}</td>
+        <td>${g.cliente||'⚠️ Sin cliente'}</td>
+        <td>${g.cuenta||'—'}</td>
+        <td>${g.mes}</td>
+        <td>
+          <select id="vp-quincena-${grupoId}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;background:#EAF7FB;color:#0057A8;font-weight:600">
+            <option value="">⚡ Auto</option>
+            <option value="1">Manual Q1</option>
+            <option value="2">Manual Q2</option>
+          </select>
+        </td>
+        <td style="text-align:right;font-weight:800;color:#00BDA5">${fmt(total)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-success btn-xs" onclick="aprobarVentaPendiente(${grupoId})">✅ Aprobar</button>
+          <button class="btn btn-danger btn-xs" onclick="rechazarVentaPendiente(${grupoId})">❌ Rechazar</button>
+        </td>
+      </tr>
+      <tr><td colspan="8" style="padding:0 8px 8px">
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <tbody>${filasProductos}</tbody>
+        </table>
+      </td></tr>`;
+  }).join('');
+}
+
+function ventaPendienteInlineEdit(id, field, value) {
+  const v = (appData.ventasPendientes||[]).find(x=>x.id===id);
+  if(!v) return;
+  v[field] = value;
+  if(field==='productoId') v.comision = getComisionParaAgente(value, v.agente);
+  guardar();
+  renderVentasPendientesTabla();
+}
+
+function aprobarVentaPendiente(grupoId) {
+  const lineas = (appData.ventasPendientes||[]).filter(v=>v.grupoId===grupoId);
+  if(!lineas.length) return;
+  const quincenaPago = document.getElementById('vp-quincena-'+grupoId)?.value || '';
+
+  let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  lineas.forEach(l=>{
+    maxId++;
+    appData.ventas.push({
+      id: maxId, fecha: l.fecha, agente: l.agente, cliente: l.cliente, cuenta: l.cuenta,
+      mes: l.mes, campana: l.campana, quincenaPago, mesPago: '',
+      llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
+      notas: l.notas, productoId: l.productoId, categoria: l.categoria,
+      cantidad: l.cantidad, comision: l.comision,
+      reportadoPor: l.reportadoPor,
+    });
+  });
+  appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
+
+  guardar();
+  renderVentasPendientesTabla();
+  renderDashboard();
+  showNotif(`✅ ${lineas.length} línea${lineas.length>1?'s':''} aprobada${lineas.length>1?'s':''} — ya cuenta${lineas.length>1?'n':''} como venta oficial`);
+}
+
+function rechazarVentaPendiente(grupoId) {
+  const lineas = (appData.ventasPendientes||[]).filter(v=>v.grupoId===grupoId);
+  if(!lineas.length) return;
+  const motivo = prompt('¿Por qué se rechaza este reporte?', '');
+  if(motivo === null) return;
+
+  if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
+  lineas.forEach(l=> appData.ventasRechazadas.push({ ...l, motivoRechazo: motivo.trim() || 'Sin motivo especificado' }));
+  appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
+
+  guardar();
+  renderVentasPendientesTabla();
+  showNotif('❌ Reporte rechazado');
+}
+
+function aprobarVisiblesVentasPendientes() {
+  const filtradas = filtrarVentasPendientes();
+  const grupoIds = [...new Set(filtradas.map(v=>v.grupoId))];
+  if(!grupoIds.length) { showNotif('⚠️ No hay reportes pendientes visibles con estos filtros','error'); return; }
+  if(!confirm(`¿Aprobar los ${grupoIds.length} reporte${grupoIds.length>1?'s':''} visible${grupoIds.length>1?'s':''}?`)) return;
+  grupoIds.forEach(gid => aprobarVentaPendiente(gid));
 }
 
 // Aplicar fechas automáticas según quincena seleccionada
@@ -6706,7 +6889,7 @@ function abrirArea(area) {
     document.getElementById('nav-hq-gerente').style.display = canManageJP ? 'flex' : 'none';
   }
 
-  if(area==='admin')  showPage('dashboard', document.getElementById('nav-dashboard'));
+  if(area==='admin')  { showPage('dashboard', document.getElementById('nav-dashboard')); actualizarBadgePendientes(); }
   else if(area==='hq')    showPage('hq', null);
   else if(area==='top')   showPage('top', null);
   else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
