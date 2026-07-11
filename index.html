@@ -545,7 +545,10 @@ table thead,table tbody{display:table;width:100%}
       <div class="section">
         <div class="section-header">
           <h2>👥 Agentes</h2>
-          <button class="btn btn-primary btn-sm" onclick="openAgenteModal()">➕ Nuevo Agente</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="agentes-search" placeholder="🔍 Buscar agente por nombre..." oninput="renderAgentes()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;min-width:220px">
+            <button class="btn btn-primary btn-sm" onclick="openAgenteModal()">➕ Nuevo Agente</button>
+          </div>
         </div>
         <div class="agent-cards" id="agent-cards"></div>
       </div>
@@ -5372,6 +5375,11 @@ function renderAgentes() {
     visibles = visibles.filter(a=>!esJosePina(a.nombre));
   }
 
+  const busqueda = (document.getElementById('agentes-search')?.value||'').trim().toLowerCase();
+  if(busqueda) {
+    visibles = visibles.filter(a=>(a.nombre||'').toLowerCase().includes(busqueda));
+  }
+
   const gerentes    = visibles.filter(a=>a.rol==='gerente');
   const supervisors = visibles.filter(a=>a.rol==='supervisor');
   const subdealers  = visibles.filter(a=>a.rol==='subdealer'||a.rol==='subdealер');
@@ -5476,7 +5484,9 @@ function renderAgentes() {
     renderGrupo('🔷 Supervisores', '#6A78D1', supervisors) +
     renderGrupo('🤝 Sub-Dealers', '#00BDA5', subdealers) +
     renderGrupo('👤 Agentes', '#009FDB', agentes) ||
-    '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>';
+    (busqueda
+      ? `<div style="color:#99ACC2;padding:20px">Ningún agente coincide con "${busqueda}"</div>`
+      : '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>');
 
   renderAgenteVentas();
 }
