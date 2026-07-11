@@ -778,7 +778,7 @@ table thead,table tbody{display:table;width:100%}
         <div id="mr-seleccion-bar" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Quincena</th><th>Acciones</th></tr></thead>
             <tbody id="agente-mis-reportes-body"></tbody>
           </table>
         </div>
@@ -7287,12 +7287,20 @@ function renderAgenteMisReportes() {
                <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`)
         : '';
 
+    // La quincena (Q1/Q2) la decide Admin al aprobar (nunca el vendedor) —
+    // ver select "vp-quincena-*" en la cola de revisión de Admin. Antes de
+    // aprobarse, todavía no existe ese dato, así que se muestra "—".
+    const quincenaTxt = g.estado==='aprobado'
+      ? (()=>{ const p = getPeríodoPago(g.lineas[0]); return `Q${p.q} · ${p.mes}`; })()
+      : '<span style="color:#99ACC2">—</span>';
+
     const filaPrincipal = `<tr>
       <td>${editable ? `<input type="checkbox" data-grupo-id="${g.grupoId}" onchange="agenteToggleSeleccionReporte(${g.grupoId},this.checked)">` : ''}</td>
       <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'fecha',this.value)">` : g.fecha}</td>
       <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cliente',this.value)">` : (g.cliente||'—')}</td>
       <td style="font-size:11px;color:#7C98B6">${enEdicion ? '' : productos}</td>
       <td>${badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
+      <td style="font-size:11px;color:#33475B;white-space:nowrap">${quincenaTxt}</td>
       <td style="white-space:nowrap">${acciones}</td>
     </tr>`;
 
@@ -7315,7 +7323,7 @@ function renderAgenteMisReportes() {
         </td>
       </tr>`).join('');
 
-    return filaPrincipal + `<tr><td colspan="6" style="padding:0 8px 8px">
+    return filaPrincipal + `<tr><td colspan="7" style="padding:0 8px 8px">
       <div style="margin:4px 0 6px">
         <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label>
         <input type="text" value="${g.cuenta||''}" placeholder="Número de cuenta u orden" style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px;margin-left:6px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cuenta',this.value)">
@@ -7324,7 +7332,7 @@ function renderAgenteMisReportes() {
         <tbody>${filasProductos}</tbody>
       </table>
     </td></tr>`;
-  }).join('') : '<tr><td colspan="6" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
 
   agenteActualizarBarraSeleccionReportes();
 }
