@@ -7146,6 +7146,11 @@ function guardarVentaAgente() {
 // un reporte oculto por el filtro nunca quede seleccionado por accidente.
 let _mrSeleccionados = new Set();
 
+// Cuando no es null, ese grupo (reporte PENDIENTE) se muestra expandido con
+// sus campos editables directamente en la tabla — sin salir de "Mis
+// Reportes" — en vez de mandar al agente a la pantalla "Reportar Venta".
+let _mrEditandoGrupoId = null;
+
 function renderAgenteMisReportes() {
   _mrSeleccionados = new Set();
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
@@ -7161,7 +7166,7 @@ function renderAgenteMisReportes() {
     const grupos = {};
     lista.forEach(v=>{
       const gid = v.grupoId || v.id;
-      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, motivo: v.motivoRechazo||'', lineas: [] };
+      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, cuenta: v.cuenta, motivo: v.motivoRechazo||'', lineas: [] };
       grupos[gid].lineas.push(v);
     });
     return Object.values(grupos).map(g => ({ ...g, estado }));
@@ -7183,24 +7188,91 @@ function renderAgenteMisReportes() {
   body.innerHTML = todos.length ? todos.map(g => {
     const productos = g.lineas.map(l => getProdNombre(l.productoId)).join(', ');
     const editable = g.estado==='pendiente' || g.estado==='rechazado';
+    const enEdicion = g.estado==='pendiente' && _mrEditandoGrupoId===g.grupoId;
     const acciones = g.estado==='pendiente'
-      ? `<button class="btn btn-ghost btn-xs" onclick="editarReportePendiente(${g.grupoId})">✏️ Editar</button>
-         <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`
+      ? (enEdicion
+          ? `<button class="btn btn-primary btn-xs" onclick="agenteCerrarEdicionEnLinea()">✓ Listo</button>`
+          : `<button class="btn btn-ghost btn-xs" onclick="agenteEditarEnLinea(${g.grupoId})">✏️ Editar</button>
+             <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`)
       : g.estado==='rechazado'
         ? `<button class="btn btn-ghost btn-xs" onclick="agenteReenviarReporte(${g.grupoId})">🔄 Reenviar</button>
            <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`
         : '';
-    return `<tr>
+
+    const filaPrincipal = `<tr>
       <td>${editable ? `<input type="checkbox" data-grupo-id="${g.grupoId}" onchange="agenteToggleSeleccionReporte(${g.grupoId},this.checked)">` : ''}</td>
-      <td style="font-weight:600">${g.fecha}</td>
-      <td>${g.cliente||'—'}</td>
-      <td style="font-size:11px;color:#7C98B6">${productos}</td>
+      <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'fecha',this.value)">` : g.fecha}</td>
+      <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cliente',this.value)">` : (g.cliente||'—')}</td>
+      <td style="font-size:11px;color:#7C98B6">${enEdicion ? '' : productos}</td>
       <td>${badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
       <td style="white-space:nowrap">${acciones}</td>
     </tr>`;
+
+    if(!enEdicion) return filaPrincipal;
+
+    // Fila expandida: cuenta + cada línea de producto editable — mismo patrón
+    // que la cola de revisión de Admin ("Ventas Pendientes"), reutilizando
+    // catOptsAll()/buildCatOpts() y el mismo helper agenteVentaPendienteInlineEdit().
+    const filasProductos = g.lineas.map(l => `
+      <tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBEF">
+        <td style="padding:4px 8px;color:#99ACC2;font-style:italic">— producto</td>
+        <td style="padding:4px 8px">
+          <select style="border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px" onchange="agenteVentaPendienteInlineEdit(${l.id},'productoId',this.value)">
+            ${buildCatOpts(l.categoria).replace(`value="${l.productoId}"`, `value="${l.productoId}" selected`)}
+          </select>
+        </td>
+        <td style="padding:4px 8px;color:#7C98B6">${CAT_LABELS[l.categoria]||l.categoria}</td>
+        <td style="padding:4px 8px;text-align:right">
+          <input type="number" min="1" value="${l.cantidad}" style="width:55px;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right" onchange="agenteVentaPendienteInlineEdit(${l.id},'cantidad',parseInt(this.value)||1)">
+        </td>
+      </tr>`).join('');
+
+    return filaPrincipal + `<tr><td colspan="6" style="padding:0 8px 8px">
+      <div style="margin:4px 0 6px">
+        <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label>
+        <input type="text" value="${g.cuenta||''}" placeholder="Número de cuenta u orden" style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px;margin-left:6px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cuenta',this.value)">
+      </div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <tbody>${filasProductos}</tbody>
+      </table>
+    </td></tr>`;
   }).join('') : '<tr><td colspan="6" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
 
   agenteActualizarBarraSeleccionReportes();
+}
+
+function agenteEditarEnLinea(grupoId) {
+  _mrEditandoGrupoId = grupoId;
+  renderAgenteMisReportes();
+}
+
+function agenteCerrarEdicionEnLinea() {
+  _mrEditandoGrupoId = null;
+  renderAgenteMisReportes();
+}
+
+// Actualiza un campo compartido por TODAS las líneas de un reporte
+// (fecha/cliente/cuenta son iguales en cada línea de un mismo grupoId).
+function agenteActualizarCampoGrupo(grupoId, field, value) {
+  (appData.ventasPendientes||[]).forEach(v=>{
+    if(v.grupoId===grupoId) v[field] = value;
+  });
+  guardar();
+  renderAgenteMisReportes();
+  _mrEditandoGrupoId = grupoId; // el guardado de un campo no debe cerrar la edición
+}
+
+// Igual que ventaPendienteInlineEdit() (usado en la cola de Admin), pero
+// re-renderiza "Mis Reportes" en vez de la tabla de Admin — mismo dato
+// (appData.ventasPendientes), solo cambia a dónde se refresca la vista.
+function agenteVentaPendienteInlineEdit(id, field, value) {
+  const v = (appData.ventasPendientes||[]).find(x=>x.id===id);
+  if(!v) return;
+  v[field] = value;
+  if(field==='productoId') v.comision = getComisionParaAgente(value, v.agente);
+  guardar();
+  renderAgenteMisReportes();
+  _mrEditandoGrupoId = v.grupoId;
 }
 
 function agenteToggleSeleccionReporte(grupoId, checked) {
