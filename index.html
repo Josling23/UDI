@@ -13494,6 +13494,22 @@ function ejecutarMigraciones() {
     appData._mig_grabacionSolaCatV1 = true;
     if(movidos > 0) { guardar(); showNotif(`📞 "Grabación Sola" movido a la categoría Llamada Grabada`); }
   }
+
+  // Migración: ventas que vinieron de un reporte de agente (tienen
+  // reportadoPor) pero fueron aprobadas ANTES de que aprobarVentaPendiente()
+  // empezara a conservar el grupoId — sin ese dato, no les aparecía el botón
+  // de chat ni el de "Rechazar" en Registro Diario. Como el grupo original ya
+  // no se puede reconstruir con certeza, a cada línea afectada se le asigna
+  // su propio id como grupoId (queda como su propio grupo de una sola línea,
+  // en vez de perder el chat/rechazo por completo).
+  if(!appData._mig_grupoIdVentasAgenteV1) {
+    let corregidas = 0;
+    (appData.ventas||[]).forEach(v=>{
+      if(v.reportadoPor && !v.grupoId) { v.grupoId = v.id; corregidas++; }
+    });
+    appData._mig_grupoIdVentasAgenteV1 = true;
+    if(corregidas > 0) { guardar(); showNotif(`💬 ${corregidas} venta${corregidas>1?'s':''} de agente recuperaron el chat/rechazo`); }
+  }
 } // fin ejecutarMigraciones()
 
 
