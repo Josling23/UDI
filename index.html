@@ -2852,6 +2852,8 @@ function normalizarAppData() {
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
   if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
+  if(!appData.mensajesVenta) appData.mensajesVenta = [];
+  if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
   if(!appData.enlaces) appData.enlaces = { admin: [], top: [], bravo: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
@@ -2952,6 +2954,7 @@ function activarListenerAppData() {
     // realmente NUEVO y avisar con sonido — ver bloque de avisos más abajo.
     const idsPendientesAntes = new Set((appData.ventasPendientes||[]).map(v=>v.id));
     const idsRechazadasAntes = new Set((appData.ventasRechazadas||[]).map(v=>v.id));
+    const idsMensajesAntes = new Set((appData.mensajesVenta||[]).map(m=>m.id));
     appData = { ...appData, ...raw };
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
@@ -2992,6 +2995,29 @@ function activarListenerAppData() {
             const motivo = nuevosRech[0].motivoRechazo || '';
             reproducirSonidoNotif();
             showNotif(`❌ ${gruposRech.length>1 ? gruposRech.length+' reportes fueron rechazados' : 'Tu reporte fue rechazado'}${motivo ? ': '+motivo : ''}`, 'alerta', 6000);
+            _seMostroAvisoAlerta = true;
+          }
+        }
+        // Chat interno por venta: avisar de mensajes nuevos que me escribieron
+        // (Admin ve mensajes de cualquier agente; el agente solo ve mensajes
+        // de Admin sobre SUS PROPIOS reportes, en cualquier estado).
+        const nuevosMensajes = (raw.mensajesVenta||[]).filter(m=>!idsMensajesAntes.has(m.id));
+        if (nuevosMensajes.length) {
+          let mensajesParaMi = [];
+          if (perms.areas && perms.areas.includes('admin')) {
+            mensajesParaMi = nuevosMensajes.filter(m=>m.autor==='agente');
+          } else if (perms.agenteId) {
+            const misGrupoIds = new Set([
+              ...(appData.ventasPendientes||[]).filter(v=>v.reportadoPor===perms.agenteId).map(v=>v.grupoId),
+              ...(appData.ventasRechazadas||[]).filter(v=>v.reportadoPor===perms.agenteId).map(v=>v.grupoId),
+              ...(appData.ventas||[]).filter(v=>v.reportadoPor===perms.agenteId).map(v=>v.grupoId),
+            ]);
+            mensajesParaMi = nuevosMensajes.filter(m=>m.autor==='admin' && misGrupoIds.has(m.grupoId));
+          }
+          if (mensajesParaMi.length) {
+            const ultimo = mensajesParaMi[mensajesParaMi.length-1];
+            reproducirSonidoNotif();
+            showNotif(`💬 ${ultimo.autorNombre}: ${ultimo.texto}`, 'alerta', 6000);
             _seMostroAvisoAlerta = true;
           }
         }
@@ -4069,6 +4095,12 @@ function filtrarVentasPendientes() {
   });
 }
 
+let _vpChatAbierto = null;
+function adminToggleChatVenta(grupoId) {
+  _vpChatAbierto = (_vpChatAbierto===grupoId) ? null : grupoId;
+  renderVentasPendientesTabla();
+}
+
 function renderVentasPendientesTabla() {
   actualizarBadgePendientes();
   const filtradas = filtrarVentasPendientes();
@@ -4124,12 +4156,14 @@ function renderVentasPendientesTabla() {
         <td style="white-space:nowrap">
           <button class="btn btn-success btn-xs" onclick="aprobarVentaPendiente(${grupoId})">✅ Aprobar</button>
           <button class="btn btn-danger btn-xs" onclick="rechazarVentaPendiente(${grupoId})">❌ Rechazar</button>
+          <button class="btn btn-ghost btn-xs" onclick="adminToggleChatVenta(${grupoId})">💬${mensajesDeGrupo(grupoId).length ? ' '+mensajesDeGrupo(grupoId).length : ''}</button>
         </td>
       </tr>
       <tr><td colspan="8" style="padding:0 8px 8px">
         <table style="width:100%;font-size:11px;border-collapse:collapse">
           <tbody>${filasProductos}</tbody>
         </table>
+        ${_vpChatAbierto===grupoId ? chatVentaHtml(grupoId, 'vp-chat-input-'+grupoId, 'adminEnviarMensajeVenta') : ''}
       </td></tr>`;
   }).join('');
 }
@@ -4157,7 +4191,7 @@ function aprobarVentaPendiente(grupoId) {
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision,
-      reportadoPor: l.reportadoPor,
+      reportadoPor: l.reportadoPor, grupoId: l.grupoId,
     });
   });
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
@@ -4181,6 +4215,63 @@ function rechazarVentaPendiente(grupoId) {
   guardar();
   renderVentasPendientesTabla();
   showNotif('❌ Reporte rechazado');
+}
+
+// ============================================================
+// CHAT INTERNO POR VENTA — mensajería entre Admin y el agente dentro de
+// un mismo reporte (grupoId). Como aprobarVentaPendiente() ahora preserva
+// el grupoId al pasar a appData.ventas, el mismo hilo de mensajes sigue
+// disponible sin cambios sin importar si el reporte está pendiente,
+// rechazado o ya aprobado.
+// ============================================================
+function mensajesDeGrupo(grupoId) {
+  return (appData.mensajesVenta||[]).filter(m=>m.grupoId===grupoId).sort((a,b)=>(a.creadoEn||'').localeCompare(b.creadoEn||''));
+}
+
+function enviarMensajeVenta(grupoId, autor, autorNombre, inputId) {
+  const input = document.getElementById(inputId);
+  const texto = (input?.value||'').trim();
+  if(!texto) return;
+  if(!appData.mensajesVenta) appData.mensajesVenta = [];
+  if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
+  appData.mensajesVenta.push({ id: appData.nextMensajeVentaId++, grupoId, autor, autorNombre, texto, creadoEn: new Date().toISOString() });
+  guardar();
+}
+
+function adminEnviarMensajeVenta(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'vp-chat-input-'+grupoId);
+  renderVentasPendientesTabla();
+}
+
+function agenteEnviarMensajeVenta(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  enviarMensajeVenta(grupoId, 'agente', perms ? perms.nombre : 'Agente', 'mr-chat-input-'+grupoId);
+  renderAgenteMisReportes();
+}
+
+function fmtHoraMensaje(iso) {
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-ES', { day:'2-digit', month:'short' }) + ' ' + d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+}
+
+function chatVentaHtml(grupoId, inputId, onEnviarFn) {
+  const mensajes = mensajesDeGrupo(grupoId);
+  return `<div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:8px;padding:8px;margin-top:6px">
+    <div style="max-height:160px;overflow-y:auto;margin-bottom:6px">
+      ${mensajes.length ? mensajes.map(m=>`
+        <div style="margin-bottom:6px">
+          <span style="font-weight:700;font-size:11px;color:${m.autor==='admin'?'#0057A8':'#6A78D1'}">${m.autor==='admin'?'👤':'📱'} ${m.autorNombre}:</span>
+          <span style="font-size:12px;color:#33475B"> ${m.texto}</span>
+          <div style="font-size:9px;color:#99ACC2">${fmtHoraMensaje(m.creadoEn)}</div>
+        </div>`).join('') : '<div style="font-size:11px;color:#99ACC2;font-style:italic">Sin mensajes todavía — escribe algo para empezar el seguimiento de esta orden.</div>'}
+    </div>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="${inputId}" placeholder="Escribe un mensaje..." style="flex:1;border:1.5px solid #CBD6E2;border-radius:6px;padding:6px 8px;font-size:12px" onkeydown="if(event.key==='Enter'){${onEnviarFn}(${grupoId})}">
+      <button class="btn btn-primary btn-xs" onclick="${onEnviarFn}(${grupoId})">Enviar</button>
+    </div>
+  </div>`;
 }
 
 function aprobarVisiblesVentasPendientes() {
@@ -7233,6 +7324,11 @@ let _mrSeleccionados = new Set();
 // sus campos editables directamente en la tabla — sin salir de "Mis
 // Reportes" — en vez de mandar al agente a la pantalla "Reportar Venta".
 let _mrEditandoGrupoId = null;
+let _mrChatAbierto = null;
+function agenteToggleChatVenta(grupoId) {
+  _mrChatAbierto = (_mrChatAbierto===grupoId) ? null : grupoId;
+  renderAgenteMisReportes();
+}
 
 function renderAgenteMisReportes() {
   _mrSeleccionados = new Set();
@@ -7273,7 +7369,9 @@ function renderAgenteMisReportes() {
     const productos = g.lineas.map(l => getProdNombre(l.productoId)).join(', ');
     const editable = g.estado==='pendiente' || g.estado==='rechazado';
     const enEdicion = editable && _mrEditandoGrupoId===g.grupoId;
-    const acciones = g.estado==='pendiente'
+    const chatAbierto = _mrChatAbierto===g.grupoId;
+    const botonChat = `<button class="btn btn-ghost btn-xs" onclick="agenteToggleChatVenta(${g.grupoId})">💬${mensajesDeGrupo(g.grupoId).length ? ' '+mensajesDeGrupo(g.grupoId).length : ''}</button>`;
+    const acciones = (g.estado==='pendiente'
       ? (enEdicion
           ? `<button class="btn btn-primary btn-xs" onclick="agenteCerrarEdicionEnLinea()">✓ Listo</button>`
           : `<button class="btn btn-ghost btn-xs" onclick="agenteEditarEnLinea(${g.grupoId})">✏️ Editar</button>
@@ -7285,7 +7383,7 @@ function renderAgenteMisReportes() {
             : `<button class="btn btn-ghost btn-xs" onclick="agenteEditarEnLinea(${g.grupoId})">✏️ Editar</button>
                <button class="btn btn-ghost btn-xs" onclick="agenteReenviarReporte(${g.grupoId})">🔄 Reenviar</button>
                <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`)
-        : '';
+        : '') + botonChat;
 
     // La quincena (Q1/Q2) la decide Admin al aprobar (nunca el vendedor) —
     // ver select "vp-quincena-*" en la cola de revisión de Admin. Antes de
@@ -7304,34 +7402,43 @@ function renderAgenteMisReportes() {
       <td style="white-space:nowrap">${acciones}</td>
     </tr>`;
 
-    if(!enEdicion) return filaPrincipal;
+    let filaEdicion = '';
+    if(enEdicion) {
+      // Fila expandida: cuenta + cada línea de producto editable — mismo patrón
+      // que la cola de revisión de Admin ("Ventas Pendientes"), reutilizando
+      // catOptsAll()/buildCatOpts() y el mismo helper agenteVentaPendienteInlineEdit().
+      const filasProductos = g.lineas.map(l => `
+        <tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBEF">
+          <td style="padding:4px 8px;color:#99ACC2;font-style:italic">— producto</td>
+          <td style="padding:4px 8px">
+            <select style="border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px" onchange="agenteVentaPendienteInlineEdit(${l.id},'productoId',this.value)">
+              ${buildCatOpts(l.categoria).replace(`value="${l.productoId}"`, `value="${l.productoId}" selected`)}
+            </select>
+          </td>
+          <td style="padding:4px 8px;color:#7C98B6">${CAT_LABELS[l.categoria]||l.categoria}</td>
+          <td style="padding:4px 8px;text-align:right">
+            <input type="number" min="1" value="${l.cantidad}" style="width:55px;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right" onchange="agenteVentaPendienteInlineEdit(${l.id},'cantidad',parseInt(this.value)||1)">
+          </td>
+        </tr>`).join('');
 
-    // Fila expandida: cuenta + cada línea de producto editable — mismo patrón
-    // que la cola de revisión de Admin ("Ventas Pendientes"), reutilizando
-    // catOptsAll()/buildCatOpts() y el mismo helper agenteVentaPendienteInlineEdit().
-    const filasProductos = g.lineas.map(l => `
-      <tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBEF">
-        <td style="padding:4px 8px;color:#99ACC2;font-style:italic">— producto</td>
-        <td style="padding:4px 8px">
-          <select style="border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px" onchange="agenteVentaPendienteInlineEdit(${l.id},'productoId',this.value)">
-            ${buildCatOpts(l.categoria).replace(`value="${l.productoId}"`, `value="${l.productoId}" selected`)}
-          </select>
-        </td>
-        <td style="padding:4px 8px;color:#7C98B6">${CAT_LABELS[l.categoria]||l.categoria}</td>
-        <td style="padding:4px 8px;text-align:right">
-          <input type="number" min="1" value="${l.cantidad}" style="width:55px;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right" onchange="agenteVentaPendienteInlineEdit(${l.id},'cantidad',parseInt(this.value)||1)">
-        </td>
-      </tr>`).join('');
+      filaEdicion = `<tr><td colspan="7" style="padding:0 8px 8px">
+        <div style="margin:4px 0 6px">
+          <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label>
+          <input type="text" value="${g.cuenta||''}" placeholder="Número de cuenta u orden" style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px;margin-left:6px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cuenta',this.value)">
+        </div>
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <tbody>${filasProductos}</tbody>
+        </table>
+      </td></tr>`;
+    }
 
-    return filaPrincipal + `<tr><td colspan="7" style="padding:0 8px 8px">
-      <div style="margin:4px 0 6px">
-        <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label>
-        <input type="text" value="${g.cuenta||''}" placeholder="Número de cuenta u orden" style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px;margin-left:6px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cuenta',this.value)">
-      </div>
-      <table style="width:100%;font-size:11px;border-collapse:collapse">
-        <tbody>${filasProductos}</tbody>
-      </table>
-    </td></tr>`;
+    // El chat interno se puede abrir en CUALQUIER estado (pendiente, rechazado
+    // o ya aprobado) — independiente de si se está editando o no.
+    const filaChat = chatAbierto
+      ? `<tr><td colspan="7" style="padding:0 8px 8px">${chatVentaHtml(g.grupoId, 'mr-chat-input-'+g.grupoId, 'agenteEnviarMensajeVenta')}</td></tr>`
+      : '';
+
+    return filaPrincipal + filaEdicion + filaChat;
   }).join('') : '<tr><td colspan="7" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
 
   agenteActualizarBarraSeleccionReportes();
