@@ -5511,6 +5511,19 @@ function guardarVenta() {
     // Edit: eliminar todas las líneas antiguas de esta venta y crear nuevas
     // Primero, eliminar la venta original y cualquier grabación vinculada
     const originalVentaIdx = appData.ventas.findIndex(x=>x.id===editVentaId);
+    // Antes de borrar el registro original, guardar los campos que identifican
+    // que esta venta vino de un reporte de agente (reportadoPor/grupoId) y su
+    // estado de chargeback — si no se preservan, guardarVenta() los pierde
+    // por completo (la venta reconstruida ya no tendría ni chat, ni el
+    // botón de rechazar/chargeback, ni aparecería en "Mis Reportes" del
+    // vendedor, aunque siga siendo la misma venta, solo editada).
+    const original = originalVentaIdx !== -1 ? appData.ventas[originalVentaIdx] : null;
+    const reportadoPor = original ? original.reportadoPor : undefined;
+    const grupoId = original ? original.grupoId : undefined;
+    const chargebackFields = (original && original.esChargeback) ? {
+      esChargeback: true, chargebackMotivo: original.chargebackMotivo,
+      chargebackFecha: original.chargebackFecha, chargebackPor: original.chargebackPor,
+    } : {};
     if(originalVentaIdx !== -1) {
       appData.ventas.splice(originalVentaIdx, 1);
     }
@@ -5532,7 +5545,10 @@ function guardarVenta() {
         agenteGrabacion: idx === 0 ? agenteGrabacion : '',
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
-        productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision };
+        productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
+        ...(reportadoPor!==undefined ? { reportadoPor } : {}),
+        ...(grupoId!==undefined ? { grupoId } : {}),
+        ...(idx===0 ? chargebackFields : {}) };
       appData.ventas.push(ventaObj);
     });
 
