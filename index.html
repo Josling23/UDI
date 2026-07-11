@@ -7303,6 +7303,22 @@ fbAuth.onAuthStateChanged(async (user) => {
     // Usuario autenticado
     currentUser = user;
 
+    // Cargar datos de Firebase ANTES de verificar permisos. Los logins de
+    // agentes (área "Agente") viven en appData.agentes (loginEmail/
+    // loginHabilitado), NO en USERS_CONFIG — appData.agentes empieza vacío
+    // en cada carga de página, así que si se verificara el permiso antes de
+    // cargar(), CUALQUIER login de agente fallaría siempre con "correo no
+    // autorizado", sin importar que Admin ya lo haya habilitado (bug real
+    // reportado: el agente no podía entrar aunque su acceso ya estaba
+    // activo). Las cuentas de USERS_CONFIG no se ven afectadas por esperar
+    // aquí — de todas formas hace falta cargar() antes de mostrarAreas().
+    try {
+      await cargar();
+    } catch(e) {
+      console.warn('Cargar timeout/error, continuando sin datos previos:', e);
+    }
+    ejecutarMigraciones();
+
     // Verificar si tiene acceso autorizado
     const perms = getUserPermissions(user.email);
     if (!perms) {
@@ -7317,18 +7333,7 @@ fbAuth.onAuthStateChanged(async (user) => {
       chequearInicUsuarios();
     }
 
-    // Cargar datos de Firebase antes de mostrar áreas
-    // (cargar() ya maneja su propio timeout de Firebase + fallback a
-    // localStorage internamente — antes había además una carrera externa de
-    // solo 3 segundos, más corta que el timeout interno de 5 segundos, que
-    // podía abandonar la carga real antes de tiempo)
     try {
-      try {
-        await cargar();
-      } catch(e) {
-        console.warn('Cargar timeout/error, continuando sin datos previos:', e);
-      }
-      ejecutarMigraciones();
       // Mostrar pantalla de selección de áreas
       mostrarAreas();
       showNotif(`✅ ¡Hola ${perms.nombre}!`);
