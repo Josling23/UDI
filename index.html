@@ -789,6 +789,10 @@ table thead,table tbody{display:table;width:100%}
             <select id="agv-campana"><option value="">— Sin campaña / Orgánico —</option></select>
           </div>
           <div class="form-group" style="margin:10px 0 0">
+            <label>🎙️ ¿Quién grabó la llamada? (opcional, solo informativo)</label>
+            <select id="agv-grabado-por"><option value="">— No aplica / No se grabó —</option></select>
+          </div>
+          <div class="form-group" style="margin:10px 0 0">
             <label>Notas</label>
             <textarea id="agv-notas" placeholder="Observaciones del cliente o la venta..." style="min-height:48px"></textarea>
           </div>
@@ -4298,7 +4302,13 @@ function renderVentasPendientesTabla() {
     return `<tr style="background:#F9FAFB;border-top:2px solid #F5C26B">
         <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'fecha',this.value)">` : g.fecha}</td>
         <td style="font-weight:600">${g.agente}</td>
-        <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cliente',this.value)">` : (g.cliente||'⚠️ Sin cliente')}</td>
+        <td>${enEdicion
+            ? `<input type="text" value="${g.cliente||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cliente',this.value)">
+               <select style="${iStyVp};margin-top:4px;font-size:10px" onchange="adminVPActualizarCampoGrupo(${grupoId},'grabadoPor',this.value)">
+                 <option value="">🎙️ — Sin grabación —</option>
+                 ${appData.agentes.filter(a=>a.activo!==false).map(a=>`<option value="${a.nombre}" ${g.grabadoPor===a.nombre?'selected':''}>🎙️ ${a.nombre}</option>`).join('')}
+               </select>`
+            : (g.cliente||'⚠️ Sin cliente')}${!enEdicion && g.grabadoPor ? `<div style="font-size:10px;color:#7C98B6;margin-top:2px">🎙️ Grabó: ${g.grabadoPor}</div>` : ''}</td>
         <td>${enEdicion ? `<input type="text" value="${g.cuenta||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cuenta',this.value)">` : (g.cuenta||'—')}</td>
         <td>${g.mes}</td>
         <td>
@@ -4359,6 +4369,7 @@ function aprobarVentaPendiente(grupoId) {
       id: maxId, fecha: l.fecha, agente: l.agente, cliente: l.cliente, cuenta: l.cuenta,
       mes: l.mes, campana: l.campana, quincenaPago, mesPago: '',
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
+      grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn,
@@ -4738,6 +4749,11 @@ function abrirReciboVenta(grupoId) {
           <div style="font-size:10px;color:#99ACC2;font-weight:700;text-transform:uppercase">Vendedor</div>
           <div style="font-size:13px;color:#33475B;font-weight:600">${g.agente||'—'}</div>
         </div>
+        ${g.grabadoPor ? `
+        <div>
+          <div style="font-size:10px;color:#99ACC2;font-weight:700;text-transform:uppercase">🎙️ Grabó la llamada</div>
+          <div style="font-size:13px;color:#33475B;font-weight:600">${g.grabadoPor}</div>
+        </div>` : ''}
       </div>
       <div style="font-size:10px;color:#99ACC2;font-weight:700;text-transform:uppercase;margin-bottom:4px">Producto${lineas.length>1?'s':''}</div>
       ${productosHtml}
@@ -4761,8 +4777,9 @@ function compartirReciboWhatsApp(grupoId) {
     `📅 Fecha de activación: ${g.fecha}\n` +
     `🧾 Cuenta: ${g.cuenta||'—'}\n` +
     `🗓️ Mes: ${g.mes||'—'}\n` +
-    `👔 Vendedor: ${g.agente||'—'}\n\n` +
-    `📦 Producto${lineas.length>1?'s':''}:\n${productosTxt}\n\n` +
+    `👔 Vendedor: ${g.agente||'—'}\n` +
+    (g.grabadoPor ? `🎙️ Grabó la llamada: ${g.grabadoPor}\n` : '') +
+    `\n📦 Producto${lineas.length>1?'s':''}:\n${productosTxt}\n\n` +
     `Aprobada el ${fechaAprob}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
@@ -7713,11 +7730,23 @@ let _agvLineaCount = 0;
 // enviado (en vez de crear uno nuevo) — ver editarReportePendiente().
 let _agvEditGrupoId = null;
 
+// Dropdown independiente de "quién grabó la llamada" para el reporte del
+// agente — solo informativo, sin relación con el sistema de grabaciones con
+// comisión que ya existe en "+ Nueva Venta" (ese no se toca ni se reutiliza).
+function agvPoblarGrabadoPor() {
+  const sel = document.getElementById('agv-grabado-por');
+  if(!sel) return;
+  const agentes = appData.agentes.filter(a=>a.activo!==false);
+  sel.innerHTML = '<option value="">— No aplica / No se grabó —</option>' +
+    agentes.map(a=>`<option value="${a.nombre}">${a.nombre}</option>`).join('');
+}
+
 function renderAgenteReportar() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   document.getElementById('agv-agente-nombre').value = perms ? perms.nombre : '';
   document.getElementById('agv-campana').innerHTML = '<option value="">— Sin campaña / Orgánico —</option>' +
     (appData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  agvPoblarGrabadoPor();
 
   const lineasEdit = _agvEditGrupoId ? (appData.ventasPendientes||[]).filter(v=>v.grupoId===_agvEditGrupoId) : [];
   const g = lineasEdit[0] || null;
@@ -7729,6 +7758,10 @@ function renderAgenteReportar() {
   document.getElementById('agv-cuenta').value = g ? (g.cuenta||'') : '';
   document.getElementById('agv-campana').value = g ? (g.campana||'') : '';
   document.getElementById('agv-notas').value = g ? (g.notas||'') : '';
+  // El caso más común es que el propio vendedor haya grabado la llamada, así
+  // que se preselecciona su nombre por defecto — si fue otra persona, el
+  // vendedor solo tiene que cambiar el dropdown antes de enviar.
+  document.getElementById('agv-grabado-por').value = g ? (g.grabadoPor||'') : (perms ? perms.nombre : '');
 
   document.getElementById('agv-lineas-container').innerHTML = '';
   _agvLineaCount = 0;
@@ -7837,6 +7870,7 @@ function guardarVentaAgente() {
   const cuenta  = document.getElementById('agv-cuenta').value.trim();
   const campana = document.getElementById('agv-campana').value;
   const notas   = document.getElementById('agv-notas').value.trim();
+  const grabadoPor = document.getElementById('agv-grabado-por').value;
 
   if(!fecha) { showNotif('⚠️ Selecciona la fecha de activación','error'); return; }
   if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
@@ -7877,7 +7911,7 @@ function guardarVentaAgente() {
   lineas.forEach(l=>{
     const id = appData.nextVentaPendienteId++;
     appData.ventasPendientes.push({
-      id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana,
+      id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana, grabadoPor,
       notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
       productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
       reportadoPor: perms.agenteId, creadoEn: creadoEnOriginal,
@@ -7931,7 +7965,7 @@ function renderAgenteMisReportes() {
     const grupos = {};
     lista.forEach(v=>{
       const gid = v.grupoId || v.id;
-      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, cuenta: v.cuenta, motivo: v.motivoRechazo||'', lineas: [] };
+      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, cuenta: v.cuenta, motivo: v.motivoRechazo||'', grabadoPor: v.grabadoPor||'', lineas: [] };
       grupos[gid].lineas.push(v);
     });
     return Object.values(grupos).map(g => ({ ...g, estado }));
@@ -8002,7 +8036,7 @@ function renderAgenteMisReportes() {
     const filaPrincipal = `<tr>
       <td>${editable ? `<input type="checkbox" data-grupo-id="${g.grupoId}" onchange="agenteToggleSeleccionReporte(${g.grupoId},this.checked)">` : ''}</td>
       <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'fecha',this.value)">` : g.fecha}</td>
-      <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cliente',this.value)">` : (g.cliente||'—')}</td>
+      <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cliente',this.value)">` : (g.cliente||'—')}${!enEdicion && g.grabadoPor ? `<div style="font-size:10px;color:#7C98B6;margin-top:2px">🎙️ Grabó: ${g.grabadoPor}</div>` : ''}</td>
       <td style="font-size:11px;color:#7C98B6">${enEdicion ? '' : productos}</td>
       <td>${g.estado==='aprobado' && g.lineas.some(l=>l.esChargeback) ? badgeChargeback : badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
       <td style="font-size:11px;color:#33475B;white-space:nowrap">${quincenaTxt}</td>
@@ -8029,9 +8063,18 @@ function renderAgenteMisReportes() {
         </tr>`).join('');
 
       filaEdicion = `<tr><td colspan="7" style="padding:0 8px 8px">
-        <div style="margin:4px 0 6px">
-          <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label>
-          <input type="text" value="${g.cuenta||''}" placeholder="Número de cuenta u orden" style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px;margin-left:6px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cuenta',this.value)">
+        <div style="margin:4px 0 6px;display:flex;gap:14px;flex-wrap:wrap;align-items:end">
+          <div>
+            <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label><br>
+            <input type="text" value="${g.cuenta||''}" placeholder="Número de cuenta u orden" style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cuenta',this.value)">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:600;color:#7C98B6">🎙️ ¿Quién grabó la llamada?</label><br>
+            <select style="border:1.5px solid #009FDB;border-radius:6px;padding:5px 8px;font-size:12px;width:220px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'grabadoPor',this.value)">
+              <option value="">— No aplica / No se grabó —</option>
+              ${appData.agentes.filter(a=>a.activo!==false).map(a=>`<option value="${a.nombre}" ${g.grabadoPor===a.nombre?'selected':''}>${a.nombre}</option>`).join('')}
+            </select>
+          </div>
         </div>
         <table style="width:100%;font-size:11px;border-collapse:collapse">
           <tbody>${filasProductos}</tbody>
