@@ -5475,6 +5475,14 @@ function guardarVenta() {
   if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
   if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Marca "Llamada grabada" Y selecciona el agente en el dropdown 📞','error'); return; }
 
+  // Vincular automáticamente esta venta con el perfil del agente elegido
+  // (por nombre), aunque Admin la esté metiendo directo aquí en vez de que
+  // venga de un reporte del vendedor — así, en cuanto ese agente active su
+  // login (ahora o después), la ve de inmediato en "Mis Reportes", y ya
+  // tiene disponibles chat/rechazar/chargeback desde Registro Diario.
+  const agenteVinculado = appData.agentes.find(a=>normNombre(a.nombre)===normNombre(agente));
+  const reportadoPorAuto = agenteVinculado ? agenteVinculado.id : undefined;
+
   // Recoger todas las líneas — VALIDAR QUE TODAS ESTÉN COMPLETAS
   const lineas = [];
   let hasIncompleteLines = false;
@@ -5518,8 +5526,14 @@ function guardarVenta() {
     // botón de rechazar/chargeback, ni aparecería en "Mis Reportes" del
     // vendedor, aunque siga siendo la misma venta, solo editada).
     const original = originalVentaIdx !== -1 ? appData.ventas[originalVentaIdx] : null;
-    const reportadoPor = original ? original.reportadoPor : undefined;
-    const grupoId = original ? original.grupoId : undefined;
+    // Si la venta original YA estaba vinculada a un agente, se respeta tal
+    // cual (nunca se reasigna sola). Si NUNCA estuvo vinculada, se vincula
+    // ahora por nombre (agenteVinculado/reportadoPorAuto) — así una venta
+    // vieja o metida a mano por Admin queda enlazada la primera vez que se
+    // edita, sin esperar a la migración de fondo.
+    const reportadoPor = (original && original.reportadoPor !== undefined) ? original.reportadoPor : reportadoPorAuto;
+    const grupoId = (original && original.grupoId !== undefined) ? original.grupoId
+                    : (reportadoPor !== undefined ? editVentaId : undefined);
     const chargebackFields = (original && original.esChargeback) ? {
       esChargeback: true, chargebackMotivo: original.chargebackMotivo,
       chargebackFecha: original.chargebackFecha, chargebackPor: original.chargebackPor,
@@ -5567,6 +5581,11 @@ function guardarVenta() {
     let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
     console.log('MaxId inicial:', maxId);
     let firstVentaId = null;
+    // Un solo grupoId compartido por todas las líneas de esta venta nueva
+    // (si Admin la vinculó a un agente) — mismo patrón que usa el reporte
+    // propio del vendedor, para que el chat/rechazar/chargeback apliquen a
+    // toda la orden como una unidad, no línea por línea.
+    const grupoIdNuevo = reportadoPorAuto !== undefined ? Date.now() : undefined;
     lineas.forEach((l, idx)=>{
       maxId++;
       const newId = maxId;
@@ -5576,7 +5595,8 @@ function guardarVenta() {
         agenteGrabacion: idx === 0 ? agenteGrabacion : '',
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
-        productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision };
+        productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
+        ...(reportadoPorAuto!==undefined ? { reportadoPor: reportadoPorAuto, grupoId: grupoIdNuevo } : {}) };
       console.log(`Agregando venta ${idx+1}:`, ventaObj);
       appData.ventas.push(ventaObj);
       console.log(`Total ventas ahora: ${appData.ventas.length}`);
@@ -13758,6 +13778,28 @@ function ejecutarMigraciones() {
     });
     appData._mig_grabacionSolaCatV1 = true;
     if(movidos > 0) { guardar(); showNotif(`📞 "Grabación Sola" movido a la categoría Llamada Grabada`); }
+  }
+
+  // Migración: vincular TODAS las ventas ya existentes (viejas, o metidas a
+  // mano por Admin en "+ Nueva Venta") con el perfil del agente que les
+  // corresponde por nombre — así, cuando un vendedor activa su login (ahora
+  // o en el futuro), ve de inmediato TODO su historial en "Mis Reportes" y
+  // le aparecen chat/rechazar/chargeback en Registro Diario, sin importar si
+  // la venta se registró antes de que existiera esta función o si Admin la
+  // metió directamente sin pasar por el reporte del vendedor. NO se toca
+  // ningún campo financiero (comisión, quincena, etc.) — solo se rellena
+  // reportadoPor si estaba vacío, así que no cambia ningún cálculo existente.
+  // Va ANTES de la migración de grupoId de abajo para que, en la misma
+  // pasada, las ventas recién vinculadas aquí también reciban su grupoId.
+  if(!appData._mig_vincularVentasPorNombreAgenteV1) {
+    let vinculadas = 0;
+    (appData.ventas||[]).forEach(v=>{
+      if(v.reportadoPor) return; // ya vinculada, no tocar
+      const agenteObj = (appData.agentes||[]).find(a=>normNombre(a.nombre)===normNombre(v.agente));
+      if(agenteObj) { v.reportadoPor = agenteObj.id; vinculadas++; }
+    });
+    appData._mig_vincularVentasPorNombreAgenteV1 = true;
+    if(vinculadas > 0) { guardar(); showNotif(`👤 ${vinculadas} venta${vinculadas>1?'s':''} vinculada${vinculadas>1?'s':''} al perfil de su vendedor`); }
   }
 
   // Migración: ventas que vinieron de un reporte de agente (tienen
