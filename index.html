@@ -7783,15 +7783,45 @@ function abrirArea(area) {
 
 // Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
 // pantallas reales de "Reportar Venta" y "Mis Reportes" llegan en la Fase 2.
+// Chargebacks marcados recientemente que este vendedor todavía no ha visto
+// — se basa en la notificación tipo 'chargeback' sin leer (no en la fecha),
+// para que la alerta desaparezca sola en cuanto entra a revisarlos, en vez
+// de quedarse mostrando para siempre algo que ya conoce.
+function chargebacksRecientesNoLeidos(agenteId) {
+  return (appData.notificaciones||[])
+    .filter(n => n.tipo==='chargeback' && n.paraAgenteId===agenteId && !n.leida)
+    .map(n => ({ n, v: (appData.ventas||[]).find(x=>x.grupoId===n.grupoId && x.esChargeback) }))
+    .filter(x => x.v)
+    .sort((a,b) => (b.n.creadoEn||'').localeCompare(a.n.creadoEn||''));
+}
+
 function renderAgenteDashboard() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const nombre = perms ? perms.nombre : '';
   const pendientes = (appData.ventasPendientes||[]).filter(v => v.reportadoPor === perms?.agenteId);
   const gruposPendientes = new Set(pendientes.map(v => v.grupoId)).size;
   const btnStyle = 'flex:1;min-width:220px;background:#fff;border:1.5px solid #CBD6E2;border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.15s;text-align:center';
+
+  const cbRecientes = chargebacksRecientesNoLeidos(perms?.agenteId);
+  const alertaChargebacks = cbRecientes.length ? `
+    <div style="background:#FFF0F0;border:1.5px solid #F2545B;border-radius:14px;padding:16px 18px;margin-bottom:16px">
+      <div style="font-weight:800;color:#F2545B;font-size:14px;margin-bottom:10px">⚠️ Tienes ${cbRecientes.length} chargeback${cbRecientes.length>1?'s':''} sin revisar</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${cbRecientes.slice(0,3).map(({v}) => `
+          <div style="background:#fff;border:1px solid #F5C6C6;border-radius:8px;padding:8px 12px;font-size:12px">
+            <span style="font-weight:700;color:#33475B">${v.cliente||'Cliente'}</span>
+            <span style="color:#99ACC2"> · ${v.fecha}</span>
+            ${v.chargebackMotivo ? `<div style="color:#7C98B6;font-size:11px;margin-top:2px">${v.chargebackMotivo}</div>` : ''}
+          </div>`).join('')}
+        ${cbRecientes.length>3 ? `<div style="font-size:11px;color:#99ACC2">+ ${cbRecientes.length-3} más</div>` : ''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="showPage('agente-chargebacks')">Ver todos →</button>
+    </div>` : '';
+
   document.getElementById('agente-dashboard-content').innerHTML = `
     <div class="section">
       <div class="section-header"><h2>👋 Hola, ${nombre}</h2></div>
+      ${alertaChargebacks}
       <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
         <button onclick="_agvEditGrupoId=null;showPage('agente-reportar')" style="${btnStyle};border-color:#009FDB"
           onmouseover="this.style.background='#EAF7FB'" onmouseout="this.style.background='#fff'">
@@ -8337,6 +8367,16 @@ function renderAgenteChargebacks() {
   actualizarBadgeChargebacksAgente();
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agenteId = perms ? perms.agenteId : null;
+
+  // Entrar a esta pantalla cuenta como "ya lo vi" — marca como leídas las
+  // notificaciones de chargeback de este vendedor, para que la alerta de
+  // Home no se quede mostrando algo que ya revisó.
+  const noLeidas = (appData.notificaciones||[]).filter(n => n.tipo==='chargeback' && n.paraAgenteId===agenteId && !n.leida);
+  if(noLeidas.length) {
+    noLeidas.forEach(n => n.leida = true);
+    guardar();
+    actualizarBadgeNotifCampana();
+  }
 
   const r = resumenChargebacksAgente(agenteId);
   const nivel = r.pct >= 10 ? { color:'#F2545B', bg:'#FFF0F0', texto:'🔴 Nivel alto' }
