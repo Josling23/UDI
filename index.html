@@ -577,6 +577,23 @@ table thead,table tbody{display:table;width:100%}
           </table>
         </div>
       </div>
+      <div class="section">
+        <div class="section-header"><h2>🔍 Buscar Chargebacks</h2></div>
+        <div class="filters">
+          <input type="text" id="cb-f-cliente" placeholder="🔍 Buscar cliente..." oninput="renderChargebacksDetalle()">
+          <select id="cb-f-agente" onchange="renderChargebacksDetalle()"><option value="">Todos los Agentes</option></select>
+          <select id="cb-f-mes" onchange="renderChargebacksDetalle()"><option value="">Todos los Meses</option></select>
+          <select id="cb-f-anio" onchange="renderChargebacksDetalle()"><option value="">Todos los Años</option></select>
+          <input type="date" id="cb-f-fecha" title="Fecha exacta de activación" onchange="renderChargebacksDetalle()">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cb-f-cliente').value='';document.getElementById('cb-f-agente').value='';document.getElementById('cb-f-mes').value='';document.getElementById('cb-f-anio').value='';document.getElementById('cb-f-fecha').value='';renderChargebacksDetalle()">✕ Limpiar</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Producto</th><th>Mes</th><th>Motivo</th><th>Marcado por</th></tr></thead>
+            <tbody id="chargebacks-detalle-body"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ===== AGENTES ===== -->
@@ -4509,6 +4526,59 @@ function renderChargebacksAdmin() {
       <td style="text-align:right;color:${nivel};font-weight:800">${r.pct.toFixed(1)}%</td>
     </tr>`;
   }).join('');
+
+  poblarFiltrosChargebacksDetalle();
+  renderChargebacksDetalle();
+}
+
+// Búsqueda de chargebacks individuales (no el resumen % de arriba) — por
+// agente, mes, año, fecha exacta y nombre de cliente, combinables entre sí.
+function poblarFiltrosChargebacksDetalle() {
+  populateAgente('cb-f-agente');
+
+  const selMes = document.getElementById('cb-f-mes');
+  const curMes = selMes.value;
+  selMes.innerHTML = '<option value="">Todos los Meses</option>' +
+    MESES_ES.map(m=>`<option value="${m}">${m}</option>`).join('');
+  selMes.value = curMes;
+
+  const años = [...new Set((appData.ventas||[]).filter(v=>v.esChargeback && v.fecha).map(v=>v.fecha.split('-')[0]))].sort();
+  const selAño = document.getElementById('cb-f-anio');
+  const curAño = selAño.value;
+  selAño.innerHTML = '<option value="">Todos los Años</option>' +
+    años.map(y=>`<option value="${y}">${y}</option>`).join('');
+  selAño.value = curAño;
+}
+
+function renderChargebacksDetalle() {
+  const fCliente = (document.getElementById('cb-f-cliente')?.value||'').toLowerCase();
+  const fAgente  = document.getElementById('cb-f-agente')?.value||'';
+  const fMes     = document.getElementById('cb-f-mes')?.value||'';
+  const fAño     = document.getElementById('cb-f-anio')?.value||'';
+  const fFecha   = document.getElementById('cb-f-fecha')?.value||'';
+
+  const lista = (appData.ventas||[]).filter(v=>{
+    if(!v.esChargeback) return false;
+    if(fCliente && !(v.cliente||'').toLowerCase().includes(fCliente)) return false;
+    if(fAgente && v.agente!==fAgente) return false;
+    if(fMes && (v.mes||'').split(' ')[0]!==fMes) return false;
+    if(fAño && (v.fecha||'').split('-')[0]!==fAño) return false;
+    if(fFecha && v.fecha!==fFecha) return false;
+    return true;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const body = document.getElementById('chargebacks-detalle-body');
+  body.innerHTML = lista.length ? lista.map(v=>`
+    <tr>
+      <td>${v.fecha}</td>
+      <td style="font-weight:600">${v.agente}</td>
+      <td>${v.cliente||'—'}</td>
+      <td style="color:#7C98B6">${v.cuenta||'—'}</td>
+      <td>${getProdNombre(v.productoId)}</td>
+      <td>${v.mes}</td>
+      <td style="color:#7C98B6;max-width:220px" title="${v.chargebackMotivo||''}">${v.chargebackMotivo||'—'}</td>
+      <td style="color:#7C98B6">${v.chargebackPor||'—'}</td>
+    </tr>`).join('') : '<tr><td colspan="8" class="tbl-empty">Ningún chargeback coincide con los filtros</td></tr>';
 }
 
 // ============================================================
