@@ -757,11 +757,6 @@ table thead,table tbody{display:table;width:100%}
         </div>
         <div id="agv-lineas-container"></div>
 
-        <div style="background:#EAF7FB;border:1px solid #009FDB;border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
-          <div style="font-size:12px;color:#0057A8;font-weight:600">Total comisiones esta venta</div>
-          <div style="font-size:22px;font-weight:800;color:#00BDA5" id="agv-total-preview">$0.00</div>
-        </div>
-
         <div style="display:flex;justify-content:flex-end;margin-top:16px">
           <button class="btn btn-primary" onclick="guardarVentaAgente()">🕓 Enviar Reporte</button>
         </div>
@@ -773,7 +768,7 @@ table thead,table tbody{display:table;width:100%}
         <div class="section-header"><h2>📋 Mis Reportes</h2></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th style="text-align:right">Comisión</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th></tr></thead>
             <tbody id="agente-mis-reportes-body"></tbody>
           </table>
         </div>
@@ -6979,20 +6974,17 @@ function agenteAgregarLineaVenta() {
         </select>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:80px 110px 1fr;gap:8px;align-items:end">
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:end">
       <div>
         <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Cantidad</div>
         <input type="number" id="agv-qty-${idx}" min="1" value="1" style="${iSty}" oninput="agenteUpdateVentaTotal()">
       </div>
       <div>
-        <div style="font-size:10px;font-weight:600;color:#009FDB;margin-bottom:4px">Comisión/u ($)</div>
-        <input type="number" id="agv-com-${idx}" step="0.01" min="0" placeholder="0.00" readonly style="${iSty};color:#009FDB;font-weight:700;background:#F5F8FA" title="Tu tarifa — se calcula sola según el producto">
-      </div>
-      <div>
         <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Notas del producto</div>
         <input type="text" id="agv-nota-${idx}" placeholder="Ej: iPhone 17 Pro Max, Protect ✅..." style="${iSty}">
       </div>
-    </div>`;
+    </div>
+    <input type="hidden" id="agv-com-${idx}">`;
   document.getElementById('agv-lineas-container').appendChild(div);
 }
 
@@ -7113,15 +7105,13 @@ function renderAgenteMisReportes() {
   const body = document.getElementById('agente-mis-reportes-body');
   body.innerHTML = todos.length ? todos.map(g => {
     const productos = g.lineas.map(l => getProdNombre(l.productoId)).join(', ');
-    const total = g.lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
     return `<tr>
       <td style="font-weight:600">${g.fecha}</td>
       <td>${g.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos}</td>
-      <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(total)}</td>
       <td>${badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="5" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
 }
 
 function volverAreas() {
