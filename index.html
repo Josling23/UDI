@@ -424,6 +424,13 @@ table thead,table tbody{display:table;width:100%}
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       <span style="font-size:12px;color:#7C98B6" id="topbar-date"></span>
+      <div style="position:relative">
+        <button onclick="toggleNotifPanel()" title="Notificaciones" style="background:none;border:none;font-size:19px;cursor:pointer;position:relative;padding:4px;line-height:1;color:#33475B">
+          🔔
+          <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-4px;background:#F2545B;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;font-weight:800;min-width:14px;text-align:center">0</span>
+        </button>
+        <div id="notif-panel" style="display:none;position:absolute;top:34px;right:0;width:320px;max-width:90vw;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
+      </div>
       <span class="badge-dealer">AT&T VND</span>
     </div>
   </div>
@@ -2888,6 +2895,8 @@ function normalizarAppData() {
   if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
   if(!appData.mensajesVenta) appData.mensajesVenta = [];
   if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
+  if(!appData.notificaciones) appData.notificaciones = [];
+  if(!appData.nextNotificacionId) appData.nextNotificacionId = 1;
   if(!appData.enlaces) appData.enlaces = { admin: [], top: [], bravo: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
@@ -3088,6 +3097,7 @@ function activarListenerAppData() {
       actualizarBadgeChargebacksAgente();
     }
     _primerDisparoListener = false;
+    if (currentUser) actualizarBadgeNotifCampana();
 
     // Re-renderizar la página activa si ya estamos dentro de un área
     if (document.getElementById('app-wrap').style.display !== 'none') {
@@ -4303,6 +4313,9 @@ function aprobarVentaPendiente(grupoId) {
   });
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
 
+  if(lineas[0].reportadoPor) {
+    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'aprobado', `Tu reporte de ${lineas[0].cliente||'venta'} fue aprobado`, grupoId);
+  }
   guardar();
   renderVentasPendientesTabla();
   renderDashboard();
@@ -4319,6 +4332,9 @@ function rechazarVentaPendiente(grupoId) {
   lineas.forEach(l=> appData.ventasRechazadas.push({ ...l, motivoRechazo: motivo.trim() || 'Sin motivo especificado' }));
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
 
+  if(lineas[0].reportadoPor) {
+    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'rechazado', `Tu reporte fue rechazado: ${motivo.trim()||'Sin motivo especificado'}`, grupoId);
+  }
   guardar();
   renderVentasPendientesTabla();
   showNotif('❌ Reporte rechazado');
@@ -4342,6 +4358,9 @@ function revertirVentaAprobada(grupoId) {
   lineas.forEach(l=> appData.ventasRechazadas.push({ ...l, motivoRechazo: motivo.trim() || 'Sin motivo especificado' }));
   appData.ventas = appData.ventas.filter(v=>v.grupoId!==grupoId);
 
+  if(lineas[0].reportadoPor) {
+    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'rechazado', `Tu venta ya aprobada fue revertida a rechazada: ${motivo.trim()||'Sin motivo especificado'}`, grupoId);
+  }
   guardar();
   renderVentas();
   renderDashboard();
@@ -4369,6 +4388,9 @@ function marcarVentaChargeback(ventaId) {
   v.chargebackMotivo = motivo.trim() || 'Sin motivo especificado';
   v.chargebackFecha = new Date().toISOString();
   v.chargebackPor = perms ? perms.nombre : 'Admin';
+  if(v.reportadoPor) {
+    crearNotificacion({ paraAgenteId: v.reportadoPor }, 'chargeback', `Tu venta de ${v.cliente||'un cliente'} fue marcada como Chargeback: ${v.chargebackMotivo}`, v.grupoId);
+  }
   guardar();
   renderVentas();
   showNotif('⚠️ Venta marcada como Chargeback');
@@ -4378,6 +4400,9 @@ function quitarVentaChargeback(ventaId) {
   const v = (appData.ventas||[]).find(x=>x.id===ventaId);
   if(!v || !v.esChargeback) return;
   if(!confirm('¿Quitar la marca de Chargeback de esta venta?')) return;
+  if(v.reportadoPor) {
+    crearNotificacion({ paraAgenteId: v.reportadoPor }, 'chargeback_removido', `Se quitó la marca de Chargeback de tu venta de ${v.cliente||'un cliente'}`, v.grupoId);
+  }
   v.esChargeback = false;
   delete v.chargebackMotivo;
   delete v.chargebackFecha;
@@ -4423,6 +4448,145 @@ function renderChargebacksAdmin() {
 }
 
 // ============================================================
+// CAMPANITA DE NOTIFICACIONES — a diferencia del sonido/toast en tiempo
+// real (que solo avisa si la otra persona tiene la app abierta en ESE
+// momento), estas quedan guardadas en appData.notificaciones para que
+// Admin y el vendedor las vean en cualquier momento al entrar, con un clic
+// que los lleva directo a la venta/reporte correspondiente.
+// ============================================================
+function crearNotificacion(destino, tipo, texto, grupoId) {
+  if(!appData.notificaciones) appData.notificaciones = [];
+  if(!appData.nextNotificacionId) appData.nextNotificacionId = 1;
+  appData.notificaciones.push({
+    id: appData.nextNotificacionId++,
+    paraAdmin: !!destino.paraAdmin,
+    paraAgenteId: destino.paraAgenteId != null ? destino.paraAgenteId : null,
+    tipo, texto, grupoId,
+    leida: false,
+    creadoEn: new Date().toISOString(),
+  });
+}
+
+// Busca a qué agente pertenece un grupoId, sin importar en qué colección
+// viva ahora mismo (pendiente, rechazada o ya aprobada).
+function reportadoPorDeGrupo(grupoId) {
+  const enP = (appData.ventasPendientes||[]).find(v=>v.grupoId===grupoId);
+  if(enP) return enP.reportadoPor;
+  const enR = (appData.ventasRechazadas||[]).find(v=>v.grupoId===grupoId);
+  if(enR) return enR.reportadoPor;
+  const enV = (appData.ventas||[]).find(v=>v.grupoId===grupoId);
+  if(enV) return enV.reportadoPor;
+  return null;
+}
+
+function misNotificaciones() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(!perms) return [];
+  if(perms.areas && perms.areas.includes('admin')) {
+    return (appData.notificaciones||[]).filter(n=>n.paraAdmin);
+  } else if(perms.agenteId) {
+    return (appData.notificaciones||[]).filter(n=>n.paraAgenteId===perms.agenteId);
+  }
+  return [];
+}
+
+function actualizarBadgeNotifCampana() {
+  const badge = document.getElementById('notif-bell-badge');
+  if(!badge) return;
+  const n = misNotificaciones().filter(x=>!x.leida).length;
+  badge.style.display = n > 0 ? 'inline-block' : 'none';
+  badge.textContent = n > 9 ? '9+' : n;
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  if(!panel) return;
+  const abrir = panel.style.display === 'none';
+  panel.style.display = abrir ? 'block' : 'none';
+  if(abrir) renderNotifPanel();
+}
+
+// Cerrar el panel de notificaciones al hacer clic afuera.
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('notif-panel');
+  if(!panel || panel.style.display === 'none') return;
+  if(panel.contains(e.target)) return;
+  if(e.target.closest('button[title="Notificaciones"]')) return;
+  panel.style.display = 'none';
+});
+
+const NOTIF_ICONOS = { reporte_nuevo:'🔔', aprobado:'✅', rechazado:'❌', mensaje:'💬', chargeback:'⚠️', chargeback_removido:'✅' };
+
+function renderNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  if(!panel) return;
+  const lista = misNotificaciones().slice().sort((a,b)=>(b.creadoEn||'').localeCompare(a.creadoEn||''));
+  panel.innerHTML = `
+    <div style="padding:10px 14px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:13px;color:#33475B">🔔 Notificaciones</b>
+      ${lista.some(n=>!n.leida) ? `<button onclick="marcarTodasNotifLeidas()" style="background:none;border:none;color:#009FDB;font-size:11px;cursor:pointer;font-weight:600">Marcar todas leídas</button>` : ''}
+    </div>
+    <div style="max-height:360px;overflow-y:auto">
+      ${lista.length ? lista.slice(0,40).map(n=>`
+        <div onclick="irANotificacion(${n.id})" style="padding:10px 14px;border-bottom:1px solid #F5F8FA;cursor:pointer;background:${n.leida?'#fff':'#EAF7FB'}">
+          <div style="font-size:12px;color:#33475B">${NOTIF_ICONOS[n.tipo]||'🔔'} ${n.texto}</div>
+          <div style="font-size:10px;color:#99ACC2;margin-top:2px">${fmtHoraMensaje(n.creadoEn)}</div>
+        </div>`).join('') : '<div style="padding:24px;text-align:center;color:#99ACC2;font-size:12px">Sin notificaciones</div>'}
+    </div>`;
+}
+
+function marcarTodasNotifLeidas() {
+  misNotificaciones().forEach(n=>n.leida=true);
+  guardar();
+  renderNotifPanel();
+  actualizarBadgeNotifCampana();
+}
+
+// Clic en una notificación: la marca como leída, cierra el panel, y lleva
+// a Admin o al vendedor directo a la pantalla + venta/reporte que la
+// generó, abriendo también el chat de esa orden para dar contexto.
+function irANotificacion(id) {
+  const n = (appData.notificaciones||[]).find(x=>x.id===id);
+  if(!n) return;
+  n.leida = true;
+  guardar();
+  document.getElementById('notif-panel').style.display = 'none';
+  actualizarBadgeNotifCampana();
+
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(!perms) return;
+  const esAdmin = perms.areas && perms.areas.includes('admin');
+
+  if(esAdmin) {
+    abrirArea('admin');
+    const enPendientes = (appData.ventasPendientes||[]).some(v=>v.grupoId===n.grupoId);
+    if(enPendientes) {
+      const searchEl = document.getElementById('vp-search'); if(searchEl) searchEl.value = '';
+      const agEl = document.getElementById('vp-f-agente'); if(agEl) agEl.value = '';
+      const mesEl = document.getElementById('vp-f-mes'); if(mesEl) mesEl.value = '';
+      showPage('ventas-pendientes', null);
+      _vpChatAbierto = n.grupoId;
+      renderVentasPendientesTabla();
+    } else {
+      ['fv-search','fv-cat','fv-agente','fv-mes','fv-fecha-desde','fv-fecha-hasta'].forEach(id=>{
+        const el = document.getElementById(id); if(el) el.value = '';
+      });
+      showPage('ventas', null);
+      _ventasChatAbierto = n.grupoId;
+      renderVentas();
+    }
+  } else {
+    abrirArea('agente');
+    ['mr-f-fecha','mr-f-mes','mr-f-quincena'].forEach(id=>{
+      const el = document.getElementById(id); if(el) el.value = '';
+    });
+    showPage('agente-mis-reportes', null);
+    _mrChatAbierto = n.grupoId;
+    renderAgenteMisReportes();
+  }
+}
+
+// ============================================================
 // CHAT INTERNO POR VENTA — mensajería entre Admin y el agente dentro de
 // un mismo reporte (grupoId). Como aprobarVentaPendiente() ahora preserva
 // el grupoId al pasar a appData.ventas, el mismo hilo de mensajes sigue
@@ -4436,22 +4600,28 @@ function mensajesDeGrupo(grupoId) {
 function enviarMensajeVenta(grupoId, autor, autorNombre, inputId) {
   const input = document.getElementById(inputId);
   const texto = (input?.value||'').trim();
-  if(!texto) return;
+  if(!texto) return null;
   if(!appData.mensajesVenta) appData.mensajesVenta = [];
   if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
   appData.mensajesVenta.push({ id: appData.nextMensajeVentaId++, grupoId, autor, autorNombre, texto, creadoEn: new Date().toISOString() });
   guardar();
+  return texto;
 }
 
 function adminEnviarMensajeVenta(grupoId) {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
-  enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'vp-chat-input-'+grupoId);
+  const texto = enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'vp-chat-input-'+grupoId);
+  if(texto) {
+    const agenteId = reportadoPorDeGrupo(grupoId);
+    if(agenteId) { crearNotificacion({ paraAgenteId: agenteId }, 'mensaje', `${perms?perms.nombre:'Admin'}: ${texto}`, grupoId); guardar(); }
+  }
   renderVentasPendientesTabla();
 }
 
 function agenteEnviarMensajeVenta(grupoId) {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
-  enviarMensajeVenta(grupoId, 'agente', perms ? perms.nombre : 'Agente', 'mr-chat-input-'+grupoId);
+  const texto = enviarMensajeVenta(grupoId, 'agente', perms ? perms.nombre : 'Agente', 'mr-chat-input-'+grupoId);
+  if(texto) { crearNotificacion({ paraAdmin: true }, 'mensaje', `${perms?perms.nombre:'Un vendedor'}: ${texto}`, grupoId); guardar(); }
   renderAgenteMisReportes();
 }
 
@@ -4491,7 +4661,11 @@ function adminToggleChatVentaOficial(grupoId) {
 }
 function adminEnviarMensajeVentaOficial(grupoId) {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
-  enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'ventas-chat-input-'+grupoId);
+  const texto = enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'ventas-chat-input-'+grupoId);
+  if(texto) {
+    const agenteId = reportadoPorDeGrupo(grupoId);
+    if(agenteId) { crearNotificacion({ paraAgenteId: agenteId }, 'mensaje', `${perms?perms.nombre:'Admin'}: ${texto}`, grupoId); guardar(); }
+  }
   renderVentas();
 }
 
@@ -7353,6 +7527,7 @@ function abrirArea(area) {
   else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
   else if(area==='agente') { showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente(); }
+  actualizarBadgeNotifCampana();
 }
 
 // Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
@@ -7573,6 +7748,9 @@ function guardarVentaAgente() {
     });
   });
 
+  if(!editando) {
+    crearNotificacion({ paraAdmin: true }, 'reporte_nuevo', `Nuevo reporte de ${perms.nombre}: ${cliente}`, grupoId);
+  }
   guardar();
   showNotif(editando
     ? `✅ Reporte actualizado (${lineas.length} producto${lineas.length>1?'s':''})`
@@ -7835,6 +8013,10 @@ function agenteReenviarReporte(grupoId) {
     appData.ventasPendientes.push({ ...resto, id: appData.nextVentaPendienteId++, grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
   });
   appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
+  if(lineas[0].reportadoPor) {
+    const perms = getUserPermissions(currentUser ? currentUser.email : '');
+    crearNotificacion({ paraAdmin: true }, 'reporte_nuevo', `${perms?perms.nombre:'Un vendedor'} reenvió un reporte corregido: ${lineas[0].cliente||''}`, nuevoGrupoId);
+  }
   guardar();
   renderAgenteMisReportes();
   showNotif('🔄 Reporte reenviado — pendiente de revisión otra vez');
@@ -7863,7 +8045,8 @@ function agenteToggleChatVentaCB(grupoId) {
 }
 function agenteEnviarMensajeVentaCB(grupoId) {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
-  enviarMensajeVenta(grupoId, 'agente', perms ? perms.nombre : 'Agente', 'cb-agente-chat-input-'+grupoId);
+  const texto = enviarMensajeVenta(grupoId, 'agente', perms ? perms.nombre : 'Agente', 'cb-agente-chat-input-'+grupoId);
+  if(texto) { crearNotificacion({ paraAdmin: true }, 'mensaje', `${perms?perms.nombre:'Un vendedor'}: ${texto}`, grupoId); guardar(); }
   renderAgenteChargebacks();
 }
 
