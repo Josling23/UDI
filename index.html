@@ -4378,12 +4378,12 @@ function aprobarVentaPendiente(grupoId) {
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
 
   if(lineas[0].reportadoPor) {
-    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'aprobado', `Tu reporte de ${lineas[0].cliente||'venta'} fue aprobado`, grupoId);
+    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'aprobado', `Tu reporte de ${lineas[0].cliente||'venta'} fue activado`, grupoId);
   }
   guardar();
   renderVentasPendientesTabla();
   renderDashboard();
-  showNotif(`✅ ${lineas.length} línea${lineas.length>1?'s':''} aprobada${lineas.length>1?'s':''} — ya cuenta${lineas.length>1?'n':''} como venta oficial`);
+  showNotif(`✅ ${lineas.length} línea${lineas.length>1?'s':''} activada${lineas.length>1?'s':''} — ya cuenta${lineas.length>1?'n':''} como venta oficial`);
 }
 
 function rechazarVentaPendiente(grupoId) {
@@ -4724,7 +4724,7 @@ function abrirReciboVenta(grupoId) {
   document.getElementById('recibo-venta-contenido').innerHTML = `
     <div style="background:linear-gradient(135deg,#00A492,#00BDA5);padding:24px 20px;text-align:center;color:#fff;border-radius:12px 12px 0 0">
       <div style="font-size:40px">✅</div>
-      <div style="font-size:16px;font-weight:800;margin-top:6px;letter-spacing:0.5px">VENTA APROBADA</div>
+      <div style="font-size:16px;font-weight:800;margin-top:6px;letter-spacing:0.5px">ACTIVACIÓN</div>
       <div style="font-size:11px;opacity:0.85;margin-top:2px">USA Distributor Inc. — AT&T VND</div>
     </div>
     <div style="padding:18px 20px">
@@ -4758,7 +4758,7 @@ function abrirReciboVenta(grupoId) {
       <div style="font-size:10px;color:#99ACC2;font-weight:700;text-transform:uppercase;margin-bottom:4px">Producto${lineas.length>1?'s':''}</div>
       ${productosHtml}
       <div style="margin-top:16px;padding-top:12px;border-top:2px solid #F5F8FA;text-align:center">
-        <span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:4px 14px;font-size:12px;font-weight:700">✅ Aprobada el ${fechaAprob}</span>
+        <span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:4px 14px;font-size:12px;font-weight:700">✅ Activada el ${fechaAprob}</span>
       </div>
     </div>`;
 
@@ -4772,7 +4772,7 @@ function compartirReciboWhatsApp(grupoId) {
   const g = lineas[0];
   const productosTxt = lineas.map(l=>`• ${getProdNombre(l.productoId)} x${l.cantidad}`).join('\n');
   const fechaAprob = g.aprobadoEn ? fmtHoraMensaje(g.aprobadoEn) : '';
-  const texto = `✅ *VENTA APROBADA* — USA Distributor Inc.\n\n` +
+  const texto = `✅ *ACTIVACIÓN* — USA Distributor Inc.\n\n` +
     `👤 Cliente: ${g.cliente||'—'}\n` +
     `📅 Fecha de activación: ${g.fecha}\n` +
     `🧾 Cuenta: ${g.cuenta||'—'}\n` +
@@ -4780,7 +4780,7 @@ function compartirReciboWhatsApp(grupoId) {
     `👔 Vendedor: ${g.agente||'—'}\n` +
     (g.grabadoPor ? `🎙️ Grabó la llamada: ${g.grabadoPor}\n` : '') +
     `\n📦 Producto${lineas.length>1?'s':''}:\n${productosTxt}\n\n` +
-    `Aprobada el ${fechaAprob}`;
+    `Activada el ${fechaAprob}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
@@ -7998,7 +7998,7 @@ function renderAgenteMisReportes() {
 
   const badges = {
     pendiente: '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
-    aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Aprobado</span>',
+    aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Activación</span>',
     rechazado: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
   };
   const badgeChargeback = '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">⚠️ Chargeback</span>';
