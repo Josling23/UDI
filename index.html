@@ -402,7 +402,7 @@ table thead,table tbody{display:table;width:100%}
   <nav class="sidebar-nav" id="sidebar-nav-agente" style="display:none">
     <div class="nav-section">📝 MIS VENTAS</div>
     <div class="nav-item active" onclick="showPage('agente-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
-    <div class="nav-item" onclick="showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
+    <div class="nav-item" onclick="_agvEditGrupoId=null;showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
     <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -715,8 +715,12 @@ table thead,table tbody{display:table;width:100%}
 
     <div class="page" id="page-agente-reportar">
       <div class="section">
-        <div class="section-header"><h2>📝 Reportar Venta</h2></div>
+        <div class="section-header"><h2 id="agv-form-titulo">📝 Reportar Venta</h2></div>
         <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Tu reporte queda pendiente hasta que Admin lo revise y lo apruebe.</div>
+        <div id="agv-editando-banner" style="display:none;background:#FFFBEF;border:1.5px solid #F5C26B;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#B45309;justify-content:space-between;align-items:center">
+          <span>✏️ Estás editando un reporte ya enviado.</span>
+          <button onclick="cancelarEdicionReporte()" style="background:none;border:1px solid #B45309;color:#B45309;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">✕ Cancelar edición</button>
+        </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
           <div class="form-group" style="margin:0">
@@ -766,9 +770,14 @@ table thead,table tbody{display:table;width:100%}
     <div class="page" id="page-agente-mis-reportes">
       <div class="section">
         <div class="section-header"><h2>📋 Mis Reportes</h2></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+          <input type="date" id="mr-f-fecha" onchange="renderAgenteMisReportes()" title="Buscar por fecha" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+          <button onclick="document.getElementById('mr-f-fecha').value='';renderAgenteMisReportes()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+        </div>
+        <div id="mr-seleccion-bar" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody id="agente-mis-reportes-body"></tbody>
           </table>
         </div>
@@ -6909,15 +6918,25 @@ function renderAgenteDashboard() {
   const nombre = perms ? perms.nombre : '';
   const pendientes = (appData.ventasPendientes||[]).filter(v => v.reportadoPor === perms?.agenteId);
   const gruposPendientes = new Set(pendientes.map(v => v.grupoId)).size;
+  const btnStyle = 'flex:1;min-width:220px;background:#fff;border:1.5px solid #CBD6E2;border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.15s;text-align:center';
   document.getElementById('agente-dashboard-content').innerHTML = `
     <div class="section">
       <div class="section-header"><h2>👋 Hola, ${nombre}</h2></div>
-      <div class="cards" style="margin-bottom:16px">
-        <div class="card orange"><label>🟡 Reportes Pendientes</label><div class="val">${gruposPendientes}</div></div>
-      </div>
-      <div style="background:#F4F5FF;border:1.5px solid #6A78D1;border-radius:10px;padding:18px;color:#33475B;font-size:13px">
-        Usa <b>📝 Reportar Venta</b> cuando actives una venta nueva, y revisa <b>📋 Mis Reportes</b>
-        para ver si Admin ya la aprobó.
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+        <button onclick="_agvEditGrupoId=null;showPage('agente-reportar')" style="${btnStyle};border-color:#009FDB"
+          onmouseover="this.style.background='#EAF7FB'" onmouseout="this.style.background='#fff'">
+          <div style="font-size:36px;margin-bottom:8px">📝</div>
+          <div style="color:#009FDB;font-size:16px;font-weight:800">Reportar Venta</div>
+          <div style="color:#7C98B6;font-size:11px;margin-top:4px">Anota una venta que acabas de activar</div>
+        </button>
+        <button onclick="showPage('agente-mis-reportes')" style="${btnStyle};border-color:#6A78D1"
+          onmouseover="this.style.background='#F4F5FF'" onmouseout="this.style.background='#fff'">
+          <div style="font-size:36px;margin-bottom:8px">📋</div>
+          <div style="color:#6A78D1;font-size:16px;font-weight:800">Mis Reportes</div>
+          <div style="color:#7C98B6;font-size:11px;margin-top:4px">
+            ${gruposPendientes>0 ? `${gruposPendientes} pendiente${gruposPendientes>1?'s':''} de revisión` : 'Revisa el estado de tus reportes'}
+          </div>
+        </button>
       </div>
     </div>
   `;
@@ -6935,20 +6954,55 @@ function renderAgenteDashboard() {
 // que Admin lo apruebe (Fase 3).
 // ============================================================
 let _agvLineaCount = 0;
+// Cuando no es null, "Reportar Venta" está editando un reporte PENDIENTE ya
+// enviado (en vez de crear uno nuevo) — ver editarReportePendiente().
+let _agvEditGrupoId = null;
 
 function renderAgenteReportar() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   document.getElementById('agv-agente-nombre').value = perms ? perms.nombre : '';
-  document.getElementById('agv-fecha').value = new Date().toISOString().split('T')[0];
-  document.getElementById('agv-cliente').value = '';
-  document.getElementById('agv-cuenta').value = '';
-  document.getElementById('agv-notas').value = '';
   document.getElementById('agv-campana').innerHTML = '<option value="">— Sin campaña / Orgánico —</option>' +
     (appData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+
+  const lineasEdit = _agvEditGrupoId ? (appData.ventasPendientes||[]).filter(v=>v.grupoId===_agvEditGrupoId) : [];
+  const g = lineasEdit[0] || null;
+
+  document.getElementById('agv-form-titulo').textContent = g ? '✏️ Editar Reporte' : '📝 Reportar Venta';
+  document.getElementById('agv-editando-banner').style.display = g ? 'flex' : 'none';
+  document.getElementById('agv-fecha').value = g ? g.fecha : new Date().toISOString().split('T')[0];
+  document.getElementById('agv-cliente').value = g ? (g.cliente||'') : '';
+  document.getElementById('agv-cuenta').value = g ? (g.cuenta||'') : '';
+  document.getElementById('agv-campana').value = g ? (g.campana||'') : '';
+  document.getElementById('agv-notas').value = g ? (g.notas||'') : '';
+
   document.getElementById('agv-lineas-container').innerHTML = '';
   _agvLineaCount = 0;
-  agenteAgregarLineaVenta();
+  if(lineasEdit.length) {
+    lineasEdit.forEach(l=>{
+      agenteAgregarLineaVenta();
+      const idx = _agvLineaCount;
+      document.getElementById('agv-cat-'+idx).value = l.categoria||'';
+      agenteOnLineCatChange(idx);
+      document.getElementById('agv-prod-'+idx).value = l.productoId||'';
+      document.getElementById('agv-qty-'+idx).value = l.cantidad||1;
+      document.getElementById('agv-com-'+idx).value = l.comision!=null ? l.comision : '';
+    });
+  } else {
+    agenteAgregarLineaVenta();
+  }
   agenteUpdateVentaTotal();
+}
+
+// Abre "Reportar Venta" precargado con los datos de un reporte PENDIENTE ya
+// enviado, para corregirlo sin tener que volver a escribir todo.
+function editarReportePendiente(grupoId) {
+  _agvEditGrupoId = grupoId;
+  showPage('agente-reportar', null);
+}
+
+function cancelarEdicionReporte() {
+  _agvEditGrupoId = null;
+  renderAgenteReportar();
 }
 
 function agenteAgregarLineaVenta() {
@@ -7054,26 +7108,46 @@ function guardarVentaAgente() {
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
 
-  const grupoId = Date.now();
+  // Editando un reporte ya enviado: se reemplazan sus líneas (mismo grupoId,
+  // se conserva cuándo se creó originalmente) en vez de crear uno nuevo.
+  const editando = _agvEditGrupoId !== null;
+  const grupoId = editando ? _agvEditGrupoId : Date.now();
+  const creadoEnOriginal = editando
+    ? ((appData.ventasPendientes||[]).find(v=>v.grupoId===grupoId)?.creadoEn || new Date().toISOString())
+    : new Date().toISOString();
+  if(editando) {
+    appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
+  }
+
   lineas.forEach(l=>{
     const id = appData.nextVentaPendienteId++;
     appData.ventasPendientes.push({
       id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana,
       notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
       productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
-      reportadoPor: perms.agenteId, creadoEn: new Date().toISOString(),
+      reportadoPor: perms.agenteId, creadoEn: creadoEnOriginal,
     });
   });
 
   guardar();
-  showNotif(`🕓 Reporte enviado — pendiente de revisión (${lineas.length} producto${lineas.length>1?'s':''})`);
+  showNotif(editando
+    ? `✅ Reporte actualizado (${lineas.length} producto${lineas.length>1?'s':''})`
+    : `🕓 Reporte enviado — pendiente de revisión (${lineas.length} producto${lineas.length>1?'s':''})`);
+  _agvEditGrupoId = null;
   renderAgenteReportar();
 }
 
 // ============================================================
 // AGENTE — MIS REPORTES (Fase 2)
 // ============================================================
+// Selección de reportes (solo pendientes/rechazados — los aprobados ya son
+// oficiales y no se pueden tocar desde aquí). Se resetea cada vez que se
+// vuelve a renderizar/filtrar, mismo patrón que Salud -> Clientes, para que
+// un reporte oculto por el filtro nunca quede seleccionado por accidente.
+let _mrSeleccionados = new Set();
+
 function renderAgenteMisReportes() {
+  _mrSeleccionados = new Set();
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agenteId = perms ? perms.agenteId : null;
 
@@ -7093,8 +7167,11 @@ function renderAgenteMisReportes() {
     return Object.values(grupos).map(g => ({ ...g, estado }));
   }
 
-  const todos = [...agrupar(pendientes,'pendiente'), ...agrupar(rechazadas,'rechazado'), ...agrupar(aprobadas,'aprobado')]
-    .sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+  const fFecha = document.getElementById('mr-f-fecha')?.value || '';
+
+  let todos = [...agrupar(pendientes,'pendiente'), ...agrupar(rechazadas,'rechazado'), ...agrupar(aprobadas,'aprobado')];
+  if(fFecha) todos = todos.filter(g => g.fecha === fFecha);
+  todos.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
 
   const badges = {
     pendiente: '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
@@ -7105,13 +7182,99 @@ function renderAgenteMisReportes() {
   const body = document.getElementById('agente-mis-reportes-body');
   body.innerHTML = todos.length ? todos.map(g => {
     const productos = g.lineas.map(l => getProdNombre(l.productoId)).join(', ');
+    const editable = g.estado==='pendiente' || g.estado==='rechazado';
+    const acciones = g.estado==='pendiente'
+      ? `<button class="btn btn-ghost btn-xs" onclick="editarReportePendiente(${g.grupoId})">✏️ Editar</button>
+         <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`
+      : g.estado==='rechazado'
+        ? `<button class="btn btn-ghost btn-xs" onclick="agenteReenviarReporte(${g.grupoId})">🔄 Reenviar</button>
+           <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`
+        : '';
     return `<tr>
+      <td>${editable ? `<input type="checkbox" data-grupo-id="${g.grupoId}" onchange="agenteToggleSeleccionReporte(${g.grupoId},this.checked)">` : ''}</td>
       <td style="font-weight:600">${g.fecha}</td>
       <td>${g.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos}</td>
       <td>${badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
+      <td style="white-space:nowrap">${acciones}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="4" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
+
+  agenteActualizarBarraSeleccionReportes();
+}
+
+function agenteToggleSeleccionReporte(grupoId, checked) {
+  if(checked) _mrSeleccionados.add(grupoId); else _mrSeleccionados.delete(grupoId);
+  agenteActualizarBarraSeleccionReportes();
+}
+
+function agenteToggleSeleccionarTodosReportes(checkboxMaestro) {
+  const marcar = checkboxMaestro.checked;
+  document.querySelectorAll('#agente-mis-reportes-body input[type="checkbox"][data-grupo-id]').forEach(cb=>{
+    cb.checked = marcar;
+    const gid = parseInt(cb.getAttribute('data-grupo-id'));
+    if(marcar) _mrSeleccionados.add(gid); else _mrSeleccionados.delete(gid);
+  });
+  agenteActualizarBarraSeleccionReportes();
+}
+
+function agenteActualizarBarraSeleccionReportes() {
+  const el = document.getElementById('mr-seleccion-bar');
+  if(!el) return;
+  const n = _mrSeleccionados.size;
+  el.innerHTML = n > 0 ? `
+    <div style="display:flex;gap:8px;align-items:center;background:#F5F8FA;border:1px solid #CBD6E2;border-radius:8px;padding:8px 12px">
+      <span style="font-size:12px;color:#7C98B6;font-weight:600">${n} seleccionado${n>1?'s':''}</span>
+      <button class="btn btn-ghost btn-sm" onclick="agenteReenviarReportesSeleccionados()">🔄 Reenviar rechazados</button>
+      <button class="btn btn-danger btn-sm" onclick="agenteEliminarReportesSeleccionados()">🗑️ Eliminar seleccionados</button>
+    </div>` : '';
+}
+
+// Quita un reporte (pendiente o rechazado) de la lista sin dejar rastro —
+// para cuando el agente decide que ya no quiere enviarlo/no era real.
+function agenteEliminarReporte(grupoId) {
+  if(!confirm('¿Eliminar este reporte? No se puede deshacer.')) return;
+  appData.ventasPendientes = (appData.ventasPendientes||[]).filter(v=>v.grupoId!==grupoId);
+  appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
+  guardar();
+  renderAgenteMisReportes();
+  showNotif('🗑️ Reporte eliminado');
+}
+
+function agenteEliminarReportesSeleccionados() {
+  const ids = [..._mrSeleccionados];
+  if(!ids.length) return;
+  if(!confirm(`¿Eliminar ${ids.length} reporte${ids.length>1?'s':''} seleccionado${ids.length>1?'s':''}? No se puede deshacer.`)) return;
+  appData.ventasPendientes = (appData.ventasPendientes||[]).filter(v=>!ids.includes(v.grupoId));
+  appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>!ids.includes(v.grupoId));
+  guardar();
+  renderAgenteMisReportes();
+  showNotif(`🗑️ ${ids.length} reporte${ids.length>1?'s':''} eliminado${ids.length>1?'s':''}`);
+}
+
+// Mueve un reporte RECHAZADO de vuelta a pendientes (con un grupoId nuevo,
+// sin motivoRechazo) para que Admin lo revise de nuevo, sin que el agente
+// tenga que volver a escribir todo desde cero.
+function agenteReenviarReporte(grupoId) {
+  const lineas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId===grupoId);
+  if(!lineas.length) return;
+  if(!appData.ventasPendientes) appData.ventasPendientes = [];
+  if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
+  const nuevoGrupoId = Date.now();
+  lineas.forEach(l=>{
+    const { motivoRechazo, id, grupoId: _viejo, ...resto } = l;
+    appData.ventasPendientes.push({ ...resto, id: appData.nextVentaPendienteId++, grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
+  });
+  appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
+  guardar();
+  renderAgenteMisReportes();
+  showNotif('🔄 Reporte reenviado — pendiente de revisión otra vez');
+}
+
+function agenteReenviarReportesSeleccionados() {
+  const ids = [..._mrSeleccionados].filter(gid => (appData.ventasRechazadas||[]).some(v=>v.grupoId===gid));
+  if(!ids.length) { showNotif('⚠️ Selecciona al menos un reporte RECHAZADO para reenviar','error'); return; }
+  ids.forEach(gid => agenteReenviarReporte(gid));
 }
 
 function volverAreas() {
