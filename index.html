@@ -7941,13 +7941,17 @@ async function loginFirebase() {
     return;
   }
 
-  // Verificar que el email esté registrado antes de intentar login
-  if (!getUserPermissions(email)) {
-    errEl.textContent='Tu correo no está autorizado para acceder';
-    errEl.style.display='block';
-    return;
-  }
-
+  // NO se verifica el permiso aquí — en este punto appData.agentes todavía
+  // NO se ha cargado (cargar() solo corre DESPUÉS de un login exitoso,
+  // dentro de onAuthStateChanged), así que cualquier login dinámico de
+  // agente (habilitado desde Admin → Agentes, vive en appData.agentes, no
+  // en USERS_CONFIG) fallaría aquí SIEMPRE con "correo no autorizado",
+  // aunque el acceso esté correctamente activo — bug real reportado: un
+  // vendedor con login activo no podía entrar. La verificación real y
+  // confiable ya ocurre en onAuthStateChanged, DESPUÉS de que cargar()
+  // trae los datos reales — dejar que Firebase Auth intente el login
+  // primero; si el correo/contraseña son incorrectos, el catch de abajo ya
+  // maneja esos errores con mensajes claros.
   btnEl.disabled = true;
   spinEl.style.display = 'block';
 
