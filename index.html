@@ -2972,6 +2972,21 @@ function guardar() {
   });
 }
 
+// Firebase Realtime Database NO guarda arrays/objetos vacíos — un array que
+// llega a quedar vacío (ej. se aprueba el último pendiente) desaparece por
+// completo del snapshot en vez de llegar como []. Como el merge de abajo es
+// superficial (appData = {...appData, ...raw}), una clave AUSENTE en "raw"
+// se interpreta como "sin cambios" y conserva el valor local viejo — así
+// una venta que ya se aprobó/rechazó/eliminó en otra pestaña puede quedar
+// "resucitada" para siempre en esta, viéndose como duplicada. Antes de
+// mezclar, forzamos [] en las colecciones que sabemos que pueden vaciarse,
+// para que el merge sí las reemplace con el estado real y vacío del server.
+const COLECCIONES_VACIABLES_FB = ['ventasPendientes','ventasRechazadas','ventas','mensajesVenta'];
+function sanearColeccionesVaciasFirebase(raw) {
+  COLECCIONES_VACIABLES_FB.forEach(k => { if(!(k in raw)) raw[k] = []; });
+  return raw;
+}
+
 // Listener en tiempo real — se activa automáticamente cada vez que otro usuario guarda
 let _appDataListenerOn = false;
 let _syncIgnoreNext = false; // evita re-render cuando YO mismo guardo
@@ -2990,6 +3005,7 @@ function activarListenerAppData() {
     const idsRechazadasAntes = new Set((appData.ventasRechazadas||[]).map(v=>v.id));
     const idsMensajesAntes = new Set((appData.mensajesVenta||[]).map(m=>m.id));
     const idsChargebackAntes = new Set((appData.ventas||[]).filter(v=>v.esChargeback).map(v=>v.id));
+    sanearColeccionesVaciasFirebase(raw);
     appData = { ...appData, ...raw };
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
@@ -3124,6 +3140,7 @@ async function cargar() {
     const snap = await Promise.race([fbDB.ref('appData').get(), timeoutPromise]);
     if (snap.exists()) {
       const raw = snap.val();
+      sanearColeccionesVaciasFirebase(raw);
       appData = { ...appData, ...raw };
       // Asegurar que José Piña está marcado como soloHQ
       if (appData.agentes) {
@@ -4191,11 +4208,14 @@ function renderVentasPendientesTabla() {
         <td style="padding:4px 8px;color:#7C98B6;font-size:10px" colspan="2">${l.notas||''}</td>
       </tr>`).join('');
 
+    const enEdicion = _vpEditandoGrupoId===grupoId;
+    const iStyVp = 'border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%';
+
     return `<tr style="background:#F9FAFB;border-top:2px solid #F5C26B">
-        <td style="font-weight:600">${g.fecha}</td>
+        <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'fecha',this.value)">` : g.fecha}</td>
         <td style="font-weight:600">${g.agente}</td>
-        <td>${g.cliente||'⚠️ Sin cliente'}</td>
-        <td>${g.cuenta||'—'}</td>
+        <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cliente',this.value)">` : (g.cliente||'⚠️ Sin cliente')}</td>
+        <td>${enEdicion ? `<input type="text" value="${g.cuenta||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cuenta',this.value)">` : (g.cuenta||'—')}</td>
         <td>${g.mes}</td>
         <td>
           <select id="vp-quincena-${grupoId}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;background:#EAF7FB;color:#0057A8;font-weight:600">
@@ -4208,6 +4228,7 @@ function renderVentasPendientesTabla() {
         <td style="white-space:nowrap">
           <button class="btn btn-success btn-xs" onclick="aprobarVentaPendiente(${grupoId})">✅ Aprobar</button>
           <button class="btn btn-danger btn-xs" onclick="rechazarVentaPendiente(${grupoId})">❌ Rechazar</button>
+          <button class="btn btn-ghost btn-xs" onclick="adminVPToggleEditar(${grupoId})">${enEdicion ? '✓ Listo' : '✏️ Editar'}</button>
           <button class="btn btn-ghost btn-xs" onclick="adminToggleChatVenta(${grupoId})">💬${mensajesDeGrupo(grupoId).length ? ' '+mensajesDeGrupo(grupoId).length : ''}</button>
         </td>
       </tr>
@@ -4218,6 +4239,18 @@ function renderVentasPendientesTabla() {
         ${_vpChatAbierto===grupoId ? chatVentaHtml(grupoId, 'vp-chat-input-'+grupoId, 'adminEnviarMensajeVenta') : ''}
       </td></tr>`;
   }).join('');
+}
+
+let _vpEditandoGrupoId = null;
+function adminVPToggleEditar(grupoId) {
+  _vpEditandoGrupoId = (_vpEditandoGrupoId===grupoId) ? null : grupoId;
+  renderVentasPendientesTabla();
+}
+function adminVPActualizarCampoGrupo(grupoId, field, value) {
+  (appData.ventasPendientes||[]).forEach(v=>{ if(v.grupoId===grupoId) v[field] = value; });
+  guardar();
+  renderVentasPendientesTabla();
+  _vpEditandoGrupoId = grupoId; // el guardado de un campo no debe cerrar la edición
 }
 
 function ventaPendienteInlineEdit(id, field, value) {
