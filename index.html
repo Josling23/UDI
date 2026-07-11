@@ -148,6 +148,7 @@ tr:hover td{background:#EAF0FB}
 .notif.success{background:#E8F9F7;color:#00A492;border:1px solid #00BDA5}
 .notif.error{background:#FFF0F0;color:#E04048;border:1px solid #F2545B}
 .notif.info{background:#EAF0FB;color:#0057A8;border:1px solid #6A78D1}
+.notif.alerta{background:#FFF7E6;color:#B45309;border:1px solid #F5C26B;max-width:340px}
 
 /* BAR */
 .bar-wrap{background:#EAF0FB;border-radius:6px;height:7px;overflow:hidden;margin-top:4px}
@@ -403,7 +404,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-section">📝 MIS VENTAS</div>
     <div class="nav-item active" onclick="showPage('agente-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
     <div class="nav-item" onclick="_agvEditGrupoId=null;showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
-    <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span></div>
+    <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span><span id="nav-agente-rechazados-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -2941,11 +2942,16 @@ let _syncIgnoreNext = false; // evita re-render cuando YO mismo guardo
 function activarListenerAppData() {
   if (_appDataListenerOn) return;
   _appDataListenerOn = true;
+  let _primerDisparoListener = true;
   fbDB.ref('appData').on('value', snap => {
     if (!snap.exists()) return;
     // Si este disparo es consecuencia de mi propio guardar(), omitir re-render
     if (_syncIgnoreNext) { _syncIgnoreNext = false; return; }
     const raw = snap.val();
+    // IDs previos (antes de sobrescribir appData) para detectar qué es
+    // realmente NUEVO y avisar con sonido — ver bloque de avisos más abajo.
+    const idsPendientesAntes = new Set((appData.ventasPendientes||[]).map(v=>v.id));
+    const idsRechazadasAntes = new Set((appData.ventasRechazadas||[]).map(v=>v.id));
     appData = { ...appData, ...raw };
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
@@ -2958,6 +2964,43 @@ function activarListenerAppData() {
     }
     normalizarAppData();
     localStorage.setItem('attVND_v1', JSON.stringify(appData));
+
+    // Avisos en tiempo real (sonido + notificación visual) del área "Agente":
+    // Admin se entera al instante cuando un vendedor envía un reporte nuevo;
+    // el vendedor se entera al instante cuando Admin le rechaza uno (con el
+    // motivo que Admin haya escrito). Se omite en el primer disparo del
+    // listener (la sincronización inicial al entrar) para no avisar de
+    // "nuevo" sobre datos que ya existían de antes.
+    let _seMostroAvisoAlerta = false;
+    if (!_primerDisparoListener && currentUser) {
+      const perms = getUserPermissions(currentUser.email);
+      if (perms) {
+        if (perms.areas && perms.areas.includes('admin')) {
+          const nuevosPend = (raw.ventasPendientes||[]).filter(v=>!idsPendientesAntes.has(v.id));
+          if (nuevosPend.length) {
+            const grupos = new Set(nuevosPend.map(v=>v.grupoId)).size;
+            const agentesNombres = [...new Set(nuevosPend.map(v=>v.agente))].join(', ');
+            reproducirSonidoNotif();
+            showNotif(`🔔 ${grupos} reporte${grupos>1?'s':''} nuevo${grupos>1?'s':''} de venta (${agentesNombres}) — pendiente${grupos>1?'s':''} de revisión`, 'alerta', 6000);
+            _seMostroAvisoAlerta = true;
+          }
+        }
+        if (perms.agenteId) {
+          const nuevosRech = (raw.ventasRechazadas||[]).filter(v=>v.reportadoPor===perms.agenteId && !idsRechazadasAntes.has(v.id));
+          if (nuevosRech.length) {
+            const gruposRech = [...new Set(nuevosRech.map(v=>v.grupoId))];
+            const motivo = nuevosRech[0].motivoRechazo || '';
+            reproducirSonidoNotif();
+            showNotif(`❌ ${gruposRech.length>1 ? gruposRech.length+' reportes fueron rechazados' : 'Tu reporte fue rechazado'}${motivo ? ': '+motivo : ''}`, 'alerta', 6000);
+            _seMostroAvisoAlerta = true;
+          }
+        }
+      }
+      actualizarBadgePendientes();
+      actualizarBadgeRechazadosAgente();
+    }
+    _primerDisparoListener = false;
+
     // Re-renderizar la página activa si ya estamos dentro de un área
     if (document.getElementById('app-wrap').style.display !== 'none') {
       const activePage = document.querySelector('.page.active');
@@ -2989,7 +3032,8 @@ function activarListenerAppData() {
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
-          showNotif('🔄 Datos sincronizados', 'info');
+          // No pisar el aviso de reporte nuevo/rechazado con el toast genérico.
+          if (!_seMostroAvisoAlerta) showNotif('🔄 Datos sincronizados', 'info');
         }
       }
     }
@@ -3654,11 +3698,38 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ============================================================
 // NOTIFICATION
 // ============================================================
-function showNotif(msg, type='success') {
+function showNotif(msg, type='success', duracionMs=3000) {
   const el = document.getElementById('notif');
   el.textContent = msg;
   el.className = 'notif ' + type + ' show';
-  setTimeout(()=>el.classList.remove('show'), 3000);
+  setTimeout(()=>el.classList.remove('show'), duracionMs);
+}
+
+// Beep corto (dos tonos) para avisar de un evento en tiempo real (reporte
+// nuevo para Admin, reporte rechazado para el agente). Generado con Web
+// Audio API en vez de un archivo de audio para no depender de ningún
+// recurso externo. Falla en silencio si el navegador bloquea audio
+// (política de autoplay) — la notificación visual sigue funcionando igual.
+let _audioCtxNotif = null;
+function reproducirSonidoNotif() {
+  try {
+    if (!_audioCtxNotif) _audioCtxNotif = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtxNotif;
+    if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+    const tonos = [[880, 0], [660, 0.15]];
+    tonos.forEach(([freq, delay])=>{
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      g.gain.setValueAtTime(0.001, ctx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + delay + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+      o.start(ctx.currentTime + delay);
+      o.stop(ctx.currentTime + delay + 0.2);
+    });
+  } catch(e) { /* audio no disponible en este navegador/contexto */ }
 }
 
 // ============================================================
@@ -3964,6 +4035,18 @@ function actualizarBadgePendientes() {
   const badge = document.getElementById('nav-pendientes-badge');
   if(!badge) return;
   const grupos = new Set((appData.ventasPendientes||[]).map(v=>v.grupoId)).size;
+  badge.style.display = grupos > 0 ? 'inline-block' : 'none';
+  badge.textContent = grupos;
+}
+
+// Igual que actualizarBadgePendientes() pero para el agente logueado —
+// cuenta sus propios reportes rechazados (los que necesitan corregirse).
+function actualizarBadgeRechazadosAgente() {
+  const badge = document.getElementById('nav-agente-rechazados-badge');
+  if(!badge) return;
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms ? perms.agenteId : null;
+  const grupos = new Set((appData.ventasRechazadas||[]).filter(v=>v.reportadoPor===agenteId).map(v=>v.grupoId)).size;
   badge.style.display = grupos > 0 ? 'inline-block' : 'none';
   badge.textContent = grupos;
 }
@@ -6908,7 +6991,7 @@ function abrirArea(area) {
   else if(area==='top')   showPage('top', null);
   else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
-  else if(area==='agente') { showPage('agente-dashboard', null); }
+  else if(area==='agente') { showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); }
 }
 
 // Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
@@ -7153,6 +7236,7 @@ let _mrEditandoGrupoId = null;
 
 function renderAgenteMisReportes() {
   _mrSeleccionados = new Set();
+  actualizarBadgeRechazadosAgente();
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agenteId = perms ? perms.agenteId : null;
 
@@ -7188,15 +7272,19 @@ function renderAgenteMisReportes() {
   body.innerHTML = todos.length ? todos.map(g => {
     const productos = g.lineas.map(l => getProdNombre(l.productoId)).join(', ');
     const editable = g.estado==='pendiente' || g.estado==='rechazado';
-    const enEdicion = g.estado==='pendiente' && _mrEditandoGrupoId===g.grupoId;
+    const enEdicion = editable && _mrEditandoGrupoId===g.grupoId;
     const acciones = g.estado==='pendiente'
       ? (enEdicion
           ? `<button class="btn btn-primary btn-xs" onclick="agenteCerrarEdicionEnLinea()">✓ Listo</button>`
           : `<button class="btn btn-ghost btn-xs" onclick="agenteEditarEnLinea(${g.grupoId})">✏️ Editar</button>
              <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`)
       : g.estado==='rechazado'
-        ? `<button class="btn btn-ghost btn-xs" onclick="agenteReenviarReporte(${g.grupoId})">🔄 Reenviar</button>
-           <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`
+        ? (enEdicion
+            ? `<button class="btn btn-primary btn-xs" onclick="agenteCerrarEdicionEnLinea()">✓ Listo</button>
+               <button class="btn btn-ghost btn-xs" onclick="agenteReenviarReporte(${g.grupoId})">🔄 Reenviar</button>`
+            : `<button class="btn btn-ghost btn-xs" onclick="agenteEditarEnLinea(${g.grupoId})">✏️ Editar</button>
+               <button class="btn btn-ghost btn-xs" onclick="agenteReenviarReporte(${g.grupoId})">🔄 Reenviar</button>
+               <button class="btn btn-danger btn-xs" onclick="agenteEliminarReporte(${g.grupoId})">🗑️</button>`)
         : '';
 
     const filaPrincipal = `<tr>
@@ -7253,9 +7341,11 @@ function agenteCerrarEdicionEnLinea() {
 
 // Actualiza un campo compartido por TODAS las líneas de un reporte
 // (fecha/cliente/cuenta son iguales en cada línea de un mismo grupoId).
+// Busca en ventasPendientes Y ventasRechazadas porque un reporte editable
+// puede vivir en cualquiera de las dos colecciones (pendiente o rechazado).
 function agenteActualizarCampoGrupo(grupoId, field, value) {
-  (appData.ventasPendientes||[]).forEach(v=>{
-    if(v.grupoId===grupoId) v[field] = value;
+  [appData.ventasPendientes, appData.ventasRechazadas].forEach(lista=>{
+    (lista||[]).forEach(v=>{ if(v.grupoId===grupoId) v[field] = value; });
   });
   guardar();
   renderAgenteMisReportes();
@@ -7263,10 +7353,11 @@ function agenteActualizarCampoGrupo(grupoId, field, value) {
 }
 
 // Igual que ventaPendienteInlineEdit() (usado en la cola de Admin), pero
-// re-renderiza "Mis Reportes" en vez de la tabla de Admin — mismo dato
-// (appData.ventasPendientes), solo cambia a dónde se refresca la vista.
+// re-renderiza "Mis Reportes" en vez de la tabla de Admin, y busca la línea
+// en ventasPendientes o ventasRechazadas (un reporte editable puede vivir
+// en cualquiera de las dos).
 function agenteVentaPendienteInlineEdit(id, field, value) {
-  const v = (appData.ventasPendientes||[]).find(x=>x.id===id);
+  const v = (appData.ventasPendientes||[]).find(x=>x.id===id) || (appData.ventasRechazadas||[]).find(x=>x.id===id);
   if(!v) return;
   v[field] = value;
   if(field==='productoId') v.comision = getComisionParaAgente(value, v.agente);
