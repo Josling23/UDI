@@ -4217,6 +4217,30 @@ function rechazarVentaPendiente(grupoId) {
   showNotif('❌ Reporte rechazado');
 }
 
+// Permite deshacer una aprobación por error: saca las líneas de appData.ventas
+// (deja de contar en comisiones/dashboard/TOP/pagos, como cualquier venta que
+// se elimina) y las manda a ventasRechazadas con motivo, igual que un rechazo
+// normal — el vendedor la ve en "Mis Reportes" como rechazada, puede
+// corregirla y reenviarla. Solo aplica a ventas que vinieron de un reporte de
+// agente (tienen grupoId); una venta metida directo por Admin no tiene "a
+// quién" devolvérsela, así que ese botón nunca aparece para esas.
+function revertirVentaAprobada(grupoId) {
+  const lineas = (appData.ventas||[]).filter(v=>v.grupoId===grupoId);
+  if(!lineas.length) return;
+  if(!confirm('¿Seguro que quieres RECHAZAR esta venta ya aprobada?\n\nSe quitará de Registro Diario, comisiones y pagos, y volverá a la bandeja de rechazados del vendedor para que la corrija y la vuelva a enviar. Esta acción no se puede deshacer.')) return;
+  const motivo = prompt('¿Por qué se rechaza esta venta ya aprobada?', '');
+  if(motivo === null) return;
+
+  if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
+  lineas.forEach(l=> appData.ventasRechazadas.push({ ...l, motivoRechazo: motivo.trim() || 'Sin motivo especificado' }));
+  appData.ventas = appData.ventas.filter(v=>v.grupoId!==grupoId);
+
+  guardar();
+  renderVentas();
+  renderDashboard();
+  showNotif('❌ Venta revertida a rechazada — el vendedor puede corregirla y reenviarla');
+}
+
 // ============================================================
 // CHAT INTERNO POR VENTA — mensajería entre Admin y el agente dentro de
 // un mismo reporte (grupoId). Como aprobarVentaPendiente() ahora preserva
@@ -4553,6 +4577,7 @@ function renderVentas() {
       <button class="btn btn-ghost btn-xs" onclick="openVentaModal(${v.id})">✏️</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
       ${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaOficial(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}
+      ${v.grupoId ? `<button class="btn btn-danger btn-xs" onclick="revertirVentaAprobada(${v.grupoId})" title="Rechazar esta venta ya aprobada, por si hay un error que corregir">↩️ Rechazar</button>` : ''}
     </td>
   </tr>${(() => {
     if(!v.grupoId || _ventasChatAbierto!==v.grupoId || gruposConChatRenderizado.has(v.grupoId)) return '';
