@@ -3832,29 +3832,48 @@ function showNotif(msg, type='success', duracionMs=3000) {
   setTimeout(()=>el.classList.remove('show'), duracionMs);
 }
 
-// Beep corto (dos tonos) para avisar de un evento en tiempo real (reporte
-// nuevo para Admin, reporte rechazado para el agente). Generado con Web
-// Audio API en vez de un archivo de audio para no depender de ningún
-// recurso externo. Falla en silencio si el navegador bloquea audio
-// (política de autoplay) — la notificación visual sigue funcionando igual.
+// Sonidos de notificación — generados con Web Audio API en vez de archivos
+// de audio para no depender de ningún recurso externo. Cada opción es una
+// lista de tonos [frecuencia, retraso, duración] en segundos. La elección
+// se guarda en localStorage (preferencia de ESTE dispositivo/navegador, no
+// de la cuenta — cada quien puede elegir el sonido que mejor escuche en su
+// propio teléfono/computadora).
+const SONIDOS_NOTIF = {
+  campana_corta:  { nombre: '🔔 Campana corta',        tonos: [[880,0,0.18],[660,0.15,0.18]] },
+  timbre_doble:   { nombre: '🔔🔔 Timbre doble (largo)', tonos: [[880,0,0.15],[660,0.15,0.18],[880,0.55,0.15],[660,0.70,0.22]] },
+  alerta_urgente: { nombre: '⚠️ Alerta urgente (llama más la atención)', tonos: [[620,0,0.14],[780,0.16,0.14],[620,0.32,0.14],[780,0.48,0.14],[980,0.64,0.35]] },
+  campana_larga:  { nombre: '🔔 Campana larga (acorde con eco)', tonos: [[523.25,0,1.1],[659.25,0.03,1.05],[783.99,0.06,1.0]] },
+};
+const SONIDO_NOTIF_DEFAULT = 'campana_corta';
+
+function sonidoNotifElegido() {
+  return localStorage.getItem('udi_sonido_notif') || SONIDO_NOTIF_DEFAULT;
+}
+
+function cambiarSonidoNotif(clave) {
+  localStorage.setItem('udi_sonido_notif', clave);
+  reproducirSonidoNotif(); // reproducirlo de inmediato para que se escuche el cambio
+}
+
 let _audioCtxNotif = null;
 function reproducirSonidoNotif() {
   try {
     if (!_audioCtxNotif) _audioCtxNotif = new (window.AudioContext || window.webkitAudioContext)();
     const ctx = _audioCtxNotif;
     if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
-    const tonos = [[880, 0], [660, 0.15]];
-    tonos.forEach(([freq, delay])=>{
+    const clave = sonidoNotifElegido();
+    const tonos = (SONIDOS_NOTIF[clave] || SONIDOS_NOTIF[SONIDO_NOTIF_DEFAULT]).tonos;
+    tonos.forEach(([freq, delay, duracion=0.18])=>{
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
       o.type = 'sine';
       o.frequency.setValueAtTime(freq, ctx.currentTime + delay);
       g.gain.setValueAtTime(0.001, ctx.currentTime + delay);
-      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + delay + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + delay + Math.min(0.02, duracion/4));
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duracion);
       o.start(ctx.currentTime + delay);
-      o.stop(ctx.currentTime + delay + 0.2);
+      o.stop(ctx.currentTime + delay + duracion + 0.05);
     });
   } catch(e) { /* audio no disponible en este navegador/contexto */ }
 }
@@ -4526,12 +4545,19 @@ function renderNotifPanel() {
       <b style="font-size:13px;color:#33475B">🔔 Notificaciones</b>
       ${lista.some(n=>!n.leida) ? `<button onclick="marcarTodasNotifLeidas()" style="background:none;border:none;color:#009FDB;font-size:11px;cursor:pointer;font-weight:600">Marcar todas leídas</button>` : ''}
     </div>
-    <div style="max-height:360px;overflow-y:auto">
+    <div style="max-height:320px;overflow-y:auto">
       ${lista.length ? lista.slice(0,40).map(n=>`
         <div onclick="irANotificacion(${n.id})" style="padding:10px 14px;border-bottom:1px solid #F5F8FA;cursor:pointer;background:${n.leida?'#fff':'#EAF7FB'}">
           <div style="font-size:12px;color:#33475B">${NOTIF_ICONOS[n.tipo]||'🔔'} ${n.texto}</div>
           <div style="font-size:10px;color:#99ACC2;margin-top:2px">${fmtHoraMensaje(n.creadoEn)}</div>
         </div>`).join('') : '<div style="padding:24px;text-align:center;color:#99ACC2;font-size:12px">Sin notificaciones</div>'}
+    </div>
+    <div style="padding:8px 14px;border-top:1px solid #E5E7EB;display:flex;gap:6px;align-items:center;background:#F5F8FA;border-radius:0 0 10px 10px">
+      <span style="font-size:11px;color:#7C98B6;white-space:nowrap">🔊 Sonido:</span>
+      <select id="notif-sonido-select" onchange="cambiarSonidoNotif(this.value)" style="flex:1;font-size:11px;padding:4px 6px;border:1px solid #CBD6E2;border-radius:6px;background:#fff;color:#33475B">
+        ${Object.entries(SONIDOS_NOTIF).map(([k,v])=>`<option value="${k}" ${sonidoNotifElegido()===k?'selected':''}>${v.nombre}</option>`).join('')}
+      </select>
+      <button onclick="reproducirSonidoNotif()" title="Escuchar" style="font-size:11px;padding:4px 10px;border:1px solid #009FDB;color:#009FDB;background:#fff;border-radius:6px;cursor:pointer;font-weight:600;white-space:nowrap">▶ Probar</button>
     </div>`;
 }
 
