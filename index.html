@@ -799,7 +799,7 @@ table thead,table tbody{display:table;width:100%}
         <div id="mr-seleccion-bar" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Corresponde</th><th>Acciones</th></tr></thead>
             <tbody id="agente-mis-reportes-body"></tbody>
           </table>
         </div>
@@ -7611,6 +7611,7 @@ function renderAgenteMisReportes() {
     aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Aprobado</span>',
     rechazado: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
   };
+  const badgeChargeback = '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">⚠️ Chargeback</span>';
 
   const body = document.getElementById('agente-mis-reportes-body');
   body.innerHTML = todos.length ? todos.map(g => {
@@ -7645,7 +7646,7 @@ function renderAgenteMisReportes() {
       <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px" onchange="agenteActualizarCampoGrupo(${g.grupoId},'fecha',this.value)">` : g.fecha}</td>
       <td>${enEdicion ? `<input type="text" value="${g.cliente||''}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%" onchange="agenteActualizarCampoGrupo(${g.grupoId},'cliente',this.value)">` : (g.cliente||'—')}</td>
       <td style="font-size:11px;color:#7C98B6">${enEdicion ? '' : productos}</td>
-      <td>${badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
+      <td>${g.estado==='aprobado' && g.lineas.some(l=>l.esChargeback) ? badgeChargeback : badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
       <td style="font-size:11px;color:#33475B;white-space:nowrap">${quincenaTxt}</td>
       <td style="white-space:nowrap">${acciones}</td>
     </tr>`;
