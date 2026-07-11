@@ -8,6 +8,22 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>USA Distributor Inc. — AT&T VND Dashboard</title>
+
+<!-- PWA — permite "Agregar a pantalla de inicio" en celular (ícono propio,
+     pantalla completa, se abre como app). Sin service worker a propósito:
+     esta app sincroniza datos en vivo con Firebase, y un service worker que
+     cachee peticiones podría mostrar datos viejos (ventas/reportes) — el
+     manifest + estos meta tags ya bastan para que sea instalable. -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7a1428">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UDI">
+<meta name="mobile-web-app-capable" content="yes">
+
 <!-- Firebase compat SDK (no requiere npm) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
