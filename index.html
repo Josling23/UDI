@@ -4274,6 +4274,22 @@ function chatVentaHtml(grupoId, inputId, onEnviarFn) {
   </div>`;
 }
 
+// El chat de "Ventas Pendientes" desaparece de esa pantalla en cuanto Admin
+// aprueba (la venta ya no vive en ventasPendientes) — este es el equivalente
+// para seguir la MISMA conversación (mismo grupoId) una vez que la venta ya
+// es oficial y vive en Registro Diario, para que Admin no pierda acceso al
+// hilo justo cuando la venta pasa a estar activa.
+let _ventasChatAbierto = null;
+function adminToggleChatVentaOficial(grupoId) {
+  _ventasChatAbierto = (_ventasChatAbierto===grupoId) ? null : grupoId;
+  renderVentas();
+}
+function adminEnviarMensajeVentaOficial(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'ventas-chat-input-'+grupoId);
+  renderVentas();
+}
+
 function aprobarVisiblesVentasPendientes() {
   const filtradas = filtrarVentasPendientes();
   const grupoIds = [...new Set(filtradas.map(v=>v.grupoId))];
@@ -4489,6 +4505,10 @@ function renderVentas() {
   document.getElementById('ventas-stats').innerHTML = statsHTML;
 
   const iSty = 'border:1.5px solid #CBD6E2;border-radius:6px;padding:3px 6px;font-size:12px;color:#33475B;outline:none;background:#fff;font-family:inherit';
+  // Varias líneas de un mismo reporte de agente comparten grupoId — el botón
+  // de chat solo debe existir en ventas que vinieron de un agente, y el panel
+  // expandido solo debe aparecer UNA vez por grupoId aunque haya varias líneas.
+  const gruposConChatRenderizado = new Set();
   document.getElementById('ventas-body').innerHTML = list.length ? list.map((v,i)=>{
     const com = getComision(v);
     // Product dropdown options for this category
@@ -4532,8 +4552,13 @@ function renderVentas() {
     <td style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-xs" onclick="openVentaModal(${v.id})">✏️</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
+      ${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaOficial(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}
     </td>
-  </tr>`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
+  </tr>${(() => {
+    if(!v.grupoId || _ventasChatAbierto!==v.grupoId || gruposConChatRenderizado.has(v.grupoId)) return '';
+    gruposConChatRenderizado.add(v.grupoId);
+    return `<tr><td colspan="13" style="padding:0 8px 8px">${chatVentaHtml(v.grupoId, 'ventas-chat-input-'+v.grupoId, 'adminEnviarMensajeVentaOficial')}</td></tr>`;
+  })()}`;}).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas registradas</td></tr>';
 
   // Renderizar el cuadro de clientes con pagos pendientes de AT&T
   renderPendientesPagoAtt(list);
