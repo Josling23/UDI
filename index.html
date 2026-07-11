@@ -589,7 +589,7 @@ table thead,table tbody{display:table;width:100%}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Producto</th><th>Mes</th><th>Motivo</th><th>Marcado por</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Producto</th><th>Mes</th><th>Motivo</th><th>Marcado por</th><th>Acciones</th></tr></thead>
             <tbody id="chargebacks-detalle-body"></tbody>
           </table>
         </div>
@@ -4578,7 +4578,35 @@ function renderChargebacksDetalle() {
       <td>${v.mes}</td>
       <td style="color:#7C98B6;max-width:220px" title="${v.chargebackMotivo||''}">${v.chargebackMotivo||'—'}</td>
       <td style="color:#7C98B6">${v.chargebackPor||'—'}</td>
-    </tr>`).join('') : '<tr><td colspan="8" class="tbl-empty">Ningún chargeback coincide con los filtros</td></tr>';
+      <td style="white-space:nowrap">
+        <button class="btn btn-success btn-xs" onclick="quitarVentaChargebackDesdeAdmin(${v.id})" title="Quitar la marca de Chargeback — la venta vuelve a estar activa">✅ Quitar CB</button>
+        ${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaChargeback(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}
+      </td>
+    </tr>
+    ${_cbChatAbierto===v.grupoId ? `<tr><td colspan="9" style="padding:0 8px 8px">${chatVentaHtml(v.grupoId, 'cb-chat-input-'+v.grupoId, 'adminEnviarMensajeVentaChargeback')}</td></tr>` : ''}
+  `).join('') : '<tr><td colspan="9" class="tbl-empty">Ningún chargeback coincide con los filtros</td></tr>';
+}
+
+let _cbChatAbierto = null;
+function adminToggleChatVentaChargeback(grupoId) {
+  _cbChatAbierto = (_cbChatAbierto===grupoId) ? null : grupoId;
+  renderChargebacksDetalle();
+}
+function adminEnviarMensajeVentaChargeback(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'cb-chat-input-'+grupoId);
+  if(texto) {
+    const agenteId = reportadoPorDeGrupo(grupoId);
+    if(agenteId) { crearNotificacion({ paraAgenteId: agenteId }, 'mensaje', `${perms?perms.nombre:'Admin'}: ${texto}`, grupoId); guardar(); }
+  }
+  renderChargebacksDetalle();
+}
+
+// Igual que quitarVentaChargeback(), pero refresca la vista de Chargebacks
+// (esta pantalla) en vez de Registro Diario, ya que aquí es donde se llama.
+function quitarVentaChargebackDesdeAdmin(ventaId) {
+  quitarVentaChargeback(ventaId);
+  renderChargebacksAdmin();
 }
 
 // ============================================================
