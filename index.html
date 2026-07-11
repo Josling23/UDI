@@ -3131,33 +3131,55 @@ function activarListenerAppData() {
 }
 
 // Cargar desde Firebase (primera carga); fallback a localStorage
-async function cargar() {
-  try {
-    // Agregar timeout de 5 segundos para evitar que se quede esperando
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Firebase timeout')), 5000)
-    );
-    const snap = await Promise.race([fbDB.ref('appData').get(), timeoutPromise]);
-    if (snap.exists()) {
-      const raw = snap.val();
-      sanearColeccionesVaciasFirebase(raw);
-      appData = { ...appData, ...raw };
-      // Asegurar que José Piña está marcado como soloHQ
-      if (appData.agentes) {
-        appData.agentes.forEach(a => {
-          const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-          if (nombre.includes('jose') && nombre.includes('pina')) {
-            a.soloHQ = true;
-          }
-        });
+// Aplica un snapshot real de Firebase ya recibido — compartido entre los dos
+// intentos de cargar() (rápido y de respaldo) para no duplicar la lógica.
+function aplicarSnapshotAppData(snap) {
+  const raw = snap.val();
+  sanearColeccionesVaciasFirebase(raw);
+  appData = { ...appData, ...raw };
+  // Asegurar que José Piña está marcado como soloHQ
+  if (appData.agentes) {
+    appData.agentes.forEach(a => {
+      const nombre = (a.nombre || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      if (nombre.includes('jose') && nombre.includes('pina')) {
+        a.soloHQ = true;
       }
-      normalizarAppData();
-      localStorage.setItem('attVND_v1', JSON.stringify(appData));
-      activarListenerAppData();
-      return;
-    }
+    });
+  }
+  normalizarAppData();
+  localStorage.setItem('attVND_v1', JSON.stringify(appData));
+  activarListenerAppData();
+}
+
+async function cargar() {
+  // La lectura real arranca YA y Promise.race() nunca la cancela — si el
+  // primer timeout (corto) gana la carrera, la lectura sigue en curso por
+  // detrás, así que le damos una segunda oportunidad (timeout más largo)
+  // antes de resignarnos a localStorage/datos de ejemplo. Sin esto, una
+  // conexión lenta (datos móviles con señal débil) hacía que el primer
+  // timeout de 5s "ganara" antes de que llegaran los datos reales — dejando
+  // appData.agentes vacío/de ejemplo justo cuando se verifica el permiso de
+  // login, con el resultado de "tu correo no está autorizado" en el
+  // teléfono aunque el mismo correo sí funcionara en otra conexión más
+  // rápida (bug real reportado).
+  const getPromise = fbDB.ref('appData').get();
+  try {
+    const timeoutRapido = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firebase timeout (intento rápido)')), 5000)
+    );
+    const snap = await Promise.race([getPromise, timeoutRapido]);
+    if (snap.exists()) { aplicarSnapshotAppData(snap); return; }
   } catch(e) {
-    console.warn('Firebase read error, using localStorage:', e);
+    console.warn('Firebase lento, esperando la respuesta real antes de usar localStorage:', e);
+    try {
+      const timeoutLargo = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase timeout (intento de respaldo)')), 15000)
+      );
+      const snap2 = await Promise.race([getPromise, timeoutLargo]);
+      if (snap2.exists()) { aplicarSnapshotAppData(snap2); return; }
+    } catch(e2) {
+      console.warn('Firebase read error, using localStorage:', e2);
+    }
   }
   // Fallback localStorage — si hay una copia local válida, se usa y se detiene
   // aquí (antes esto NO tenía "return", así que después de cargar los datos
