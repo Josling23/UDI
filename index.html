@@ -337,6 +337,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('dashboard',this)" id="nav-dashboard"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('ventas',this)"><span class="icon">📝</span><span>Registro Diario</span></div>
     <div class="nav-item" onclick="showPage('ventas-pendientes',this)"><span class="icon">🕓</span><span>Ventas Pendientes</span><span id="nav-pendientes-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
+    <div class="nav-item" onclick="showPage('chargebacks-admin',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
     <div class="nav-item" onclick="showPage('agentes',this)"><span class="icon">👥</span><span>Agentes</span></div>
     <div class="nav-section">Reportes</div>
     <div class="nav-item" onclick="showPage('resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
@@ -405,6 +406,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item active" onclick="showPage('agente-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
     <div class="nav-item" onclick="_agvEditGrupoId=null;showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
     <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span><span id="nav-agente-rechazados-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
+    <div class="nav-item" onclick="showPage('agente-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span><span id="nav-agente-chargebacks-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -536,6 +538,19 @@ table thead,table tbody{display:table;width:100%}
           <table>
             <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th style="text-align:right">Total</th><th>Acciones</th></tr></thead>
             <tbody id="ventas-pendientes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-chargebacks-admin">
+      <div class="section">
+        <div class="section-header"><h2>⚠️ Chargebacks</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 % de Chargeback por vendedor (ventas activas vs. chargebacks). El botón "⚠️ CB" para marcar/quitar un chargeback está en cada venta, dentro de "Registro Diario".</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Agente</th><th style="text-align:right">Ventas Activas</th><th style="text-align:right">Chargebacks</th><th style="text-align:right">% Chargeback</th></tr></thead>
+            <tbody id="chargebacks-admin-body"></tbody>
           </table>
         </div>
       </div>
@@ -773,13 +788,32 @@ table thead,table tbody{display:table;width:100%}
         <div class="section-header"><h2>📋 Mis Reportes</h2></div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
           <input type="date" id="mr-f-fecha" onchange="renderAgenteMisReportes()" title="Buscar por fecha" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
-          <button onclick="document.getElementById('mr-f-fecha').value='';renderAgenteMisReportes()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+          <select id="mr-f-mes" onchange="renderAgenteMisReportes()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px"></select>
+          <select id="mr-f-quincena" onchange="renderAgenteMisReportes()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+            <option value="">Q1 y Q2</option>
+            <option value="1">Quincena 1</option>
+            <option value="2">Quincena 2</option>
+          </select>
+          <button onclick="document.getElementById('mr-f-fecha').value='';document.getElementById('mr-f-mes').value='';document.getElementById('mr-f-quincena').value='';renderAgenteMisReportes()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
         </div>
         <div id="mr-seleccion-bar" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Quincena</th><th>Acciones</th></tr></thead>
             <tbody id="agente-mis-reportes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-agente-chargebacks">
+      <div class="section">
+        <div class="section-header"><h2>⚠️ Chargebacks</h2></div>
+        <div id="agente-cb-resumen" style="margin-bottom:16px"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Motivo</th><th>Acciones</th></tr></thead>
+            <tbody id="agente-chargebacks-body"></tbody>
           </table>
         </div>
       </div>
@@ -2955,6 +2989,7 @@ function activarListenerAppData() {
     const idsPendientesAntes = new Set((appData.ventasPendientes||[]).map(v=>v.id));
     const idsRechazadasAntes = new Set((appData.ventasRechazadas||[]).map(v=>v.id));
     const idsMensajesAntes = new Set((appData.mensajesVenta||[]).map(m=>m.id));
+    const idsChargebackAntes = new Set((appData.ventas||[]).filter(v=>v.esChargeback).map(v=>v.id));
     appData = { ...appData, ...raw };
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
@@ -3021,9 +3056,20 @@ function activarListenerAppData() {
             _seMostroAvisoAlerta = true;
           }
         }
+        // Chargeback nuevo en una venta mía — Admin es quien lo marca, así
+        // que solo se avisa al vendedor (Admin ya sabe porque lo acaba de marcar).
+        if (perms.agenteId) {
+          const nuevosCB = (raw.ventas||[]).filter(v=>v.reportadoPor===perms.agenteId && v.esChargeback && !idsChargebackAntes.has(v.id));
+          if (nuevosCB.length) {
+            reproducirSonidoNotif();
+            showNotif(`⚠️ ${nuevosCB.length>1 ? nuevosCB.length+' de tus ventas fueron marcadas' : 'Una de tus ventas fue marcada'} como Chargeback${nuevosCB[0].chargebackMotivo ? ': '+nuevosCB[0].chargebackMotivo : ''}`, 'alerta', 6000);
+            _seMostroAvisoAlerta = true;
+          }
+        }
       }
       actualizarBadgePendientes();
       actualizarBadgeRechazadosAgente();
+      actualizarBadgeChargebacksAgente();
     }
     _primerDisparoListener = false;
 
@@ -3055,6 +3101,8 @@ function activarListenerAppData() {
           'agente-dashboard':   renderAgenteDashboard,
           'agente-reportar':    renderAgenteReportar,
           'agente-mis-reportes':renderAgenteMisReportes,
+          'agente-chargebacks': renderAgenteChargebacks,
+          'chargebacks-admin':  renderChargebacksAdmin,
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -3632,6 +3680,7 @@ function mesPorDefecto() {
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
   'ventas-pendientes':'🕓 Ventas Pendientes',
+  'chargebacks-admin':'⚠️ Chargebacks',
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
@@ -3645,6 +3694,7 @@ const PAGE_TITLES = {
   'agente-dashboard':'📝 Mis Ventas',
   'agente-reportar':'📝 Reportar Venta',
   'agente-mis-reportes':'📋 Mis Reportes',
+  'agente-chargebacks':'⚠️ Chargebacks',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
@@ -3681,6 +3731,7 @@ function renderPage(name) {
   if(name==='ventas') renderVentas();
   if(name==='agentes') renderAgentes();
   if(name==='ventas-pendientes') renderVentasPendientes();
+  if(name==='chargebacks-admin') renderChargebacksAdmin();
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
   if(name==='productos') renderProductos();
@@ -3699,6 +3750,7 @@ function renderPage(name) {
   if(name==='agente-dashboard') renderAgenteDashboard();
   if(name==='agente-reportar') renderAgenteReportar();
   if(name==='agente-mis-reportes') renderAgenteMisReportes();
+  if(name==='agente-chargebacks') renderAgenteChargebacks();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
@@ -4242,6 +4294,80 @@ function revertirVentaAprobada(grupoId) {
 }
 
 // ============================================================
+// CHARGEBACKS POR VENTA DE AGENTE — distinto de appData.chargebacks (el %
+// mensual agregado de RS&I en TOP). Se marca directamente en la venta
+// (appData.ventas), sin colección aparte, mismo patrón que
+// esChargeback/chargebackMonto ya usado en Salud → Clientes. NO toca la
+// comisión automáticamente — solo marca, avisa al vendedor, y queda
+// disponible para el % de Chargebacks. Si hace falta ajustar el pago, se
+// hace a mano con el descuento que ya existe en Pagos de Agentes.
+// ============================================================
+function marcarVentaChargeback(ventaId) {
+  const v = (appData.ventas||[]).find(x=>x.id===ventaId);
+  if(!v) return;
+  if(v.esChargeback) { showNotif('⚠️ Esta venta ya está marcada como Chargeback', 'error'); return; }
+  if(!confirm(`¿Marcar como Chargeback la venta de "${v.cliente||'este cliente'}"?\n\nEsto NO quita la comisión automáticamente — solo la marca y avisa al vendedor. Si hace falta ajustar el pago, usa el descuento en Pagos de Agentes.`)) return;
+  const motivo = prompt('¿Motivo del chargeback?', '');
+  if(motivo === null) return;
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  v.esChargeback = true;
+  v.chargebackMotivo = motivo.trim() || 'Sin motivo especificado';
+  v.chargebackFecha = new Date().toISOString();
+  v.chargebackPor = perms ? perms.nombre : 'Admin';
+  guardar();
+  renderVentas();
+  showNotif('⚠️ Venta marcada como Chargeback');
+}
+
+function quitarVentaChargeback(ventaId) {
+  const v = (appData.ventas||[]).find(x=>x.id===ventaId);
+  if(!v || !v.esChargeback) return;
+  if(!confirm('¿Quitar la marca de Chargeback de esta venta?')) return;
+  v.esChargeback = false;
+  delete v.chargebackMotivo;
+  delete v.chargebackFecha;
+  delete v.chargebackPor;
+  guardar();
+  renderVentas();
+  showNotif('✅ Chargeback removido');
+}
+
+// Resumen de Chargebacks de UN agente — reutilizado por la pantalla del
+// propio vendedor y por el resumen de Admin (mismo cálculo en ambos lados).
+function resumenChargebacksAgente(agenteId) {
+  const propias = (appData.ventas||[]).filter(v=>v.reportadoPor===agenteId);
+  const chargebacks = propias.filter(v=>v.esChargeback);
+  const activas = propias.length - chargebacks.length;
+  const pct = propias.length ? (chargebacks.length/propias.length*100) : 0;
+  return { activas, chargebacks: chargebacks.length, total: propias.length, pct };
+}
+
+// Resumen de Admin: % de Chargeback de CADA agente que tenga al menos una
+// venta propia (reportadoPor) — mismo cálculo que ve el vendedor en su
+// propia pantalla, solo que aquí se listan todos a la vez.
+function renderChargebacksAdmin() {
+  const agentesConVentas = (appData.agentes||[]).filter(a =>
+    (appData.ventas||[]).some(v=>v.reportadoPor===a.id)
+  );
+  const body = document.getElementById('chargebacks-admin-body');
+  if(!agentesConVentas.length) {
+    body.innerHTML = '<tr><td colspan="4" class="tbl-empty">Ningún agente tiene ventas reportadas todavía</td></tr>';
+    return;
+  }
+  const filas = agentesConVentas.map(a => ({ a, r: resumenChargebacksAgente(a.id) }))
+    .sort((x,y) => y.r.pct - x.r.pct);
+  body.innerHTML = filas.map(({a, r}) => {
+    const nivel = r.pct >= 10 ? '#F2545B' : r.pct >= 5 ? '#B45309' : '#00A492';
+    return `<tr>
+      <td style="font-weight:600">${a.nombre}</td>
+      <td style="text-align:right;color:#33475B">${r.activas}</td>
+      <td style="text-align:right;color:#F2545B;font-weight:700">${r.chargebacks}</td>
+      <td style="text-align:right;color:${nivel};font-weight:800">${r.pct.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
 // CHAT INTERNO POR VENTA — mensajería entre Admin y el agente dentro de
 // un mismo reporte (grupoId). Como aprobarVentaPendiente() ahora preserva
 // el grupoId al pasar a appData.ventas, el mismo hilo de mensajes sigue
@@ -4553,7 +4679,7 @@ function renderVentas() {
         onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
     </td>
     <td style="font-weight:700;color:#00BDA5" id="vrow-total-${v.id}">${fmt(com*v.cantidad)}</td>
-    <td style="font-weight:700;color:#33475B;background:${v.cliente?'#fff':'#FFF0F0'};border:${v.cliente?'none':'2px solid #F2545B'};padding:4px 8px;border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}</td>
+    <td style="font-weight:700;color:#33475B;background:${v.cliente?'#fff':'#FFF0F0'};border:${v.cliente?'none':'2px solid #F2545B'};padding:4px 8px;border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}${v.esChargeback?'<div style="font-size:9px;color:#F2545B;font-weight:800;margin-top:2px">⚠️ CHARGEBACK</div>':''}</td>
     <td style="color:#7C98B6">${v.cuenta||'—'}</td>
     <td>${v.mes}</td>
     <td style="min-width:90px">
@@ -4578,6 +4704,9 @@ function renderVentas() {
       <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
       ${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaOficial(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}
       ${v.grupoId ? `<button class="btn btn-danger btn-xs" onclick="revertirVentaAprobada(${v.grupoId})" title="Rechazar esta venta ya aprobada, por si hay un error que corregir">↩️ Rechazar</button>` : ''}
+      ${v.grupoId ? (v.esChargeback
+        ? `<button class="btn btn-ghost btn-xs" style="color:#F2545B;border-color:#F2545B" onclick="quitarVentaChargeback(${v.id})" title="Marcada como Chargeback — clic para quitar">⚠️ CB</button>`
+        : `<button class="btn btn-ghost btn-xs" onclick="marcarVentaChargeback(${v.id})" title="Marcar esta venta como Chargeback">⚠️ CB</button>`) : ''}
     </td>
   </tr>${(() => {
     if(!v.grupoId || _ventasChatAbierto!==v.grupoId || gruposConChatRenderizado.has(v.grupoId)) return '';
@@ -7132,7 +7261,7 @@ function abrirArea(area) {
   else if(area==='top')   showPage('top', null);
   else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
-  else if(area==='agente') { showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); }
+  else if(area==='agente') { showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente(); }
 }
 
 // Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
@@ -7383,6 +7512,7 @@ function agenteToggleChatVenta(grupoId) {
 function renderAgenteMisReportes() {
   _mrSeleccionados = new Set();
   actualizarBadgeRechazadosAgente();
+  populateMes('mr-f-mes');
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agenteId = perms ? perms.agenteId : null;
 
@@ -7403,9 +7533,28 @@ function renderAgenteMisReportes() {
   }
 
   const fFecha = document.getElementById('mr-f-fecha')?.value || '';
+  const fMes = document.getElementById('mr-f-mes')?.value || '';
+  const fQuincena = document.getElementById('mr-f-quincena')?.value || '';
 
   let todos = [...agrupar(pendientes,'pendiente'), ...agrupar(rechazadas,'rechazado'), ...agrupar(aprobadas,'aprobado')];
   if(fFecha) todos = todos.filter(g => g.fecha === fFecha);
+  // El mes/quincena de PAGO real (getPeríodoPago) solo existe una vez
+  // aprobada la venta — antes de eso se filtra por el mes objetivo que el
+  // vendedor eligió al reportar (g.lineas[0].mes), y nunca por quincena
+  // (todavía no hay ninguna asignada; eso lo decide Admin al aprobar).
+  if(fMes || fQuincena) {
+    todos = todos.filter(g => {
+      if(g.estado==='aprobado') {
+        const p = getPeríodoPago(g.lineas[0]);
+        if(fMes && p.mes !== fMes) return false;
+        if(fQuincena && String(p.q) !== fQuincena) return false;
+        return true;
+      }
+      if(fQuincena) return false;
+      if(fMes && (g.lineas[0].mes||'') !== fMes) return false;
+      return true;
+    });
+  }
   todos.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
 
   const badges = {
@@ -7603,6 +7752,72 @@ function agenteReenviarReportesSeleccionados() {
   const ids = [..._mrSeleccionados].filter(gid => (appData.ventasRechazadas||[]).some(v=>v.grupoId===gid));
   if(!ids.length) { showNotif('⚠️ Selecciona al menos un reporte RECHAZADO para reenviar','error'); return; }
   ids.forEach(gid => agenteReenviarReporte(gid));
+}
+
+function actualizarBadgeChargebacksAgente() {
+  const badge = document.getElementById('nav-agente-chargebacks-badge');
+  if(!badge) return;
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms ? perms.agenteId : null;
+  const n = resumenChargebacksAgente(agenteId).chargebacks;
+  badge.style.display = n > 0 ? 'inline-block' : 'none';
+  badge.textContent = n;
+}
+
+let _cbAgenteChatAbierto = null;
+function agenteToggleChatVentaCB(grupoId) {
+  _cbAgenteChatAbierto = (_cbAgenteChatAbierto===grupoId) ? null : grupoId;
+  renderAgenteChargebacks();
+}
+function agenteEnviarMensajeVentaCB(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  enviarMensajeVenta(grupoId, 'agente', perms ? perms.nombre : 'Agente', 'cb-agente-chat-input-'+grupoId);
+  renderAgenteChargebacks();
+}
+
+// El % de Chargeback nunca lo elige/ajusta el vendedor — es puramente
+// informativo, calculado sobre sus propias ventas ya aprobadas
+// (resumenChargebacksAgente(), la misma función que usa el resumen de
+// Admin). Solo Admin puede marcar/quitar un chargeback.
+function renderAgenteChargebacks() {
+  actualizarBadgeChargebacksAgente();
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms ? perms.agenteId : null;
+
+  const r = resumenChargebacksAgente(agenteId);
+  const nivel = r.pct >= 10 ? { color:'#F2545B', bg:'#FFF0F0', texto:'🔴 Nivel alto' }
+              : r.pct >= 5  ? { color:'#B45309', bg:'#FEF3C7', texto:'🟡 Nivel medio' }
+              : { color:'#00A492', bg:'#E8F9F7', texto:'🟢 Nivel bajo' };
+
+  document.getElementById('agente-cb-resumen').innerHTML = `
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:12px;padding:16px 20px;min-width:150px">
+        <div style="font-size:11px;color:#7C98B6;font-weight:600">Ventas Activas</div>
+        <div style="font-size:26px;font-weight:800;color:#33475B">${r.activas}</div>
+      </div>
+      <div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:12px;padding:16px 20px;min-width:150px">
+        <div style="font-size:11px;color:#7C98B6;font-weight:600">Chargebacks</div>
+        <div style="font-size:26px;font-weight:800;color:#F2545B">${r.chargebacks}</div>
+      </div>
+      <div style="background:${nivel.bg};border:1.5px solid ${nivel.color};border-radius:12px;padding:16px 20px;min-width:170px">
+        <div style="font-size:11px;color:${nivel.color};font-weight:600">% Chargeback</div>
+        <div style="font-size:26px;font-weight:800;color:${nivel.color}">${r.pct.toFixed(1)}%</div>
+        <div style="font-size:10px;color:${nivel.color};font-weight:700;margin-top:2px">${nivel.texto}</div>
+      </div>
+    </div>`;
+
+  const cbs = (appData.ventas||[]).filter(v=>v.reportadoPor===agenteId && v.esChargeback).sort((a,b)=>(b.chargebackFecha||'').localeCompare(a.chargebackFecha||''));
+  const body = document.getElementById('agente-chargebacks-body');
+  body.innerHTML = cbs.length ? cbs.map(v => `
+    <tr>
+      <td style="font-weight:600">${v.fecha}</td>
+      <td>${v.cliente||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
+      <td style="font-size:11px;color:#33475B">${v.chargebackMotivo||'—'}</td>
+      <td style="white-space:nowrap">${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="agenteToggleChatVentaCB(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}</td>
+    </tr>
+    ${_cbAgenteChatAbierto===v.grupoId ? `<tr><td colspan="5" style="padding:0 8px 8px">${chatVentaHtml(v.grupoId, 'cb-agente-chat-input-'+v.grupoId, 'agenteEnviarMensajeVentaCB')}</td></tr>` : ''}
+  `).join('') : '<tr><td colspan="5" class="tbl-empty">No tienes ninguna venta marcada como Chargeback</td></tr>';
 }
 
 function volverAreas() {
