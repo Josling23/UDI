@@ -423,6 +423,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="_agvEditGrupoId=null;showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
     <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span><span id="nav-agente-rechazados-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-item" onclick="showPage('agente-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span><span id="nav-agente-chargebacks-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
+    <div class="nav-item" id="nav-agente-comisiones" style="display:none" onclick="showPage('agente-comisiones',this)"><span class="icon">💰</span><span>Mis Comisiones</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -858,6 +859,31 @@ table thead,table tbody{display:table;width:100%}
           <table>
             <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Motivo</th><th>Acciones</th></tr></thead>
             <tbody id="agente-chargebacks-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Solo visible para el rol Sub-Dealer — el resto de los vendedores no
+         ven montos en dólares en ninguna pantalla de su propia cuenta. -->
+    <div class="page" id="page-agente-comisiones">
+      <div class="section">
+        <div class="section-header"><h2>💰 Mis Comisiones</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Solo cuenta ventas ya activadas (aprobadas). Los chargebacks se restan del total.</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <select id="ac-f-mes" onchange="renderAgenteComisiones()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px"></select>
+          <select id="ac-f-quincena" onchange="renderAgenteComisiones()" style="background:#fff;border:1.5px solid #CBD6E2;padding:7px 12px;border-radius:8px;font-size:12px">
+            <option value="">Q1 y Q2</option>
+            <option value="1">Quincena 1</option>
+            <option value="2">Quincena 2</option>
+          </select>
+          <button onclick="document.getElementById('ac-f-mes').value='';document.getElementById('ac-f-quincena').value='';renderAgenteComisiones()" style="background:#fff;border:1.5px solid #CBD6E2;color:#7C98B6;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Limpiar</button>
+        </div>
+        <div id="agente-comisiones-resumen" style="margin-bottom:16px"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Comisión</th><th>Estado</th></tr></thead>
+            <tbody id="agente-comisiones-body"></tbody>
           </table>
         </div>
       </div>
@@ -3182,6 +3208,7 @@ function activarListenerAppData() {
           'agente-reportar':    renderAgenteReportar,
           'agente-mis-reportes':renderAgenteMisReportes,
           'agente-chargebacks': renderAgenteChargebacks,
+          'agente-comisiones':  renderAgenteComisiones,
           'chargebacks-admin':  renderChargebacksAdmin,
         };
         if (renderMap[pageId]) {
@@ -3798,6 +3825,7 @@ const PAGE_TITLES = {
   'agente-reportar':'📝 Reportar Venta',
   'agente-mis-reportes':'📋 Mis Reportes',
   'agente-chargebacks':'⚠️ Chargebacks',
+  'agente-comisiones':'💰 Mis Comisiones',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
@@ -3854,6 +3882,7 @@ function renderPage(name) {
   if(name==='agente-reportar') renderAgenteReportar();
   if(name==='agente-mis-reportes') renderAgenteMisReportes();
   if(name==='agente-chargebacks') renderAgenteChargebacks();
+  if(name==='agente-comisiones') renderAgenteComisiones();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
@@ -7777,7 +7806,15 @@ function abrirArea(area) {
   else if(area==='top')   showPage('top', null);
   else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
-  else if(area==='agente') { showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente(); }
+  else if(area==='agente') {
+    // "Mis Comisiones" (con montos en $) solo es visible para el rol
+    // Sub-Dealer — el resto de los vendedores no ven dólares en su cuenta,
+    // decisión de diseño de una sesión anterior que aquí no se toca.
+    const permsAg = getUserPermissions(email);
+    const agenteObj = permsAg ? (appData.agentes||[]).find(a=>a.id===permsAg.agenteId) : null;
+    document.getElementById('nav-agente-comisiones').style.display = (agenteObj && (agenteObj.rol==='subdealer'||agenteObj.rol==='subdealер')) ? 'flex' : 'none';
+    showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente();
+  }
   actualizarBadgeNotifCampana();
 }
 
@@ -8412,6 +8449,68 @@ function renderAgenteChargebacks() {
     </tr>
     ${_cbAgenteChatAbierto===v.grupoId ? `<tr><td colspan="5" style="padding:0 8px 8px">${chatVentaHtml(v.grupoId, 'cb-agente-chat-input-'+v.grupoId, 'agenteEnviarMensajeVentaCB')}</td></tr>` : ''}
   `).join('') : '<tr><td colspan="5" class="tbl-empty">No tienes ninguna venta marcada como Chargeback</td></tr>';
+}
+
+// ============================================================
+// AGENTE — MIS COMISIONES (solo Sub-Dealers)
+// ============================================================
+// Pantalla exclusiva del rol Sub-Dealer para ver sus propias ganancias en $
+// — el resto de los vendedores no ven montos en ninguna pantalla de su
+// cuenta (decisión de diseño previa que no se toca). Es puramente
+// informativa: usa la comisión ya guardada en cada venta (v.comision, que
+// ya refleja la tarifa de SU perfil) y NO toca ni reemplaza el cálculo real
+// de pago que usa Admin en "Pagos Agentes" (getComisionesQuincena) — ese
+// sigue exactamente igual, con su propio descuento manual por chargeback.
+function renderAgenteComisiones() {
+  populateMes('ac-f-mes');
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms ? perms.agenteId : null;
+  const fMes = document.getElementById('ac-f-mes')?.value || '';
+  const fQuincena = document.getElementById('ac-f-quincena')?.value || '';
+
+  let propias = (appData.ventas||[]).filter(v=>v.reportadoPor===agenteId && !v.esGrabacion && !v._esGrabacion);
+  if(fMes || fQuincena) {
+    propias = propias.filter(v=>{
+      const pp = getPeríodoPago(v);
+      if(fMes && pp.mes !== fMes) return false;
+      if(fQuincena && String(pp.q) !== fQuincena) return false;
+      return true;
+    });
+  }
+  propias.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const montoVenta = v => (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
+  const activas = propias.filter(v=>!v.esChargeback);
+  const chargebacks = propias.filter(v=>v.esChargeback);
+  const bruto = activas.reduce((s,v)=>s+montoVenta(v), 0);
+  const descuentoCB = chargebacks.reduce((s,v)=>s+montoVenta(v), 0);
+  const neto = bruto - descuentoCB;
+
+  document.getElementById('agente-comisiones-resumen').innerHTML = `
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:12px;padding:16px 20px;min-width:160px">
+        <div style="font-size:11px;color:#7C98B6;font-weight:600">Ganado (${activas.length} venta${activas.length!==1?'s':''})</div>
+        <div style="font-size:26px;font-weight:800;color:#00A492">${fmt(bruto)}</div>
+      </div>
+      <div style="background:#FFF0F0;border:1.5px solid #F2545B;border-radius:12px;padding:16px 20px;min-width:160px">
+        <div style="font-size:11px;color:#F2545B;font-weight:600">Chargebacks (${chargebacks.length})</div>
+        <div style="font-size:26px;font-weight:800;color:#F2545B">−${fmt(descuentoCB)}</div>
+      </div>
+      <div style="background:#EAF7FB;border:1.5px solid #009FDB;border-radius:12px;padding:16px 20px;min-width:160px">
+        <div style="font-size:11px;color:#0057A8;font-weight:600">Total Neto</div>
+        <div style="font-size:26px;font-weight:800;color:#0057A8">${fmt(neto)}</div>
+      </div>
+    </div>`;
+
+  const body = document.getElementById('agente-comisiones-body');
+  body.innerHTML = propias.length ? propias.map(v => `
+    <tr>
+      <td>${v.fecha}</td>
+      <td>${v.cliente||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
+      <td style="text-align:right;font-weight:700;color:${v.esChargeback?'#F2545B':'#00A492'}">${v.esChargeback?'−':''}${fmt(montoVenta(v))}</td>
+      <td>${v.esChargeback ? '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:2px 9px;font-size:10px;font-weight:600">⚠️ Chargeback</span>' : '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:2px 9px;font-size:10px;font-weight:600">✅ Activación</span>'}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="tbl-empty">No tienes ventas activadas en este período</td></tr>';
 }
 
 function volverAreas() {
