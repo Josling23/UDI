@@ -1022,7 +1022,7 @@ table thead,table tbody{display:table;width:100%}
               <th><input type="checkbox" id="salud-clientes-check-todos" onchange="saludToggleSeleccionarTodosClientes(this)" title="Seleccionar todos"></th>
               <th>#</th><th>Cuenta</th><th>Cliente</th><th>Teléfono</th><th>Agente</th>
               <th>Tipo</th><th>Prima/Mes</th><th>Com. Total</th><th>Adelanto (9m)</th><th>Final (3m)</th>
-              <th>Com. Agente</th><th>Estado</th><th>Fecha Venta</th><th>Mes</th><th>Notas</th><th>Acciones</th>
+              <th>Com. Agente</th><th>Estado</th><th>Fecha Venta</th><th>Mes</th><th>Notas</th><th>💬</th><th>Acciones</th>
             </tr></thead>
             <tbody id="salud-clientes-body"></tbody>
           </table>
@@ -3438,6 +3438,12 @@ function normalizarSaludData() {
   if(!saludData.pagos)     saludData.pagos     = [];
   if(!saludData.nextPagoId) saludData.nextPagoId = 1;
   if(!saludData.roiMensual) saludData.roiMensual = {};
+  // Chat y notificaciones (motor compartido con Admin/AT&T) — propios de
+  // Salud, nunca se mezclan con appData.mensajesVenta/notificaciones.
+  if(!saludData.mensajesClientes) saludData.mensajesClientes = [];
+  if(!saludData.nextMensajeId)    saludData.nextMensajeId    = 1;
+  if(!saludData.notificaciones)   saludData.notificaciones   = [];
+  if(!saludData.nextNotificacionId) saludData.nextNotificacionId = 1;
   saludData.clientes.forEach(c => {
     if(c.proveedor === undefined) c.proveedor = '';
     if(c.fechaNacimiento === undefined) c.fechaNacimiento = '';
@@ -4703,24 +4709,63 @@ function quitarVentaChargebackDesdeAdmin(ventaId) {
 }
 
 // ============================================================
+// MOTOR COMPARTIDO DE CHAT Y NOTIFICACIONES — la misma maquinaria sirve
+// para cualquier departamento (hoy: Admin/AT&T y Salud & Dental). Cada
+// departamento guarda sus propios mensajes/notificaciones en su propia
+// colección (appData vs saludData) — nunca se mezclan datos entre
+// departamentos, solo se comparte CÓMO se guardan y se muestran, para que
+// una mejora futura al chat o a las notificaciones beneficie a los dos a
+// la vez, en vez de tener que construirse dos veces.
+// ============================================================
+const DEPTO_CONTEXTOS = {
+  att: {
+    mensajes: () => appData.mensajesVenta, setMensajes: v => appData.mensajesVenta = v,
+    nextMensajeId: () => appData.nextMensajeVentaId, setNextMensajeId: v => appData.nextMensajeVentaId = v,
+    notifs: () => appData.notificaciones, setNotifs: v => appData.notificaciones = v,
+    nextNotifId: () => appData.nextNotificacionId, setNextNotifId: v => appData.nextNotificacionId = v,
+    guardar: () => guardar(),
+  },
+  salud: {
+    mensajes: () => saludData.mensajesClientes, setMensajes: v => saludData.mensajesClientes = v,
+    nextMensajeId: () => saludData.nextMensajeId, setNextMensajeId: v => saludData.nextMensajeId = v,
+    notifs: () => saludData.notificaciones, setNotifs: v => saludData.notificaciones = v,
+    nextNotifId: () => saludData.nextNotificacionId, setNextNotifId: v => saludData.nextNotificacionId = v,
+    guardar: () => guardarSalud(),
+  },
+};
+
 // CAMPANITA DE NOTIFICACIONES — a diferencia del sonido/toast en tiempo
 // real (que solo avisa si la otra persona tiene la app abierta en ESE
-// momento), estas quedan guardadas en appData.notificaciones para que
-// Admin y el vendedor las vean en cualquier momento al entrar, con un clic
-// que los lleva directo a la venta/reporte correspondiente.
-// ============================================================
-function crearNotificacion(destino, tipo, texto, grupoId) {
-  if(!appData.notificaciones) appData.notificaciones = [];
-  if(!appData.nextNotificacionId) appData.nextNotificacionId = 1;
-  appData.notificaciones.push({
-    id: appData.nextNotificacionId++,
+// momento), estas quedan guardadas para que Admin/Salud y el vendedor las
+// vean en cualquier momento al entrar, con un clic que los lleva directo
+// a la venta/reporte/cliente correspondiente.
+function deptoCrearNotificacion(depto, destino, tipo, texto, refId) {
+  const c = DEPTO_CONTEXTOS[depto];
+  if(!c.notifs()) c.setNotifs([]);
+  if(!c.nextNotifId()) c.setNextNotifId(1);
+  const id = c.nextNotifId();
+  c.notifs().push({
+    id,
     paraAdmin: !!destino.paraAdmin,
     paraAgenteId: destino.paraAgenteId != null ? destino.paraAgenteId : null,
     paraInspector: !!destino.paraInspector,
-    tipo, texto, grupoId,
+    paraSalud: !!destino.paraSalud,
+    tipo, texto, grupoId: refId,
     leida: false,
     creadoEn: new Date().toISOString(),
   });
+  c.setNextNotifId(id+1);
+}
+
+function crearNotificacion(destino, tipo, texto, grupoId) {
+  deptoCrearNotificacion('att', destino, tipo, texto, grupoId);
+}
+
+// No guarda por sí sola — igual que crearNotificacion(), quien la llama
+// decide cuándo hacer guardarSalud() (a veces conviene agrupar varios
+// cambios en un solo guardado).
+function saludCrearNotificacion(destino, tipo, texto, clienteId) {
+  deptoCrearNotificacion('salud', destino, tipo, texto, clienteId);
 }
 
 // Busca a qué agente pertenece un grupoId, sin importar en qué colección
@@ -4735,16 +4780,23 @@ function reportadoPorDeGrupo(grupoId) {
   return null;
 }
 
+// Un mismo usuario de back-office puede tener acceso a varias áreas (ej.
+// Admin + Salud) — la campanita debe mostrar las notificaciones del área
+// que tiene abierta AHORA (_areaActual), no una mezcla de todas. Salud vive
+// en su propia colección (saludData.notificaciones), separada de
+// appData.notificaciones, igual que el resto de sus datos.
 function misNotificaciones() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   if(!perms) return [];
-  if(perms.areas && perms.areas.includes('admin')) {
-    return (appData.notificaciones||[]).filter(n=>n.paraAdmin);
-  } else if(perms.areas && perms.areas.includes('inspector')) {
-    return (appData.notificaciones||[]).filter(n=>n.paraInspector);
-  } else if(perms.agenteId) {
-    return (appData.notificaciones||[]).filter(n=>n.paraAgenteId===perms.agenteId);
-  }
+  if(_areaActual === 'salud')     return (saludData.notificaciones||[]).filter(n=>n.paraSalud);
+  if(_areaActual === 'inspector') return (appData.notificaciones||[]).filter(n=>n.paraInspector);
+  if(_areaActual === 'admin')     return (appData.notificaciones||[]).filter(n=>n.paraAdmin);
+  if(_areaActual === 'agente' && perms.agenteId) return (appData.notificaciones||[]).filter(n=>n.paraAgenteId===perms.agenteId);
+  // Respaldo por si todavía no se llamó abrirArea() — mismo criterio de
+  // prioridad que existía antes de que hubiera varias áreas con notificaciones.
+  if(perms.areas && perms.areas.includes('admin')) return (appData.notificaciones||[]).filter(n=>n.paraAdmin);
+  if(perms.areas && perms.areas.includes('inspector')) return (appData.notificaciones||[]).filter(n=>n.paraInspector);
+  if(perms.agenteId) return (appData.notificaciones||[]).filter(n=>n.paraAgenteId===perms.agenteId);
   return [];
 }
 
@@ -4802,7 +4854,7 @@ function renderNotifPanel() {
 
 function marcarTodasNotifLeidas() {
   misNotificaciones().forEach(n=>n.leida=true);
-  guardar();
+  (_areaActual === 'salud' ? guardarSalud : guardar)();
   renderNotifPanel();
   actualizarBadgeNotifCampana();
 }
@@ -4811,12 +4863,34 @@ function marcarTodasNotifLeidas() {
 // a Admin o al vendedor directo a la pantalla + venta/reporte que la
 // generó, abriendo también el chat de esa orden para dar contexto.
 function irANotificacion(id) {
-  const n = (appData.notificaciones||[]).find(x=>x.id===id);
+  // La notificación clickeada vino del panel que ya se llenó con
+  // misNotificaciones() (consciente de _areaActual) — se busca en la MISMA
+  // colección (Salud vs AT&T) de donde salió, no siempre en appData.
+  const depto = _areaActual === 'salud' ? 'salud' : 'att';
+  const ctx = DEPTO_CONTEXTOS[depto];
+  const n = (ctx.notifs()||[]).find(x=>x.id===id);
   if(!n) return;
   n.leida = true;
-  guardar();
+  ctx.guardar();
   document.getElementById('notif-panel').style.display = 'none';
   actualizarBadgeNotifCampana();
+
+  if(depto === 'salud') {
+    // abrirArea('salud') carga los datos de forma asíncrona (cargarSalud())
+    // y al terminar navega sola a "salud-dashboard" — hay que esperar esa
+    // misma carga antes de forzar la pantalla de Clientes, si no la
+    // navegación de abrirArea gana la carrera y termina en el dashboard.
+    abrirArea('salud');
+    cargarSalud().then(() => {
+      ['salud-search-clientes','salud-filter-agente','salud-filter-tipo','salud-filter-estado','salud-filter-mes-cli','salud-filter-anio-cli'].forEach(id=>{
+        const el = document.getElementById(id); if(el) el.value = '';
+      });
+      showPage('salud-clientes', null);
+      _saludChatAbierto = n.grupoId;
+      saludRenderClientes();
+    });
+    return;
+  }
 
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   if(!perms) return;
@@ -4867,19 +4941,39 @@ function irANotificacion(id) {
 // disponible sin cambios sin importar si el reporte está pendiente,
 // rechazado o ya aprobado.
 // ============================================================
-function mensajesDeGrupo(grupoId) {
-  return (appData.mensajesVenta||[]).filter(m=>m.grupoId===grupoId).sort((a,b)=>(a.creadoEn||'').localeCompare(b.creadoEn||''));
+function deptoMensajesDe(depto, refId) {
+  const c = DEPTO_CONTEXTOS[depto];
+  return (c.mensajes()||[]).filter(m=>m.grupoId===refId).sort((a,b)=>(a.creadoEn||'').localeCompare(b.creadoEn||''));
 }
 
-function enviarMensajeVenta(grupoId, autor, autorNombre, inputId) {
+function deptoEnviarMensaje(depto, refId, autor, autorNombre, inputId) {
+  const c = DEPTO_CONTEXTOS[depto];
   const input = document.getElementById(inputId);
   const texto = (input?.value||'').trim();
   if(!texto) return null;
-  if(!appData.mensajesVenta) appData.mensajesVenta = [];
-  if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
-  appData.mensajesVenta.push({ id: appData.nextMensajeVentaId++, grupoId, autor, autorNombre, texto, creadoEn: new Date().toISOString() });
-  guardar();
+  if(!c.mensajes()) c.setMensajes([]);
+  if(!c.nextMensajeId()) c.setNextMensajeId(1);
+  const id = c.nextMensajeId();
+  c.mensajes().push({ id, grupoId: refId, autor, autorNombre, texto, creadoEn: new Date().toISOString() });
+  c.setNextMensajeId(id+1);
+  c.guardar();
   return texto;
+}
+
+function mensajesDeGrupo(grupoId) {
+  return deptoMensajesDe('att', grupoId);
+}
+
+function enviarMensajeVenta(grupoId, autor, autorNombre, inputId) {
+  return deptoEnviarMensaje('att', grupoId, autor, autorNombre, inputId);
+}
+
+function saludMensajesDeCliente(clienteId) {
+  return deptoMensajesDe('salud', clienteId);
+}
+
+function saludEnviarMensajeCliente(clienteId, autor, autorNombre, inputId) {
+  return deptoEnviarMensaje('salud', clienteId, autor, autorNombre, inputId);
 }
 
 function adminEnviarMensajeVenta(grupoId) {
@@ -4989,11 +5083,11 @@ function compartirReciboWhatsApp(grupoId) {
 
 // Identifica quién escribió cada mensaje del chat — 'inspector' tiene su
 // propio ícono/color para que el vendedor nunca lo confunda con Admin.
-const AUTOR_CHAT_ICONO = { admin:'👤', inspector:'🔍', agente:'📱' };
-const AUTOR_CHAT_COLOR = { admin:'#0057A8', inspector:'#8B5CF6', agente:'#6A78D1' };
+const AUTOR_CHAT_ICONO = { admin:'👤', inspector:'🔍', agente:'📱', salud:'💚' };
+const AUTOR_CHAT_COLOR = { admin:'#0057A8', inspector:'#8B5CF6', agente:'#6A78D1', salud:'#00A492' };
 
-function chatVentaHtml(grupoId, inputId, onEnviarFn) {
-  const mensajes = mensajesDeGrupo(grupoId);
+function deptoChatHtml(depto, refId, inputId, onEnviarFn) {
+  const mensajes = deptoMensajesDe(depto, refId);
   return `<div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:8px;padding:8px;margin-top:6px">
     <div style="max-height:160px;overflow-y:auto;margin-bottom:6px">
       ${mensajes.length ? mensajes.map(m=>`
@@ -5004,10 +5098,18 @@ function chatVentaHtml(grupoId, inputId, onEnviarFn) {
         </div>`).join('') : '<div style="font-size:11px;color:#99ACC2;font-style:italic">Sin mensajes todavía — escribe algo para empezar el seguimiento de esta orden.</div>'}
     </div>
     <div style="display:flex;gap:6px">
-      <input type="text" id="${inputId}" placeholder="Escribe un mensaje..." style="flex:1;border:1.5px solid #CBD6E2;border-radius:6px;padding:6px 8px;font-size:12px" onkeydown="if(event.key==='Enter'){${onEnviarFn}(${grupoId})}">
-      <button class="btn btn-primary btn-xs" onclick="${onEnviarFn}(${grupoId})">Enviar</button>
+      <input type="text" id="${inputId}" placeholder="Escribe un mensaje..." style="flex:1;border:1.5px solid #CBD6E2;border-radius:6px;padding:6px 8px;font-size:12px" onkeydown="if(event.key==='Enter'){${onEnviarFn}(${refId})}">
+      <button class="btn btn-primary btn-xs" onclick="${onEnviarFn}(${refId})">Enviar</button>
     </div>
   </div>`;
+}
+
+function chatVentaHtml(grupoId, inputId, onEnviarFn) {
+  return deptoChatHtml('att', grupoId, inputId, onEnviarFn);
+}
+
+function saludChatHtml(clienteId, inputId, onEnviarFn) {
+  return deptoChatHtml('salud', clienteId, inputId, onEnviarFn);
 }
 
 // El chat de "Ventas Pendientes" desaparece de esa pantalla en cuanto Admin
@@ -7870,6 +7972,12 @@ function mostrarAreas() {
   document.getElementById('app-wrap').style.display     = 'none';
 }
 
+// Área que el usuario tiene abierta ahora mismo — necesaria porque un mismo
+// usuario de back-office puede tener acceso a varias áreas a la vez (ej.
+// Admin + Salud), y la campanita de notificaciones debe mostrar las de la
+// que está viendo en ESE momento, no una mezcla de todas sus áreas.
+let _areaActual = null;
+
 function abrirArea(area) {
   // Verificar permisos
   const email = currentUser ? currentUser.email : '';
@@ -7877,6 +7985,7 @@ function abrirArea(area) {
     showNotif('⚠️ No tienes permiso para acceder a este área', 'error');
     return;
   }
+  _areaActual = area;
 
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'flex';
@@ -8800,6 +8909,7 @@ function renderInspectorClientes() {
 }
 
 function volverAreas() {
+  _areaActual = null;
   // Ocultar la aplicación
   document.getElementById('app-wrap').style.display = 'none';
   document.getElementById('sidebar-nav-admin').style.display = 'none';
@@ -8875,6 +8985,7 @@ async function cerrarSesion() {
 
   currentUser = null;
   currentRole = null;
+  _areaActual = null;
 
   document.getElementById('area-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display    = 'none';
@@ -12869,16 +12980,38 @@ function saludRenderClientes() {
       </select></td>
       <td>${c.fecha||'—'}</td><td>${c.mes}</td>
       <td class="note-cell" title="${c.notas||''}">${c.notas||'—'}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="saludToggleChat(${c.id})">💬${saludMensajesDeCliente(c.id).length ? ' '+saludMensajesDeCliente(c.id).length : ''}</button></td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-xs" onclick="saludOpenClienteModal(${c.id})">✏️</button>
         <button class="btn btn-xs" style="background:#1c0a00;color:#64748b;border:1px solid #334155" onclick="saludOpenChargebackModal(${c.id})" title="Chargeback">⚠️</button>
         <button class="btn btn-danger btn-xs" onclick="saludEliminarCliente(${c.id})">✕</button>
-      </td></tr>`;
-  }).join('') : '<tr><td colspan="17" class="tbl-empty">No hay clientes con esos filtros</td></tr>';
+      </td></tr>
+      ${_saludChatAbierto===c.id ? `<tr><td colspan="18" style="padding:0 8px 8px">${saludChatHtml(c.id, 'salud-chat-input-'+c.id, 'saludEnviarMensajeClienteChat')}</td></tr>` : ''}`;
+  }).join('') : '<tr><td colspan="18" class="tbl-empty">No hay clientes con esos filtros</td></tr>';
 
   const checkTodos = document.getElementById('salud-clientes-check-todos');
   if(checkTodos) checkTodos.checked = false;
   saludActualizarBarraSeleccionClientes();
+}
+
+// Chat por cliente (motor compartido con Admin/AT&T, ver DEPTO_CONTEXTOS) —
+// como Salud todavía no tiene login propio de agentes, es una conversación
+// entre el personal de back-office (Josling/David/Oriana/Astrid/José Piña)
+// para dejar seguimiento sobre un cliente, con aviso a la campanita para
+// quien más esté en el área de Salud.
+let _saludChatAbierto = null;
+function saludToggleChat(clienteId) {
+  _saludChatAbierto = (_saludChatAbierto===clienteId) ? null : clienteId;
+  saludRenderClientes();
+}
+function saludEnviarMensajeClienteChat(clienteId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = saludEnviarMensajeCliente(clienteId, 'salud', perms ? perms.nombre : 'Salud', 'salud-chat-input-'+clienteId);
+  if(texto) {
+    saludCrearNotificacion({ paraSalud: true }, 'mensaje', `${perms?perms.nombre:'Salud'}: ${texto}`, clienteId);
+    guardarSalud();
+  }
+  saludRenderClientes();
 }
 
 // Marca/desmarca un cliente para el borrado múltiple.
