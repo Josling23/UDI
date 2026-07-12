@@ -905,6 +905,7 @@ table thead,table tbody{display:table;width:100%}
       <div class="section">
         <div class="section-header"><h2>🔍 Clientes</h2></div>
         <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Vista de solo lectura: todos los clientes de todos los agentes, con estado, grabación de llamada y chargebacks. No incluye comisiones ni cantidades.</div>
+        <div id="inspector-seguimiento-resumen" style="margin-bottom:14px"></div>
         <div class="filters">
           <input type="text" id="insp-f-cliente" placeholder="🔍 Buscar cliente..." oninput="renderInspectorClientes()">
           <select id="insp-f-agente" onchange="renderInspectorClientes()"><option value="">Todos los Agentes</option></select>
@@ -918,11 +919,14 @@ table thead,table tbody{display:table;width:100%}
             <option value="chargeback">⚠️ Chargeback</option>
           </select>
           <input type="date" id="insp-f-fecha" title="Fecha exacta de activación" onchange="renderInspectorClientes()">
-          <button class="btn btn-ghost btn-sm" onclick="['insp-f-cliente','insp-f-agente','insp-f-mes','insp-f-anio','insp-f-estado','insp-f-fecha'].forEach(id=>document.getElementById(id).value='');renderInspectorClientes()">✕ Limpiar</button>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#33475B;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:7px 12px;cursor:pointer">
+            <input type="checkbox" id="insp-f-pendientes-seguimiento" onchange="renderInspectorClientes()"> Solo pendientes de seguimiento
+          </label>
+          <button class="btn btn-ghost btn-sm" onclick="['insp-f-cliente','insp-f-agente','insp-f-mes','insp-f-anio','insp-f-estado','insp-f-fecha'].forEach(id=>document.getElementById(id).value='');document.getElementById('insp-f-pendientes-seguimiento').checked=false;renderInspectorClientes()">✕ Limpiar</button>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>Producto</th><th>🎙️ Grabación</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>Producto</th><th>🎙️ Grabación</th><th>Estado</th><th>✅ Seguimiento</th><th>Acciones</th></tr></thead>
             <tbody id="inspector-clientes-body"></tbody>
           </table>
         </div>
@@ -8657,6 +8661,20 @@ function inspectorPoblarFiltros() {
   selAño.value = curAño;
 }
 
+// Un cliente "necesita seguimiento" si tiene llamada grabada y/o está en
+// Chargeback — esas son las dos cosas que el Inspector debe asegurarse de
+// revisar. El resto de las ventas (sin grabación, sin chargeback) no
+// necesitan seguimiento y no muestran checkbox.
+function inspectorNecesitaSeguimiento(g) { return !!(g.grabadoPor || g.estado==='chargeback'); }
+function inspectorYaRevisado(g) { return !!(appData.inspectorSeguimiento && appData.inspectorSeguimiento[g.grupoId]); }
+
+function inspectorToggleSeguimiento(grupoId) {
+  if(!appData.inspectorSeguimiento) appData.inspectorSeguimiento = {};
+  appData.inspectorSeguimiento[grupoId] = !appData.inspectorSeguimiento[grupoId];
+  guardar();
+  renderInspectorClientes();
+}
+
 function renderInspectorClientes() {
   inspectorPoblarFiltros();
   const fCliente = (document.getElementById('insp-f-cliente')?.value||'').toLowerCase();
@@ -8665,6 +8683,7 @@ function renderInspectorClientes() {
   const fAño     = document.getElementById('insp-f-anio')?.value||'';
   const fEstado  = document.getElementById('insp-f-estado')?.value||'';
   const fFecha   = document.getElementById('insp-f-fecha')?.value||'';
+  const fSoloPendientes = document.getElementById('insp-f-pendientes-seguimiento')?.checked || false;
 
   function agrupar(lista, estadoBase) {
     const grupos = {};
@@ -8679,19 +8698,38 @@ function renderInspectorClientes() {
     });
   }
 
-  let todos = [
+  const todosSinFiltrar = [
     ...agrupar(appData.ventasPendientes||[], 'pendiente'),
     ...agrupar(appData.ventas||[], 'aprobado'),
     ...agrupar(appData.ventasRechazadas||[], 'rechazado'),
   ];
 
-  todos = todos.filter(g=>{
+  // El resumen de arriba siempre cuenta sobre TODOS los clientes, sin
+  // importar los filtros activos — para que el Inspector nunca pierda de
+  // vista cuánto le falta, aunque esté filtrando por otra cosa en ese momento.
+  const conSeguimiento = todosSinFiltrar.filter(inspectorNecesitaSeguimiento);
+  const grabacionesPendientes = conSeguimiento.filter(g=>g.grabadoPor && !inspectorYaRevisado(g)).length;
+  const chargebacksPendientes = conSeguimiento.filter(g=>g.estado==='chargeback' && !inspectorYaRevisado(g)).length;
+  document.getElementById('inspector-seguimiento-resumen').innerHTML = `
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="background:${grabacionesPendientes>0?'#FFFBE8':'#fff'};border:1.5px solid ${grabacionesPendientes>0?'#F5C26B':'#CBD6E2'};border-radius:12px;padding:14px 18px;min-width:190px">
+        <div style="font-size:11px;color:#B45309;font-weight:600">🎙️ Grabaciones sin revisar</div>
+        <div style="font-size:24px;font-weight:800;color:#B45309">${grabacionesPendientes}</div>
+      </div>
+      <div style="background:${chargebacksPendientes>0?'#FFF0F0':'#fff'};border:1.5px solid ${chargebacksPendientes>0?'#F2545B':'#CBD6E2'};border-radius:12px;padding:14px 18px;min-width:190px">
+        <div style="font-size:11px;color:#F2545B;font-weight:600">⚠️ Chargebacks sin revisar</div>
+        <div style="font-size:24px;font-weight:800;color:#F2545B">${chargebacksPendientes}</div>
+      </div>
+    </div>`;
+
+  let todos = todosSinFiltrar.filter(g=>{
     if(fCliente && !(g.cliente||'').toLowerCase().includes(fCliente)) return false;
     if(fAgente && g.agente!==fAgente) return false;
     if(fMes && (g.mes||'').split(' ')[0]!==fMes) return false;
     if(fAño && (g.fecha||'').split('-')[0]!==fAño) return false;
     if(fFecha && g.fecha!==fFecha) return false;
     if(fEstado && g.estado!==fEstado) return false;
+    if(fSoloPendientes && (!inspectorNecesitaSeguimiento(g) || inspectorYaRevisado(g))) return false;
     return true;
   });
   todos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -8728,11 +8766,14 @@ function renderInspectorClientes() {
       <td style="font-size:11px;color:#7C98B6">${productos}</td>
       <td style="font-size:11px">${g.grabadoPor ? `🎙️ ${g.grabadoPor}` : '<span style="color:#CBD6E2">—</span>'}</td>
       <td>${badges[g.estado]||''}${motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:2px">${motivo}</div>` : ''}</td>
+      <td style="text-align:center">${inspectorNecesitaSeguimiento(g)
+          ? `<input type="checkbox" ${inspectorYaRevisado(g)?'checked':''} onchange="inspectorToggleSeguimiento(${g.grupoId})" title="Marcar como ya revisado">`
+          : '<span style="color:#CBD6E2">—</span>'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="inspectorToggleChat(${g.grupoId})">💬${mensajesDeGrupo(g.grupoId).length ? ' '+mensajesDeGrupo(g.grupoId).length : ''}</button></td>
     </tr>
-    ${_inspChatAbierto===g.grupoId ? `<tr><td colspan="9" style="padding:0 8px 8px">${chatVentaHtml(g.grupoId, 'insp-chat-input-'+g.grupoId, 'inspectorEnviarMensajeVenta')}</td></tr>` : ''}
+    ${_inspChatAbierto===g.grupoId ? `<tr><td colspan="10" style="padding:0 8px 8px">${chatVentaHtml(g.grupoId, 'insp-chat-input-'+g.grupoId, 'inspectorEnviarMensajeVenta')}</td></tr>` : ''}
   `;
-  }).join('') : '<tr><td colspan="9" class="tbl-empty">Ningún cliente coincide con los filtros</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="tbl-empty">Ningún cliente coincide con los filtros</td></tr>';
 }
 
 function volverAreas() {
