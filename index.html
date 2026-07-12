@@ -428,6 +428,13 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-inspector" style="display:none">
+    <div class="nav-section">🔍 INSPECTOR</div>
+    <div class="nav-item active" onclick="showPage('inspector-clientes',this)"><span class="icon">🔍</span><span>Clientes</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
   <div class="sidebar-footer">USA Distributor</div>
 </aside>
 <div class="mobile-sidebar-backdrop" id="mobile-sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
@@ -884,6 +891,39 @@ table thead,table tbody{display:table;width:100%}
           <table>
             <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Comisión</th><th>Estado</th></tr></thead>
             <tbody id="agente-comisiones-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- INSPECTOR — solo lectura: clientes, grabaciones y        -->
+    <!-- chargebacks de TODOS los agentes, sin comisión/cantidad, -->
+    <!-- sin editar/eliminar/exportar/importar.                   -->
+    <!-- ====================================================== -->
+    <div class="page" id="page-inspector-clientes">
+      <div class="section">
+        <div class="section-header"><h2>🔍 Clientes</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Vista de solo lectura: todos los clientes de todos los agentes, con estado, grabación de llamada y chargebacks. No incluye comisiones ni cantidades.</div>
+        <div class="filters">
+          <input type="text" id="insp-f-cliente" placeholder="🔍 Buscar cliente..." oninput="renderInspectorClientes()">
+          <select id="insp-f-agente" onchange="renderInspectorClientes()"><option value="">Todos los Agentes</option></select>
+          <select id="insp-f-mes" onchange="renderInspectorClientes()"><option value="">Todos los Meses</option></select>
+          <select id="insp-f-anio" onchange="renderInspectorClientes()"><option value="">Todos los Años</option></select>
+          <select id="insp-f-estado" onchange="renderInspectorClientes()">
+            <option value="">Todos los Estados</option>
+            <option value="pendiente">🟡 Pendiente</option>
+            <option value="aprobado">✅ Activación</option>
+            <option value="rechazado">❌ Rechazado</option>
+            <option value="chargeback">⚠️ Chargeback</option>
+          </select>
+          <input type="date" id="insp-f-fecha" title="Fecha exacta de activación" onchange="renderInspectorClientes()">
+          <button class="btn btn-ghost btn-sm" onclick="['insp-f-cliente','insp-f-agente','insp-f-mes','insp-f-anio','insp-f-estado','insp-f-fecha'].forEach(id=>document.getElementById(id).value='');renderInspectorClientes()">✕ Limpiar</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>Producto</th><th>🎙️ Grabación</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="inspector-clientes-body"></tbody>
           </table>
         </div>
       </div>
@@ -1687,6 +1727,7 @@ table thead,table tbody{display:table;width:100%}
             <option value="subdealer">🤝 Sub-Dealer</option>
             <option value="supervisor">🔷 Supervisor</option>
             <option value="gerente">⭐ Gerente General</option>
+            <option value="inspector">🔍 Inspector</option>
           </select>
         </div>
         <div class="form-group">
@@ -1705,40 +1746,44 @@ table thead,table tbody{display:table;width:100%}
         <div id="a-supervisa-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
 
-      <!-- Copiar comisiones de otro agente -->
-      <div style="margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2">
-        <div style="background:#FFFBE8;border:1px solid #F5C26B;border-radius:9px;padding:11px 14px;margin-bottom:14px">
-          <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">📋 Copiar comisiones de otro agente</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <select id="a-copy-source" style="flex:1;border:1.5px solid #CBD6E2;border-radius:7px;padding:6px 10px;font-size:12px;color:#33475B;outline:none;background:#fff">
-              <option value="">— Selecciona un agente —</option>
-            </select>
-            <button onclick="copiarComisionesDeAgente()" style="background:#F5C26B;color:#33475B;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Copiar</button>
-          </div>
-        </div>
-      </div>
-      <!-- Comisiones por producto -->
-      <div style="padding-top:0;border-top:none">
-        <div id="a-com-header-simple" style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
-          💰 Comisión Personal por Producto
-          <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — en blanco = tarifa del catálogo</span>
-        </div>
-        <!-- Header especial para supervisores -->
-        <div id="a-com-header-super" style="display:none;margin-bottom:10px">
-          <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">💰 Comisiones por Producto</div>
-          <div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#F5F8FA;border-radius:7px;padding:7px 10px;border:1px solid #CBD6E2">
-            <div style="font-size:10px;color:#7C98B6;font-weight:700">Producto</div>
-            <div style="text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#FF7A59">👥 De sus agentes</div>
-              <div style="font-size:8px;color:#99ACC2">Comisión pequeña</div>
-            </div>
-            <div style="text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#009FDB">🧑 Venta directa</div>
-              <div style="font-size:8px;color:#99ACC2">Cuando él/ella vende</div>
+      <!-- Un Inspector no vende ni gana comisión — no aplica nada de esta
+           sección, así que se oculta entera cuando ese es el rol elegido. -->
+      <div id="a-comisiones-wrap">
+        <!-- Copiar comisiones de otro agente -->
+        <div style="margin-top:22px;padding-top:16px;border-top:1px solid #CBD6E2">
+          <div style="background:#FFFBE8;border:1px solid #F5C26B;border-radius:9px;padding:11px 14px;margin-bottom:14px">
+            <div style="font-size:10px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">📋 Copiar comisiones de otro agente</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="a-copy-source" style="flex:1;border:1.5px solid #CBD6E2;border-radius:7px;padding:6px 10px;font-size:12px;color:#33475B;outline:none;background:#fff">
+                <option value="">— Selecciona un agente —</option>
+              </select>
+              <button onclick="copiarComisionesDeAgente()" style="background:#F5C26B;color:#33475B;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Copiar</button>
             </div>
           </div>
         </div>
-        <div id="a-comisiones-productos"></div>
+        <!-- Comisiones por producto -->
+        <div style="padding-top:0;border-top:none">
+          <div id="a-com-header-simple" style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
+            💰 Comisión Personal por Producto
+            <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — en blanco = tarifa del catálogo</span>
+          </div>
+          <!-- Header especial para supervisores -->
+          <div id="a-com-header-super" style="display:none;margin-bottom:10px">
+            <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">💰 Comisiones por Producto</div>
+            <div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#F5F8FA;border-radius:7px;padding:7px 10px;border:1px solid #CBD6E2">
+              <div style="font-size:10px;color:#7C98B6;font-weight:700">Producto</div>
+              <div style="text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#FF7A59">👥 De sus agentes</div>
+                <div style="font-size:8px;color:#99ACC2">Comisión pequeña</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#009FDB">🧑 Venta directa</div>
+                <div style="font-size:8px;color:#99ACC2">Cuando él/ella vende</div>
+              </div>
+            </div>
+          </div>
+          <div id="a-comisiones-productos"></div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2806,9 +2851,9 @@ const CAT_LABELS = {
 };
 
 // ROLES
-const ROL_LABELS  = { gerente:'⭐ Gerente General', supervisor:'🔷 Supervisor', agente:'👤 Agente', subdealер:'🤝 Sub-Dealer', subdealer:'🤝 Sub-Dealer' };
-const ROL_COLORS  = { gerente:'#FF7A59', supervisor:'#6A78D1', agente:'#009FDB', subdealер:'#00BDA5', subdealer:'#00BDA5' };
-const ROL_BG      = { gerente:'#FFF3EE', supervisor:'#F0EDFF', agente:'#EAF7FB', subdealер:'#E8F9F7', subdealer:'#E8F9F7' };
+const ROL_LABELS  = { gerente:'⭐ Gerente General', supervisor:'🔷 Supervisor', agente:'👤 Agente', subdealер:'🤝 Sub-Dealer', subdealer:'🤝 Sub-Dealer', inspector:'🔍 Inspector' };
+const ROL_COLORS  = { gerente:'#FF7A59', supervisor:'#6A78D1', agente:'#009FDB', subdealер:'#00BDA5', subdealer:'#00BDA5', inspector:'#8B5CF6' };
+const ROL_BG      = { gerente:'#FFF3EE', supervisor:'#F0EDFF', agente:'#EAF7FB', subdealер:'#E8F9F7', subdealer:'#E8F9F7', inspector:'#F3F0FF' };
 
 const CAT_COLOR = {
   'mobility':       '#009FDB',
@@ -2885,7 +2930,12 @@ function getUserPermissions(email) {
   // back-office), sino en el propio perfil del agente (appData.agentes),
   // habilitado/deshabilitado desde la pantalla Agentes sin tocar código.
   const agente = (appData.agentes||[]).find(a => a.loginHabilitado && (a.loginEmail||'').toLowerCase() === email_lower);
-  if (agente) return { nombre: agente.nombre, areas: ['agente'], fullAccess: false, agenteId: agente.id };
+  if (agente) {
+    // El rol Inspector entra a su propia área de solo lectura, separada del
+    // área "agente" normal — nunca ve pantallas de venta/comisión propias.
+    const area = (agente.rol==='inspector') ? 'inspector' : 'agente';
+    return { nombre: agente.nombre, areas: [area], fullAccess: false, agenteId: agente.id };
+  }
   return null;
 }
 
@@ -3209,6 +3259,7 @@ function activarListenerAppData() {
           'agente-mis-reportes':renderAgenteMisReportes,
           'agente-chargebacks': renderAgenteChargebacks,
           'agente-comisiones':  renderAgenteComisiones,
+          'inspector-clientes': renderInspectorClientes,
           'chargebacks-admin':  renderChargebacksAdmin,
         };
         if (renderMap[pageId]) {
@@ -3826,6 +3877,7 @@ const PAGE_TITLES = {
   'agente-mis-reportes':'📋 Mis Reportes',
   'agente-chargebacks':'⚠️ Chargebacks',
   'agente-comisiones':'💰 Mis Comisiones',
+  'inspector-clientes':'🔍 Clientes',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
@@ -3883,6 +3935,7 @@ function renderPage(name) {
   if(name==='agente-mis-reportes') renderAgenteMisReportes();
   if(name==='agente-chargebacks') renderAgenteChargebacks();
   if(name==='agente-comisiones') renderAgenteComisiones();
+  if(name==='inspector-clientes') renderInspectorClientes();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
@@ -4501,6 +4554,7 @@ function marcarVentaChargeback(ventaId) {
   if(v.reportadoPor) {
     crearNotificacion({ paraAgenteId: v.reportadoPor }, 'chargeback', `Tu venta de ${v.cliente||'un cliente'} fue marcada como Chargeback: ${v.chargebackMotivo}`, v.grupoId);
   }
+  crearNotificacion({ paraInspector: true }, 'chargeback', `Nuevo chargeback: ${v.cliente||'un cliente'} (${v.agente}) — ${v.chargebackMotivo}`, v.grupoId);
   guardar();
   renderVentas();
   showNotif('⚠️ Venta marcada como Chargeback');
@@ -4513,6 +4567,7 @@ function quitarVentaChargeback(ventaId) {
   if(v.reportadoPor) {
     crearNotificacion({ paraAgenteId: v.reportadoPor }, 'chargeback_removido', `Se quitó la marca de Chargeback de tu venta de ${v.cliente||'un cliente'}`, v.grupoId);
   }
+  crearNotificacion({ paraInspector: true }, 'chargeback_removido', `Se quitó el chargeback de ${v.cliente||'un cliente'} (${v.agente})`, v.grupoId);
   v.esChargeback = false;
   delete v.chargebackMotivo;
   delete v.chargebackFecha;
@@ -4652,6 +4707,7 @@ function crearNotificacion(destino, tipo, texto, grupoId) {
     id: appData.nextNotificacionId++,
     paraAdmin: !!destino.paraAdmin,
     paraAgenteId: destino.paraAgenteId != null ? destino.paraAgenteId : null,
+    paraInspector: !!destino.paraInspector,
     tipo, texto, grupoId,
     leida: false,
     creadoEn: new Date().toISOString(),
@@ -4675,6 +4731,8 @@ function misNotificaciones() {
   if(!perms) return [];
   if(perms.areas && perms.areas.includes('admin')) {
     return (appData.notificaciones||[]).filter(n=>n.paraAdmin);
+  } else if(perms.areas && perms.areas.includes('inspector')) {
+    return (appData.notificaciones||[]).filter(n=>n.paraInspector);
   } else if(perms.agenteId) {
     return (appData.notificaciones||[]).filter(n=>n.paraAgenteId===perms.agenteId);
   }
@@ -4754,6 +4812,7 @@ function irANotificacion(id) {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   if(!perms) return;
   const esAdmin = perms.areas && perms.areas.includes('admin');
+  const esInspector = perms.areas && perms.areas.includes('inspector');
 
   if(esAdmin) {
     abrirArea('admin');
@@ -4773,6 +4832,14 @@ function irANotificacion(id) {
       _ventasChatAbierto = n.grupoId;
       renderVentas();
     }
+  } else if(esInspector) {
+    abrirArea('inspector');
+    ['insp-f-cliente','insp-f-agente','insp-f-mes','insp-f-anio','insp-f-estado','insp-f-fecha'].forEach(id=>{
+      const el = document.getElementById(id); if(el) el.value = '';
+    });
+    showPage('inspector-clientes', null);
+    _inspChatAbierto = n.grupoId;
+    renderInspectorClientes();
   } else {
     abrirArea('agente');
     ['mr-f-fecha','mr-f-mes','mr-f-quincena'].forEach(id=>{
@@ -4911,13 +4978,18 @@ function compartirReciboWhatsApp(grupoId) {
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
+// Identifica quién escribió cada mensaje del chat — 'inspector' tiene su
+// propio ícono/color para que el vendedor nunca lo confunda con Admin.
+const AUTOR_CHAT_ICONO = { admin:'👤', inspector:'🔍', agente:'📱' };
+const AUTOR_CHAT_COLOR = { admin:'#0057A8', inspector:'#8B5CF6', agente:'#6A78D1' };
+
 function chatVentaHtml(grupoId, inputId, onEnviarFn) {
   const mensajes = mensajesDeGrupo(grupoId);
   return `<div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:8px;padding:8px;margin-top:6px">
     <div style="max-height:160px;overflow-y:auto;margin-bottom:6px">
       ${mensajes.length ? mensajes.map(m=>`
         <div style="margin-bottom:6px">
-          <span style="font-weight:700;font-size:11px;color:${m.autor==='admin'?'#0057A8':'#6A78D1'}">${m.autor==='admin'?'👤':'📱'} ${m.autorNombre}:</span>
+          <span style="font-weight:700;font-size:11px;color:${AUTOR_CHAT_COLOR[m.autor]||'#6A78D1'}">${AUTOR_CHAT_ICONO[m.autor]||'📱'} ${m.autorNombre}:</span>
           <span style="font-size:12px;color:#33475B"> ${m.texto}</span>
           <div style="font-size:9px;color:#99ACC2">${fmtHoraMensaje(m.creadoEn)}</div>
         </div>`).join('') : '<div style="font-size:11px;color:#99ACC2;font-style:italic">Sin mensajes todavía — escribe algo para empezar el seguimiento de esta orden.</div>'}
@@ -6285,6 +6357,7 @@ function renderAgentes() {
   const gerentes    = visibles.filter(a=>a.rol==='gerente');
   const supervisors = visibles.filter(a=>a.rol==='supervisor');
   const subdealers  = visibles.filter(a=>a.rol==='subdealer'||a.rol==='subdealер');
+  const inspectores = visibles.filter(a=>a.rol==='inspector');
   const agentes     = visibles.filter(a=>!a.rol||a.rol==='agente');
 
   function agenteCard(a) {
@@ -6385,7 +6458,8 @@ function renderAgentes() {
     renderGrupo('⭐ Gerentes Generales', '#FF7A59', gerentes) +
     renderGrupo('🔷 Supervisores', '#6A78D1', supervisors) +
     renderGrupo('🤝 Sub-Dealers', '#00BDA5', subdealers) +
-    renderGrupo('👤 Agentes', '#009FDB', agentes) ||
+    renderGrupo('👤 Agentes', '#009FDB', agentes) +
+    renderGrupo('🔍 Inspectores', '#8B5CF6', inspectores) ||
     (busqueda
       ? `<div style="color:#99ACC2;padding:20px">Ningún agente coincide con "${busqueda}"</div>`
       : '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>');
@@ -6425,9 +6499,11 @@ function renderAgenteVentas() {
 function onRolChange() {
   const rol = document.getElementById('a-rol').value;
   const esSupervisor = (rol==='gerente'||rol==='supervisor');
+  const esInspector = rol==='inspector';
   document.getElementById('a-supervisa-section').style.display = esSupervisor ? 'block' : 'none';
   document.getElementById('a-com-header-simple').style.display = esSupervisor ? 'none' : 'block';
   document.getElementById('a-com-header-super').style.display  = esSupervisor ? 'block' : 'none';
+  document.getElementById('a-comisiones-wrap').style.display = esInspector ? 'none' : 'block';
   // Re-renderizar tabla de comisiones según rol
   renderComisionesModal(esSupervisor);
 }
@@ -7719,6 +7795,7 @@ function mostrarAreas() {
   const puedeBravo  = perms.areas.includes('bravo');
   const puedeSalud  = perms.areas.includes('salud');
   const puedeAgente = perms.areas.includes('agente');
+  const puedeInspector = perms.areas.includes('inspector');
 
   const userDisplay = perms.nombre || email.split('@')[0];
   document.getElementById('area-user-badge').textContent = '👤 ' + userDisplay;
@@ -7771,6 +7848,12 @@ function mostrarAreas() {
       <div style="color:#6A78D1;font-size:15px;font-weight:800">MIS VENTAS</div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Reportar Venta<br>Mis Reportes</div>
     </button>`;
+  if(puedeInspector) btns += `
+    <button onclick="abrirArea('inspector')" style="${btnStyle};border-color:rgba(139,92,246,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(139,92,246,0.4)'">
+      <div style="font-size:34px;margin-bottom:8px">🔍</div>
+      <div style="color:#8B5CF6;font-size:15px;font-weight:800">INSPECTOR</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Clientes · Grabaciones<br>Chargebacks</div>
+    </button>`;
 
   document.getElementById('area-buttons').innerHTML = btns;
   document.getElementById('login-screen').style.display = 'none';
@@ -7794,6 +7877,7 @@ function abrirArea(area) {
   document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
   document.getElementById('sidebar-nav-bravo').style.display = area==='bravo'  ? 'block' : 'none';
   document.getElementById('sidebar-nav-agente').style.display = area==='agente' ? 'block' : 'none';
+  document.getElementById('sidebar-nav-inspector').style.display = area==='inspector' ? 'block' : 'none';
 
   // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
   if (area === 'hq') {
@@ -7815,6 +7899,7 @@ function abrirArea(area) {
     document.getElementById('nav-agente-comisiones').style.display = (agenteObj && (agenteObj.rol==='subdealer'||agenteObj.rol==='subdealер')) ? 'flex' : 'none';
     showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente();
   }
+  else if(area==='inspector') { showPage('inspector-clientes', null); }
   actualizarBadgeNotifCampana();
 }
 
@@ -8513,6 +8598,117 @@ function renderAgenteComisiones() {
     </tr>`).join('') : '<tr><td colspan="5" class="tbl-empty">No tienes ventas activadas en este período</td></tr>';
 }
 
+// ============================================================
+// INSPECTOR — solo lectura, todos los agentes
+// ============================================================
+// Área nueva y separada (no reutiliza las pantallas reales de Admin) para
+// que sea imposible heredar por accidente un botón de comisión, exportar,
+// importar o eliminar — esta pantalla simplemente no los tiene en el DOM.
+// Une pendientes + aprobadas + rechazadas de TODOS los agentes en una sola
+// tabla de solo lectura, con estado, grabación de llamada y chargeback.
+let _inspChatAbierto = null;
+function inspectorToggleChat(grupoId) {
+  _inspChatAbierto = (_inspChatAbierto===grupoId) ? null : grupoId;
+  renderInspectorClientes();
+}
+function inspectorEnviarMensajeVenta(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = enviarMensajeVenta(grupoId, 'inspector', perms ? perms.nombre : 'Inspector', 'insp-chat-input-'+grupoId);
+  if(texto) {
+    const agenteId = reportadoPorDeGrupo(grupoId);
+    if(agenteId) { crearNotificacion({ paraAgenteId: agenteId }, 'mensaje', `${perms?perms.nombre:'Inspector'}: ${texto}`, grupoId); guardar(); }
+  }
+  renderInspectorClientes();
+}
+
+function inspectorPoblarFiltros() {
+  populateAgente('insp-f-agente');
+
+  const selMes = document.getElementById('insp-f-mes');
+  const curMes = selMes.value;
+  selMes.innerHTML = '<option value="">Todos los Meses</option>' +
+    MESES_ES.map(m=>`<option value="${m}">${m}</option>`).join('');
+  selMes.value = curMes;
+
+  const todasFechas = [
+    ...(appData.ventasPendientes||[]).map(v=>v.fecha),
+    ...(appData.ventas||[]).map(v=>v.fecha),
+    ...(appData.ventasRechazadas||[]).map(v=>v.fecha),
+  ].filter(Boolean);
+  const años = [...new Set(todasFechas.map(f=>f.split('-')[0]))].sort();
+  const selAño = document.getElementById('insp-f-anio');
+  const curAño = selAño.value;
+  selAño.innerHTML = '<option value="">Todos los Años</option>' +
+    años.map(y=>`<option value="${y}">${y}</option>`).join('');
+  selAño.value = curAño;
+}
+
+function renderInspectorClientes() {
+  inspectorPoblarFiltros();
+  const fCliente = (document.getElementById('insp-f-cliente')?.value||'').toLowerCase();
+  const fAgente  = document.getElementById('insp-f-agente')?.value||'';
+  const fMes     = document.getElementById('insp-f-mes')?.value||'';
+  const fAño     = document.getElementById('insp-f-anio')?.value||'';
+  const fEstado  = document.getElementById('insp-f-estado')?.value||'';
+  const fFecha   = document.getElementById('insp-f-fecha')?.value||'';
+
+  function agrupar(lista, estadoBase) {
+    const grupos = {};
+    lista.forEach(v=>{
+      const gid = v.grupoId || v.id;
+      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, agente: v.agente, cliente: v.cliente, cuenta: v.cuenta, mes: v.mes, grabadoPor: v.grabadoPor||'', motivoRechazo: v.motivoRechazo||'', lineas: [] };
+      grupos[gid].lineas.push(v);
+    });
+    return Object.values(grupos).map(g=>{
+      const lineaCB = g.lineas.find(l=>l.esChargeback);
+      return { ...g, estado: lineaCB ? 'chargeback' : estadoBase, chargebackMotivo: lineaCB ? lineaCB.chargebackMotivo : '' };
+    });
+  }
+
+  let todos = [
+    ...agrupar(appData.ventasPendientes||[], 'pendiente'),
+    ...agrupar(appData.ventas||[], 'aprobado'),
+    ...agrupar(appData.ventasRechazadas||[], 'rechazado'),
+  ];
+
+  todos = todos.filter(g=>{
+    if(fCliente && !(g.cliente||'').toLowerCase().includes(fCliente)) return false;
+    if(fAgente && g.agente!==fAgente) return false;
+    if(fMes && (g.mes||'').split(' ')[0]!==fMes) return false;
+    if(fAño && (g.fecha||'').split('-')[0]!==fAño) return false;
+    if(fFecha && g.fecha!==fFecha) return false;
+    if(fEstado && g.estado!==fEstado) return false;
+    return true;
+  });
+  todos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const badges = {
+    pendiente:  '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
+    aprobado:   '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Activación</span>',
+    rechazado:  '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
+    chargeback: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">⚠️ Chargeback</span>',
+  };
+
+  const body = document.getElementById('inspector-clientes-body');
+  body.innerHTML = todos.length ? todos.map(g=>{
+    const productos = g.lineas.map(l=>getProdNombre(l.productoId)).join(', ');
+    const motivo = g.estado==='chargeback' ? g.chargebackMotivo : g.estado==='rechazado' ? g.motivoRechazo : '';
+    return `<tr>
+      <td>${g.fecha}</td>
+      <td style="font-weight:600">${g.agente}</td>
+      <td>${g.cliente||'—'}</td>
+      <td style="color:#7C98B6">${g.cuenta||'—'}</td>
+      <td>${g.mes}</td>
+      <td style="font-size:11px;color:#7C98B6">${productos}</td>
+      <td style="font-size:11px">${g.grabadoPor ? `🎙️ ${g.grabadoPor}` : '<span style="color:#CBD6E2">—</span>'}</td>
+      <td>${badges[g.estado]||''}${motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:2px">${motivo}</div>` : ''}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="inspectorToggleChat(${g.grupoId})">💬${mensajesDeGrupo(g.grupoId).length ? ' '+mensajesDeGrupo(g.grupoId).length : ''}</button></td>
+    </tr>
+    ${_inspChatAbierto===g.grupoId ? `<tr><td colspan="9" style="padding:0 8px 8px">${chatVentaHtml(g.grupoId, 'insp-chat-input-'+g.grupoId, 'inspectorEnviarMensajeVenta')}</td></tr>` : ''}
+  `;
+  }).join('') : '<tr><td colspan="9" class="tbl-empty">Ningún cliente coincide con los filtros</td></tr>';
+}
+
 function volverAreas() {
   // Ocultar la aplicación
   document.getElementById('app-wrap').style.display = 'none';
@@ -8522,6 +8718,7 @@ function volverAreas() {
   document.getElementById('sidebar-nav-salud').style.display = 'none';
   document.getElementById('sidebar-nav-bravo').style.display = 'none';
   document.getElementById('sidebar-nav-agente').style.display = 'none';
+  document.getElementById('sidebar-nav-inspector').style.display = 'none';
 
   // Mostrar la pantalla de selección de áreas
   mostrarAreas();
@@ -8597,6 +8794,7 @@ async function cerrarSesion() {
   document.getElementById('sidebar-nav-salud').style.display = 'none';
   document.getElementById('sidebar-nav-bravo').style.display = 'none';
   document.getElementById('sidebar-nav-agente').style.display = 'none';
+  document.getElementById('sidebar-nav-inspector').style.display = 'none';
 
   // onAuthStateChanged se encargará de mostrar la pantalla de login
   showNotif('🔒 Sesión cerrada');
