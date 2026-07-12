@@ -919,10 +919,15 @@ table thead,table tbody{display:table;width:100%}
             <option value="chargeback">⚠️ Chargeback</option>
           </select>
           <input type="date" id="insp-f-fecha" title="Fecha exacta de activación" onchange="renderInspectorClientes()">
+          <select id="insp-f-tipo-seguimiento" onchange="renderInspectorClientes()">
+            <option value="">🎙️⚠️ Grabaciones y Chargebacks</option>
+            <option value="grabacion">🎙️ Solo Grabaciones</option>
+            <option value="chargeback">⚠️ Solo Chargebacks</option>
+          </select>
           <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#33475B;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:7px 12px;cursor:pointer">
             <input type="checkbox" id="insp-f-pendientes-seguimiento" onchange="renderInspectorClientes()"> Solo pendientes de seguimiento
           </label>
-          <button class="btn btn-ghost btn-sm" onclick="['insp-f-cliente','insp-f-agente','insp-f-mes','insp-f-anio','insp-f-estado','insp-f-fecha'].forEach(id=>document.getElementById(id).value='');document.getElementById('insp-f-pendientes-seguimiento').checked=false;renderInspectorClientes()">✕ Limpiar</button>
+          <button class="btn btn-ghost btn-sm" onclick="['insp-f-cliente','insp-f-agente','insp-f-mes','insp-f-anio','insp-f-estado','insp-f-fecha','insp-f-tipo-seguimiento'].forEach(id=>document.getElementById(id).value='');document.getElementById('insp-f-pendientes-seguimiento').checked=false;renderInspectorClientes()">✕ Limpiar</button>
         </div>
         <div class="tbl-wrap">
           <table>
@@ -8675,6 +8680,15 @@ function inspectorToggleSeguimiento(grupoId) {
   renderInspectorClientes();
 }
 
+// Clic en una tarjeta del resumen ("Grabaciones sin revisar" / "Chargebacks
+// sin revisar") — salta directo a esa lista filtrada, sin tocar los demás
+// filtros que ya tuviera puestos (agente/mes/cliente/etc. se mantienen).
+function inspectorFiltrarPorTarjeta(tipo) {
+  document.getElementById('insp-f-tipo-seguimiento').value = tipo;
+  document.getElementById('insp-f-pendientes-seguimiento').checked = true;
+  renderInspectorClientes();
+}
+
 function renderInspectorClientes() {
   inspectorPoblarFiltros();
   const fCliente = (document.getElementById('insp-f-cliente')?.value||'').toLowerCase();
@@ -8683,6 +8697,7 @@ function renderInspectorClientes() {
   const fAño     = document.getElementById('insp-f-anio')?.value||'';
   const fEstado  = document.getElementById('insp-f-estado')?.value||'';
   const fFecha   = document.getElementById('insp-f-fecha')?.value||'';
+  const fTipoSeg = document.getElementById('insp-f-tipo-seguimiento')?.value||'';
   const fSoloPendientes = document.getElementById('insp-f-pendientes-seguimiento')?.checked || false;
 
   function agrupar(lista, estadoBase) {
@@ -8710,16 +8725,19 @@ function renderInspectorClientes() {
   const conSeguimiento = todosSinFiltrar.filter(inspectorNecesitaSeguimiento);
   const grabacionesPendientes = conSeguimiento.filter(g=>g.grabadoPor && !inspectorYaRevisado(g)).length;
   const chargebacksPendientes = conSeguimiento.filter(g=>g.estado==='chargeback' && !inspectorYaRevisado(g)).length;
+  // Las tarjetas son clicleables: un clic aplica de inmediato el filtro de
+  // "solo pendientes" + el tipo correspondiente, para ir directo a esa
+  // lista sin tener que buscar el checkbox de filtros.
   document.getElementById('inspector-seguimiento-resumen').innerHTML = `
     <div style="display:flex;gap:14px;flex-wrap:wrap">
-      <div style="background:${grabacionesPendientes>0?'#FFFBE8':'#fff'};border:1.5px solid ${grabacionesPendientes>0?'#F5C26B':'#CBD6E2'};border-radius:12px;padding:14px 18px;min-width:190px">
+      <button onclick="inspectorFiltrarPorTarjeta('grabacion')" style="text-align:left;cursor:pointer;border:1.5px solid ${grabacionesPendientes>0?'#F5C26B':'#CBD6E2'};background:${grabacionesPendientes>0?'#FFFBE8':'#fff'};border-radius:12px;padding:14px 18px;min-width:190px;font-family:inherit">
         <div style="font-size:11px;color:#B45309;font-weight:600">🎙️ Grabaciones sin revisar</div>
         <div style="font-size:24px;font-weight:800;color:#B45309">${grabacionesPendientes}</div>
-      </div>
-      <div style="background:${chargebacksPendientes>0?'#FFF0F0':'#fff'};border:1.5px solid ${chargebacksPendientes>0?'#F2545B':'#CBD6E2'};border-radius:12px;padding:14px 18px;min-width:190px">
+      </button>
+      <button onclick="inspectorFiltrarPorTarjeta('chargeback')" style="text-align:left;cursor:pointer;border:1.5px solid ${chargebacksPendientes>0?'#F2545B':'#CBD6E2'};background:${chargebacksPendientes>0?'#FFF0F0':'#fff'};border-radius:12px;padding:14px 18px;min-width:190px;font-family:inherit">
         <div style="font-size:11px;color:#F2545B;font-weight:600">⚠️ Chargebacks sin revisar</div>
         <div style="font-size:24px;font-weight:800;color:#F2545B">${chargebacksPendientes}</div>
-      </div>
+      </button>
     </div>`;
 
   let todos = todosSinFiltrar.filter(g=>{
@@ -8729,6 +8747,8 @@ function renderInspectorClientes() {
     if(fAño && (g.fecha||'').split('-')[0]!==fAño) return false;
     if(fFecha && g.fecha!==fFecha) return false;
     if(fEstado && g.estado!==fEstado) return false;
+    if(fTipoSeg==='grabacion' && !g.grabadoPor) return false;
+    if(fTipoSeg==='chargeback' && g.estado!=='chargeback') return false;
     if(fSoloPendientes && (!inspectorNecesitaSeguimiento(g) || inspectorYaRevisado(g))) return false;
     return true;
   });
@@ -8757,7 +8777,10 @@ function renderInspectorClientes() {
       return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">${nombre} ${btn}</div>`;
     }).join('');
     const motivo = g.estado==='chargeback' ? g.chargebackMotivo : g.estado==='rechazado' ? g.motivoRechazo : '';
-    return `<tr>
+    // Resaltar la fila cuando tiene algo pendiente de revisar, para que
+    // salte a la vista aunque esté viendo la lista completa sin filtrar.
+    const pendiente = inspectorNecesitaSeguimiento(g) && !inspectorYaRevisado(g);
+    return `<tr style="${pendiente?'background:#FFFBE8':''}">
       <td>${g.fecha}</td>
       <td style="font-weight:600">${g.agente}</td>
       <td>${g.cliente||'—'}</td>
