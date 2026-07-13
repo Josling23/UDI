@@ -16912,6 +16912,7 @@ function bravoRenderLineasLycaTabla() {
       <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
+        <button class="btn btn-ghost btn-xs" style="background:#25D366;color:#fff;border-color:#25D366" onclick="compartirLineaLycaWhatsApp(${l.id})" title="Enviar por WhatsApp (sin comisión, costo, pago ni ganancia)">📱</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
       </td>
     </tr>`).join('') : '<tr><td colspan="17" class="tbl-empty">Sin líneas registradas</td></tr>';
@@ -16925,6 +16926,26 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
       <td colspan="5"></td>
     </tr>` : '';
+}
+
+// Comparte los datos de una línea Lyca por WhatsApp — a propósito NO incluye
+// comisión, costo, pago ni ganancia (nada de dinero), solo los datos de la
+// línea y a quién/quién la asignó.
+function compartirLineaLycaWhatsApp(id) {
+  const l = (appData.bravo.lineasLyca||[]).find(x=>x.id===id);
+  if(!l) return;
+  const texto = `📱 *Línea ${l.compania||'LYCA'}*\n\n` +
+    `☎️ Teléfono: ${l.telefono||'—'}\n` +
+    (l.area ? `📍 Código de Área: ${l.area}\n` : '') +
+    (l.pin ? `🔑 PIN de Transferencia: ${l.pin}\n` : '') +
+    (l.cuenta ? `🧾 Número de Cuenta: ${l.cuenta}\n` : '') +
+    (l.postal ? `📮 Código Postal: ${l.postal}\n` : '') +
+    (l.cliente ? `👤 Cliente: ${l.cliente}\n` : '') +
+    (l.agente ? `👔 Agente: ${l.agente}\n` : '') +
+    (l.asignadoPor ? `📌 Asignado por: ${l.asignadoPor}\n` : '') +
+    `📊 Estado: ${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}\n` +
+    (l.mes ? `🗓️ Mes: ${l.mes}` : '');
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 // ROI de Bravo
