@@ -8061,6 +8061,9 @@ function renderPagos() {
         <button onclick="abrirDetalleAgenteConFiltros('${a.id}','${mesAct}',${qAct})" style="width:100%;padding:6px;border-radius:7px;border:none;background:#009FDB;color:#fff;font-weight:700;font-size:11px;cursor:pointer">
           📊 Ver Detalle
         </button>
+        <button onclick="generarReporteWhatsApp(${a.id},'${mesAct}',${qAct})" style="grid-column:1/-1;width:100%;padding:6px;border-radius:7px;border:none;background:#25D366;color:#fff;font-weight:700;font-size:11px;cursor:pointer">
+          📱 Generar Reporte
+        </button>
       </div>
     </div>`;
   }).join('');
@@ -8251,6 +8254,9 @@ function renderPagos() {
             <button class="q-btn ${pagado?'pagado':'pendiente'}" onclick="toggleQuincena('${a.nombre.replace(/'/g,"\\'")}','${mes}',${q});renderPagos()">
               ${pagado?'✅':'⏳'} Q${q}
             </button>
+            <button onclick="generarReporteWhatsApp(${a.id},'${mes}',${q})" title="Generar resumen para WhatsApp (sin montos)" style="display:block;margin-top:4px;padding:3px 6px;border-radius:6px;border:none;background:#25D366;color:#fff;font-weight:700;font-size:10px;cursor:pointer">
+              📱 Reporte
+            </button>
           </td>
           <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(comQ)}</td>
           <td style="color:#33475B;text-align:right;font-weight:600">${basicoCOPCell(a, mes+'Q'+q, basico)}</td>
@@ -8300,6 +8306,50 @@ function renderPagos() {
     </div>`;
   }).join('') || '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>');
 
+}
+
+// ============================================================
+// REPORTE DE SERVICIOS PARA WHATSAPP (sin hablar de dinero) — resumen para
+// que el agente vea qué se le registró en el período, con fecha y
+// descripción del servicio/producto. Deliberadamente NO menciona montos,
+// "comisión", "pago" ni "quincena" — solo lo que se registró.
+// ============================================================
+function generarReporteWhatsApp(agenteId, mes, q) {
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+  const nombreLow = (a.nombre||'').trim().toLowerCase();
+
+  const ventasPeriodo = appData.ventas.filter(v=>{
+    if(!v || v.esGrabacion || v._esGrabacion) return false;
+    if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+    const pp = getPeríodoPago(v);
+    return pp.mes===mes && pp.q===q;
+  });
+  const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
+
+  if(!ventasPeriodo.length && !extrasDelMes.length) {
+    showNotif('⚠️ No hay servicios registrados en este período', 'error');
+    return;
+  }
+
+  const lineas = ventasPeriodo.map(v=>{
+    const cant = (parseFloat(v.cantidad)||1) > 1 ? ` x${v.cantidad}` : '';
+    const cliente = v.cliente ? ` (${v.cliente})` : '';
+    return `📅 ${v.fecha} — ${getProdNombre(v.productoId)}${cant}${cliente}`;
+  });
+  extrasDelMes.forEach(e=>{
+    const prod = (a.productosExtra||[]).find(p=>p.id===e.prodId);
+    const nombre = prod ? prod.nombre : e.prodId;
+    const cant = (e.cantidad||0) > 1 ? ` x${e.cantidad}` : '';
+    lineas.push(`📦 ${nombre}${cant}`);
+  });
+
+  const texto = `📋 *Se registraron los siguientes servicios y productos:*\n` +
+    `👤 ${a.nombre}\n` +
+    `🗓️ ${mes}\n\n` +
+    lineas.join('\n');
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 // ============================================================
