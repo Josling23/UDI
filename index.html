@@ -449,6 +449,12 @@ table thead,table tbody{display:table;width:100%}
     <div style="display:flex;gap:10px;align-items:center">
       <span style="font-size:12px;color:#7C98B6" id="topbar-date"></span>
       <div style="position:relative">
+        <button onclick="toggleAyudaPanel()" title="Asistente de ayuda" style="background:none;border:none;font-size:19px;cursor:pointer;position:relative;padding:4px;line-height:1;color:#33475B">
+          🤖
+        </button>
+        <div id="ayuda-panel" style="display:none;position:absolute;top:34px;right:0;width:340px;max-width:92vw;max-height:70vh;overflow-y:auto;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
+      </div>
+      <div style="position:relative">
         <button onclick="toggleNotifPanel()" title="Notificaciones" style="background:none;border:none;font-size:19px;cursor:pointer;position:relative;padding:4px;line-height:1;color:#33475B">
           🔔
           <span id="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-4px;background:#F2545B;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;font-weight:800;min-width:14px;text-align:center">0</span>
@@ -4826,6 +4832,105 @@ document.addEventListener('click', (e) => {
 });
 
 const NOTIF_ICONOS = { reporte_nuevo:'🔔', aprobado:'✅', rechazado:'❌', mensaje:'💬', chargeback:'⚠️', chargeback_removido:'✅' };
+
+// ============================================================
+// ASISTENTE DE AYUDA 🤖 — versión simple: una base de preguntas frecuentes
+// ya escritas (NO inteligencia artificial real todavía), filtrada según el
+// área/rol de quien tenga sesión iniciada, para que cada quien solo vea
+// ayuda de lo que realmente puede usar. Un vendedor nunca ve temas de
+// Admin/HQ/Salud, y "Mis Comisiones" solo se muestra a Sub-Dealers.
+// ============================================================
+const AYUDA_TOPICS = [
+  { area:'general', pregunta:'¿Cómo instalo esta página como app en mi celular?', respuesta:'Abre el sitio desde Chrome (Android) o Safari (iPhone). En Android, toca los 3 puntitos ⋮ arriba a la derecha → "Agregar a pantalla de inicio". En iPhone, toca el botón Compartir 📤 → si no ves "Agregar a pantalla de inicio" en la fila de arriba, toca "Más" para verla.' },
+  { area:'general', pregunta:'¿Cómo cambio mi contraseña?', respuesta:'Pide a Admin que te mande un correo de restablecimiento desde Admin → Agentes → tu perfil → "✉️ Reenviar reset de contraseña". Te llega un link a tu correo para elegir una nueva.' },
+  { area:'general', pregunta:'¿Qué es la campanita 🔔?', respuesta:'Son tus notificaciones — avisa cuando algo importante pasa (venta aprobada, chargeback, mensaje nuevo) sin que tengas que estar revisando todo manualmente. Solo muestra lo que te corresponde a ti.' },
+
+  { area:'agente', pregunta:'¿Cómo reporto una venta nueva?', respuesta:'Entra a "Mis Ventas" → "📝 Reportar Venta". Llena los datos del cliente y agrega los productos que activaste. Al enviarlo queda "🟡 Pendiente" hasta que Admin lo revise y lo apruebe.' },
+  { area:'agente', pregunta:'¿Qué significan los estados de mis reportes?', respuesta:'🟡 Pendiente = Admin todavía no lo revisa. ✅ Activación = ya fue aprobado y cuenta oficialmente. ❌ Rechazado = Admin le encontró un problema (revisa el motivo) — puedes corregirlo y reenviarlo. ⚠️ Chargeback = la línea se desconectó después de activada.' },
+  { area:'agente', pregunta:'¿Cómo hablo con Admin sobre una venta específica?', respuesta:'En "Mis Reportes", busca la venta y dale clic al botón 💬 — se abre un chat solo de esa venta, para preguntar o dar seguimiento sin perder el hilo.' },
+  { area:'agente', pregunta:'¿Cómo saco el recibo de una venta aprobada?', respuesta:'En "Mis Reportes", en la venta con estado ✅ Activación, dale clic a "🧾 Recibo" — sale un cuadro limpio con los datos del cliente que puedes capturar de pantalla, o mandar directo por WhatsApp con el botón correspondiente.' },
+  { area:'agente', rol:'subdealer', pregunta:'¿Dónde veo mis comisiones?', respuesta:'En el menú lateral verás "💰 Mis Comisiones" (solo si tu perfil es Sub-Dealer) — ahí ves lo que ganaste, lo que se restó por chargebacks, y el total neto, filtrable por mes y quincena.' },
+
+  { area:'inspector', pregunta:'¿Qué puedo ver y qué no como Inspector?', respuesta:'Ves los clientes de todos los agentes (nuevos y viejos), quién grabó la llamada, y el estado de chargeback de cada uno. NO ves comisiones ni cantidades — esta cuenta es de solo seguimiento, no de dinero.' },
+  { area:'inspector', pregunta:'¿Cómo marco o quito un chargeback?', respuesta:'En la fila del cliente, junto al producto, verás "⚠️ Marcar CB" (si está activo) o "✅ Quitar CB" (si ya es chargeback, por ejemplo cuando el cliente se reconecta).' },
+  { area:'inspector', pregunta:'¿Para qué es el checkbox de Seguimiento?', respuesta:'Es tu propio control de qué ya revisaste. Márcalo cuando termines de dar seguimiento a una grabación o chargeback — desaparece de las tarjetas de "sin revisar" y de las filas resaltadas en amarillo.' },
+
+  { area:'admin', pregunta:'¿Cómo apruebo o rechazo un reporte de un vendedor?', respuesta:'Ve a "🕓 Ventas Pendientes" — ahí llegan los reportes de los vendedores. Revisa/corrige los datos si hace falta y dale "✅ Aprobar" (pasa a Registro Diario) o "❌ Rechazar" con un motivo (el vendedor lo ve y puede corregirlo).' },
+  { area:'admin', pregunta:'¿Cómo doy de alta un vendedor nuevo con acceso a la página?', respuesta:'En "👥 Agentes" → "➕ Nuevo Agente", llena su perfil y comisiones. Luego, en su tarjeta, dale "🔑 Habilitar Login" — pon su correo y una contraseña, y ya puede entrar por su cuenta.' },
+  { area:'admin', pregunta:'¿Cómo marco una venta como Chargeback?', respuesta:'En "Registro Diario", busca la venta y dale clic al botón "⚠️ CB" — pide un motivo. Esto NO quita la comisión automáticamente, es solo una marca informativa; si hace falta ajustar el pago, usa el descuento manual en Pagos de Agentes.' },
+  { area:'admin', pregunta:'¿Cómo busco chargebacks de un agente/mes/cliente en específico?', respuesta:'Ve a "⚠️ Chargebacks" → sección "🔍 Buscar Chargebacks" — filtras por agente, mes, año, fecha exacta o nombre de cliente, todos combinables entre sí.' },
+  { area:'admin', pregunta:'¿Cómo doy de alta un Inspector?', respuesta:'Igual que un agente normal, pero eligiendo el rol "🔍 Inspector" en Nuevo Agente. Luego habilítale el login igual que a cualquier vendedor — entrará a su propia área de solo lectura.' },
+  { area:'admin', pregunta:'¿Dónde veo los pagos de mis agentes?', respuesta:'"💳 Pagos Agentes" te muestra, por quincena, cuánto le toca a cada quien (comisiones + sueldo + bonos − descuentos), y puedes marcar cuándo ya se les pagó.' },
+
+  { area:'hq', pregunta:'¿Cómo le pongo una tarifa especial a un agente que supervisa José Piña?', respuesta:'En HQ → Gerente General → "✏️ Editar Perfil", baja hasta "💼 Tarifa Especial por Agente", elige el agente, llena solo los productos que quieras sobreescribir, dale "💾 Guardar tarifa para este agente" y NO olvides darle también "💾 Guardar" al perfil completo al final — si no, no queda guardado.' },
+
+  { area:'salud', pregunta:'¿Cómo dejo una nota o mensaje sobre un cliente en Salud?', respuesta:'En "Gestión de Clientes", en la fila del cliente, dale clic al botón 💬 — se abre una conversación con fecha y quién escribió, para dar seguimiento a pagos o cancelaciones.' },
+  { area:'salud', pregunta:'¿Cómo registro un chargeback en Salud?', respuesta:'En "Gestión de Clientes", dale clic al botón ⚠️ en la fila del cliente — calcula automáticamente cuánto hay que devolver según los meses ya cobrados.' },
+];
+
+// Solo se muestran los temas de las áreas a las que la cuenta actual tiene
+// acceso (más los "general", visibles para cualquiera) — un tema con "rol"
+// además exige que el perfil de agente tenga ese rol exacto (ej. subdealer).
+function ayudaTopicsDisponibles() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(!perms) return AYUDA_TOPICS.filter(t=>t.area==='general');
+  const agenteObj = perms.agenteId ? (appData.agentes||[]).find(a=>a.id===perms.agenteId) : null;
+  return AYUDA_TOPICS.filter(t=>{
+    if(t.area==='general') return true;
+    if(!perms.areas || !perms.areas.includes(t.area)) return false;
+    if(t.rol && (!agenteObj || agenteObj.rol!==t.rol)) return false;
+    return true;
+  });
+}
+
+let _ayudaAbiertoIdx = null;
+function toggleAyudaPanel() {
+  const panel = document.getElementById('ayuda-panel');
+  if(!panel) return;
+  const abrir = panel.style.display === 'none';
+  panel.style.display = abrir ? 'block' : 'none';
+  if(abrir) { _ayudaAbiertoIdx = null; renderAyudaPanel(); }
+}
+
+function ayudaToggleTema(i) {
+  _ayudaAbiertoIdx = (_ayudaAbiertoIdx===i) ? null : i;
+  renderAyudaPanel();
+}
+
+function renderAyudaPanel() {
+  const panel = document.getElementById('ayuda-panel');
+  if(!panel) return;
+  const search = (document.getElementById('ayuda-search')?.value || '').toLowerCase();
+  let topics = ayudaTopicsDisponibles();
+  if(search) topics = topics.filter(t => t.pregunta.toLowerCase().includes(search) || t.respuesta.toLowerCase().includes(search));
+  panel.innerHTML = `
+    <div style="padding:10px 14px;border-bottom:1px solid #E5E7EB;position:sticky;top:0;background:#fff;border-radius:10px 10px 0 0">
+      <b style="font-size:13px;color:#33475B">🤖 Asistente de ayuda</b>
+      <div style="font-size:10px;color:#99ACC2;margin-top:2px">Preguntas frecuentes según tu perfil</div>
+      <input type="text" id="ayuda-search" placeholder="🔍 Buscar..." oninput="renderAyudaPanel()" value="${search.replace(/"/g,'&quot;')}" style="width:100%;margin-top:8px;border:1.5px solid #CBD6E2;border-radius:6px;padding:6px 8px;font-size:12px;box-sizing:border-box">
+    </div>
+    <div>
+      ${topics.length ? topics.map((t,i)=>`
+        <div style="border-bottom:1px solid #F5F8FA">
+          <div onclick="ayudaToggleTema(${i})" style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:600;color:#33475B;display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span>${t.pregunta}</span>
+            <span style="color:#99ACC2;flex-shrink:0">${_ayudaAbiertoIdx===i?'▲':'▼'}</span>
+          </div>
+          ${_ayudaAbiertoIdx===i ? `<div style="padding:0 14px 12px;font-size:12px;color:#7C98B6;line-height:1.5">${t.respuesta}</div>` : ''}
+        </div>`).join('') : '<div style="padding:24px;text-align:center;color:#99ACC2;font-size:12px">Sin resultados para tu búsqueda</div>'}
+    </div>`;
+  const inputEl = document.getElementById('ayuda-search');
+  if(inputEl) { inputEl.focus(); const len = inputEl.value.length; inputEl.setSelectionRange(len, len); }
+}
+
+// Cerrar el panel de ayuda al hacer clic afuera.
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('ayuda-panel');
+  if(!panel || panel.style.display === 'none') return;
+  if(panel.contains(e.target)) return;
+  if(e.target.closest('button[title="Asistente de ayuda"]')) return;
+  panel.style.display = 'none';
+});
 
 function renderNotifPanel() {
   const panel = document.getElementById('notif-panel');
