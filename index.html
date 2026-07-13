@@ -353,6 +353,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('dashboard',this)" id="nav-dashboard"><span class="icon">📊</span><span>Dashboard</span></div>
     <div class="nav-item" onclick="showPage('ventas',this)"><span class="icon">📝</span><span>Registro Diario</span></div>
     <div class="nav-item" onclick="showPage('ventas-pendientes',this)"><span class="icon">🕓</span><span>Ventas Pendientes</span><span id="nav-pendientes-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
+    <div class="nav-item" onclick="showPage('ventas-rechazadas',this)"><span class="icon">❌</span><span>Ventas Rechazadas</span></div>
     <div class="nav-item" onclick="showPage('chargebacks-admin',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
     <div class="nav-item" onclick="showPage('agentes',this)"><span class="icon">👥</span><span>Agentes</span></div>
     <div class="nav-section">Reportes</div>
@@ -583,6 +584,39 @@ table thead,table tbody{display:table;width:100%}
           <table>
             <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th>💳 Quincena</th><th style="text-align:right">Total</th><th>Acciones</th></tr></thead>
             <tbody id="ventas-pendientes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VENTAS RECHAZADAS (reportes de agentes que Admin rechazó) ===== -->
+    <div class="page" id="page-ventas-rechazadas">
+      <div class="section">
+        <div class="section-header">
+          <h2>❌ Ventas Rechazadas</h2>
+        </div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Reportes de agentes que se rechazaron en "Ventas Pendientes" — desde aquí puedes reactivarlos para revisión, aprobarlos directo si ya estaban bien, o eliminarlos definitivamente.</div>
+        <div class="filters">
+          <input type="text" id="vr-search" placeholder="🔍 Buscar cliente, agente..." oninput="renderVentasRechazadas()">
+          <select id="vr-f-agente" onchange="renderVentasRechazadas()"><option value="">Todos los Agentes</option></select>
+          <select id="vr-f-mes" onchange="renderVentasRechazadas()"><option value="">Todos los Meses</option></select>
+          <select id="vr-quincena-rapida" onchange="vrAplicarFechasQuincena()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;min-width:120px">
+            <option value="">📅 Quincena</option>
+            <option value="1">Q1 (1-14)</option>
+            <option value="2">Q2 (15-fin)</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:5px 10px">
+            <input type="date" id="vr-fecha-desde" onchange="renderVentasRechazadas()" title="Desde" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
+            <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
+            <input type="date" id="vr-fecha-hasta" onchange="renderVentasRechazadas()" title="Hasta" style="border:none;outline:none;font-size:12px;color:#33475B;background:transparent">
+            <button onclick="document.getElementById('vr-fecha-desde').value='';document.getElementById('vr-fecha-hasta').value='';document.getElementById('vr-quincena-rapida').value='';renderVentasRechazadas()" title="Limpiar fechas" style="border:none;background:none;cursor:pointer;color:#99ACC2;font-size:13px;padding:0;line-height:1">✕</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#7C98B6;margin-bottom:10px" id="ventas-rechazadas-stats"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Mes</th><th style="text-align:right">Total</th><th>Motivo de Rechazo</th><th>Acciones</th></tr></thead>
+            <tbody id="ventas-rechazadas-body"></tbody>
           </table>
         </div>
       </div>
@@ -3954,6 +3988,7 @@ function mesPorDefecto() {
 const PAGE_TITLES = {
   dashboard:'📊 Dashboard', ventas:'📝 Registro Diario', agentes:'👥 Agentes',
   'ventas-pendientes':'🕓 Ventas Pendientes',
+  'ventas-rechazadas':'❌ Ventas Rechazadas',
   'chargebacks-admin':'⚠️ Chargebacks',
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
@@ -4008,6 +4043,7 @@ function renderPage(name) {
   if(name==='ventas') renderVentas();
   if(name==='agentes') renderAgentes();
   if(name==='ventas-pendientes') renderVentasPendientes();
+  if(name==='ventas-rechazadas') renderVentasRechazadas();
   if(name==='chargebacks-admin') renderChargebacksAdmin();
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
@@ -4598,6 +4634,187 @@ function rechazarVentaPendiente(grupoId) {
   showNotif('❌ Reporte rechazado');
 }
 
+// ============================================================
+// VENTAS RECHAZADAS (vista de Admin) — buscador + 3 acciones sobre cada
+// reporte ya rechazado: reactivarlo a Ventas Pendientes para revisarlo de
+// nuevo, aprobarlo directo si Admin ve que en realidad estaba bien, o
+// eliminarlo definitivamente.
+// ============================================================
+function renderVentasRechazadas() {
+  populateAgente('vr-f-agente');
+  populateMes('vr-f-mes');
+  renderVentasRechazadasTabla();
+}
+
+function filtrarVentasRechazadas() {
+  const fAg     = document.getElementById('vr-f-agente')?.value||'';
+  const fMes    = document.getElementById('vr-f-mes')?.value||'';
+  const fDesde  = document.getElementById('vr-fecha-desde')?.value||'';
+  const fHasta  = document.getElementById('vr-fecha-hasta')?.value||'';
+  const fSearch = (document.getElementById('vr-search')?.value||'').toLowerCase();
+  return (appData.ventasRechazadas||[]).filter(v=>{
+    if(fAg && v.agente!==fAg) return false;
+    if(fMes && v.mes!==fMes) return false;
+    if(fDesde && v.fecha < fDesde) return false;
+    if(fHasta && v.fecha > fHasta) return false;
+    if(fSearch && !`${v.cliente} ${v.agente}`.toLowerCase().includes(fSearch)) return false;
+    return true;
+  });
+}
+
+// Igual que aplicarFechasQuincena() pero para el buscador de Ventas
+// Rechazadas — convierte "Mes + Q1/Q2" en un rango de fechas concreto.
+function vrAplicarFechasQuincena() {
+  const qSel = document.getElementById('vr-quincena-rapida')?.value || '';
+  if(!qSel) {
+    document.getElementById('vr-fecha-desde').value = '';
+    document.getElementById('vr-fecha-hasta').value = '';
+    renderVentasRechazadas();
+    return;
+  }
+  const mesSel = document.getElementById('vr-f-mes')?.value || '';
+  if(!mesSel) {
+    alert('Por favor, selecciona un mes primero');
+    document.getElementById('vr-quincena-rapida').value = '';
+    return;
+  }
+  const partes = mesSel.split(' ');
+  const mesNombre = partes[0];
+  const yyyy = parseInt(partes[1]);
+  const mesIdx = MESES_ES.indexOf(mesNombre);
+  const mm = mesIdx + 1;
+  const ultimoDelMesActual = new Date(yyyy, mm, 0).getDate();
+  let desde, hasta;
+  if(qSel === '1') {
+    const mmAnterior = mm - 1;
+    const yyyyAnterior = mmAnterior === 0 ? yyyy - 1 : yyyy;
+    const mmAnteriorAjustado = mmAnterior === 0 ? 12 : mmAnterior;
+    const ultimoDelMesAnterior = new Date(yyyy, mm - 1, 0).getDate();
+    desde = `${yyyyAnterior}-${String(mmAnteriorAjustado).padStart(2,'0')}-${String(ultimoDelMesAnterior).padStart(2,'0')}`;
+    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-14`;
+  } else if(qSel === '2') {
+    const penultimoDia = ultimoDelMesActual - 1;
+    desde = `${yyyy}-${String(mm).padStart(2,'0')}-15`;
+    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-${String(penultimoDia).padStart(2,'0')}`;
+  }
+  document.getElementById('vr-fecha-desde').value = desde;
+  document.getElementById('vr-fecha-hasta').value = hasta;
+  renderVentasRechazadas();
+}
+
+function renderVentasRechazadasTabla() {
+  const filtradas = filtrarVentasRechazadas();
+  const grupos = {};
+  const ordenGrupos = [];
+  filtradas.forEach(v=>{
+    if(!grupos[v.grupoId]) { grupos[v.grupoId] = []; ordenGrupos.push(v.grupoId); }
+    grupos[v.grupoId].push(v);
+  });
+  ordenGrupos.sort((a,b)=> (grupos[b][0].fecha||'').localeCompare(grupos[a][0].fecha||'') || b-a);
+
+  const stats = document.getElementById('ventas-rechazadas-stats');
+  if(stats) stats.textContent = `${ordenGrupos.length} reporte${ordenGrupos.length!==1?'s':''} rechazado${ordenGrupos.length!==1?'s':''}`;
+
+  const body = document.getElementById('ventas-rechazadas-body');
+  if(!ordenGrupos.length) {
+    body.innerHTML = '<tr><td colspan="8" class="tbl-empty">No hay ventas rechazadas</td></tr>';
+    return;
+  }
+
+  body.innerHTML = ordenGrupos.map(grupoId=>{
+    const lineas = grupos[grupoId];
+    const g = lineas[0];
+    const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
+    return `<tr>
+        <td style="font-weight:600">${g.fecha}</td>
+        <td style="font-weight:600">${g.agente}</td>
+        <td>${g.cliente||'⚠️ Sin cliente'}</td>
+        <td>${g.cuenta||'—'}</td>
+        <td>${g.mes}</td>
+        <td style="text-align:right;font-weight:800;color:#00BDA5">${fmt(total)}</td>
+        <td style="font-size:11px;color:#F2545B;max-width:180px">${g.motivoRechazo||'Sin motivo especificado'}</td>
+        <td style="white-space:nowrap">
+          <select id="vr-quincena-${grupoId}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;background:#EAF7FB;color:#0057A8;font-weight:600;margin-bottom:4px;display:block">
+            <option value="">⚡ Auto</option>
+            <option value="1">Manual Q1</option>
+            <option value="2">Manual Q2</option>
+          </select>
+          <button class="btn btn-success btn-xs" onclick="adminAprobarRechazada(${grupoId})">✅ Aprobar</button>
+          <button class="btn btn-ghost btn-xs" onclick="adminReactivarRechazada(${grupoId})">↩️ Reactivar</button>
+          <button class="btn btn-danger btn-xs" onclick="adminEliminarRechazada(${grupoId})">🗑️ Eliminar</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// Manda el reporte de vuelta a Ventas Pendientes (grupoId nuevo, sin
+// motivoRechazo) para que Admin lo revise otra vez con calma — mismo
+// mecanismo que ya usa el propio agente en "Mis Reportes" (agenteReenviarReporte),
+// solo que aquí lo dispara Admin.
+function adminReactivarRechazada(grupoId) {
+  const lineas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId===grupoId);
+  if(!lineas.length) return;
+  if(!appData.ventasPendientes) appData.ventasPendientes = [];
+  if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
+  const nuevoGrupoId = Date.now();
+  lineas.forEach(l=>{
+    const { motivoRechazo, id, grupoId: _viejo, ...resto } = l;
+    appData.ventasPendientes.push({ ...resto, id: appData.nextVentaPendienteId++, grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
+  });
+  appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
+  if(lineas[0].reportadoPor) {
+    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'reactivado', `Tu reporte de ${lineas[0].cliente||'venta'} fue reconsiderado — vuelve a estar en revisión`, nuevoGrupoId);
+  }
+  guardar();
+  renderVentasRechazadasTabla();
+  actualizarBadgePendientes();
+  showNotif('↩️ Reporte reactivado — pasa a Ventas Pendientes para revisión');
+}
+
+// Aprueba directo desde Rechazadas sin pasar por Pendientes — para cuando
+// Admin se da cuenta de que el rechazo fue un error y los datos ya están
+// bien tal cual. Misma forma exacta de objeto que aprobarVentaPendiente().
+function adminAprobarRechazada(grupoId) {
+  const lineas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId===grupoId);
+  if(!lineas.length) return;
+  const quincenaPago = document.getElementById('vr-quincena-'+grupoId)?.value || '';
+  const aprobadoEn = new Date().toISOString();
+
+  let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  lineas.forEach(l=>{
+    maxId++;
+    appData.ventas.push({
+      id: maxId, fecha: l.fecha, agente: l.agente, cliente: l.cliente, cuenta: l.cuenta,
+      mes: l.mes, campana: l.campana, quincenaPago, mesPago: '',
+      llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
+      grabadoPor: l.grabadoPor || '',
+      notas: l.notas, productoId: l.productoId, categoria: l.categoria,
+      cantidad: l.cantidad, comision: l.comision,
+      reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn,
+    });
+  });
+  appData.ventasRechazadas = appData.ventasRechazadas.filter(v=>v.grupoId!==grupoId);
+
+  if(lineas[0].reportadoPor) {
+    crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'aprobado', `Tu reporte de ${lineas[0].cliente||'venta'} fue activado`, grupoId);
+  }
+  guardar();
+  renderVentasRechazadasTabla();
+  renderDashboard();
+  showNotif(`✅ ${lineas.length} línea${lineas.length>1?'s':''} activada${lineas.length>1?'s':''} — ya cuenta${lineas.length>1?'n':''} como venta oficial`);
+}
+
+// Elimina el reporte rechazado por completo — a diferencia de Reactivar, no
+// deja ningún rastro ni notifica al agente (uso para reportes duplicados o
+// que definitivamente no proceden).
+function adminEliminarRechazada(grupoId) {
+  if(!confirm('¿Eliminar definitivamente este reporte rechazado? No se puede deshacer.')) return;
+  appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
+  guardar();
+  renderVentasRechazadasTabla();
+  showNotif('🗑️ Reporte eliminado definitivamente');
+}
+
 // Permite deshacer una aprobación por error: saca las líneas de appData.ventas
 // (deja de contar en comisiones/dashboard/TOP/pagos, como cualquier venta que
 // se elimina) y las manda a ventasRechazadas con motivo, igual que un rechazo
@@ -4905,7 +5122,7 @@ document.addEventListener('click', (e) => {
   panel.style.display = 'none';
 });
 
-const NOTIF_ICONOS = { reporte_nuevo:'🔔', aprobado:'✅', rechazado:'❌', mensaje:'💬', chargeback:'⚠️', chargeback_removido:'✅' };
+const NOTIF_ICONOS = { reporte_nuevo:'🔔', aprobado:'✅', rechazado:'❌', reactivado:'↩️', mensaje:'💬', chargeback:'⚠️', chargeback_removido:'✅' };
 
 // ============================================================
 // ASISTENTE DE AYUDA 🤖 — versión simple: una base de preguntas frecuentes
