@@ -468,6 +468,7 @@ table thead,table tbody{display:table;width:100%}
         </button>
         <div id="solicitudes-panel" style="display:none;position:absolute;top:34px;right:0;width:300px;max-width:90vw;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
       </div>
+      <div id="topbar-avatar" title=""></div>
       <span class="badge-dealer">AT&T VND</span>
     </div>
   </div>
@@ -3009,6 +3010,28 @@ function userCanManageJosePina(email) {
 }
 
 // ============================================================
+// AVATAR (iniciales + color por nombre) — sin subida de fotos, no hay
+// backend de archivos; genera algo visualmente distinto por persona
+// solo con el nombre, determinístico (mismo nombre = siempre mismo color).
+// ============================================================
+const AVATAR_PALETA = ['#8B1A1A','#0369A1','#059669','#7C3AED','#D97706','#DB2777','#0EA5E9','#65A30D','#DC2626','#4F46E5'];
+function avatarIniciales(nombre) {
+  const partes = (nombre||'').trim().split(/\s+/).filter(Boolean);
+  if(!partes.length) return '?';
+  if(partes.length===1) return partes[0].slice(0,2).toUpperCase();
+  return (partes[0][0]+partes[1][0]).toUpperCase();
+}
+function avatarColor(nombre) {
+  let hash = 0;
+  const s = nombre||'?';
+  for(let i=0;i<s.length;i++) hash = (hash*31 + s.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETA[hash % AVATAR_PALETA.length];
+}
+function avatarHTML(nombre, size=28) {
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${avatarColor(nombre)};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.4)}px;font-weight:800;flex-shrink:0">${avatarIniciales(nombre)}</div>`;
+}
+
+// ============================================================
 // DATA
 // ============================================================
 let appData = {
@@ -5146,6 +5169,15 @@ function actualizarBadgeSolicitudes() {
   const n = (appData.solicitudesDescarga||[]).filter(s=>s.estado==='pendiente').length;
   badge.style.display = n>0 ? 'inline-block' : 'none';
   badge.textContent = n>9 ? '9+' : n;
+}
+
+function actualizarAvatarTopbar() {
+  const el = document.getElementById('topbar-avatar');
+  if(!el) return;
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const nombre = perms ? perms.nombre : (currentUser ? currentUser.email.split('@')[0] : '');
+  el.innerHTML = nombre ? avatarHTML(nombre, 26) : '';
+  el.title = nombre;
 }
 
 function toggleSolicitudesPanel() {
@@ -8288,7 +8320,8 @@ function mostrarAreas() {
   const puedeInspector = perms.areas.includes('inspector');
 
   const userDisplay = perms.nombre || email.split('@')[0];
-  document.getElementById('area-user-badge').textContent = '👤 ' + userDisplay;
+  document.getElementById('area-user-badge').innerHTML =
+    `<span style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle">${avatarHTML(userDisplay,20)}${userDisplay}</span>`;
 
   const btnStyle = `flex:1;min-width:180px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:16px;padding:26px 18px;cursor:pointer;transition:all 0.2s;text-align:center`;
   const hoverOn  = `this.style.background='rgba(139,26,26,0.35)';this.style.borderColor='#FF6B6B'`;
@@ -8399,6 +8432,7 @@ function abrirArea(area) {
   else if(area==='inspector') { showPage('inspector-clientes', null); }
   actualizarBadgeNotifCampana();
   actualizarBadgeSolicitudes();
+  actualizarAvatarTopbar();
 }
 
 // Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
