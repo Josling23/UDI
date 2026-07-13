@@ -3015,11 +3015,22 @@ const USERS_CONFIG = {
 // Helper function to get user permissions from email
 function getUserPermissions(email) {
   const email_lower = (email || '').toLowerCase();
-  if (USERS_CONFIG[email_lower]) return USERS_CONFIG[email_lower];
   // Login dinámico de agentes: no vive en USERS_CONFIG (whitelist fija de
   // back-office), sino en el propio perfil del agente (appData.agentes),
   // habilitado/deshabilitado desde la pantalla Agentes sin tocar código.
   const agente = (appData.agentes||[]).find(a => a.loginHabilitado && (a.loginEmail||'').toLowerCase() === email_lower);
+
+  if (USERS_CONFIG[email_lower]) {
+    const base = USERS_CONFIG[email_lower];
+    // Alguien de back-office (ej. una supervisora) puede TAMBIÉN tener su
+    // propio perfil de agente vinculado al mismo correo — para que reporte
+    // sus propias ventas/chargebacks igual que cualquier vendedor, sin
+    // perder sus áreas de back-office (Admin/Bravo/Salud/etc.).
+    if (agente && agente.rol !== 'inspector' && !base.areas.includes('agente')) {
+      return { ...base, areas: [...base.areas, 'agente'], agenteId: agente.id };
+    }
+    return base;
+  }
   if (agente) {
     // El rol Inspector entra a su propia área de solo lectura, separada del
     // área "agente" normal — nunca ve pantallas de venta/comisión propias.
@@ -7125,7 +7136,8 @@ function renderAgentes() {
               <button class="btn btn-ghost btn-xs" onclick="reenviarResetPasswordAgente(${a.id})" title="Enviar correo para que el agente cambie su contraseña">✉️ Reset</button>
               <button class="btn btn-ghost btn-xs" onclick="deshabilitarLoginAgente(${a.id})" title="Revocar acceso (no borra la cuenta)">🔒 Deshabilitar</button>
              </div>`
-          : `<button class="btn btn-ghost btn-xs" onclick="abrirModalLoginAgente(${a.id})">🔑 Habilitar Login</button>`}
+          : `<button class="btn btn-ghost btn-xs" onclick="abrirModalLoginAgente(${a.id})">🔑 Habilitar Login</button>
+             <button class="btn btn-ghost btn-xs" onclick="vincularLoginExistente(${a.id})" title="Para cuando la persona YA tiene una cuenta (ej. también es de Admin/Bravo/Salud) — no crea una cuenta nueva, solo conecta este perfil con la que ya usa para entrar">🔗 Vincular correo existente</button>`}
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
@@ -7453,6 +7465,27 @@ async function habilitarLoginAgente() {
     const msgs = { 'auth/email-already-in-use':'Este correo ya está registrado.', 'auth/weak-password':'Contraseña muy débil.', 'auth/invalid-email':'Correo inválido.' };
     showNotif('❌ ' + (msgs[e.code] || e.message), 'error');
   }
+}
+
+// Para cuando la persona YA tiene una cuenta real (ej. alguien de back-office
+// —Admin/Bravo/Salud— que además tiene su propio perfil de agente porque
+// también vende) — a diferencia de habilitarLoginAgente(), NO intenta crear
+// una cuenta nueva en Firebase Auth (fallaría con "email-already-in-use"
+// porque ya existe); solo conecta este perfil de agente con el correo que
+// esa persona ya usa para entrar, para que también reporte sus propias
+// ventas/chargebacks como cualquier vendedor.
+function vincularLoginExistente(id) {
+  const a = appData.agentes.find(x=>x.id===id);
+  if(!a) return;
+  const email = prompt(`Correo de la cuenta que "${a.nombre}" YA usa para entrar (ej. su acceso de Admin/Bravo/Salud):`, a.loginEmail||'');
+  if(email === null) return;
+  const limpio = email.trim().toLowerCase();
+  if(!limpio) { showNotif('⚠️ Ingresa un correo','error'); return; }
+  a.loginEmail = limpio;
+  a.loginHabilitado = true;
+  guardar();
+  renderAgentes();
+  showNotif(`✅ ${a.nombre} ahora también reporta sus ventas con ese mismo correo`);
 }
 
 function deshabilitarLoginAgente(id) {
