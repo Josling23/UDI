@@ -4581,7 +4581,7 @@ function ventaPendienteInlineEdit(id, field, value) {
   const v = (appData.ventasPendientes||[]).find(x=>x.id===id);
   if(!v) return;
   v[field] = value;
-  if(field==='productoId') v.comision = getComisionParaAgente(value, v.agente);
+  if(field==='productoId') v.comision = getComisionDirectaAgente(value, v.agente);
   guardar();
   renderVentasPendientesTabla();
 }
@@ -6190,7 +6190,7 @@ function onLineProdChange(idx) {
   const pid = document.getElementById('vl-prod-'+idx)?.value||'';
   const agente = document.getElementById('v-agente')?.value||'';
   if(pid) {
-    const com = getComisionParaAgente(pid, agente);
+    const com = getComisionDirectaAgente(pid, agente);
     // FIX: Si com es 0, mostrar "0" no cadena vacía
     document.getElementById('vl-com-'+idx).value = (com !== null && com !== undefined) ? com : '';
   }
@@ -6503,7 +6503,7 @@ function parsearVentasPegadas(textoCompleto) {
           quincena: (quincena === '1' || quincena === '2') ? quincena : '',
           mesPago: mesPagoValido || '',
           agenteGrabacion: agenteGrabacionObj ? agenteGrabacionObj.nombre : '',
-          comision: (productoObj && agenteObj) ? getComisionParaAgente(productoObj.id, agenteObj.nombre) : 0,
+          comision: (productoObj && agenteObj) ? getComisionDirectaAgente(productoObj.id, agenteObj.nombre) : 0,
           valido: errores.length === 0,
           errores,
           incluir: errores.length === 0,
@@ -7021,7 +7021,7 @@ function ventaInlineEdit(id, field, value, prodSelect) {
   if(field==='productoId') {
     v.productoId = value;
     // Auto-update comision to catalog default for this agent
-    const newCom = getComisionParaAgente(value, v.agente);
+    const newCom = getComisionDirectaAgente(value, v.agente);
     v.comision = newCom;
     // Update the comision input in the same row
     const row = prodSelect?.closest('tr');
@@ -8892,7 +8892,7 @@ function agenteOnLineProdChange(idx) {
   const pid = document.getElementById('agv-prod-'+idx)?.value||'';
   const agente = document.getElementById('agv-agente-nombre')?.value||'';
   if(pid) {
-    const com = getComisionParaAgente(pid, agente);
+    const com = getComisionDirectaAgente(pid, agente);
     document.getElementById('agv-com-'+idx).value = (com !== null && com !== undefined) ? com : '';
   }
   agenteUpdateVentaTotal();
@@ -9174,7 +9174,7 @@ function agenteVentaPendienteInlineEdit(id, field, value) {
   const v = (appData.ventasPendientes||[]).find(x=>x.id===id) || (appData.ventasRechazadas||[]).find(x=>x.id===id);
   if(!v) return;
   v[field] = value;
-  if(field==='productoId') v.comision = getComisionParaAgente(value, v.agente);
+  if(field==='productoId') v.comision = getComisionDirectaAgente(value, v.agente);
   guardar();
   renderAgenteMisReportes();
   _mrEditandoGrupoId = v.grupoId;
