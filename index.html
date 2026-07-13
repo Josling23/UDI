@@ -1741,9 +1741,9 @@ table thead,table tbody{display:table;width:100%}
             <option value="agente">👤 Agente</option>
             <option value="subdealer">🤝 Sub-Dealer</option>
             <option value="supervisor">🔷 Supervisor</option>
-            <option value="gerente">⭐ Gerente General</option>
             <option value="inspector">🔍 Inspector</option>
           </select>
+          <span style="font-size:9px;font-weight:400;color:#99ACC2"> — Gerente General solo se asigna desde HQ, para que no cualquiera se dé ese acceso.</span>
         </div>
         <div class="form-group">
           <label>Sueldo Quincenal ($) <span style="color:#99ACC2;font-weight:400;font-size:9px">— 0 = solo comisión</span></label>
@@ -6794,7 +6794,15 @@ function openAgenteModal(id=null) {
   document.getElementById('modal-agente-title').textContent = id ? '✏️ Editar Agente / Usuario' : '➕ Nuevo Agente / Usuario';
   const a = id ? appData.agentes.find(x=>x.id===id) : null;
   document.getElementById('a-nombre').value  = a?.nombre||'';
-  document.getElementById('a-rol').value     = a?.rol||'agente';
+  // "Gerente General" ya no está en las opciones de este dropdown (solo se
+  // asigna desde HQ) — si por algún caso viejo un agente YA tenía ese rol,
+  // se agrega la opción de vuelta solo para él, para no perdérselo al
+  // editar y guardar sin querer.
+  const selRol = document.getElementById('a-rol');
+  if(a?.rol==='gerente' && !selRol.querySelector('option[value="gerente"]')) {
+    selRol.insertAdjacentHTML('beforeend', '<option value="gerente">⭐ Gerente General (heredado)</option>');
+  }
+  selRol.value = a?.rol||'agente';
   document.getElementById('a-sueldo').value  = a?.sueldoQuincenal!=null ? a.sueldoQuincenal : '';
   document.getElementById('a-tel').value     = a?.tel||'';
   document.getElementById('a-email').value   = a?.email||'';
