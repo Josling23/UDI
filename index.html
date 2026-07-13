@@ -4912,7 +4912,7 @@ function renderAyudaPanel() {
     <div>
       ${topics.length ? topics.map((t,i)=>`
         <div style="border-bottom:1px solid #F5F8FA">
-          <div onclick="ayudaToggleTema(${i})" style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:600;color:#33475B;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div onclick="event.stopPropagation();ayudaToggleTema(${i})" style="padding:10px 14px;cursor:pointer;font-size:12px;font-weight:600;color:#33475B;display:flex;justify-content:space-between;align-items:center;gap:8px">
             <span>${t.pregunta}</span>
             <span style="color:#99ACC2;flex-shrink:0">${_ayudaAbiertoIdx===i?'▲':'▼'}</span>
           </div>
@@ -4939,7 +4939,7 @@ function renderNotifPanel() {
   panel.innerHTML = `
     <div style="padding:10px 14px;border-bottom:1px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center">
       <b style="font-size:13px;color:#33475B">🔔 Notificaciones</b>
-      ${lista.some(n=>!n.leida) ? `<button onclick="marcarTodasNotifLeidas()" style="background:none;border:none;color:#009FDB;font-size:11px;cursor:pointer;font-weight:600">Marcar todas leídas</button>` : ''}
+      ${lista.some(n=>!n.leida) ? `<button onclick="event.stopPropagation();marcarTodasNotifLeidas()" style="background:none;border:none;color:#009FDB;font-size:11px;cursor:pointer;font-weight:600">Marcar todas leídas</button>` : ''}
     </div>
     <div style="max-height:320px;overflow-y:auto">
       ${lista.length ? lista.slice(0,40).map(n=>`
