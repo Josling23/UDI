@@ -461,6 +461,13 @@ table thead,table tbody{display:table;width:100%}
         </button>
         <div id="notif-panel" style="display:none;position:absolute;top:34px;right:0;width:320px;max-width:90vw;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
       </div>
+      <div style="position:relative">
+        <button id="btn-solicitudes-descarga" onclick="toggleSolicitudesPanel()" title="Solicitudes de descarga" style="display:none;background:none;border:none;font-size:19px;cursor:pointer;position:relative;padding:4px;line-height:1;color:#33475B">
+          🔒
+          <span id="solicitudes-badge" style="display:none;position:absolute;top:-3px;right:-4px;background:#F2545B;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;font-weight:800;min-width:14px;text-align:center">0</span>
+        </button>
+        <div id="solicitudes-panel" style="display:none;position:absolute;top:34px;right:0;width:300px;max-width:90vw;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
+      </div>
       <span class="badge-dealer">AT&T VND</span>
     </div>
   </div>
@@ -510,7 +517,7 @@ table thead,table tbody{display:table;width:100%}
             <button class="btn btn-primary btn-sm" onclick="openVentaModal()">➕ Nueva Venta</button>
             <button class="btn btn-success btn-sm" onclick="openImportarExcelModal()">📊 Importar Excel</button>
             <button class="btn btn-success btn-sm" onclick="abrirModalImportarVentasTexto()">📋 Pegar Ventas</button>
-            <button class="btn btn-success btn-sm" onclick="descargarRegistroDiarioPorFecha()">⬇️ Descargar por Fecha</button>
+            <button class="btn btn-success btn-sm" onclick="solicitarDescarga('Registro Diario AT&T', descargarRegistroDiarioPorFecha)">⬇️ Descargar por Fecha</button>
           </div>
         </div>
         <div class="filters">
@@ -992,7 +999,7 @@ table thead,table tbody{display:table;width:100%}
         <div class="section-header">
           <h2>👥 Gestión de Clientes</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button class="btn btn-ghost" onclick="saludDescargarClientesFiltrados()">⬇️ Descargar Excel</button>
+            <button class="btn btn-ghost" onclick="solicitarDescarga('Clientes Salud (Excel)', saludDescargarClientesFiltrados)">⬇️ Descargar Excel</button>
             <input type="file" id="salud-clientes-file-input" accept=".xlsx,.xls" style="display:none" onchange="saludSubirClientesExcel(event)">
             <button class="btn btn-ghost" onclick="document.getElementById('salud-clientes-file-input').click()">⬆️ Cargar Excel</button>
             <button class="btn btn-primary" onclick="saludOpenClienteModal()">➕ Nuevo Cliente</button>
@@ -1825,6 +1832,39 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-login-agente')">Cancelar</button>
       <button class="btn btn-primary" onclick="habilitarLoginAgente()">💾 Crear Acceso</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL SOLICITUD DE DESCARGA ===== -->
+<div class="modal-overlay" id="modal-solicitud-descarga">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3>🔒 Autorización requerida</h3>
+      <button class="modal-close" onclick="closeModal('modal-solicitud-descarga')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#33475B;margin-bottom:4px">Quieres descargar:</div>
+      <div id="sd-nombre-archivo" style="font-size:14px;font-weight:700;color:#33475B;margin-bottom:14px"></div>
+
+      <div id="sd-acciones">
+        <div style="font-size:12px;color:#7C98B6;margin-bottom:12px">Esta descarga necesita autorización de Josling. Puedes enviarle una solicitud en vivo, o si tienes el PIN de descargas, usarlo para bajarlo de una vez.</div>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:14px" onclick="sdEnviarSolicitud()">📨 Enviar solicitud a Josling</button>
+        <div style="border-top:1px solid #E5E7EB;padding-top:14px">
+          <div class="form-group" style="margin-bottom:8px"><label>O usa el PIN de descargas</label><input type="text" id="sd-pin-input" placeholder="PIN"></div>
+          <button class="btn btn-ghost" style="width:100%" onclick="sdUsarPin()">🔓 Desbloquear con PIN</button>
+          <div id="sd-pin-error" style="display:none;color:#F2545B;font-size:11px;margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div id="sd-estado-espera" style="display:none;text-align:center;padding:20px 0">
+        <div style="font-size:28px;margin-bottom:8px">⏳</div>
+        <div style="font-size:13px;color:#33475B;font-weight:700">Esperando aprobación de Josling...</div>
+        <div style="font-size:11px;color:#99ACC2;margin-top:6px">Esta ventana se actualiza sola en cuanto responda.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-solicitud-descarga')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -3042,6 +3082,10 @@ function normalizarAppData() {
   if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
   if(!appData.notificaciones) appData.notificaciones = [];
   if(!appData.nextNotificacionId) appData.nextNotificacionId = 1;
+  // Solicitudes de descarga (Josling aprueba, o quien pide usa el PIN de
+  // respaldo) — control transversal a todos los departamentos, por eso
+  // vive en appData y no en saludData/appData.bravo.
+  if(!appData.solicitudesDescarga) appData.solicitudesDescarga = [];
   if(!appData.enlaces) appData.enlaces = { admin: [], top: [], bravo: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
@@ -3135,7 +3179,7 @@ function guardar() {
 // "resucitada" para siempre en esta, viéndose como duplicada. Antes de
 // mezclar, forzamos [] en las colecciones que sabemos que pueden vaciarse,
 // para que el merge sí las reemplace con el estado real y vacío del server.
-const COLECCIONES_VACIABLES_FB = ['ventasPendientes','ventasRechazadas','ventas','mensajesVenta'];
+const COLECCIONES_VACIABLES_FB = ['ventasPendientes','ventasRechazadas','ventas','mensajesVenta','solicitudesDescarga'];
 function sanearColeccionesVaciasFirebase(raw) {
   COLECCIONES_VACIABLES_FB.forEach(k => { if(!(k in raw)) raw[k] = []; });
   return raw;
@@ -3172,6 +3216,11 @@ function activarListenerAppData() {
     }
     normalizarAppData();
     localStorage.setItem('attVND_v1', JSON.stringify(appData));
+
+    // Si Josling (u otro dueño) acaba de aprobar/rechazar una solicitud de
+    // descarga que esta misma pestaña está esperando, recogerla ahora.
+    revisarSolicitudesAprobadasLocal();
+    actualizarBadgeSolicitudes();
 
     // Avisos en tiempo real (sonido + notificación visual) del área "Agente":
     // Admin se entera al instante cuando un vendedor envía un reporte nuevo;
@@ -4950,6 +4999,200 @@ document.addEventListener('click', (e) => {
   if(!panel || panel.style.display === 'none') return;
   if(panel.contains(e.target)) return;
   if(e.target.closest('button[title="Asistente de ayuda"]')) return;
+  panel.style.display = 'none';
+});
+
+// ============================================================
+// SOLICITUDES DE DESCARGA — cualquiera que NO tenga acceso total
+// (fullAccess, hoy solo Josling) necesita autorización antes de bajar un
+// archivo: o el dueño lo aprueba en vivo desde su propia campanita 🔒, o la
+// persona usa el PIN de descargas (separado de los PINs de acceso por
+// área) como respaldo si el dueño no está disponible en ese momento.
+// Vive en appData (no en saludData/appData.bravo) a propósito — es un
+// control transversal a todos los departamentos con un solo dueño que
+// aprueba, a diferencia del chat/notificaciones, que sí son propios de
+// cada uno.
+// ============================================================
+
+// { [solicitudId]: funciónQueEjecutaLaDescargaReal } — solo existe en la
+// pestaña que originó la solicitud, nunca se guarda en Firebase (una
+// función no se puede serializar) — por eso, si se cierra la pestaña antes
+// de que aprueben, la próxima vez que la persona intente la MISMA descarga
+// se reconoce como ya aprobada (ver solicitarDescarga) y baja directo.
+let _solicitudDescargaCallbacks = {};
+let _sdArchivoActual = null;
+let _sdCallbackActual = null;
+let _sdSolicitudIdActual = null;
+
+// Punto de entrada único: se llama en vez de ejecutar la descarga
+// directamente. `nombreArchivo` es una etiqueta fija y legible (ej.
+// "Registro Diario AT&T") — se usa para reconocer solicitudes repetidas
+// del mismo archivo, no necesita variar por los filtros que haya puesto
+// la persona en ese momento.
+function solicitarDescarga(nombreArchivo, ejecutarDescarga) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(perms && perms.fullAccess) { ejecutarDescarga(); return; }
+
+  const email = (currentUser ? currentUser.email : '').toLowerCase();
+  if(!appData.solicitudesDescarga) appData.solicitudesDescarga = [];
+
+  // Si ya le habían aprobado este mismo archivo y todavía no se lo
+  // entregamos (ej. cerró la pestaña antes de que la aprobaran), se
+  // descarga directo sin pedir de nuevo.
+  const yaAprobada = appData.solicitudesDescarga.find(s =>
+    s.solicitanteEmail===email && s.nombreArchivo===nombreArchivo && s.estado==='aprobado' && !s.entregado);
+  if(yaAprobada) {
+    yaAprobada.entregado = true;
+    guardar();
+    ejecutarDescarga();
+    return;
+  }
+
+  abrirModalSolicitudDescarga(nombreArchivo, ejecutarDescarga);
+}
+
+function abrirModalSolicitudDescarga(nombreArchivo, ejecutarDescarga) {
+  _sdArchivoActual = nombreArchivo;
+  _sdCallbackActual = ejecutarDescarga;
+  _sdSolicitudIdActual = null;
+  document.getElementById('sd-nombre-archivo').textContent = nombreArchivo;
+  document.getElementById('sd-pin-input').value = '';
+  document.getElementById('sd-pin-error').style.display = 'none';
+  document.getElementById('sd-estado-espera').style.display = 'none';
+  document.getElementById('sd-acciones').style.display = 'block';
+  document.getElementById('modal-solicitud-descarga').classList.add('open');
+}
+
+function sdEnviarSolicitud() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const id = 'sd' + Date.now();
+  if(!appData.solicitudesDescarga) appData.solicitudesDescarga = [];
+  appData.solicitudesDescarga.push({
+    id,
+    nombreArchivo: _sdArchivoActual,
+    solicitanteEmail: (currentUser ? currentUser.email : '').toLowerCase(),
+    solicitanteNombre: perms ? perms.nombre : (currentUser ? currentUser.email : 'Alguien'),
+    estado: 'pendiente',
+    entregado: false,
+    creadoEn: new Date().toISOString(),
+  });
+  guardar();
+  _solicitudDescargaCallbacks[id] = _sdCallbackActual;
+  _sdSolicitudIdActual = id;
+  document.getElementById('sd-acciones').style.display = 'none';
+  document.getElementById('sd-estado-espera').style.display = 'block';
+}
+
+function sdUsarPin() {
+  const pinIngresado = (document.getElementById('sd-pin-input')?.value || '').trim();
+  const errEl = document.getElementById('sd-pin-error');
+  errEl.style.display = 'none';
+  if(!pinIngresado) { errEl.textContent = 'Escribe el PIN de descargas.'; errEl.style.display = 'block'; return; }
+
+  const compararYEjecutar = (pinReal) => {
+    if(!pinReal) {
+      errEl.textContent = 'Todavía no hay un PIN de descargas configurado — manda la solicitud, o pídele a Josling que active uno.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if(pinIngresado === pinReal) {
+      const cb = _sdCallbackActual;
+      closeModal('modal-solicitud-descarga');
+      cb();
+    } else {
+      errEl.textContent = '❌ PIN incorrecto.';
+      errEl.style.display = 'block';
+    }
+  };
+
+  fbDB.ref('pins/descargas').get()
+    .then(snap => compararYEjecutar(snap.exists() ? snap.val() : localStorage.getItem('pin_descargas')))
+    .catch(() => compararYEjecutar(localStorage.getItem('pin_descargas')));
+}
+
+// Se llama cada vez que llega una actualización en vivo de appData — revisa
+// si alguna solicitud que ESTA pestaña está esperando ya fue resuelta.
+function revisarSolicitudesAprobadasLocal() {
+  Object.keys(_solicitudDescargaCallbacks).forEach(id => {
+    const s = (appData.solicitudesDescarga||[]).find(x=>x.id===id);
+    if(!s) return;
+    if(s.estado==='aprobado' && !s.entregado) {
+      s.entregado = true;
+      const cb = _solicitudDescargaCallbacks[id];
+      delete _solicitudDescargaCallbacks[id];
+      guardar();
+      if(_sdSolicitudIdActual===id) closeModal('modal-solicitud-descarga');
+      cb();
+      showNotif('✅ Tu descarga fue aprobada — se está bajando el archivo');
+    } else if(s.estado==='rechazado') {
+      delete _solicitudDescargaCallbacks[id];
+      if(_sdSolicitudIdActual===id) closeModal('modal-solicitud-descarga');
+      showNotif('❌ Tu solicitud de descarga fue rechazada', 'error');
+    }
+  });
+}
+
+// Panel del dueño (🔒 en la barra superior) — solo visible con fullAccess.
+function actualizarBadgeSolicitudes() {
+  const btn = document.getElementById('btn-solicitudes-descarga');
+  const badge = document.getElementById('solicitudes-badge');
+  if(!btn || !badge) return;
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const esDueño = !!(perms && perms.fullAccess);
+  btn.style.display = esDueño ? 'inline-flex' : 'none';
+  if(!esDueño) return;
+  const n = (appData.solicitudesDescarga||[]).filter(s=>s.estado==='pendiente').length;
+  badge.style.display = n>0 ? 'inline-block' : 'none';
+  badge.textContent = n>9 ? '9+' : n;
+}
+
+function toggleSolicitudesPanel() {
+  const panel = document.getElementById('solicitudes-panel');
+  if(!panel) return;
+  const abrir = panel.style.display === 'none';
+  panel.style.display = abrir ? 'block' : 'none';
+  if(abrir) renderSolicitudesPanel();
+}
+
+function renderSolicitudesPanel() {
+  const panel = document.getElementById('solicitudes-panel');
+  if(!panel) return;
+  const lista = (appData.solicitudesDescarga||[]).filter(s=>s.estado==='pendiente')
+    .sort((a,b)=>(b.creadoEn||'').localeCompare(a.creadoEn||''));
+  panel.innerHTML = `
+    <div style="padding:10px 14px;border-bottom:1px solid #E5E7EB">
+      <b style="font-size:13px;color:#33475B">🔒 Solicitudes de descarga</b>
+    </div>
+    <div style="max-height:320px;overflow-y:auto">
+      ${lista.length ? lista.map(s=>`
+        <div style="padding:10px 14px;border-bottom:1px solid #F5F8FA">
+          <div style="font-size:12px;color:#33475B"><b>${s.solicitanteNombre}</b> quiere descargar:</div>
+          <div style="font-size:12px;color:#7C98B6;margin:2px 0 6px">${s.nombreArchivo}</div>
+          <div style="font-size:10px;color:#99ACC2;margin-bottom:6px">${fmtHoraMensaje(s.creadoEn)}</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-success btn-xs" onclick="event.stopPropagation();resolverSolicitudDescarga('${s.id}','aprobado')">✅ Aprobar</button>
+            <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();resolverSolicitudDescarga('${s.id}','rechazado')">❌ Rechazar</button>
+          </div>
+        </div>`).join('') : '<div style="padding:24px;text-align:center;color:#99ACC2;font-size:12px">Sin solicitudes pendientes</div>'}
+    </div>`;
+}
+
+function resolverSolicitudDescarga(id, estado) {
+  const s = (appData.solicitudesDescarga||[]).find(x=>x.id===id);
+  if(!s) return;
+  s.estado = estado;
+  guardar();
+  renderSolicitudesPanel();
+  actualizarBadgeSolicitudes();
+  showNotif(estado==='aprobado' ? '✅ Descarga aprobada' : '❌ Descarga rechazada');
+}
+
+// Cerrar el panel de solicitudes al hacer clic afuera.
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('solicitudes-panel');
+  if(!panel || panel.style.display === 'none') return;
+  if(panel.contains(e.target)) return;
+  if(e.target.closest('button[title="Solicitudes de descarga"]')) return;
   panel.style.display = 'none';
 });
 
@@ -8153,6 +8396,7 @@ function abrirArea(area) {
   }
   else if(area==='inspector') { showPage('inspector-clientes', null); }
   actualizarBadgeNotifCampana();
+  actualizarBadgeSolicitudes();
 }
 
 // Área "Agente" — placeholder de la Fase 1 (solo login funcional). Las
@@ -12034,10 +12278,10 @@ function renderTopConfig() {
       </div>
       <div style="font-size:13px;font-weight:700;color:#33475B;margin-bottom:14px">🔢 PINs de Acceso por Área</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px" id="pin-fields">
-        ${['admin','top','hq','salud'].map(a => `
+        ${['admin','top','hq','salud','descargas'].map(a => `
           <div style="background:#F5F8FA;border:1px solid #CBD6E2;border-radius:10px;padding:14px">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#7C98B6;margin-bottom:8px">
-              ${{admin:'📋 Administración',top:'⭐ TOP',hq:'🏛️ HQ',salud:'💚 Salud'}[a]}
+              ${{admin:'📋 Administración',top:'⭐ TOP',hq:'🏛️ HQ',salud:'💚 Salud',descargas:'🔒 Descargas'}[a]}
             </div>
             <div style="display:flex;gap:6px;align-items:center">
               <input type="text" id="pin-cfg-${a}" placeholder="PIN" maxlength="10"
@@ -12048,10 +12292,10 @@ function renderTopConfig() {
             <div id="pin-cfg-${a}-status" style="font-size:10px;color:#00BDA5;margin-top:5px;min-height:14px"></div>
           </div>`).join('')}
       </div>
-      <div style="font-size:11px;color:#99ACC2">Los PINs se guardan en Firebase. Comparte el link del dashboard y el PIN del área con cada persona.</div>
+      <div style="font-size:11px;color:#99ACC2">Los PINs se guardan en Firebase. Comparte el link del dashboard y el PIN del área con cada persona. El PIN de "🔒 Descargas" es aparte — sirve como respaldo para bajar archivos sin esperar tu aprobación en vivo, cámbialo cuando quieras.</div>
     </div>`;
   // Cargar PINs actuales (mostrar si existen)
-  ['admin','top','hq','salud'].forEach(async a => {
+  ['admin','top','hq','salud','descargas'].forEach(async a => {
     try {
       const snap = await fbDB.ref('pins/' + a).get();
       if (snap.exists()) {
@@ -12149,7 +12393,7 @@ function renderAdmin() {
         <div style="flex:1;min-width:240px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#059669;margin-bottom:8px">⬇️ Descargar Backup</div>
           <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Genera un archivo Excel (.xlsx) con hojas legibles (Ventas, Agentes, Gastos, Ingresos, Meses) más los datos completos necesarios para restaurar todo.</div>
-          <button class="btn btn-success" onclick="descargarBackupCompleto()">⬇️ Descargar Backup Completo (Excel)</button>
+          <button class="btn btn-success" onclick="solicitarDescarga('Backup Completo (Excel)', descargarBackupCompleto)">⬇️ Descargar Backup Completo (Excel)</button>
         </div>
         <div style="flex:1;min-width:240px;background:#FFF3EE;border:1.5px solid #FDBA74;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#D97706;margin-bottom:8px">⬆️ Restaurar Backup</div>
@@ -12192,7 +12436,7 @@ function renderAdmin() {
         <div style="flex:1;min-width:240px;background:#EAF7FB;border:1.5px solid #009FDB;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#0057A8;margin-bottom:8px">⬇️ Descargar Filtrado</div>
           <div style="font-size:11px;color:#7C98B6;margin-bottom:12px">Excel con 3 hojas: Ventas, Total pagado por Producto, y Pagos (básico, bonos, préstamos, descuentos y total) — todo según los filtros de arriba.</div>
-          <button class="btn btn-primary" onclick="descargarVentasFiltradas()">⬇️ Descargar Ventas Filtradas</button>
+          <button class="btn btn-primary" onclick="solicitarDescarga('Ventas Filtradas (Excel)', descargarVentasFiltradas)">⬇️ Descargar Ventas Filtradas</button>
         </div>
         <div style="flex:1;min-width:240px;background:#F4F5FF;border:1.5px solid #A5B4FC;border-radius:10px;padding:16px">
           <div style="font-weight:700;color:#4F46E5;margin-bottom:8px">⬆️ Subir / Actualizar</div>
@@ -12267,7 +12511,7 @@ function renderAdminQuincenas() {
                 ${q1Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
               </button>
             </div>
-            <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',1)">
+            <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="solicitarDescarga('Informe Quincena Q1 AT&T', () => descargarResumenQuincena('${selMes}',1))">
               📥 Descargar informe Q1
             </button>
           </div>
@@ -12281,7 +12525,7 @@ function renderAdminQuincenas() {
                 ${q2Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
               </button>
             </div>
-            <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="descargarResumenQuincena('${selMes}',2)">
+            <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="solicitarDescarga('Informe Quincena Q2 AT&T', () => descargarResumenQuincena('${selMes}',2))">
               📥 Descargar informe Q2
             </button>
           </div>
@@ -15559,7 +15803,7 @@ function bravoRegistros() {
       <div class="section-header">
         <h2>📋 Registros Diarios de Bravo</h2>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost btn-sm" onclick="bravoDescargarReportesExcel()">📥 Descargar Reportes</button>
+          <button class="btn btn-ghost btn-sm" onclick="solicitarDescarga('Reportes Bravo (Excel)', bravoDescargarReportesExcel)">📥 Descargar Reportes</button>
           <button class="btn btn-success btn-sm" onclick="abrirModalImportarReportes()">📋 Pegar Reporte(s)</button>
           <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
         </div>
