@@ -5729,8 +5729,20 @@ function compartirReciboWhatsApp(grupoId) {
 
 // Identifica quién escribió cada mensaje del chat — 'inspector' tiene su
 // propio ícono/color para que el vendedor nunca lo confunda con Admin.
-const AUTOR_CHAT_ICONO = { admin:'👤', inspector:'🔍', agente:'📱', salud:'💚' };
-const AUTOR_CHAT_COLOR = { admin:'#0057A8', inspector:'#8B5CF6', agente:'#6A78D1', salud:'#00A492' };
+const AUTOR_CHAT_ICONO = { admin:'👤', inspector:'🔍', agente:'📱', salud:'💚', top:'⭐' };
+const AUTOR_CHAT_COLOR = { admin:'#0057A8', inspector:'#8B5CF6', agente:'#6A78D1', salud:'#00A492', top:'#D4A017' };
+
+// Convierte un valor a como se vería escrito literalmente en JS dentro de
+// un atributo onclick="..." (delimitado con comillas dobles) — los
+// grupoId numéricos (el caso de siempre) salen igual que antes, sin
+// comillas; los identificadores de texto (ej. "cliente||fecha" del chat de
+// RS&I) salen entre comillas SIMPLES y escapadas, para no chocar con las
+// comillas dobles del propio atributo HTML (JSON.stringify() no sirve
+// aquí porque usa comillas dobles).
+function jsInlineArg(v) {
+  if(typeof v === 'number') return String(v);
+  return `'${String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`;
+}
 
 function deptoChatHtml(depto, refId, inputId, onEnviarFn) {
   const mensajes = deptoMensajesDe(depto, refId);
@@ -5744,8 +5756,8 @@ function deptoChatHtml(depto, refId, inputId, onEnviarFn) {
         </div>`).join('') : '<div style="font-size:11px;color:#99ACC2;font-style:italic">Sin mensajes todavía — escribe algo para empezar el seguimiento de esta orden.</div>'}
     </div>
     <div style="display:flex;gap:6px">
-      <input type="text" id="${inputId}" placeholder="Escribe un mensaje..." style="flex:1;border:1.5px solid #CBD6E2;border-radius:6px;padding:6px 8px;font-size:12px" onkeydown="if(event.key==='Enter'){${onEnviarFn}(${refId})}">
-      <button class="btn btn-primary btn-xs" onclick="${onEnviarFn}(${refId})">Enviar</button>
+      <input type="text" id="${inputId}" placeholder="Escribe un mensaje..." style="flex:1;border:1.5px solid #CBD6E2;border-radius:6px;padding:6px 8px;font-size:12px" onkeydown="if(event.key==='Enter'){${onEnviarFn}(${jsInlineArg(refId)})}">
+      <button class="btn btn-primary btn-xs" onclick="${onEnviarFn}(${jsInlineArg(refId)})">Enviar</button>
     </div>
   </div>`;
 }
@@ -5776,6 +5788,49 @@ function adminEnviarMensajeVentaOficial(grupoId) {
     if(agenteId) { crearNotificacion({ paraAgenteId: agenteId }, 'mensaje', `${perms?perms.nombre:'Admin'}: ${texto}`, grupoId); guardar(); }
   }
   renderVentas();
+}
+
+// ============================================================
+// CHAT DE PAGOS PENDIENTES DE RS&I — mismo motor de chat que ya usan
+// Ventas Pendientes/Registro Diario (deptoChatHtml, contexto 'att'), solo
+// que aquí la "clave" no es un grupoId numérico sino el mismo
+// identificador cliente||fecha que YA usan tanto renderTopRSI() (TOP) como
+// renderPendientesPagoAtt() (Admin → Registro Diario) para agrupar pagos
+// pendientes — así una sola conversación es visible desde los dos lados:
+// TOP deja la nota de qué está mal (cliente no encontrado, nombre mal
+// escrito, etc.) y Admin la ve y puede responder, sin construir un sistema
+// de "notas" aparte del chat.
+// ============================================================
+function chatRSIHtml(key, inputId, onEnviarFn) {
+  return deptoChatHtml('att', key, inputId, onEnviarFn);
+}
+
+let _rsiChatAbierto = null;
+// Todas las páginas quedan siempre en el DOM (solo se ocultan con CSS), así
+// que no basta con checar si el contenedor existe — hay que fijarse en cuál
+// área está realmente activa, si no se refrescarían (y duplicarían) los
+// mismos IDs de ambas pantallas a la vez aunque solo una esté visible.
+function refrescarChatRSI() {
+  if(_areaActual==='top' && document.getElementById('top-rsi')) renderTopRSI();
+  else if(_areaActual==='admin' && document.getElementById('ventas-body')) renderVentas();
+}
+function toggleChatRSI(key) {
+  _rsiChatAbierto = (_rsiChatAbierto===key) ? null : key;
+  refrescarChatRSI();
+}
+
+function topEnviarMensajeRSI(key) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = enviarMensajeVenta(key, 'top', perms ? perms.nombre : 'TOP', 'rsi-chat-input-'+encodeURIComponent(key));
+  if(texto) { crearNotificacion({ paraAdmin: true }, 'mensaje', `${perms?perms.nombre:'TOP'} (pago pendiente de ${key.split('||')[0]||'cliente'}): ${texto}`, key); guardar(); }
+  refrescarChatRSI();
+}
+
+function adminEnviarMensajeRSI(key) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = enviarMensajeVenta(key, 'admin', perms ? perms.nombre : 'Admin', 'rsi-chat-input-'+encodeURIComponent(key));
+  if(texto) { guardar(); }
+  refrescarChatRSI();
 }
 
 function aprobarVisiblesVentasPendientes() {
@@ -6091,13 +6146,19 @@ function renderPendientesPagoAtt(listaVentas) {
   const filasHTML = pendientes.map(g => {
     const productos = [...new Set(g.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
     const totalComision = g.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+    const key = `${g.cliente||''}||${g.fecha||''}`;
+    const nMensajes = mensajesDeGrupo(key).length;
     return `<tr>
       <td style="font-weight:600;color:#E04048">${g.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
       <td style="font-size:11px">${g.fecha||'—'}</td>
       <td style="font-size:11px">${g.vendedor||'—'}</td>
       <td style="text-align:right;font-weight:700;color:#E04048">$${totalComision.toFixed(2)}</td>
-    </tr>`;
+      <td style="text-align:center">
+        <button class="btn btn-xs btn-ghost" onclick="toggleChatRSI(${jsInlineArg(key)})" title="Ver nota de TOP / responder">💬${nMensajes?' '+nMensajes:''}</button>
+      </td>
+    </tr>
+    ${_rsiChatAbierto===key ? `<tr><td colspan="6" style="padding:0 8px 8px">${chatRSIHtml(key, 'rsi-chat-input-'+encodeURIComponent(key), 'adminEnviarMensajeRSI')}</td></tr>` : ''}`;
   }).join('');
 
   // Renderizar el cuadro completo
@@ -6108,7 +6169,7 @@ function renderPendientesPagoAtt(listaVentas) {
         PAGOS PENDIENTES DE AT&T — ${pendientes.length} cliente(s)
       </h3>
       <div style="font-size:11px;color:#7C98B6;margin-bottom:12px;background:#fff;padding:8px;border-radius:6px;border-left:3px solid #7C98B6">
-        💡 Marca estos pagos desde la sección <strong>💳 Pago AT&T</strong> en el Top
+        💡 Marca estos pagos desde la sección <strong>💳 Pago AT&T</strong> en el Top — si TOP no encuentra a un cliente o algo está mal (ej. el nombre), te va a dejar una nota en el 💬 de esa fila.
       </div>
       <div class="tbl-wrap" style="max-height:250px;overflow-y:auto">
         <table style="width:100%">
@@ -6119,6 +6180,7 @@ function renderPendientesPagoAtt(listaVentas) {
               <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Fecha</th>
               <th style="color:#E04048;text-align:left;padding:8px;font-weight:700;font-size:11px">Vendedor</th>
               <th style="color:#E04048;text-align:right;padding:8px;font-weight:700;font-size:11px">Comisión</th>
+              <th style="color:#E04048;text-align:center;padding:8px;font-weight:700;font-size:11px"></th>
             </tr>
           </thead>
           <tbody>
@@ -12182,16 +12244,20 @@ function renderTopRSI() {
     const agentes = [...new Set(group.ventas.map(v=>v.agente))].join(', ');
     const productos = [...new Set(group.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
     const totalComision = group.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+    const key = `${group.cliente||''}||${group.fecha||''}`;
+    const nMensajes = mensajesDeGrupo(key).length;
     return `<tr>
       <td style="font-weight:600">${group.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
       <td>${group.fecha||'—'}</td>
       <td>${agentes}</td>
       <td style="text-align:right;font-weight:700;color:#009FDB">$${totalComision.toFixed(2)}</td>
-      <td style="text-align:center">
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn btn-xs btn-ghost" onclick="toggleChatRSI(${jsInlineArg(key)})" title="Dejar una nota o platicar con Admin sobre este pago">💬${nMensajes?' '+nMensajes:''}</button>
         <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${group.fecha}')" style="padding:3px 6px;font-size:9px">✕</button>
       </td>
-    </tr>`;
+    </tr>
+    ${_rsiChatAbierto===key ? `<tr><td colspan="6" style="padding:0 8px 8px">${chatRSIHtml(key, 'rsi-chat-input-'+encodeURIComponent(key), 'topEnviarMensajeRSI')}</td></tr>` : ''}`;
   };
 
   const pagadosRows = pagados.map(renderGroup).join('');
