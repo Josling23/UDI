@@ -6042,9 +6042,9 @@ function renderVentas() {
       <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
       ${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaOficial(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}
       ${v.grupoId ? `<button class="btn btn-danger btn-xs" onclick="revertirVentaAprobada(${v.grupoId})" title="Rechazar esta venta ya aprobada, por si hay un error que corregir">↩️ Rechazar</button>` : ''}
-      ${v.grupoId ? (v.esChargeback
+      ${v.esChargeback
         ? `<button class="btn btn-ghost btn-xs" style="color:#F2545B;border-color:#F2545B" onclick="quitarVentaChargeback(${v.id})" title="Marcada como Chargeback — clic para quitar">⚠️ CB</button>`
-        : `<button class="btn btn-ghost btn-xs" onclick="marcarVentaChargeback(${v.id})" title="Marcar esta venta como Chargeback">⚠️ CB</button>`) : ''}
+        : `<button class="btn btn-ghost btn-xs" onclick="marcarVentaChargeback(${v.id})" title="Marcar esta venta como Chargeback">⚠️ CB</button>`}
     </td>
   </tr>${(() => {
     if(!v.grupoId || _ventasChatAbierto!==v.grupoId || gruposConChatRenderizado.has(v.grupoId)) return '';
@@ -15357,6 +15357,32 @@ function ejecutarMigraciones() {
     const [mB, yB] = [MESES_ES.indexOf(b.split(' ')[0]), parseInt(b.split(' ')[1])];
     return yA !== yB ? yA - yB : mA - mB;
   });
+    if (changed) guardar();
+  })();
+
+  // ── Ventas viejas metidas directo por Admin (sin grupoId) — les faltaba
+  // para que "↩️ Rechazar" funcionara igual que en las que vienen de un
+  // reporte de agente (el botón de Chargeback ya no depende de esto, se
+  // liberó aparte). Cada venta vieja se trata como su propio grupo de una
+  // sola línea (grupoId = su propio id) — no se agrupan entre sí porque no
+  // hay forma de saber cuáles se metieron juntas originalmente. Si el
+  // nombre del vendedor coincide con un perfil actual, también se vincula
+  // reportadoPor (igual que ya hace guardarVenta() al editar una venta
+  // vieja por primera vez) — así ya sale en "Mis Reportes"/notificaciones.
+  (function migrarGrupoIdVentasLegacy() {
+    const MARCA = 'migracion_grupoid_ventas_legacy_v1';
+    if (appData[MARCA]) return;
+    let changed = false;
+    (appData.ventas||[]).forEach(v => {
+      if (v.grupoId !== undefined) return;
+      if (v.reportadoPor === undefined) {
+        const agenteVinculado = appData.agentes.find(a=>normNombre(a.nombre)===normNombre(v.agente));
+        if (agenteVinculado) v.reportadoPor = agenteVinculado.id;
+      }
+      v.grupoId = v.id;
+      changed = true;
+    });
+    appData[MARCA] = true;
     if (changed) guardar();
   })();
 
