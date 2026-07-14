@@ -8373,29 +8373,48 @@ function generarReporteWhatsApp(agenteId, mes, q) {
     const pp = getPeríodoPago(v);
     return pp.mes===mes && pp.q===q;
   });
+  // Grabaciones (llamadas grabadas) — se cuentan aparte, todas juntas bajo
+  // una sola categoría "Llamadas Grabadas", sin importar si venían marcadas
+  // como esGrabacion o _esGrabacion (son la misma cosa para este reporte).
+  const grabacionesPeriodo = appData.ventas.filter(v=>{
+    if(!v || (!v.esGrabacion && !v._esGrabacion)) return false;
+    if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+    const pp = getPeríodoPago(v);
+    return pp.mes===mes && pp.q===q;
+  });
   const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
 
-  if(!ventasPeriodo.length && !extrasDelMes.length) {
+  if(!ventasPeriodo.length && !extrasDelMes.length && !grabacionesPeriodo.length) {
     showNotif('⚠️ No hay servicios registrados en este período', 'error');
     return;
   }
 
-  const lineas = ventasPeriodo.map(v=>{
-    const cant = (parseFloat(v.cantidad)||1) > 1 ? ` x${v.cantidad}` : '';
-    const cliente = v.cliente ? ` (${v.cliente})` : '';
-    return `📅 ${v.fecha} — ${getProdNombre(v.productoId)}${cant}${cliente}`;
+  // Agrupado por producto y contado — igual a como los agentes ya lo
+  // reportan por WhatsApp (ej. "1 Línea <=15, 1 Lyca Mobile"), no un
+  // desglose línea por línea con fecha/cliente.
+  const conteo = {};
+  const ordenProductos = [];
+  ventasPeriodo.forEach(v=>{
+    const nombre = getProdNombre(v.productoId);
+    if(conteo[nombre]===undefined) ordenProductos.push(nombre);
+    conteo[nombre] = (conteo[nombre]||0) + (parseFloat(v.cantidad)||1);
   });
   extrasDelMes.forEach(e=>{
     const prod = (a.productosExtra||[]).find(p=>p.id===e.prodId);
     const nombre = prod ? prod.nombre : e.prodId;
-    const cant = (e.cantidad||0) > 1 ? ` x${e.cantidad}` : '';
-    lineas.push(`📦 ${nombre}${cant}`);
+    if(conteo[nombre]===undefined) ordenProductos.push(nombre);
+    conteo[nombre] = (conteo[nombre]||0) + (e.cantidad||0);
   });
+
+  const items = ordenProductos.map(nombre => `${conteo[nombre]} ${nombre}`);
+  if(grabacionesPeriodo.length) {
+    items.push(`${grabacionesPeriodo.length} Llamada${grabacionesPeriodo.length>1?'s':''} Grabada${grabacionesPeriodo.length>1?'s':''}`);
+  }
 
   const texto = `📋 *Se registraron los siguientes servicios y productos:*\n` +
     `👤 ${a.nombre}\n` +
     `🗓️ ${mes}\n\n` +
-    lineas.join('\n');
+    items.join(', ');
 
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
