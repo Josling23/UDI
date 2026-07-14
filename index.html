@@ -8411,9 +8411,9 @@ function generarReporteWhatsApp(agenteId, mes, q) {
     items.push(`${grabacionesPeriodo.length} Llamada${grabacionesPeriodo.length>1?'s':''} Grabada${grabacionesPeriodo.length>1?'s':''}`);
   }
 
-  const texto = `📋 *Se registraron los siguientes servicios y productos:*\n` +
-    `👤 ${a.nombre}\n` +
-    `🗓️ ${mes}\n\n` +
+  const texto = `*${a.nombre}*\n` +
+    `Q${q}\n\n` +
+    `*ANOTADAS:*\n` +
     items.join(', ');
 
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
