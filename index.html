@@ -7137,7 +7137,7 @@ function renderAgentes() {
               <button class="btn btn-ghost btn-xs" onclick="deshabilitarLoginAgente(${a.id})" title="Revocar acceso (no borra la cuenta)">🔒 Deshabilitar</button>
              </div>`
           : `<button class="btn btn-ghost btn-xs" onclick="abrirModalLoginAgente(${a.id})">🔑 Habilitar Login</button>
-             ${(rol==='gerente'||rol==='supervisor') ? `<button class="btn btn-ghost btn-xs" onclick="vincularLoginExistente(${a.id})" title="Para cuando la persona YA tiene una cuenta (ej. también es de Admin/Bravo/Salud) — no crea una cuenta nueva, solo conecta este perfil con la que ya usa para entrar">🔗 Vincular correo existente</button>` : ''}`}
+             <button class="btn btn-ghost btn-xs" onclick="vincularLoginExistente(${a.id})" title="Para cuando la persona YA tiene una cuenta (ej. también maneja Bravo, o es de Admin/Salud) — no crea una cuenta nueva, solo conecta este perfil con la que ya usa para entrar">🔗 Vincular correo existente</button>`}
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         <div style="background:#F5F8FA;border-radius:7px;padding:9px;border:1px solid #CBD6E2">
