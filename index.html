@@ -2851,6 +2851,21 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - VER REPORTE (resumen de solo lectura) ===== -->
+<div class="modal-overlay" id="modal-bravo-reporte-resumen">
+  <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3>📋 Reporte del Registro</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-reporte-resumen')">✕</button>
+    </div>
+    <div class="modal-body" id="bravo-reporte-resumen-contenido"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-reporte-resumen')">Cerrar</button>
+      <button class="btn btn-primary" style="background:#25D366;border-color:#25D366" onclick="bravoCompartirReporteWhatsApp()">📱 Enviar por WhatsApp</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - IMPORTAR REPORTES PEGADOS ===== -->
 <div class="modal-overlay" id="modal-bravo-importar-reportes">
   <div class="modal" style="max-width:720px;max-height:90vh;overflow-y:auto">
@@ -16234,7 +16249,8 @@ function bravoRenderRegistrosTabla() {
       <td>${r.combos ? r.combos.length : 0}</td>
       <td>${r.telefonos ? r.telefonos.length : 0}</td>
       <td style="font-weight:700;color:#00BDA5">${fmt(r.gananciaTotal || 0)}</td>
-      <td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="bravoVerReporteRegistro(${r.id})" title="Ver el resumen sin editar">👁️ Reporte</button>
         <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.id})">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario(${r.id})">✕</button>
       </td>
@@ -16253,6 +16269,78 @@ const BRAVO_REP_TIPO_LABELS_FULL = { pantalla:'Pantalla', tapa:'Tapa Trasera', p
 const BRAVO_REP_ESTADO_LABELS_FULL = { entregada:'Entregada', pendiente:'Pendiente de Repuesto',
   'en-reparacion':'En Reparación', cancelada:'Cancelada' };
 const BRAVO_TEL_TIPO_LABELS_FULL = { desbloqueado:'Desbloqueado', activacion:'Con Activación' };
+
+// ============================================================
+// VER REPORTE (resumen de solo lectura) + ENVIAR POR WHATSAPP — arma el
+// mismo desglose por categoría para mostrarlo en pantalla y para el texto
+// de WhatsApp, sin tener que abrir el formulario de edición.
+// ============================================================
+let _bravoReporteVerId = null;
+
+function bravoConstruirSeccionesReporte(r) {
+  const secciones = [];
+  if((r.accesorios||[]).length) {
+    secciones.push({ titulo: `🏷️ Accesorios (${bravoSumarCantidad(r.accesorios)})`,
+      lineas: r.accesorios.map(a => `${BRAVO_ACC_TIPO_LABELS_FULL[a.tipo]||a.tipo||'—'} x${a.cantidad||1} — ${fmt(a.precio||0)} (${BRAVO_METODO_PAGO_LABELS_FULL[a.metodo]||a.metodo||'—'}) — Ganancia: ${fmt(a.ganancia||0)}${a.notas?` — ${a.notas}`:''}`) });
+  }
+  if((r.lycas||[]).length) {
+    secciones.push({ titulo: `📱 Lycas (${r.lycas.length})`,
+      lineas: r.lycas.map(l => `${BRAVO_LYCA_TIPO_LABELS_FULL[l.tipo]||l.tipo||'—'} — Cliente/Agente: ${l.cliente||'—'} — ${fmt(l.precio||0)} — Ganancia: ${fmt(l.ganancia||0)}${l.notas?` — ${l.notas}`:''}`) });
+  }
+  if((r.reparaciones||[]).length) {
+    secciones.push({ titulo: `🔧 Reparaciones (${r.reparaciones.length})`,
+      lineas: r.reparaciones.map(rp => `${BRAVO_REP_EQUIPO_LABELS_FULL[rp.equipo]||rp.equipo||'—'} - ${BRAVO_REP_TIPO_LABELS_FULL[rp.tipo]||rp.tipo||'—'} — ${fmt(rp.precio||0)} (Abono ${fmt(rp.abono||0)}, Resta ${fmt(rp.resta||0)}) — ${BRAVO_REP_ESTADO_LABELS_FULL[rp.estado]||rp.estado||'—'} — Ganancia: ${fmt(rp.ganancia||0)}${rp.notas?` — ${rp.notas}`:''}`) });
+  }
+  if((r.combos||[]).length) {
+    secciones.push({ titulo: `📦 Combos (${r.combos.length})`,
+      lineas: r.combos.map(c => `${c.desc||'—'} — ${fmt(c.precio||0)}${c.comision?` (Comisión ${fmt(c.comision)})`:''} — Ganancia: ${fmt(c.ganancia||0)}${c.notas?` — ${c.notas}`:''}`) });
+  }
+  if((r.telefonos||[]).length) {
+    secciones.push({ titulo: `📞 Teléfonos (${r.telefonos.length})`,
+      lineas: r.telefonos.map(t => `${t.modelo||'—'} (${BRAVO_TEL_TIPO_LABELS_FULL[t.tipo]||t.tipo||'—'}) — ${fmt(t.precio||0)} — Ganancia: ${fmt(t.ganancia||0)}${t.notas?` — ${t.notas}`:''}`) });
+  }
+  if((r.actividades||[]).length) {
+    secciones.push({ titulo: `📝 Actividades`,
+      lineas: r.actividades.map(a => `${DOUGLAS_ACTIVIDAD_LABELS[a.tipo]||a.tipo} (${a.cantidad})${a.notas?` — ${a.notas}`:''}`) });
+  }
+  return secciones;
+}
+
+function bravoVerReporteRegistro(id) {
+  const r = (appData.bravo.reportesDiarios||[]).find(x=>x.id===id);
+  if(!r) return;
+  _bravoReporteVerId = id;
+  const secciones = bravoConstruirSeccionesReporte(r);
+  document.getElementById('bravo-reporte-resumen-contenido').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:13px;color:#7C98B6">Registro del</div>
+      <div style="font-size:18px;font-weight:800;color:#33475B">${r.fecha}</div>
+    </div>
+    ${secciones.length ? secciones.map(s => `
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:#FF7A59;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${s.titulo}</div>
+        ${s.lineas.map(l => `<div style="font-size:12px;color:#33475B;padding:6px 10px;background:#F5F8FA;border-radius:6px;margin-bottom:4px">${l}</div>`).join('')}
+      </div>`).join('') : '<div style="color:#99ACC2;text-align:center;padding:20px">Sin productos registrados</div>'}
+    <div style="border-top:2px solid #F5F8FA;padding-top:12px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:700;color:#33475B">💰 GANANCIA TOTAL</span>
+      <span style="font-size:20px;font-weight:900;color:#00BDA5">${fmt(r.gananciaTotal||0)}</span>
+    </div>`;
+  document.getElementById('modal-bravo-reporte-resumen').classList.add('open');
+}
+
+function bravoCompartirReporteWhatsApp(id) {
+  const r = (appData.bravo.reportesDiarios||[]).find(x=>x.id===(id||_bravoReporteVerId));
+  if(!r) return;
+  const secciones = bravoConstruirSeccionesReporte(r);
+  let texto = `📋 *Registro de Bravo — ${r.fecha}*\n\n`;
+  if(secciones.length) {
+    secciones.forEach(s => { texto += `${s.titulo}\n` + s.lineas.map(l=>`• ${l}`).join('\n') + '\n\n'; });
+  } else {
+    texto += 'Sin productos registrados\n\n';
+  }
+  texto += `💰 GANANCIA TOTAL: ${fmt(r.gananciaTotal||0)}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+}
 
 function bravoAplicarFormatoMoneda(ws, colIndices, numRows) {
   colIndices.forEach(col => {
