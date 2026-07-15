@@ -4782,9 +4782,30 @@ function renderVentasRechazadasTabla() {
           <button class="btn btn-success btn-xs" onclick="adminAprobarRechazada(${grupoId})">✅ Aprobar</button>
           <button class="btn btn-ghost btn-xs" onclick="adminReactivarRechazada(${grupoId})">↩️ Reactivar</button>
           <button class="btn btn-danger btn-xs" onclick="adminEliminarRechazada(${grupoId})">🗑️ Eliminar</button>
+          <button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaRechazada(${grupoId})">💬${mensajesDeGrupo(grupoId).length ? ' '+mensajesDeGrupo(grupoId).length : ''}</button>
         </td>
-      </tr>`;
+      </tr>
+      ${_vrChatAbierto===grupoId ? `<tr><td colspan="8" style="padding:0 8px 8px">${chatVentaHtml(grupoId, 'vr-chat-input-'+grupoId, 'adminEnviarMensajeVentaRechazada')}</td></tr>` : ''}`;
   }).join('');
+}
+
+// Mismo patrón de chat que ya usan Ventas Pendientes y Registro Diario —
+// faltaba aquí, ahora la conversación de una venta (💬) se ve igual sin
+// importar en qué colección viva en este momento (pendiente, rechazada o
+// ya aprobada), porque siempre es el mismo grupoId.
+let _vrChatAbierto = null;
+function adminToggleChatVentaRechazada(grupoId) {
+  _vrChatAbierto = (_vrChatAbierto===grupoId) ? null : grupoId;
+  renderVentasRechazadasTabla();
+}
+function adminEnviarMensajeVentaRechazada(grupoId) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = enviarMensajeVenta(grupoId, 'admin', perms ? perms.nombre : 'Admin', 'vr-chat-input-'+grupoId);
+  if(texto) {
+    const agenteId = reportadoPorDeGrupo(grupoId);
+    if(agenteId) { crearNotificacion({ paraAgenteId: agenteId }, 'mensaje', `${perms?perms.nombre:'Admin'}: ${texto}`, grupoId); guardar(); }
+  }
+  renderVentasRechazadasTabla();
 }
 
 // Manda el reporte de vuelta a Ventas Pendientes (grupoId nuevo, sin
