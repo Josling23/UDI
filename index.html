@@ -1309,7 +1309,7 @@ table thead,table tbody{display:table;width:100%}
 
 <!-- MODAL SALUD AGENTE -->
 <div class="modal-overlay" id="modal-salud-agente">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" style="max-width:560px">
     <div class="modal-header">
       <h3 id="modal-salud-agente-title">➕ Nuevo Agente Salud</h3>
       <button class="modal-close" onclick="closeModal('modal-salud-agente')">✕</button>
@@ -1317,9 +1317,40 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-body">
       <div class="form-grid cols1">
         <div class="form-group"><label>Nombre Completo *</label><input type="text" id="sa-nombre" placeholder="Nombre del agente"></div>
+        <div class="form-group">
+          <label>Rol / Posición</label>
+          <select id="sa-rol" onchange="saludOnRolChange()">
+            <option value="agente">👤 Agente</option>
+            <option value="supervisor">🔷 Supervisor</option>
+            <option value="gerente">⭐ Gerente</option>
+          </select>
+        </div>
         <div class="form-group"><label>Sueldo Quincenal ($)</label><input type="number" id="sa-sueldo" placeholder="400" value="400"></div>
         <div class="form-group"><label>Teléfono</label><input type="text" id="sa-tel" placeholder="(305) 000-0000"></div>
         <div class="form-group"><label>Email</label><input type="email" id="sa-email" placeholder="agente@email.com"></div>
+      </div>
+
+      <div id="sa-supervisa-section" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #CBD6E2">
+        <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
+          👥 Gana comisión de ventas de estos agentes:
+        </div>
+        <div id="sa-supervisa-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid #CBD6E2">
+        <div id="sa-com-header-simple" style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
+          💰 Comisión Personal por Tipo de Póliza
+          <span style="font-size:9px;font-weight:400;color:#99ACC2;text-transform:none;letter-spacing:0"> — en blanco = tarifa por defecto</span>
+        </div>
+        <div id="sa-com-header-super" style="display:none;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">💰 Comisiones por Tipo de Póliza</div>
+          <div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#F5F8FA;border-radius:7px;padding:7px 10px;border:1px solid #CBD6E2">
+            <div style="font-size:10px;color:#7C98B6;font-weight:700">Tipo</div>
+            <div style="text-align:center"><div style="font-size:9px;font-weight:700;color:#FF7A59">👥 De sus agentes</div></div>
+            <div style="text-align:center"><div style="font-size:9px;font-weight:700;color:#009FDB">🧑 Venta directa</div></div>
+          </div>
+        </div>
+        <div id="sa-comisiones-tipos"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -3624,6 +3655,15 @@ function normalizarSaludData() {
     if(c.renovaciones === undefined) c.renovaciones = '';
     if(c.estadoUS === undefined) c.estadoUS = '';
     if(!c.pagosPorMes) c.pagosPorMes = {};
+  });
+  // Roles y comisiones configurables por agente — agentes ya existentes no
+  // tenían ninguno de estos campos; se rellenan con el default ('agente'
+  // plano, sin overrides) para que se comporten exactamente igual que antes.
+  saludData.agentes.forEach(a => {
+    if(a.rol === undefined) a.rol = 'agente';
+    if(!a.comisionesPersonales) a.comisionesPersonales = {};
+    if(!a.comisionesDirectas) a.comisionesDirectas = {};
+    if(!a.agentesSupervisa) a.agentesSupervisa = [];
   });
   migrarMesesSalud();
 }
@@ -14309,9 +14349,17 @@ function saludRenderAgentes() {
     const totalCom = activos.reduce((s,c)=>s+saludClienteCom(c).total,0);
     const adelantosPend = activos.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0)
       + activos.filter(c=>c.tipo==='salud').reduce((s,c)=>s+saludClienteCom(c).final,0);
+    const rol = a.rol||'agente';
+    const comPs = a.comisionesPersonales||{};
+    const tiposConOverride = SALUD_TIPOS_COM.filter(t=>comPs[t.id]!==undefined);
+    const supervisa = (a.agentesSupervisa||[]).join(', ');
     return `<div class="agent-card">
       <div class="agent-card-header">
-        <div><div class="agent-name">👤 ${a.nombre}</div><div class="agent-sueldo">💰 Quincenal: ${fmt(a.sueldoQuincenal)}</div></div>
+        <div>
+          <div class="agent-name">👤 ${a.nombre} <span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;background:${ROL_BG[rol]};color:${ROL_COLORS[rol]}">${ROL_LABELS[rol]||rol}</span></div>
+          <div class="agent-sueldo">💰 Quincenal: ${fmt(a.sueldoQuincenal)}</div>
+          ${supervisa?`<div style="font-size:10px;color:#99ACC2;margin-top:2px">Supervisa: ${supervisa}</div>`:''}
+        </div>
         <div style="display:flex;gap:6px;align-items:flex-start">
           <button onclick="toggleUbicacion('salud',${a.id})" title="Cambiar ubicación" style="border:none;background:${a.ubicacion==='remoto'?'#D1FAE5':'#DBEAFE'};color:${a.ubicacion==='remoto'?'#059669':'#1D4ED8'};border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${a.ubicacion==='remoto'?'🟢 Remoto':'🔵 Oficina'}</button>
           <button class="btn btn-ghost btn-xs" onclick="saludOpenAgenteModal(${a.id})">✏️</button>
@@ -14324,6 +14372,12 @@ function saludRenderAgentes() {
         <div class="agent-stat"><label>Adelantos Pend.</label><div class="val" style="color:#FF7A59">${fmt(adelantosPend)}</div></div>
         <div class="agent-stat"><label>Total Ventas</label><div class="val" style="color:#00BDA5">${ventas.length}</div></div>
       </div>
+      ${tiposConOverride.length ? `<div style="border-top:1px solid #F5F8FA;padding-top:10px;margin-top:10px">
+        <div style="font-size:9px;color:#7C98B6;text-transform:uppercase;margin-bottom:6px">Comisiones personales configuradas:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${tiposConOverride.map(t=>`<span style="font-size:10px;background:#EAF7FB;color:#0057A8;border:1px solid #009FDB;border-radius:5px;padding:2px 7px;white-space:nowrap">${t.nombre}: ${fmt(comPs[t.id])}</span>`).join('')}
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('') || '<div style="color:#7C98B6;padding:20px">Sin agentes registrados</div>';
   saludRenderAgenteVentas();
@@ -14363,27 +14417,116 @@ function saludRenderAgenteVentas() {
     </tr>`;
   }).join('') : '<tr><td colspan="13" class="tbl-empty">Sin ventas</td></tr>';
 }
+// ─── Salud: roles + comisiones configurables por agente ────────────
+// Mismo eje que appData.agentes/getComisionParaAgente/getComisionDirectaAgente
+// pero por TIPO de póliza (dental/salud/referido/directo) en vez de por
+// producto, porque Salud no tiene catálogo de unidades como AT&T.
+const SALUD_TIPOS_COM = [
+  { id:'dental',   nombre:'Dental' },
+  { id:'salud',    nombre:'💚 Salud' },
+  { id:'referido', nombre:'Referido' },
+  { id:'directo',  nombre:'Directo' },
+];
+
+function saludGetComisionParaAgente(tipo, agenteNombre) {
+  const a = saludData.agentes.find(x=>(x.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
+  if(a && a.comisionesPersonales && a.comisionesPersonales[tipo] !== undefined) {
+    return parseFloat(a.comisionesPersonales[tipo])||0;
+  }
+  const def = saludData.comisiones && saludData.comisiones.comAgenteDefault;
+  return (def && def[tipo] !== undefined) ? (parseFloat(def[tipo])||0) : 8;
+}
+// Comisión de VENTA DIRECTA (lo que gana cuando él mismo hace la venta) —
+// solo relevante para supervisor/gerente; para un agente normal cae al mismo
+// valor que saludGetComisionParaAgente().
+function saludGetComisionDirectaAgente(tipo, agenteNombre) {
+  const a = saludData.agentes.find(x=>(x.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
+  if(a && a.comisionesDirectas && a.comisionesDirectas[tipo] !== undefined) {
+    return parseFloat(a.comisionesDirectas[tipo])||0;
+  }
+  return saludGetComisionParaAgente(tipo, agenteNombre);
+}
+
+function saludOnRolChange() {
+  const rol = document.getElementById('sa-rol').value;
+  const esSupervisor = (rol==='gerente'||rol==='supervisor');
+  document.getElementById('sa-supervisa-section').style.display = esSupervisor ? 'block' : 'none';
+  document.getElementById('sa-com-header-simple').style.display = esSupervisor ? 'none' : 'block';
+  document.getElementById('sa-com-header-super').style.display  = esSupervisor ? 'block' : 'none';
+  saludRenderComisionesModal(esSupervisor);
+}
+
+function saludRenderComisionesModal(esSupervisor) {
+  const a = saludEditAgenteId ? saludData.agentes.find(x=>x.id===saludEditAgenteId) : null;
+  const comPs  = a?.comisionesPersonales || {};
+  const comDir = a?.comisionesDirectas   || {};
+  const inputStyle = 'width:100%;border:1.5px solid #CBD6E2;border-radius:6px;padding:5px 7px;font-size:12px;font-weight:700;outline:none;text-align:right';
+
+  document.getElementById('sa-comisiones-tipos').innerHTML = SALUD_TIPOS_COM.map(t=>{
+    const valPs  = comPs[t.id]  !== undefined ? comPs[t.id]  : '';
+    const valDir = comDir[t.id] !== undefined ? comDir[t.id] : '';
+    if(esSupervisor) {
+      return `<div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#F5F8FA;border-radius:7px;padding:7px 10px;border:1px solid #CBD6E2;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600;color:#33475B">${t.nombre}</div>
+        <div><input type="number" min="0" step="0.01" value="${valPs}" placeholder="—" data-tipo-id="${t.id}" class="sa-tipo-com" style="${inputStyle};color:#FF7A59" onfocus="this.style.borderColor='#FF7A59'" onblur="this.style.borderColor='#CBD6E2'"></div>
+        <div><input type="number" min="0" step="0.01" value="${valDir}" placeholder="—" data-tipo-id="${t.id}" class="sa-tipo-dir" style="${inputStyle};color:#009FDB" onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'"></div>
+      </div>`;
+    } else {
+      return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600;color:#33475B">${t.nombre}</div>
+        <input type="number" min="0" step="0.01" value="${valPs}" placeholder="8" data-tipo-id="${t.id}" class="sa-tipo-com" style="width:70px;${inputStyle};color:#009FDB" onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
+      </div>`;
+    }
+  }).join('');
+}
+
 function saludOpenAgenteModal(id=null) {
   saludEditAgenteId = id;
   document.getElementById('modal-salud-agente-title').textContent = id ? '✏️ Editar Agente' : '➕ Nuevo Agente';
-  if(id) {
-    const a = saludData.agentes.find(x=>x.id===id);
-    document.getElementById('sa-nombre').value = a.nombre;
-    document.getElementById('sa-sueldo').value = a.sueldoQuincenal;
-    document.getElementById('sa-tel').value = a.tel||'';
-    document.getElementById('sa-email').value = a.email||'';
-  } else {
-    document.getElementById('sa-nombre').value='';
-    document.getElementById('sa-sueldo').value='400';
-    document.getElementById('sa-tel').value='';
-    document.getElementById('sa-email').value='';
-  }
+  const a = id ? saludData.agentes.find(x=>x.id===id) : null;
+  document.getElementById('sa-nombre').value = a?.nombre||'';
+  document.getElementById('sa-sueldo').value = a ? a.sueldoQuincenal : '400';
+  document.getElementById('sa-tel').value = a?.tel||'';
+  document.getElementById('sa-email').value = a?.email||'';
+  document.getElementById('sa-rol').value = a?.rol||'agente';
+
+  const supervisados = a?.agentesSupervisa||[];
+  const otros = saludData.agentes.filter(x=>x.id!==id);
+  document.getElementById('sa-supervisa-checkboxes').innerHTML = otros.length
+    ? otros.map(ag=>`<label style="display:flex;align-items:center;gap:6px;background:#F5F8FA;border:1px solid #CBD6E2;border-radius:7px;padding:7px 11px;cursor:pointer;font-size:12px;font-weight:600">
+        <input type="checkbox" value="${ag.nombre}" ${supervisados.includes(ag.nombre)?'checked':''}>
+        ${ag.nombre} <span style="font-size:10px;color:${ROL_COLORS[ag.rol||'agente']};font-weight:400">${ROL_LABELS[ag.rol||'agente']}</span>
+      </label>`).join('')
+    : '<div style="color:#99ACC2;font-size:12px">No hay otros agentes registrados</div>';
+
+  saludOnRolChange();
   document.getElementById('modal-salud-agente').classList.add('open');
 }
 function saludGuardarAgente() {
   const nombre = document.getElementById('sa-nombre').value.trim();
   if(!nombre) { showNotif('⚠️ Ingresa el nombre','error'); return; }
-  const data = { nombre, sueldoQuincenal:parseFloat(document.getElementById('sa-sueldo').value)||400, tel:document.getElementById('sa-tel').value.trim(), email:document.getElementById('sa-email').value.trim(), activo:true };
+  const rol = document.getElementById('sa-rol').value;
+  const esSupervisor = (rol==='gerente'||rol==='supervisor');
+  const comPs = {};
+  document.querySelectorAll('.sa-tipo-com').forEach(inp=>{
+    if(inp.value!=='') comPs[inp.dataset.tipoId] = parseFloat(inp.value)||0;
+  });
+  const comDir = {};
+  document.querySelectorAll('.sa-tipo-dir').forEach(inp=>{
+    if(inp.value!=='') comDir[inp.dataset.tipoId] = parseFloat(inp.value)||0;
+  });
+  const agentesSupervisa = [];
+  document.querySelectorAll('#sa-supervisa-checkboxes input[type=checkbox]:checked').forEach(cb=>agentesSupervisa.push(cb.value));
+  const data = {
+    nombre, rol,
+    sueldoQuincenal:parseFloat(document.getElementById('sa-sueldo').value)||400,
+    tel:document.getElementById('sa-tel').value.trim(),
+    email:document.getElementById('sa-email').value.trim(),
+    comisionesPersonales: comPs,
+    comisionesDirectas: esSupervisor ? comDir : {},
+    agentesSupervisa: esSupervisor ? agentesSupervisa : [],
+    activo:true,
+  };
   if(saludEditAgenteId) {
     const a = saludData.agentes.find(x=>x.id===saludEditAgenteId);
     const oldNombre = a.nombre;
