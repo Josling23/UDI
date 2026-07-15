@@ -8566,24 +8566,30 @@ function generarReporteWhatsApp(agenteId, mes, q) {
   if(!a) return;
   const nombreLow = (a.nombre||'').trim().toLowerCase();
 
+  // Grabaciones (llamadas grabadas) — pueden venir de dos formas distintas
+  // en el sistema (el checkbox "Llamada Grabada" que crea una línea marcada
+  // esGrabacion/_esGrabacion, o el producto "Grabación Sola" del catálogo,
+  // categoria==='grabada'), pero para este reporte son la MISMA cosa — se
+  // excluyen de los productos normales y se suman todas juntas en un solo
+  // total de "Llamadas Grabadas".
+  const esGrabacionCualquierForma = v => !!(v.esGrabacion || v._esGrabacion || v.categoria==='grabada');
+
   const ventasPeriodo = appData.ventas.filter(v=>{
-    if(!v || v.esGrabacion || v._esGrabacion) return false;
+    if(!v || esGrabacionCualquierForma(v)) return false;
     if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
     const pp = getPeríodoPago(v);
     return pp.mes===mes && pp.q===q;
   });
-  // Grabaciones (llamadas grabadas) — se cuentan aparte, todas juntas bajo
-  // una sola categoría "Llamadas Grabadas", sin importar si venían marcadas
-  // como esGrabacion o _esGrabacion (son la misma cosa para este reporte).
   const grabacionesPeriodo = appData.ventas.filter(v=>{
-    if(!v || (!v.esGrabacion && !v._esGrabacion)) return false;
+    if(!v || !esGrabacionCualquierForma(v)) return false;
     if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
     const pp = getPeríodoPago(v);
     return pp.mes===mes && pp.q===q;
   });
+  const totalGrabaciones = grabacionesPeriodo.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
   const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
 
-  if(!ventasPeriodo.length && !extrasDelMes.length && !grabacionesPeriodo.length) {
+  if(!ventasPeriodo.length && !extrasDelMes.length && !totalGrabaciones) {
     showNotif('⚠️ No hay servicios registrados en este período', 'error');
     return;
   }
@@ -8606,8 +8612,8 @@ function generarReporteWhatsApp(agenteId, mes, q) {
   });
 
   const items = ordenProductos.map(nombre => `${conteo[nombre]} ${nombre}`);
-  if(grabacionesPeriodo.length) {
-    items.push(`${grabacionesPeriodo.length} Llamada${grabacionesPeriodo.length>1?'s':''} Grabada${grabacionesPeriodo.length>1?'s':''}`);
+  if(totalGrabaciones>0) {
+    items.push(`${totalGrabaciones} Llamada${totalGrabaciones>1?'s':''} Grabada${totalGrabaciones>1?'s':''}`);
   }
 
   const texto = `*${a.nombre}*\n` +
