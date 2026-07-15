@@ -3256,12 +3256,21 @@ function normalizarAppData() {
 }
 
 // Guardar: escribe en Firebase + localStorage como caché
+// Identificador único de ESTA pestaña/sesión — se combina con un contador
+// para armar un token distinto en cada guardado (ver guardar() y el
+// listener más abajo, que lo usan para reconocer con certeza el eco de mi
+// propio guardado, sin importar el orden en que lleguen los eventos).
+const _syncSesionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+let _syncSeq = 0;
+
 function guardar() {
   normalizarAppData();
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
-  _syncIgnoreNext = true; // no re-renderizar por mi propio guardado
+  _syncSeq++;
+  const miToken = _syncSesionId + '_' + _syncSeq;
+  _ultimoTokenEnviado = miToken;
+  appData._syncToken = miToken;
   fbDB.ref('appData').set(appData).catch(e => {
-    _syncIgnoreNext = false;
     console.warn('Firebase write error:', e);
     showNotif('⚠️ No se pudo guardar en el servidor (' + e.message + '). Tus cambios solo quedaron en este dispositivo.', 'error');
   });
@@ -3284,16 +3293,27 @@ function sanearColeccionesVaciasFirebase(raw) {
 
 // Listener en tiempo real — se activa automáticamente cada vez que otro usuario guarda
 let _appDataListenerOn = false;
-let _syncIgnoreNext = false; // evita re-render cuando YO mismo guardo
+let _ultimoTokenEnviado = null; // token del último guardar() propio, para reconocer su eco con certeza
 function activarListenerAppData() {
   if (_appDataListenerOn) return;
   _appDataListenerOn = true;
   let _primerDisparoListener = true;
   fbDB.ref('appData').on('value', snap => {
     if (!snap.exists()) return;
-    // Si este disparo es consecuencia de mi propio guardar(), omitir re-render
-    if (_syncIgnoreNext) { _syncIgnoreNext = false; return; }
     const raw = snap.val();
+    // Si el token de este snapshot es exactamente el que YO acabo de
+    // escribir, es el eco de mi propio guardado — se omite el
+    // procesamiento. A diferencia del banderazo _syncIgnoreNext que había
+    // antes (que asumía "el próximo evento del listener SIEMPRE es mi
+    // propio eco" — una suposición que fallaba si Firebase agrupaba varios
+    // guardados seguidos, o si otro usuario guardaba casi al mismo tiempo:
+    // en esos casos se ignoraba por error una actualización REAL de otra
+    // persona, dejando esta pestaña con una copia desactualizada de
+    // appData — y el siguiente guardado de esta pestaña podía entonces
+    // sobrescribir sin querer lo que esa otra persona acababa de meter,
+    // ej. una venta que "a veces no se guarda"), comparar el token exacto
+    // nunca falla sin importar en qué orden lleguen los eventos.
+    if (raw._syncToken && raw._syncToken === _ultimoTokenEnviado) return;
     // IDs previos (antes de sobrescribir appData) para detectar qué es
     // realmente NUEVO y avisar con sonido — ver bloque de avisos más abajo.
     const idsPendientesAntes = new Set((appData.ventasPendientes||[]).map(v=>v.id));
@@ -13268,7 +13288,6 @@ function manejarArchivoBackup(event) {
     const ok = confirm(`⚠️ Esto REEMPLAZARÁ todos los datos actuales de la app con el contenido de este backup:\n\n${resumen}\n\nFecha del backup: ${fechaBackup}\n\nEsta acción no se puede deshacer. ¿Deseas continuar?`);
     if(!ok) { event.target.value = ''; return; }
     showNotif('⏳ Restaurando backup...', 'info');
-    _syncIgnoreNext = true;
     fbDB.ref('appData').set(datos).then(()=>{
       appData = datos;
       normalizarAppData();
