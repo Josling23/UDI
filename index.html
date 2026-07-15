@@ -15777,7 +15777,19 @@ function ejecutarMigraciones() {
   })();
 
   // ── Aplicar comisionesDirectas estándar a todos los agentes (no subdealers) ──
-  (() => {
+  // A diferencia de TODAS las demás migraciones de esta función, este bloque
+  // no tenía marca de "ya se ejecutó" — corría en CADA login de CUALQUIER
+  // persona, reasignaba comisionesDirectas a TODOS los agentes (perdiendo
+  // cualquier tarifa personalizada que se hubiera configurado después) y
+  // llamaba guardar() (sobrescritura COMPLETA de todo appData en Firebase)
+  // sin que nadie hiciera ningún cambio intencional. Si ese login ocurría
+  // con appData desactualizado en memoria (ej. cargar() cayó al respaldo de
+  // localStorage por una conexión lenta), ese guardar() automático
+  // sobrescribía silenciosamente los datos reales del servidor con la copia
+  // vieja — causa real confirmada de ventas ya guardadas que desaparecieron
+  // sin que nadie las hubiera tocado. Se agrega la misma marca de una sola
+  // vez que ya usa el resto de las migraciones de esta función.
+  if (!appData._mig_comisionesDirectasBaseV1) {
     const COMISIONES_DIRECTAS_BASE = {
       'att-act8':   8,  'att-act10': 10, 'att-starter': 0,  'att-extra':  0,
       'att-premium':0,  'att-upgrade':3, 'att-reloj':   3,  'att-ipad':   3,
@@ -15796,8 +15808,9 @@ function ejecutarMigraciones() {
       a.comisionesDirectas = { ...COMISIONES_DIRECTAS_BASE };
       count++;
     });
+    appData._mig_comisionesDirectasBaseV1 = true;
     if (count > 0) { guardar(); console.log(`[sync] comisionesDirectas base → ${count} agente(s)`); }
-  })();
+  }
 
   // ── Ventas nuevas ingresadas manualmente ──
   (() => {
