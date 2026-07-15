@@ -2095,6 +2095,20 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<!-- ===== MODAL VISTA PREVIA DE AGENTE (solo lectura) ===== -->
+<div class="modal-overlay" id="modal-vista-previa-agente">
+  <div class="modal" style="max-width:760px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3 id="modal-vista-previa-titulo">👁️ Vista Previa</h3>
+      <button class="modal-close" onclick="closeModal('modal-vista-previa-agente')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-vista-previa-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-vista-previa-agente')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - REPARACIONES ===== -->
 <div class="modal-overlay" id="modal-bravo-reparacion">
   <div class="modal" style="max-width:560px">
@@ -7202,6 +7216,7 @@ function renderAgentes() {
         </div>
         <div style="display:flex;gap:5px;align-items:flex-start">
           <button onclick="toggleUbicacion('att',${a.id})" title="Cambiar ubicación" style="border:none;background:${a.ubicacion==='remoto'?'#D1FAE5':'#DBEAFE'};color:${a.ubicacion==='remoto'?'#059669':'#1D4ED8'};border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${a.ubicacion==='remoto'?'🟢 Remoto':'🔵 Oficina'}</button>
+          <button class="btn btn-ghost btn-xs" onclick="abrirVistaPreviaAgente(${a.id})" title="Ver de solo lectura lo que este vendedor ve en su cuenta">👁️ Vista Previa</button>
           <button class="btn btn-ghost btn-xs" onclick="openAgenteModal(${a.id})">✏️ Editar</button>
           <button class="btn btn-danger btn-xs" onclick="eliminarAgente(${a.id})">✕</button>
         </div>
@@ -7285,6 +7300,107 @@ function renderAgentes() {
       : '<div style="color:#99ACC2;padding:20px">Sin agentes registrados</div>');
 
   renderAgenteVentas();
+}
+
+// ============================================================
+// VISTA PREVIA DE AGENTE (solo lectura) — para que Admin vea exactamente lo
+// que un vendedor/sub-dealer ve en su cuenta (Mis Reportes, Chargebacks),
+// sin tener que iniciar sesión como esa persona. A propósito NO reutiliza
+// las pantallas reales del área "agente" (que dependen de currentUser y
+// tienen botones que editan/eliminan/reenvían) — es una vista aparte,
+// puramente informativa, para no correr el riesgo de que Admin toque algo
+// sin querer a nombre de otra persona.
+// ============================================================
+function abrirVistaPreviaAgente(agenteId) {
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+
+  const pendientes = (appData.ventasPendientes||[]).filter(v=>v.reportadoPor===a.id);
+  const rechazadas = (appData.ventasRechazadas||[]).filter(v=>v.reportadoPor===a.id);
+  const aprobadas  = (appData.ventas||[]).filter(v=>v.reportadoPor===a.id);
+
+  function agrupar(lista, estado) {
+    const grupos = {};
+    lista.forEach(v=>{
+      const gid = v.grupoId || v.id;
+      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, motivo: v.motivoRechazo||'', lineas: [] };
+      grupos[gid].lineas.push(v);
+    });
+    return Object.values(grupos).map(g => ({ ...g, estado }));
+  }
+  let reportes = [...agrupar(pendientes,'pendiente'), ...agrupar(rechazadas,'rechazado'), ...agrupar(aprobadas,'aprobado')];
+  reportes.sort((x,y)=> (y.fecha||'').localeCompare(x.fecha||''));
+
+  const badges = {
+    pendiente: '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
+    aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Activación</span>',
+    rechazado: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
+  };
+
+  const cbNoLeidos = chargebacksRecientesNoLeidos(a.id);
+  const resumenCB = resumenChargebacksAgente(a.id);
+  const cbs = aprobadas.filter(v=>v.esChargeback).sort((x,y)=>(y.chargebackFecha||'').localeCompare(x.chargebackFecha||''));
+
+  document.getElementById('modal-vista-previa-titulo').textContent = `👁️ Vista Previa — ${a.nombre}`;
+  document.getElementById('modal-vista-previa-body').innerHTML = `
+    <div style="background:#FFFBE8;border:1.5px solid #F5C26B;border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#92400E">
+      📖 Esto es de <b>solo lectura</b> — muestra exactamente lo que ${a.nombre} ve en "Mis Ventas" (Mis Reportes + Chargebacks). No se puede editar ni guardar nada desde aquí.
+    </div>
+
+    ${cbNoLeidos.length ? `
+    <div style="background:#FFF0F0;border:1.5px solid #F2545B;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-weight:800;color:#F2545B;font-size:13px">⚠️ ${cbNoLeidos.length} chargeback${cbNoLeidos.length>1?'s':''} sin revisar</div>
+    </div>` : ''}
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 16px;min-width:130px">
+        <div style="font-size:10px;color:#7C98B6;font-weight:600">Ventas Activas</div>
+        <div style="font-size:22px;font-weight:800;color:#33475B">${resumenCB.activas}</div>
+      </div>
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 16px;min-width:130px">
+        <div style="font-size:10px;color:#7C98B6;font-weight:600">Chargebacks</div>
+        <div style="font-size:22px;font-weight:800;color:#F2545B">${resumenCB.chargebacks}</div>
+      </div>
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 16px;min-width:130px">
+        <div style="font-size:10px;color:#7C98B6;font-weight:600">% Chargeback</div>
+        <div style="font-size:22px;font-weight:800;color:#33475B">${resumenCB.pct.toFixed(1)}%</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:8px">📋 Mis Reportes</div>
+    <div class="tbl-wrap" style="margin-bottom:20px">
+      <table style="width:100%">
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto(s)</th><th>Estado</th><th>Detalle</th></tr></thead>
+        <tbody>
+          ${reportes.length ? reportes.map(g=>`
+            <tr>
+              <td style="font-weight:600">${g.fecha||'—'}</td>
+              <td>${g.cliente||'—'}</td>
+              <td style="font-size:11px;color:#7C98B6">${g.lineas.map(l=>getProdNombre(l.productoId)).join(', ')}</td>
+              <td>${badges[g.estado]}</td>
+              <td style="font-size:11px;color:#7C98B6">${g.estado==='rechazado' ? (g.motivo||'—') : '—'}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="tbl-empty">Sin reportes</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:8px">⚠️ Chargebacks</div>
+    <div class="tbl-wrap">
+      <table style="width:100%">
+        <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Motivo</th></tr></thead>
+        <tbody>
+          ${cbs.length ? cbs.map(v=>`
+            <tr>
+              <td style="font-weight:600">${v.fecha}</td>
+              <td>${v.cliente||'—'}</td>
+              <td style="font-size:11px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
+              <td style="font-size:11px;color:#33475B">${v.chargebackMotivo||'—'}</td>
+            </tr>`).join('') : '<tr><td colspan="4" class="tbl-empty">No tiene ninguna venta marcada como Chargeback</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('modal-vista-previa-agente').classList.add('open');
 }
 
 function renderAgenteVentas() {
