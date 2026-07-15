@@ -853,8 +853,8 @@ table thead,table tbody{display:table;width:100%}
               <input type="text" id="agv-cliente" placeholder="Nombre completo">
             </div>
             <div class="form-group" style="margin:0">
-              <label># Cuenta / Order</label>
-              <input type="text" id="agv-cuenta" placeholder="Número de cuenta u orden">
+              <label>VND+día+año * <span style="font-weight:400;color:#99ACC2">— ej. VND1507</span></label>
+              <input type="text" id="agv-cuenta" placeholder="VND1507">
             </div>
           </div>
           <div class="form-group" style="margin:10px 0 0">
@@ -1641,8 +1641,8 @@ table thead,table tbody{display:table;width:100%}
             <div id="v-cliente-sugg" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #009FDB;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.12);z-index:999;max-height:160px;overflow-y:auto"></div>
           </div>
           <div class="form-group" style="margin:0">
-            <label># Cuenta / Order</label>
-            <input type="text" id="v-cuenta" placeholder="Número de cuenta u orden">
+            <label>VND+día+año * <span style="font-weight:400;color:#99ACC2">— ej. VND1507</span></label>
+            <input type="text" id="v-cuenta" placeholder="VND1507">
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
@@ -7021,7 +7021,11 @@ function guardarVenta() {
   }
   const comisionGrabacion= llamadaGrabada ? 2 : 0; // Siempre $2 por llamada grabada
   if(!agente) { showNotif('⚠️ Selecciona un agente','error'); return; }
+  if(!fecha) { showNotif('⚠️ Selecciona la fecha de activación','error'); return; }
+  if(!mes) { showNotif('⚠️ Selecciona el mes de la venta','error'); return; }
   if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
+  if(/[áéíóúÁÉÍÓÚ]/.test(cliente)) { showNotif('⚠️ El nombre del cliente no debe llevar acentos — escríbelo exactamente como aparece en la orden','error'); return; }
+  if(!cuenta) { showNotif('⚠️ Ingresa el número de cuenta (VND+día+año)','error'); return; }
   if(llamadaGrabada && !agenteGrabacion) { showNotif('⚠️ Marca "Llamada grabada" Y selecciona el agente en el dropdown 📞','error'); return; }
 
   // Vincular automáticamente esta venta con el perfil del agente elegido
@@ -9342,6 +9346,8 @@ function guardarVentaAgente() {
 
   if(!fecha) { showNotif('⚠️ Selecciona la fecha de activación','error'); return; }
   if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
+  if(/[áéíóúÁÉÍÓÚ]/.test(cliente)) { showNotif('⚠️ El nombre del cliente no debe llevar acentos — escríbelo exactamente como aparece en la orden','error'); return; }
+  if(!cuenta) { showNotif('⚠️ Ingresa el número de cuenta (VND+día+año)','error'); return; }
 
   const [y, m] = fecha.split('-');
   const mes = mesStrDesdeNum(parseInt(y,10), parseInt(m,10));
