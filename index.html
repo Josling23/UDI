@@ -3286,6 +3286,23 @@ function normalizarAppData() {
   delete appData.pins;
 }
 
+// ── Protección contra sobrescrituras con datos desactualizados ──────────
+// Cuenta cuántos registros hay en total (sumando el largo de todo array de
+// primer nivel, y de primer nivel dentro de sub-objetos como "bravo") — no
+// depende de conocer los nombres exactos de cada colección, así que sigue
+// funcionando aunque se agreguen colecciones nuevas más adelante.
+function contarRegistrosArbol(data) {
+  let total = 0;
+  Object.values(data || {}).forEach(v => {
+    if (Array.isArray(v)) total += v.length;
+    else if (v && typeof v === 'object') {
+      Object.values(v).forEach(v2 => { if (Array.isArray(v2)) total += v2.length; });
+    }
+  });
+  return total;
+}
+const UMBRAL_CAIDA_SOSPECHOSA_REGISTROS = 5;
+
 // Guardar: escribe en Firebase + localStorage como caché
 // Identificador único de ESTA pestaña/sesión — se combina con un contador
 // para armar un token distinto en cada guardado (ver guardar() y el
@@ -3293,15 +3310,35 @@ function normalizarAppData() {
 // propio guardado, sin importar el orden en que lleguen los eventos).
 const _syncSesionId = Date.now() + '_' + Math.random().toString(36).slice(2);
 let _syncSeq = 0;
+// true cuando esta sesión NO pudo confirmar que tiene los datos más
+// recientes del servidor (ej. cargar() tuvo que caer al respaldo de
+// localStorage por una conexión lenta) — mientras esté en true, guardar()
+// se niega a escribir, porque hacerlo sobrescribiría en Firebase lo que
+// esta sesión trae desactualizado, borrando lo que otros hayan guardado
+// mientras tanto. Causa real confirmada de ventas y registros de Bravo que
+// desaparecían sin que nadie los tocara.
+let _appDataPuedeEstarDesactualizada = false;
+let _ultimoConteoConfirmadoAppData = null;
 
 function guardar() {
   normalizarAppData();
+  if (_appDataPuedeEstarDesactualizada) {
+    showNotif('🛑 No se guardó: no se pudo confirmar que tienes los datos más recientes del servidor. Recarga la página (Ctrl+Shift+R) antes de volver a intentar, para no sobrescribir cambios de otros.', 'error', 10000);
+    return;
+  }
+  const conteoNuevo = contarRegistrosArbol(appData);
+  if (_ultimoConteoConfirmadoAppData !== null && (_ultimoConteoConfirmadoAppData - conteoNuevo) > UMBRAL_CAIDA_SOSPECHOSA_REGISTROS) {
+    const ok = confirm(`⚠️ Este guardado eliminaría ${_ultimoConteoConfirmadoAppData - conteoNuevo} registros de golpe (de ${_ultimoConteoConfirmadoAppData} a ${conteoNuevo}). Esto normalmente indica un problema (datos desactualizados en esta sesión), no una acción intencional.\n\n¿Seguro que quieres guardar así de todas formas?`);
+    if (!ok) { showNotif('🛑 Guardado cancelado para proteger los datos existentes', 'error'); return; }
+  }
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   _syncSeq++;
   const miToken = _syncSesionId + '_' + _syncSeq;
   _ultimoTokenEnviado = miToken;
   appData._syncToken = miToken;
-  fbDB.ref('appData').set(appData).catch(e => {
+  fbDB.ref('appData').set(appData).then(() => {
+    _ultimoConteoConfirmadoAppData = conteoNuevo;
+  }).catch(e => {
     console.warn('Firebase write error:', e);
     showNotif('⚠️ No se pudo guardar en el servidor (' + e.message + '). Tus cambios solo quedaron en este dispositivo.', 'error');
   });
@@ -3364,6 +3401,10 @@ function activarListenerAppData() {
     }
     normalizarAppData();
     localStorage.setItem('attVND_v1', JSON.stringify(appData));
+    // Actualización real (no eco propio) confirmada del servidor — esta
+    // sesión ya está al día, y este conteo es la nueva base de comparación.
+    _appDataPuedeEstarDesactualizada = false;
+    _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
 
     // Si Josling (u otro dueño) acaba de aprobar/rechazar una solicitud de
     // descarga que esta misma pestaña está esperando, recogerla ahora.
@@ -3503,6 +3544,11 @@ function aplicarSnapshotAppData(snap) {
   normalizarAppData();
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   activarListenerAppData();
+  // Lectura real y fresca del servidor confirmada — a partir de aquí sí se
+  // puede guardar con confianza, y este conteo pasa a ser la base contra la
+  // que se compara cualquier guardado futuro en esta sesión.
+  _appDataPuedeEstarDesactualizada = false;
+  _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
 }
 
 async function cargar() {
@@ -3555,6 +3601,13 @@ async function cargar() {
     }
     normalizarAppData();
     activarListenerAppData();
+    // No se pudo confirmar una lectura fresca del servidor — esta copia es
+    // la última que quedó guardada en ESTE navegador, que puede estar
+    // desactualizada frente a lo que otros hayan guardado desde entonces.
+    // guardar() se niega a escribir mientras esto siga en true, hasta que
+    // el listener en tiempo real confirme una actualización real del
+    // servidor (o se recargue la página con mejor conexión).
+    _appDataPuedeEstarDesactualizada = true;
     return;
   }
   activarListenerAppData();
@@ -3691,24 +3744,53 @@ function migrarMesesSalud() {
   if(changed) guardarSalud();
 }
 
+// Mismo par de protecciones que ya tiene guardar() (appData) — ver los
+// comentarios detallados junto a esas variables. Se agregan también aquí
+// porque Salud comparte el mismo riesgo (guardado de árbol completo) y
+// tenía además el mismo patrón de detección de eco por bandera booleana
+// que ya se sabía que fallaba para appData (_syncIgnoreNext → reemplazado
+// por token en appData; aquí _syncIgnoreSalud tenía el mismo problema, así
+// que se reemplaza también por token).
+const _syncSaludSesionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+let _syncSaludSeq = 0;
+let _ultimoTokenEnviadoSalud = null;
+let _saludPuedeEstarDesactualizada = false;
+let _ultimoConteoConfirmadoSalud = null;
+
 function guardarSalud() {
   normalizarSaludData();
+  if (_saludPuedeEstarDesactualizada) {
+    showNotif('🛑 No se guardó: no se pudo confirmar que tienes los datos más recientes del servidor. Recarga la página (Ctrl+Shift+R) antes de volver a intentar, para no sobrescribir cambios de otros.', 'error', 10000);
+    return;
+  }
+  const conteoNuevo = contarRegistrosArbol(saludData);
+  if (_ultimoConteoConfirmadoSalud !== null && (_ultimoConteoConfirmadoSalud - conteoNuevo) > UMBRAL_CAIDA_SOSPECHOSA_REGISTROS) {
+    const ok = confirm(`⚠️ Este guardado eliminaría ${_ultimoConteoConfirmadoSalud - conteoNuevo} registros de golpe (de ${_ultimoConteoConfirmadoSalud} a ${conteoNuevo}). Esto normalmente indica un problema (datos desactualizados en esta sesión), no una acción intencional.\n\n¿Seguro que quieres guardar así de todas formas?`);
+    if (!ok) { showNotif('🛑 Guardado cancelado para proteger los datos existentes', 'error'); return; }
+  }
   localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
-  _syncIgnoreSalud = true;
-  fbDB.ref('saludData').set(saludData).catch(e => { _syncIgnoreSalud = false; console.warn('Firebase salud write error:', e); });
+  _syncSaludSeq++;
+  const miToken = _syncSaludSesionId + '_' + _syncSaludSeq;
+  _ultimoTokenEnviadoSalud = miToken;
+  saludData._syncToken = miToken;
+  fbDB.ref('saludData').set(saludData).then(() => {
+    _ultimoConteoConfirmadoSalud = conteoNuevo;
+  }).catch(e => { console.warn('Firebase salud write error:', e); });
 }
 
 let _saludListenerOn = false;
-let _syncIgnoreSalud = false;
 function activarListenerSalud() {
   if (_saludListenerOn) return;
   _saludListenerOn = true;
   fbDB.ref('saludData').on('value', snap => {
     if (!snap.exists()) return;
-    if (_syncIgnoreSalud) { _syncIgnoreSalud = false; return; }
-    saludData = { ...saludData, ...snap.val() };
+    const raw = snap.val();
+    if (raw._syncToken && raw._syncToken === _ultimoTokenEnviadoSalud) return;
+    saludData = { ...saludData, ...raw };
     normalizarSaludData();
     localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
+    _saludPuedeEstarDesactualizada = false;
+    _ultimoConteoConfirmadoSalud = contarRegistrosArbol(saludData);
     // Re-renderizar si estamos en un área de salud
     if (document.getElementById('app-wrap').style.display !== 'none') {
       const activePage = document.querySelector('.page.active');
@@ -3745,6 +3827,8 @@ async function cargarSalud() {
       localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
       _saludLoaded = true;
       activarListenerSalud();
+      _saludPuedeEstarDesactualizada = false;
+      _ultimoConteoConfirmadoSalud = contarRegistrosArbol(saludData);
       return;
     }
   } catch(e) {
@@ -3754,6 +3838,9 @@ async function cargarSalud() {
   if (s) {
     saludData = { ...saludData, ...JSON.parse(s) };
     normalizarSaludData();
+    // No se pudo confirmar una lectura fresca del servidor — misma
+    // protección que cargar() de appData (ver comentarios ahí).
+    _saludPuedeEstarDesactualizada = true;
   }
   _saludLoaded = true;
   activarListenerSalud();
