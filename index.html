@@ -13180,27 +13180,44 @@ function calcSaludMes(m) {
   return { mes: m, ventas: clientes.length, activos: activos.length, totalAdelanto, totalFinal, totalPagosReales, comAgentes, sueldosMes, gananciaNeta };
 }
 
+// Suma calcSaludMes() de todos los meses en uno solo — usado por la opción
+// "Todos los Meses" del selector de ROI Salud/Dental en TOP.
+function sumarSaludMeses(meses) {
+  return meses.reduce((acc, m) => {
+    const d = calcSaludMes(m);
+    acc.ventas += d.ventas; acc.activos += d.activos;
+    acc.totalAdelanto += d.totalAdelanto; acc.totalFinal += d.totalFinal;
+    acc.totalPagosReales += d.totalPagosReales; acc.comAgentes += d.comAgentes;
+    acc.sueldosMes += d.sueldosMes; acc.gananciaNeta += d.gananciaNeta;
+    return acc;
+  }, { mes:'Todos los Meses', ventas:0, activos:0, totalAdelanto:0, totalFinal:0, totalPagosReales:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 });
+}
+
 function renderTopSalud() {
   const meses = getSaludMeses();
   const sel = document.getElementById('top-salud-mes-sel');
-  const curVal = sel ? sel.value : '';
-  const mes = curVal || meses[meses.length-1] || '';
+  // Por defecto (primera vez que se renderiza) se queda en el último mes,
+  // igual que antes — el usuario puede cambiarlo a "Todos los Meses" cuando quiera.
+  const mesSel = sel ? sel.value : (meses[meses.length-1] || '');
+  const esTodos = mesSel === '__todos__';
 
-  const d = mes ? calcSaludMes(mes) : { ventas:0, activos:0, totalAdelanto:0, totalFinal:0, totalPagosReales:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
-  const historial = meses.slice(-6).map(m => calcSaludMes(m));
+  const d = esTodos ? sumarSaludMeses(meses)
+    : (mesSel ? calcSaludMes(mesSel) : { ventas:0, activos:0, totalAdelanto:0, totalFinal:0, totalPagosReales:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 });
+  const historial = (esTodos ? meses : meses.slice(-6)).map(m => calcSaludMes(m));
 
   document.getElementById('top-salud').innerHTML = `
     <div style="border:1px solid #CBD6E2;border-radius:10px;padding:20px;background:#fff;margin-bottom:20px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
         <h3 style="font-size:14px;font-weight:700;color:#33475B">💚 ROI Salud / Dental</h3>
         <select id="top-salud-mes-sel" onchange="renderTopSalud()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
-          ${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${m}</option>`).join('') || '<option value="">Sin datos</option>'}
+          <option value="__todos__" ${esTodos?'selected':''}>📊 Todos los Meses</option>
+          ${meses.map(m=>`<option value="${m}" ${m===mesSel?'selected':''}>${m}</option>`).join('') || ''}
         </select>
       </div>
-      ${!mes ? '<div style="color:#7C98B6;padding:20px">Aún no hay meses registrados en Salud</div>' : `
+      ${!meses.length ? '<div style="color:#7C98B6;padding:20px">Aún no hay meses registrados en Salud</div>' : `
       <div style="font-size:10px;color:#99ACC2;margin-bottom:10px">Adelanto/Final son proyecciones de comisión; la Ganancia Neta usa el dinero real recibido (Salud → Pagos Recibidos).</div>
       <div class="cards" style="margin-bottom:20px">
-        <div class="card blue"><label>Ventas del Mes</label><div class="val">${d.ventas}</div><div class="sub">${d.activos} activos</div></div>
+        <div class="card blue"><label>${esTodos?'Ventas (todos los meses)':'Ventas del Mes'}</label><div class="val">${d.ventas}</div><div class="sub">${d.activos} activos</div></div>
         <div class="card teal"><label>💰 Pagos Reales Recibidos</label><div class="val">${fmt(d.totalPagosReales)}</div></div>
         <div class="card green"><label>Adelanto (9m) <span style="font-weight:400">proyectado</span></label><div class="val">${fmt(d.totalAdelanto)}</div></div>
         <div class="card orange"><label>Final (3m) <span style="font-weight:400">proyectado</span></label><div class="val">${fmt(d.totalFinal)}</div></div>
@@ -13208,7 +13225,7 @@ function renderTopSalud() {
         <div class="card red"><label>Sueldos Pagados</label><div class="val">${fmt(d.sueldosMes)}</div></div>
         <div class="card ${d.gananciaNeta>=0?'green':'red'}"><label>💵 Ganancia Neta (real)</label><div class="val">${fmt(d.gananciaNeta)}</div></div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (últimos meses)</div>
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 ${esTodos?'Historial (todos los meses)':'Historial (últimos meses)'}</div>
       <div style="overflow-x:auto">
       <table>
         <thead><tr><th>Mes</th><th>Ventas</th><th>Pagos Reales</th><th>Com. Agentes</th><th>Sueldos</th><th>Ganancia Neta</th></tr></thead>
