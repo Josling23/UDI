@@ -3542,6 +3542,73 @@ function contarRegistrosArbol(data) {
 }
 const UMBRAL_CAIDA_SOSPECHOSA_REGISTROS = 5;
 
+// ============================================================
+// FUSIÓN CON EL SERVIDOR ANTES DE GUARDAR (protección permanente contra
+// pérdida de datos por condiciones de carrera entre sesiones)
+// ------------------------------------------------------------
+// guardar()/guardarSalud() históricamente reemplazaban TODO el árbol de
+// datos en Firebase con lo que esa sesión tuviera en memoria. Si dos
+// personas usaban la app casi al mismo tiempo, una sesión con una lectura
+// fresca pero apenas un poco más vieja que el guardado de otra persona
+// podía, sin querer, borrar del servidor cualquier cosa que la otra
+// persona hubiera agregado mientras tanto — causa real confirmada de
+// agentes/ventas/registros que desaparecían sin que nadie los tocara.
+//
+// fusionarConServidor(local, servidor, conocido) resuelve esto: antes de
+// escribir, se vuelve a leer el servidor y se combina con lo local usando
+// tres versiones de cada dato — lo que esta sesión sabía en su última
+// sincronización confirmada ("conocido"), lo que tiene ahora en pantalla
+// ("local") y lo que el servidor tiene en este instante ("servidor"):
+//   - Un id/clave que está en "servidor" pero NO estaba en "conocido" ni en
+//     "local" -> alguien más lo agregó mientras esta sesión no miraba -> se
+//     recupera (se agrega a lo que se va a guardar).
+//   - Un id/clave que SÍ estaba en "conocido" pero ya no está en "local" ->
+//     esta sesión lo borró a propósito (ej. eliminarAgente()) -> se
+//     respeta el borrado, no se repone.
+//   - Todo lo demás (valores simples, o algo que ya existe en "local") se
+//     deja tal cual está en "local", que es lo que el usuario ve y editó.
+// Es completamente genérica: funciona igual para arreglos con id (agentes,
+// ventas, reparaciones de Bravo...), arreglos de valores simples (meses) y
+// objetos con clave por mes/id (gastosNomina, pagosRecibidos...), a
+// cualquier profundidad — así protege TODO Admin, Bravo, TOP y HQ (y su
+// equivalente en Salud) desde un solo lugar, sin tocar cada pantalla.
+// ============================================================
+function _claveDeElemento(x) {
+  return (x && typeof x === 'object' && 'id' in x) ? ('id:' + x.id) : ('val:' + JSON.stringify(x));
+}
+function fusionarConServidor(local, servidor, conocido) {
+  if (Array.isArray(servidor)) {
+    const localArr = Array.isArray(local) ? local : [];
+    const conocidoArr = Array.isArray(conocido) ? conocido : [];
+    const localClaves = new Set(localArr.map(_claveDeElemento));
+    const conocidoClaves = new Set(conocidoArr.map(_claveDeElemento));
+    const recuperados = servidor.filter(x => {
+      const k = _claveDeElemento(x);
+      return !localClaves.has(k) && !conocidoClaves.has(k);
+    });
+    return recuperados.length ? [...localArr, ...recuperados] : localArr;
+  }
+  if (servidor && typeof servidor === 'object') {
+    const localObj = (local && typeof local === 'object' && !Array.isArray(local)) ? local : {};
+    const conocidoObj = (conocido && typeof conocido === 'object' && !Array.isArray(conocido)) ? conocido : {};
+    const out = { ...localObj };
+    Object.keys(servidor).forEach(k => {
+      if (k in out) {
+        if (Array.isArray(servidor[k]) || (servidor[k] && typeof servidor[k] === 'object')) {
+          out[k] = fusionarConServidor(out[k], servidor[k], conocidoObj[k]);
+        }
+        // Primitivo y ya existe localmente: se respeta el valor local (pudo haber sido editado en esta sesión).
+      } else if (!(k in conocidoObj)) {
+        // Clave nueva que esta sesión nunca conoció -> la agregó alguien más -> se recupera completa.
+        out[k] = servidor[k];
+      }
+      // (k in conocidoObj) pero no en local -> esta sesión la borró a propósito -> no se repone.
+    });
+    return out;
+  }
+  return local; // Primitivo simple: se respeta el valor local.
+}
+
 // Guardar: escribe en Firebase + localStorage como caché
 // Identificador único de ESTA pestaña/sesión — se combina con un contador
 // para armar un token distinto en cada guardado (ver guardar() y el
@@ -3558,12 +3625,43 @@ let _syncSeq = 0;
 // desaparecían sin que nadie los tocara.
 let _appDataPuedeEstarDesactualizada = false;
 let _ultimoConteoConfirmadoAppData = null;
+// Última copia completa de appData confirmada como fresca del servidor —
+// es el "conocido" que usa fusionarConServidor() para distinguir "esto es
+// nuevo, alguien más lo agregó" de "esto lo borré yo a propósito".
+let _ultimoSnapshotConfirmadoAppData = null;
+// Evita que dos llamadas a guardar() casi simultáneas (ej. varios cambios
+// rápidos seguidos) se pisen entre sí mientras cada una hace su propia
+// relectura del servidor — se encolan y corren una por una.
+let _guardarEnCurso = Promise.resolve();
 
 function guardar() {
+  // Encolado: si ya hay un guardado en curso (su propia relectura+fusión
+  // con el servidor), este espera a que termine antes de empezar el suyo —
+  // evita que dos guardados casi simultáneos se pisen entre sí.
+  _guardarEnCurso = _guardarEnCurso.then(_guardarInterno, _guardarInterno);
+  return _guardarEnCurso;
+}
+
+async function _guardarInterno() {
   normalizarAppData();
   if (_appDataPuedeEstarDesactualizada) {
     showNotif('🛑 No se guardó: no se pudo confirmar que tienes los datos más recientes del servidor. Recarga la página (Ctrl+Shift+R) antes de volver a intentar, para no sobrescribir cambios de otros.', 'error', 10000);
     return;
+  }
+  // Releer el servidor y fusionar cualquier cosa que otra sesión haya
+  // agregado desde la última sincronización confirmada de ESTA sesión —
+  // ver el bloque de comentarios de fusionarConServidor() más arriba. Si la
+  // relectura falla (ej. sin conexión), se continúa con los datos locales
+  // tal como funcionaba antes de esta protección, en vez de bloquear el
+  // guardado por completo.
+  try {
+    const snapFresco = await fbDB.ref('appData').get();
+    if (snapFresco.exists()) {
+      appData = fusionarConServidor(appData, snapFresco.val(), _ultimoSnapshotConfirmadoAppData || {});
+      normalizarAppData();
+    }
+  } catch(e) {
+    console.warn('No se pudo releer el servidor antes de guardar, se continúa con los datos locales:', e);
   }
   const conteoNuevo = contarRegistrosArbol(appData);
   if (_ultimoConteoConfirmadoAppData !== null && (_ultimoConteoConfirmadoAppData - conteoNuevo) > UMBRAL_CAIDA_SOSPECHOSA_REGISTROS) {
@@ -3575,12 +3673,14 @@ function guardar() {
   const miToken = _syncSesionId + '_' + _syncSeq;
   _ultimoTokenEnviado = miToken;
   appData._syncToken = miToken;
-  fbDB.ref('appData').set(appData).then(() => {
+  try {
+    await fbDB.ref('appData').set(appData);
     _ultimoConteoConfirmadoAppData = conteoNuevo;
-  }).catch(e => {
+    _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
+  } catch(e) {
     console.warn('Firebase write error:', e);
     showNotif('⚠️ No se pudo guardar en el servidor (' + e.message + '). Tus cambios solo quedaron en este dispositivo.', 'error');
-  });
+  }
 }
 
 // Firebase Realtime Database NO guarda arrays/objetos vacíos — un array que
@@ -3641,9 +3741,11 @@ function activarListenerAppData() {
     normalizarAppData();
     localStorage.setItem('attVND_v1', JSON.stringify(appData));
     // Actualización real (no eco propio) confirmada del servidor — esta
-    // sesión ya está al día, y este conteo es la nueva base de comparación.
+    // sesión ya está al día, y este conteo (y esta foto completa) pasan a
+    // ser la nueva base de comparación para el próximo guardado.
     _appDataPuedeEstarDesactualizada = false;
     _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
+    _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
 
     // Si Josling (u otro dueño) acaba de aprobar/rechazar una solicitud de
     // descarga que esta misma pestaña está esperando, recogerla ahora.
@@ -3794,10 +3896,12 @@ function aplicarSnapshotAppData(snap) {
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   activarListenerAppData();
   // Lectura real y fresca del servidor confirmada — a partir de aquí sí se
-  // puede guardar con confianza, y este conteo pasa a ser la base contra la
-  // que se compara cualquier guardado futuro en esta sesión.
+  // puede guardar con confianza, y este conteo (y esta foto completa) pasan
+  // a ser la base contra la que se compara cualquier guardado futuro en
+  // esta sesión.
   _appDataPuedeEstarDesactualizada = false;
   _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
+  _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
 }
 
 async function cargar() {
@@ -4028,12 +4132,32 @@ let _syncSaludSeq = 0;
 let _ultimoTokenEnviadoSalud = null;
 let _saludPuedeEstarDesactualizada = false;
 let _ultimoConteoConfirmadoSalud = null;
+// Misma protección que _ultimoSnapshotConfirmadoAppData, para saludData.
+let _ultimoSnapshotConfirmadoSalud = null;
+let _guardarSaludEnCurso = Promise.resolve();
 
 function guardarSalud() {
+  _guardarSaludEnCurso = _guardarSaludEnCurso.then(_guardarSaludInterno, _guardarSaludInterno);
+  return _guardarSaludEnCurso;
+}
+
+async function _guardarSaludInterno() {
   normalizarSaludData();
   if (_saludPuedeEstarDesactualizada) {
     showNotif('🛑 No se guardó: no se pudo confirmar que tienes los datos más recientes del servidor. Recarga la página (Ctrl+Shift+R) antes de volver a intentar, para no sobrescribir cambios de otros.', 'error', 10000);
     return;
+  }
+  // Misma fusión con el servidor que guardar() (ver fusionarConServidor()
+  // más arriba) — evita que un guardado de Salud borre por accidente algo
+  // que otra sesión haya agregado desde la última sincronización de esta.
+  try {
+    const snapFresco = await fbDB.ref('saludData').get();
+    if (snapFresco.exists()) {
+      saludData = fusionarConServidor(saludData, snapFresco.val(), _ultimoSnapshotConfirmadoSalud || {});
+      normalizarSaludData();
+    }
+  } catch(e) {
+    console.warn('No se pudo releer el servidor antes de guardar Salud, se continúa con los datos locales:', e);
   }
   const conteoNuevo = contarRegistrosArbol(saludData);
   if (_ultimoConteoConfirmadoSalud !== null && (_ultimoConteoConfirmadoSalud - conteoNuevo) > UMBRAL_CAIDA_SOSPECHOSA_REGISTROS) {
@@ -4045,9 +4169,13 @@ function guardarSalud() {
   const miToken = _syncSaludSesionId + '_' + _syncSaludSeq;
   _ultimoTokenEnviadoSalud = miToken;
   saludData._syncToken = miToken;
-  fbDB.ref('saludData').set(saludData).then(() => {
+  try {
+    await fbDB.ref('saludData').set(saludData);
     _ultimoConteoConfirmadoSalud = conteoNuevo;
-  }).catch(e => { console.warn('Firebase salud write error:', e); });
+    _ultimoSnapshotConfirmadoSalud = JSON.parse(JSON.stringify(saludData));
+  } catch(e) {
+    console.warn('Firebase salud write error:', e);
+  }
 }
 
 let _saludListenerOn = false;
@@ -4063,6 +4191,7 @@ function activarListenerSalud() {
     localStorage.setItem('saludVND_v1', JSON.stringify(saludData));
     _saludPuedeEstarDesactualizada = false;
     _ultimoConteoConfirmadoSalud = contarRegistrosArbol(saludData);
+    _ultimoSnapshotConfirmadoSalud = JSON.parse(JSON.stringify(saludData));
     // Re-renderizar si estamos en un área de salud
     if (document.getElementById('app-wrap').style.display !== 'none') {
       const activePage = document.querySelector('.page.active');
@@ -4104,6 +4233,7 @@ async function cargarSalud() {
       activarListenerSalud();
       _saludPuedeEstarDesactualizada = false;
       _ultimoConteoConfirmadoSalud = contarRegistrosArbol(saludData);
+      _ultimoSnapshotConfirmadoSalud = JSON.parse(JSON.stringify(saludData));
       return;
     }
   } catch(e) {
