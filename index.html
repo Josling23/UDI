@@ -2283,6 +2283,20 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<!-- ===== MODAL VISTA PREVIA DE AGENTE SALUD (solo lectura) ===== -->
+<div class="modal-overlay" id="modal-vista-previa-agente-salud">
+  <div class="modal" style="max-width:760px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3 id="modal-vista-previa-salud-titulo">👁️ Vista Previa</h3>
+      <button class="modal-close" onclick="closeModal('modal-vista-previa-agente-salud')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-vista-previa-salud-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-vista-previa-agente-salud')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - REPARACIONES ===== -->
 <div class="modal-overlay" id="modal-bravo-reparacion">
   <div class="modal" style="max-width:560px">
@@ -8315,6 +8329,72 @@ function renderAgenteSaludMisReportes() {
       <td style="font-size:11px;color:#7C98B6">${estado==='rechazado' ? (c.motivoRechazo||'') : (c.notas||'')}</td>
       <td>${estado==='pendiente' ? `<button class="btn btn-ghost btn-xs" onclick="saludEditarReportePendiente(${c.id})">✏️</button>` : ''}</td>
     </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Aún no has reportado ningún cliente</td></tr>';
+}
+
+// Vista de solo lectura, para el back-office — muestra exactamente lo que
+// este agente de Salud ve en "Mis Reportes" (mismo patrón/lógica que
+// abrirVistaPreviaAgente() para AT&T). No hay equivalente a Chargebacks ni
+// a grupoId aquí: un cliente de Salud es un solo registro, y los agentes de
+// Salud no tienen esa pantalla en su menú.
+function abrirVistaPreviaAgenteSalud(agenteId) {
+  const a = saludData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+
+  const pendientes = (saludData.clientesPendientes||[]).filter(c=>c.reportadoPor===a.id);
+  const rechazados = (saludData.clientesRechazados||[]).filter(c=>c.reportadoPor===a.id);
+  const aprobados  = (saludData.clientes||[]).filter(c=>c.reportadoPor===a.id);
+
+  const badges = {
+    pendiente: '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
+    aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Activo</span>',
+    rechazado: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
+  };
+
+  const todos = [
+    ...pendientes.map(c=>({ c, estado:'pendiente' })),
+    ...rechazados.map(c=>({ c, estado:'rechazado' })),
+    ...aprobados.map(c=>({ c, estado:'aprobado' })),
+  ].sort((x,y)=>(y.c.fecha||'').localeCompare(x.c.fecha||''));
+
+  document.getElementById('modal-vista-previa-salud-titulo').textContent = `👁️ Vista Previa — ${a.nombre}`;
+  document.getElementById('modal-vista-previa-salud-body').innerHTML = `
+    <div style="background:#FFFBE8;border:1.5px solid #F5C26B;border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#92400E">
+      📖 Esto es de <b>solo lectura</b> — muestra exactamente lo que ${a.nombre} ve en "Mis Reportes". No se puede editar ni guardar nada desde aquí.
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 16px;min-width:130px">
+        <div style="font-size:10px;color:#7C98B6;font-weight:600">Clientes Activos</div>
+        <div style="font-size:22px;font-weight:800;color:#33475B">${aprobados.filter(c=>c.estado==='activo').length}</div>
+      </div>
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 16px;min-width:130px">
+        <div style="font-size:10px;color:#7C98B6;font-weight:600">Pendientes de Revisión</div>
+        <div style="font-size:22px;font-weight:800;color:#B45309">${pendientes.length}</div>
+      </div>
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 16px;min-width:130px">
+        <div style="font-size:10px;color:#7C98B6;font-weight:600">Rechazados</div>
+        <div style="font-size:22px;font-weight:800;color:#DC2626">${rechazados.length}</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:8px">📋 Mis Reportes</div>
+    <div class="tbl-wrap">
+      <table style="width:100%">
+        <thead><tr><th>Estado</th><th>Cliente</th><th>Tipo</th><th>Fecha</th><th>Detalle</th></tr></thead>
+        <tbody>
+          ${todos.length ? todos.map(({c,estado})=>`
+            <tr>
+              <td>${badges[estado]}</td>
+              <td><b>${c.nombre}</b>${c.cuenta?`<br><span style="font-size:10px;color:#7C98B6">${c.cuenta}</span>`:''}</td>
+              <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
+              <td>${c.fecha||'—'}</td>
+              <td style="font-size:11px;color:#7C98B6">${estado==='rechazado' ? (c.motivoRechazo||'—') : (c.notas||'—')}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="tbl-empty">Aún no ha reportado ningún cliente</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('modal-vista-previa-agente-salud').classList.add('open');
 }
 
 // ── Productos Extra ─────────────────────────────────────────
@@ -14551,6 +14631,7 @@ function saludRenderAgentes() {
         </div>
         <div style="display:flex;gap:6px;align-items:flex-start">
           <button onclick="toggleUbicacion('salud',${a.id})" title="Cambiar ubicación" style="border:none;background:${a.ubicacion==='remoto'?'#D1FAE5':'#DBEAFE'};color:${a.ubicacion==='remoto'?'#059669':'#1D4ED8'};border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${a.ubicacion==='remoto'?'🟢 Remoto':'🔵 Oficina'}</button>
+          <button class="btn btn-ghost btn-xs" onclick="abrirVistaPreviaAgenteSalud(${a.id})" title="Ver de solo lectura lo que este vendedor ve en su cuenta">👁️ Vista Previa</button>
           <button class="btn btn-ghost btn-xs" onclick="saludOpenAgenteModal(${a.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="saludEliminarAgente(${a.id})">✕</button>
         </div>
