@@ -3746,7 +3746,17 @@ function activarListenerAppData() {
           'bravo-caja':         bravoCaja,
           'bravo-compras':      bravoCompras,
           'agente-dashboard':   renderAgenteDashboard,
-          'agente-reportar':    renderAgenteReportar,
+          // 'agente-reportar' NO se re-renderiza aquí a propósito: es un
+          // formulario con datos SIN GUARDAR (cliente, líneas de venta,
+          // notas...). Volver a llamar a renderAgenteReportar() en cada
+          // cambio remoto (una venta de OTRO agente, una aprobación del
+          // Admin, cualquier guardar() en cualquier parte de la app) lo
+          // reseteaba a un formulario en blanco a mitad de que el vendedor
+          // estuviera escribiendo — y encima con un toast de "🔄 Datos
+          // sincronizados" que sonaba a que todo estaba bien. Bug real
+          // reportado: el vendedor perdía lo que llevaba escrito sin previo
+          // aviso. Los badges (pendientes/rechazados/chargebacks) se
+          // siguen actualizando igual, más abajo, sin depender de esto.
           'agente-mis-reportes':renderAgenteMisReportes,
           'agente-chargebacks': renderAgenteChargebacks,
           'agente-comisiones':  renderAgenteComisiones,
