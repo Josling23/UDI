@@ -3426,6 +3426,53 @@ function normalizarAppData() {
     appData.bravo.nextDiarioId = maxId;
   }
 
+  // Reparar ids duplicados o faltantes en reparaciones, líneas Lyca, gastos
+  // y compras (mismo motivo/patrón que caja chica y reportesDiarios arriba
+  // — sin esto, un contador desincronizado podía asignarle a una
+  // reparación NUEVA el mismo id de una YA EXISTENTE, y luego editar o
+  // eliminar la nueva terminaba afectando/borrando la vieja, porque
+  // find()/filter() operan por id).
+  if(appData.bravo.reparaciones.length) {
+    const idsVistosRep = new Set();
+    let maxIdRep = appData.bravo.nextReparacionId || 1;
+    appData.bravo.reparaciones.forEach(r => {
+      if(r.id == null || idsVistosRep.has(r.id)) r.id = maxIdRep++;
+      idsVistosRep.add(r.id);
+      if(r.id >= maxIdRep) maxIdRep = r.id + 1;
+    });
+    appData.bravo.nextReparacionId = maxIdRep;
+  }
+  if(appData.bravo.lineasLyca.length) {
+    const idsVistosLyca = new Set();
+    let maxIdLyca = appData.bravo.nextLineaLycaId || 1;
+    appData.bravo.lineasLyca.forEach(l => {
+      if(l.id == null || idsVistosLyca.has(l.id)) l.id = maxIdLyca++;
+      idsVistosLyca.add(l.id);
+      if(l.id >= maxIdLyca) maxIdLyca = l.id + 1;
+    });
+    appData.bravo.nextLineaLycaId = maxIdLyca;
+  }
+  if(appData.bravo.gastos.length) {
+    const idsVistosGastoBravo = new Set();
+    let maxIdGastoBravo = appData.bravo.nextGastoId || 1;
+    appData.bravo.gastos.forEach(g => {
+      if(g.id == null || idsVistosGastoBravo.has(g.id)) g.id = maxIdGastoBravo++;
+      idsVistosGastoBravo.add(g.id);
+      if(g.id >= maxIdGastoBravo) maxIdGastoBravo = g.id + 1;
+    });
+    appData.bravo.nextGastoId = maxIdGastoBravo;
+  }
+  if(appData.bravo.compras.length) {
+    const idsVistosCompra = new Set();
+    let maxIdCompra = appData.bravo.nextCompraId || 1;
+    appData.bravo.compras.forEach(c => {
+      if(c.id == null || idsVistosCompra.has(c.id)) c.id = maxIdCompra++;
+      idsVistosCompra.add(c.id);
+      if(c.id >= maxIdCompra) maxIdCompra = c.id + 1;
+    });
+    appData.bravo.nextCompraId = maxIdCompra;
+  }
+
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
 
@@ -17434,7 +17481,14 @@ function bravoReparaciones() {
   if(!validarAccesoBravo()) return;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
 
-  const mesesDisponibles = [...new Set((appData.bravo.reparaciones||[]).map(r=>r.mes).filter(Boolean))]
+  // Incluye también los meses de las reparaciones agregadas rápido desde el
+  // Registro Diario (bravoReparacionesDesdeRegistros()) — si no, un usuario
+  // que solo usa esa vía nunca ve ninguna opción de mes en este filtro más
+  // que "Todos los meses".
+  const mesesDisponibles = [...new Set([
+    ...(appData.bravo.reparaciones||[]).map(r=>r.mes),
+    ...bravoReparacionesDesdeRegistros().map(r=>r.mes),
+  ].filter(Boolean))]
     .sort((a,b)=>{
       const pa=a.split(' '), pb=b.split(' ');
       return (parseInt(pa[1])-parseInt(pb[1])) || (MESES_ES.indexOf(pa[0])-MESES_ES.indexOf(pb[0]));
