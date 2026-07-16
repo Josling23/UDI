@@ -11977,6 +11977,21 @@ function renderTop() {
   renderTopConfig();
 }
 
+// Ganancia REAL de AT&T para un mes: RS&I Neto − Gastos de ese mes (Nóminas +
+// Comisiones + Gastos Var. + Gastos Fijos, de Admin/TOP → Gastos & Nómina).
+// Es la MISMA fórmula que ya usa "Utilidad Global" en la tabla de Gastos &
+// Nómina + Ganancias (TOP → ROI Admin) — a pedido del usuario, para que el
+// número que ve en Comparativo sea el mismo que ve al entrar al detalle, en
+// vez del cálculo viejo de calcROI() (que usa Pagos Recibidos/Ingresos
+// manuales y ya no es la cifra que se usa como "ganancia real" en ningún
+// otro lado de TOP).
+function calcUtilidadATTMes(mes) {
+  const gn = appData.gastosNomina[mes] || {};
+  const totalMes = parseFloat(gn.nominas||0) + parseFloat(gn.comisiones||0) + parseFloat(gn.gastosVar||0) + parseFloat(gn.gastosFijos||0);
+  const rsiNeto = parseFloat((appData.rsiReportes||{})[mes]?.neto || 0);
+  return { rsiNeto, totalMes, utilidad: rsiNeto - totalMes };
+}
+
 function renderTopComparativo() {
   const meses = getMeses();
   const sel = document.getElementById('top-comp-mes-sel');
@@ -11986,7 +12001,7 @@ function renderTopComparativo() {
   const mesNum = MESES_ES.indexOf(mesNombre) + 1;
   const anioNum = parseInt(anioStr) || new Date().getFullYear();
 
-  const admin = selMes ? calcROI(selMes) : { pagado:0, totalEgresos:0, utilidad:0, roi:0 };
+  const admin = selMes ? calcUtilidadATTMes(selMes) : { rsiNeto:0, totalMes:0, utilidad:0 };
   const bravo = mesNum > 0 ? calcBravoMes(mesNum, anioNum) : { gananciaMes:0, gananciaNeta:0 };
   const salud = selMes ? calcSaludMes(selMes) : { totalAdelanto:0, comAgentes:0, sueldosMes:0, gananciaNeta:0 };
   const total = admin.utilidad + bravo.gananciaNeta + salud.gananciaNeta;
@@ -11999,7 +12014,7 @@ function renderTopComparativo() {
     const [mn, ay] = m.split(' ');
     const mNum = MESES_ES.indexOf(mn) + 1;
     const aNum = parseInt(ay) || new Date().getFullYear();
-    const a = calcROI(m);
+    const a = calcUtilidadATTMes(m);
     const b = mNum > 0 ? calcBravoMes(mNum, aNum) : { gananciaNeta: 0 };
     const s = calcSaludMes(m);
     return { mes: m, admin: a.utilidad, bravo: b.gananciaNeta, salud: s.gananciaNeta, total: a.utilidad + b.gananciaNeta + s.gananciaNeta };
@@ -12018,7 +12033,7 @@ function renderTopComparativo() {
         <div style="border:1.5px solid #CBD6E2;border-radius:10px;padding:14px">
           <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">💼 AT&T (Admin)</div>
           <div style="font-size:20px;font-weight:900;color:${admin.utilidad>=0?'#00BDA5':'#E04048'}">${fmt(admin.utilidad)}</div>
-          <div style="font-size:10px;color:#7C98B6;margin:6px 0">Pagado ${fmt(admin.pagado)} − Egresos ${fmt(admin.totalEgresos)}</div>
+          <div style="font-size:10px;color:#7C98B6;margin:6px 0">RS&I Neto ${fmt(admin.rsiNeto)} − Gastos ${fmt(admin.totalMes)}</div>
           ${barra(admin.utilidad, '#009FDB')}
           <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost btn-xs" onclick="switchTopTab('roi')">Ver detalle →</button></div>
         </div>
@@ -12766,9 +12781,13 @@ function renderTopBravo() {
 function renderTopChargebacks() {
   if(!appData.chargebacks)  appData.chargebacks = {};
   if(!appData.rsiReportes)  appData.rsiReportes = {};
-  const meses = getMeses();
+  const todosLosMeses = getMeses();
   const UMBRAL_OK   = 12;
   const UMBRAL_WARN = 17;
+
+  const anios = [...new Set(todosLosMeses.map(m=>m.split(' ')[1]).filter(Boolean))].sort();
+  const selAnio = document.getElementById('top-cb-anio-sel')?.value || '';
+  const meses = selAnio ? todosLosMeses.filter(m=>m.split(' ')[1]===selAnio) : todosLosMeses;
 
   const filas = meses.map(mes=>{
     const rep   = appData.rsiReportes[mes];
@@ -12823,10 +12842,16 @@ function renderTopChargebacks() {
           <div style="font-size:13px;font-weight:700;color:#33475B">🔴 % Chargebacks por Mes</div>
           <div style="font-size:11px;color:#99ACC2;margin-top:2px">Calculado automáticamente desde reporte RS&I · Verde &lt;${UMBRAL_OK}% · Amarillo ${UMBRAL_OK}–${UMBRAL_WARN}% · Rojo ≥${UMBRAL_WARN}%</div>
         </div>
-        ${prom!==null?`<div style="background:#F5F8FA;border-radius:10px;padding:10px 18px;text-align:center">
-          <div style="font-size:10px;color:#7C98B6;font-weight:600">PROMEDIO 2026</div>
-          <div style="font-size:22px;font-weight:900;color:${promColor}">${prom.toFixed(2)}%</div>
-        </div>`:''}
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <select id="top-cb-anio-sel" onchange="renderTopChargebacks()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600">
+            <option value="" ${selAnio===''?'selected':''}>📊 Todos los Años</option>
+            ${anios.map(a=>`<option value="${a}" ${a===selAnio?'selected':''}>${a}</option>`).join('')}
+          </select>
+          ${prom!==null?`<div style="background:#F5F8FA;border-radius:10px;padding:10px 18px;text-align:center">
+            <div style="font-size:10px;color:#7C98B6;font-weight:600">PROMEDIO ${selAnio || '(todos los meses)'}</div>
+            <div style="font-size:22px;font-weight:900;color:${promColor}">${prom.toFixed(2)}%</div>
+          </div>`:''}
+        </div>
       </div>
       <div class="tbl-wrap"><table>
         <thead><tr>
