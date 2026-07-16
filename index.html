@@ -430,6 +430,13 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
   </nav>
+  <nav class="sidebar-nav" id="sidebar-nav-agente-salud" style="display:none">
+    <div class="nav-section">💚 MIS VENTAS SALUD</div>
+    <div class="nav-item active" onclick="showPage('agente-salud-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
+    <div class="nav-section" style="margin-top:auto"></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
+    <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
+  </nav>
   <nav class="sidebar-nav" id="sidebar-nav-inspector" style="display:none">
     <div class="nav-section">🔍 INSPECTOR</div>
     <div class="nav-item active" onclick="showPage('inspector-clientes',this)"><span class="icon">🔍</span><span>Clientes</span></div>
@@ -942,6 +949,13 @@ table thead,table tbody{display:table;width:100%}
             <tbody id="agente-comisiones-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-agente-salud-dashboard">
+      <div class="section">
+        <div class="section-header"><h2>💚 Mis Ventas Salud</h2></div>
+        <div style="color:#7C98B6;padding:30px;text-align:center">🚧 Próximamente podrás reportar aquí tus clientes de Salud/Dental.</div>
       </div>
     </div>
 
@@ -1923,6 +1937,26 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-login-agente')">Cancelar</button>
       <button class="btn btn-primary" onclick="habilitarLoginAgente()">💾 Crear Acceso</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-login-agente-salud">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3 id="modal-login-agente-salud-title">🔑 Habilitar Login</h3>
+      <button class="modal-close" onclick="closeModal('modal-login-agente-salud')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1"><label>Correo *</label><input type="email" id="lsa-email" placeholder="correo@ejemplo.com"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Contraseña inicial * (mínimo 6 caracteres)</label><input type="text" id="lsa-pass" placeholder="El agente la puede cambiar después con 'Reset'"></div>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin-top:8px">📌 El agente entrará con este correo y contraseña, y solo verá el área "Mis Ventas Salud" — no tiene acceso a Admin, TOP, Bravo ni al resto de Salud.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-login-agente-salud')">Cancelar</button>
+      <button class="btn btn-primary" onclick="habilitarLoginAgenteSalud()">💾 Crear Acceso</button>
     </div>
   </div>
 </div>
@@ -3101,26 +3135,36 @@ const USERS_CONFIG = {
 function getUserPermissions(email) {
   const email_lower = (email || '').toLowerCase();
   // Login dinámico de agentes: no vive en USERS_CONFIG (whitelist fija de
-  // back-office), sino en el propio perfil del agente (appData.agentes),
-  // habilitado/deshabilitado desde la pantalla Agentes sin tocar código.
+  // back-office), sino en el propio perfil del agente (appData.agentes o
+  // saludData.agentes), habilitado/deshabilitado desde la pantalla
+  // Agentes correspondiente sin tocar código.
   const agente = (appData.agentes||[]).find(a => a.loginHabilitado && (a.loginEmail||'').toLowerCase() === email_lower);
+  const agenteSalud = (saludData.agentes||[]).find(a => a.loginHabilitado && (a.loginEmail||'').toLowerCase() === email_lower);
 
   if (USERS_CONFIG[email_lower]) {
     const base = USERS_CONFIG[email_lower];
     // Alguien de back-office (ej. una supervisora) puede TAMBIÉN tener su
-    // propio perfil de agente vinculado al mismo correo — para que reporte
-    // sus propias ventas/chargebacks igual que cualquier vendedor, sin
-    // perder sus áreas de back-office (Admin/Bravo/Salud/etc.).
-    if (agente && agente.rol !== 'inspector' && !base.areas.includes('agente')) {
-      return { ...base, areas: [...base.areas, 'agente'], agenteId: agente.id };
-    }
-    return base;
+    // propio perfil de agente (AT&T y/o Salud) vinculado al mismo correo —
+    // para que reporte sus propias ventas/chargebacks igual que cualquier
+    // vendedor, sin perder sus áreas de back-office (Admin/Bravo/Salud/etc.).
+    let areas = [...base.areas];
+    const extra = {};
+    if (agente && agente.rol !== 'inspector' && !areas.includes('agente')) { areas.push('agente'); extra.agenteId = agente.id; }
+    if (agenteSalud && !areas.includes('agente-salud')) { areas.push('agente-salud'); extra.agenteSaludId = agenteSalud.id; }
+    return areas.length > base.areas.length ? { ...base, areas, ...extra } : base;
   }
-  if (agente) {
-    // El rol Inspector entra a su propia área de solo lectura, separada del
-    // área "agente" normal — nunca ve pantallas de venta/comisión propias.
-    const area = (agente.rol==='inspector') ? 'inspector' : 'agente';
-    return { nombre: agente.nombre, areas: [area], fullAccess: false, agenteId: agente.id };
+  if (agente || agenteSalud) {
+    const areas = [];
+    const extra = {};
+    if (agente) {
+      // El rol Inspector entra a su propia área de solo lectura, separada
+      // del área "agente" normal — nunca ve pantallas de venta/comisión propias.
+      areas.push(agente.rol==='inspector' ? 'inspector' : 'agente');
+      extra.agenteId = agente.id;
+    }
+    if (agenteSalud) { areas.push('agente-salud'); extra.agenteSaludId = agenteSalud.id; }
+    const nombre = agente ? agente.nombre : agenteSalud.nombre;
+    return { nombre, areas, fullAccess: false, ...extra };
   }
   return null;
 }
@@ -4235,6 +4279,7 @@ const PAGE_TITLES = {
   'agente-mis-reportes':'📋 Mis Reportes',
   'agente-chargebacks':'⚠️ Chargebacks',
   'agente-comisiones':'💰 Mis Comisiones',
+  'agente-salud-dashboard':'💚 Mis Ventas Salud',
   'inspector-clientes':'🔍 Clientes',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
@@ -7915,6 +7960,78 @@ function reenviarResetPasswordAgente(id) {
     .catch(e => showNotif('❌ ' + e.message, 'error'));
 }
 
+// ============================================================
+// LOGIN DINÁMICO DE AGENTES DE SALUD (Fase 3 del plan Salud)
+// Clones exactos del bloque de arriba (AT&T), operando sobre
+// saludData.agentes en vez de appData.agentes. Disponible en TODOS los
+// roles (mismo criterio ya corregido para AT&T: la necesidad de
+// "vincular correo existente" no correlaciona con el rol de la persona).
+// ============================================================
+let _loginAgenteSaludId = null;
+function abrirModalLoginAgenteSalud(id) {
+  _loginAgenteSaludId = id;
+  const a = saludData.agentes.find(x=>x.id===id);
+  document.getElementById('lsa-email').value = a?.loginEmail || '';
+  document.getElementById('lsa-pass').value = '';
+  document.getElementById('modal-login-agente-salud').classList.add('open');
+}
+
+async function habilitarLoginAgenteSalud() {
+  const a = saludData.agentes.find(x=>x.id===_loginAgenteSaludId);
+  if(!a) return;
+  const email = document.getElementById('lsa-email').value.trim();
+  const pass  = document.getElementById('lsa-pass').value;
+  if(!email || !pass) { showNotif('⚠️ Completa correo y contraseña','error'); return; }
+  if(pass.length < 6) { showNotif('⚠️ Contraseña mínimo 6 caracteres','error'); return; }
+  try {
+    const secondApp = firebase.initializeApp(firebaseConfig, 'secondApp_' + Date.now());
+    await secondApp.auth().createUserWithEmailAndPassword(email, pass);
+    await secondApp.auth().signOut();
+    secondApp.delete();
+    a.loginEmail = email;
+    a.loginHabilitado = true;
+    guardarSalud();
+    closeModal('modal-login-agente-salud');
+    saludRenderAgentes();
+    showNotif(`✅ Login habilitado para ${a.nombre}`);
+  } catch(e) {
+    const msgs = { 'auth/email-already-in-use':'Este correo ya está registrado.', 'auth/weak-password':'Contraseña muy débil.', 'auth/invalid-email':'Correo inválido.' };
+    showNotif('❌ ' + (msgs[e.code] || e.message), 'error');
+  }
+}
+
+function vincularLoginExistenteSalud(id) {
+  const a = saludData.agentes.find(x=>x.id===id);
+  if(!a) return;
+  const email = prompt(`Correo de la cuenta que "${a.nombre}" YA usa para entrar (ej. su acceso de Admin/Bravo):`, a.loginEmail||'');
+  if(email === null) return;
+  const limpio = email.trim().toLowerCase();
+  if(!limpio) { showNotif('⚠️ Ingresa un correo','error'); return; }
+  a.loginEmail = limpio;
+  a.loginHabilitado = true;
+  guardarSalud();
+  saludRenderAgentes();
+  showNotif(`✅ ${a.nombre} ahora también reporta sus ventas de Salud con ese mismo correo`);
+}
+
+function deshabilitarLoginAgenteSalud(id) {
+  const a = saludData.agentes.find(x=>x.id===id);
+  if(!a) return;
+  if(!confirm(`¿Quitarle el acceso a "Mis Ventas Salud" a ${a.nombre}? Podrás volver a habilitarlo cuando quieras.`)) return;
+  a.loginHabilitado = false;
+  guardarSalud();
+  saludRenderAgentes();
+  showNotif('🔒 Login deshabilitado');
+}
+
+function reenviarResetPasswordAgenteSalud(id) {
+  const a = saludData.agentes.find(x=>x.id===id);
+  if(!a || !a.loginEmail) return;
+  fbAuth.sendPasswordResetEmail(a.loginEmail)
+    .then(()=> showNotif(`✅ Correo de restablecimiento enviado a ${a.loginEmail}`))
+    .catch(e => showNotif('❌ ' + e.message, 'error'));
+}
+
 // ── Productos Extra ─────────────────────────────────────────
 let _extraProdAgenteId = null;
 
@@ -9051,6 +9168,7 @@ function mostrarAreas() {
   const puedeBravo  = perms.areas.includes('bravo');
   const puedeSalud  = perms.areas.includes('salud');
   const puedeAgente = perms.areas.includes('agente');
+  const puedeAgenteSalud = perms.areas.includes('agente-salud');
   const puedeInspector = perms.areas.includes('inspector');
 
   const userDisplay = perms.nombre || email.split('@')[0];
@@ -9105,6 +9223,12 @@ function mostrarAreas() {
       <div style="color:#6A78D1;font-size:15px;font-weight:800">MIS VENTAS</div>
       <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Reportar Venta<br>Mis Reportes</div>
     </button>`;
+  if(puedeAgenteSalud) btns += `
+    <button onclick="abrirArea('agente-salud')" style="${btnStyle};border-color:rgba(0,189,165,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(0,189,165,0.4)'">
+      <div style="font-size:34px;margin-bottom:8px">💚</div>
+      <div style="color:#00BDA5;font-size:15px;font-weight:800">MIS VENTAS SALUD</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-top:4px">Reportar Cliente<br>Mis Reportes</div>
+    </button>`;
   if(puedeInspector) btns += `
     <button onclick="abrirArea('inspector')" style="${btnStyle};border-color:rgba(139,92,246,0.4)" onmouseover="${hoverOn}" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(139,92,246,0.4)'">
       <div style="font-size:34px;margin-bottom:8px">🔍</div>
@@ -9141,6 +9265,7 @@ function abrirArea(area) {
   document.getElementById('sidebar-nav-salud').style.display = area==='salud'  ? 'block' : 'none';
   document.getElementById('sidebar-nav-bravo').style.display = area==='bravo'  ? 'block' : 'none';
   document.getElementById('sidebar-nav-agente').style.display = area==='agente' ? 'block' : 'none';
+  document.getElementById('sidebar-nav-agente-salud').style.display = area==='agente-salud' ? 'block' : 'none';
   document.getElementById('sidebar-nav-inspector').style.display = area==='inspector' ? 'block' : 'none';
 
   // Mostrar/ocultar opción de Gerente General en HQ basado en permisos
@@ -9164,6 +9289,7 @@ function abrirArea(area) {
     showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente();
   }
   else if(area==='inspector') { showPage('inspector-clientes', null); }
+  else if(area==='agente-salud') { cargarSalud().then(()=>showPage('agente-salud-dashboard', null)); }
   actualizarBadgeNotifCampana();
   actualizarBadgeSolicitudes();
   actualizarAvatarTopbar();
@@ -10068,6 +10194,7 @@ function volverAreas() {
   document.getElementById('sidebar-nav-salud').style.display = 'none';
   document.getElementById('sidebar-nav-bravo').style.display = 'none';
   document.getElementById('sidebar-nav-agente').style.display = 'none';
+  document.getElementById('sidebar-nav-agente-salud').style.display = 'none';
   document.getElementById('sidebar-nav-inspector').style.display = 'none';
 
   // Mostrar la pantalla de selección de áreas
@@ -10145,6 +10272,7 @@ async function cerrarSesion() {
   document.getElementById('sidebar-nav-salud').style.display = 'none';
   document.getElementById('sidebar-nav-bravo').style.display = 'none';
   document.getElementById('sidebar-nav-agente').style.display = 'none';
+  document.getElementById('sidebar-nav-agente-salud').style.display = 'none';
   document.getElementById('sidebar-nav-inspector').style.display = 'none';
 
   // onAuthStateChanged se encargará de mostrar la pantalla de login
@@ -10258,6 +10386,16 @@ fbAuth.onAuthStateChanged(async (user) => {
       await cargar();
     } catch(e) {
       console.warn('Cargar timeout/error, continuando sin datos previos:', e);
+    }
+    // Mismo motivo que cargar() arriba, pero para los logins de agentes de
+    // Salud (área "agente-salud") — cargarSalud() es lazy por diseño (solo
+    // se disparaba antes al entrar al área Salud), así que sin este await
+    // cualquier login de agente de Salud fallaría siempre con "correo no
+    // autorizado" aunque ya estuviera habilitado.
+    try {
+      await cargarSalud();
+    } catch(e) {
+      console.warn('Cargar Salud timeout/error, continuando sin datos previos:', e);
     }
     ejecutarMigraciones();
 
@@ -14533,6 +14671,16 @@ function saludRenderAgentes() {
           ${tiposConOverride.map(t=>`<span style="font-size:10px;background:#EAF7FB;color:#0057A8;border:1px solid #009FDB;border-radius:5px;padding:2px 7px;white-space:nowrap">${t.nombre}: ${fmt(comPs[t.id])}</span>`).join('')}
         </div>
       </div>` : ''}
+      <div style="border-top:1px solid #F5F8FA;padding-top:10px;margin-top:10px">
+        ${a.loginHabilitado
+          ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#F0FFFB;border:1px solid #00A492;border-radius:8px;padding:6px 10px">
+              <span style="font-size:11px;color:#00A492;font-weight:600">🔑 Login activo — ${a.loginEmail}</span>
+              <button class="btn btn-ghost btn-xs" onclick="reenviarResetPasswordAgenteSalud(${a.id})" title="Enviar correo para que el agente cambie su contraseña">✉️ Reset</button>
+              <button class="btn btn-ghost btn-xs" onclick="deshabilitarLoginAgenteSalud(${a.id})" title="Revocar acceso (no borra la cuenta)">🔒 Deshabilitar</button>
+             </div>`
+          : `<button class="btn btn-ghost btn-xs" onclick="abrirModalLoginAgenteSalud(${a.id})">🔑 Habilitar Login</button>
+             <button class="btn btn-ghost btn-xs" onclick="vincularLoginExistenteSalud(${a.id})" title="Para cuando la persona YA tiene una cuenta (ej. también maneja Bravo, o es de Admin) — no crea una cuenta nueva, solo conecta este perfil con la que ya usa para entrar">🔗 Vincular correo existente</button>`}
+      </div>
     </div>`;
   }).join('') || '<div style="color:#7C98B6;padding:20px">Sin agentes registrados</div>';
   saludRenderAgenteVentas();
