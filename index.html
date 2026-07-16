@@ -2814,13 +2814,23 @@ table thead,table tbody{display:table;width:100%}
               <option value="cancelada">Cancelada</option>
             </select>
           </div>
-          <div style="display:flex;gap:8px;align-items:flex-end">
-            <button class="btn btn-success btn-sm" onclick="bravoAgregarReparacion()" style="flex:1">➕ Agregar</button>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Tipo de Pago *</label>
+            <select id="bravo-rep-metodo" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+              <option value="efectivo">Efectivo</option>
+              <option value="zelle">Zelle</option>
+              <option value="paypal">PayPal</option>
+              <option value="punto">Punto</option>
+              <option value="otro">Otro</option>
+            </select>
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional)</label>
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional) <span style="font-weight:400;color:#99ACC2">— usa este campo para detallar el pago si elegiste "Otro"</span></label>
           <textarea id="bravo-rep-notas" placeholder="Ej: nombre del cliente, teléfono, detalle del problema, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
+        </div>
+        <div style="margin-bottom:12px">
+          <button class="btn btn-success btn-sm" onclick="bravoAgregarReparacion()" style="width:100%">➕ Agregar</button>
         </div>
         <div id="bravo-reparaciones-lista" style="background:#F5F8FA;border-radius:8px;padding:12px">
           <div style="color:#99ACC2;font-size:12px">Sin reparaciones agregadas</div>
@@ -17373,7 +17383,13 @@ function bravoDescargarReportesExcel() {
 // ============================================================
 const REP_ESTADO_LABELS = { recibido:'📥 Recibido', pendiente:'⏳ Pendiente', entregado:'✅ Entregado' };
 const REP_ESTADO_COLORS = { recibido:'#009FDB', pendiente:'#D4A017', entregado:'#00BDA5' };
-const REP_PAGO_LABELS   = { cash:'💵 Cash', zelle:'📲 Zelle', punto:'💳 Punto' };
+// cash/zelle/punto: opciones del formulario standalone "+ Nueva Reparación".
+// efectivo/paypal/otro: las reparaciones agregadas desde el Registro Diario
+// usan el mismo vocabulario de Tipo de Pago que Accesorios/Lycas/Combos/
+// Teléfonos ahí mismo — se combinan en la misma tabla, por eso este mapa
+// necesita reconocer ambos vocabularios para mostrar siempre una etiqueta
+// legible en vez del valor crudo.
+const REP_PAGO_LABELS   = { cash:'💵 Cash', efectivo:'💵 Efectivo', zelle:'📲 Zelle', paypal:'🅿️ PayPal', punto:'💳 Punto', otro:'📝 Otro' };
 
 const DOUGLAS_ACTIVIDAD_LABELS = {
   'flyers': '🗞️ Flyers Entregados',
@@ -17559,7 +17575,7 @@ function bravoReparacionesDesdeRegistros() {
         ganancia: item.ganancia!=null ? item.ganancia : (item.precio||0)-(item.costo||0),
         estado: item.estado,
         fecha: reg.fecha,
-        pago: '',
+        pago: item.metodo || '',
         mes: reg.mes,
       });
     });
@@ -18319,6 +18335,7 @@ function bravoAgregarReparacion() {
   const costo = parseFloat(document.getElementById('bravo-rep-costo').value) || 0;
   const abono = parseFloat(document.getElementById('bravo-rep-abono').value) || 0;
   const estado = document.getElementById('bravo-rep-estado').value;
+  const metodo = document.getElementById('bravo-rep-metodo').value;
   const notas = document.getElementById('bravo-rep-notas').value.trim();
 
   if(!equipo || !tipo || !precio) { showNotif('⚠️ Completa todos los campos','error'); return; }
@@ -18329,7 +18346,7 @@ function bravoAgregarReparacion() {
   const resta = Math.max(0, precio - abono);
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, abono, resta, estado, ganancia, notas
+    equipo, tipo, precio, costo, abono, resta, estado, metodo, ganancia, notas
   });
 
   // Limpiar formulario
@@ -18356,6 +18373,7 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-costo').value = item.costo != null ? item.costo : '';
   document.getElementById('bravo-rep-abono').value = item.abono != null ? item.abono : '';
   document.getElementById('bravo-rep-estado').value = item.estado || 'entregada';
+  document.getElementById('bravo-rep-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-rep-notas').value = item.notas || '';
   bravoCalcularRestaRep();
   bravoRegistroTemp.reparaciones.splice(i,1);
