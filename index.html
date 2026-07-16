@@ -15760,6 +15760,29 @@ function agregarMes() {
 // MIGRATION — agrega agentes si no existen
 // ============================================================
 function migrarAgentes() {
+  // Migración de una sola vez: aplica nombres/sueldos "oficiales" a una
+  // lista fija de agentes históricos. A diferencia de TODAS las demás
+  // migraciones de ejecutarMigraciones(), esta corría SIN marca de "ya se
+  // ejecutó" — en CADA login de CUALQUIER persona. Si el nombre o sueldo de
+  // cualquiera de esta lista fija no coincidía exactamente con los datos
+  // actuales (cada vez más probable con el tiempo, a medida que sueldos y
+  // nombres reales cambian con el negocio), disparaba guardar()
+  // automáticamente — una sobrescritura COMPLETA de appData en Firebase,
+  // SIN ninguna confirmación, basada en lo que esa sesión tuviera cargado
+  // en memoria en ese momento. Si esa carga era apenas un poco más vieja
+  // que la última escritura de otra persona (una condición de carrera
+  // normal al iniciar sesión, no necesariamente una caída de red — el
+  // blindaje de "datos desactualizados" no protege contra esto, porque esa
+  // sesión sí tuvo una lectura fresca confirmada, solo que un instante
+  // antes de que alguien más guardara algo), ese guardado automático
+  // sobrescribía silenciosamente cualquier agente agregado por alguien más
+  // desde esa carga — causa real confirmada de un agente (Douglas Leon)
+  // que desapareció sin que nadie lo hubiera borrado. Se agrega la misma
+  // marca de una sola vez que ya usa el resto de las migraciones de
+  // ejecutarMigraciones(), para que esto corra exactamente una vez y nunca
+  // vuelva a poder sobrescribir nada por su cuenta.
+  if (appData._mig_agentesOficialesV1) return;
+
   // Lista oficial con nombres completos y sueldo quincenal correcto
   const lista = [
     { nombre:'Christian',       sueldoQuincenal:50  },
@@ -15833,7 +15856,13 @@ function migrarAgentes() {
       changed = true;
     }
   });
-  if(changed) { if(!appData.nextId||appData.nextId<=maxId) appData.nextId=maxId+1; guardar(); }
+  if(!appData.nextId||appData.nextId<=maxId) appData.nextId=maxId+1;
+  // Se marca y se guarda SIEMPRE aquí (haya cambiado algo o no) para que
+  // esta migración quede retirada de forma permanente después de esta
+  // primera corrida — así ningún futuro desajuste entre esta lista fija y
+  // los datos reales puede volver a disparar una sobrescritura automática.
+  appData._mig_agentesOficialesV1 = true;
+  guardar();
 }
 
 // Modal: Ver detalle con filtros de quincena
