@@ -12093,13 +12093,12 @@ function calcROI(mes, quincena) {
     const gastosOtros  = appData.gastos.filter(g=>(!mes||g.mes===mes)&&g.tipo==='otro').reduce((s,g)=>s+parseFloat(g.monto||0),0);
 
     // INTEGRACIÓN: Datos de tabla Gastos & Nómina
-    let gnGastosFijos = 0, gnGastosVar = 0, gnNomina = 0, gnComisiones = 0, gnSaraplus = 0;
+    let gnGastosFijos = 0, gnGastosVar = 0, gnNomina = 0, gnComisiones = 0;
     if (mes && appData.gastosNomina[mes]) {
       gnGastosFijos = parseFloat(appData.gastosNomina[mes].gastosFijos||0);
       gnGastosVar = parseFloat(appData.gastosNomina[mes].gastosVar||0);
       gnNomina = parseFloat(appData.gastosNomina[mes].nominas||0);
       gnComisiones = parseFloat(appData.gastosNomina[mes].comisiones||0);
-      gnSaraplus = parseFloat(appData.gastosNomina[mes].saraplus||0);
     }
 
     // INTEGRACIÓN: Información Financiera (legado, si existe)
@@ -12108,13 +12107,13 @@ function calcROI(mes, quincena) {
     const finNomina = appData.finanzas.filter(f=>(!mes||f.mes===mes)&&f.tipo==='nomina').reduce((s,f)=>s+parseFloat(f.monto||0),0);
     const finComisiones = appData.finanzas.filter(f=>(!mes||f.mes===mes)&&f.tipo==='comisiones_pagadas').reduce((s,f)=>s+parseFloat(f.monto||0),0);
 
-    const totalGastos  = gastosFijos+gastosVar+gastosOtros+gnGastosFijos+gnGastosVar+gnSaraplus+finGastosFijos+finGastosVar;
+    const totalGastos  = gastosFijos+gastosVar+gastosOtros+gnGastosFijos+gnGastosVar+finGastosFijos+finGastosVar;
     const totalNominaIntegrada = nomina+gnNomina+finNomina;
     const totalComisionesIntegradas = comAgentes+comGerSup+gnComisiones+finComisiones;
     const totalEgresos = totalComisionesIntegradas+totalNominaIntegrada+totalGastos;
     const utilidad     = pagado - totalEgresos;
     const roi          = pagado>0?(utilidad/pagado*100):0;
-    return { pagado, comAgentes, comGerSup, nomina, gastosFijos, gastosVar, gastosOtros, gnSaraplus, totalGastos, totalEgresos, utilidad, roi, finNomina, finComisiones, finGastosFijos, finGastosVar, totalNominaIntegrada, totalComisionesIntegradas };
+    return { pagado, comAgentes, comGerSup, nomina, gastosFijos, gastosVar, gastosOtros, totalGastos, totalEgresos, utilidad, roi, finNomina, finComisiones, finGastosFijos, finGastosVar, totalNominaIntegrada, totalComisionesIntegradas };
 }
 
 function renderTopROI() {
@@ -13379,12 +13378,10 @@ function renderTopChargebacks() {
 
   const filas = meses.map(mes=>{
     const rep   = appData.rsiReportes[mes];
-    const saraplusMes = parseFloat(appData.gastosNomina[mes]?.saraplus || 0);
-    // Si hay reporte RS&I, calcular automáticamente — se resta Saraplus porque
-    // ese cargo es un gasto real de RS&I, no un chargeback de cliente
+    // Si hay reporte RS&I, calcular automáticamente.
     let val, tiene, fuente;
     if(rep && rep.bruto>0) {
-      val    = ((rep.bruto - rep.neto - saraplusMes) / rep.bruto) * 100;
+      val    = ((rep.bruto - rep.neto) / rep.bruto) * 100;
       tiene  = true;
       fuente = 'auto';
     } else {
@@ -13396,7 +13393,7 @@ function renderTopChargebacks() {
     const color = !tiene ? '#99ACC2' : val < UMBRAL_OK ? '#00A492' : val < UMBRAL_WARN ? '#D4A017' : '#E04048';
     const badge = !tiene ? '' : val < UMBRAL_OK ? '✅ Bajo' : val < UMBRAL_WARN ? '⚠️ Moderado' : '🔴 Alto';
     const bar   = tiene ? `<div style="background:#F5F8FA;border-radius:20px;height:8px;width:100px;display:inline-block;vertical-align:middle;margin-left:8px"><div style="background:${color};border-radius:20px;height:8px;width:${Math.min(val/25*100,100)}%"></div></div>` : '';
-    const detalle = fuente==='auto' && rep ? `<span style="font-size:10px;color:#99ACC2">Bruto ${fmt(rep.bruto)} → Neto ${fmt(rep.neto)}${saraplusMes>0?` · Saraplus ${fmt(saraplusMes)}`:''}</span>` : '';
+    const detalle = fuente==='auto' && rep ? `<span style="font-size:10px;color:#99ACC2">Bruto ${fmt(rep.bruto)} → Neto ${fmt(rep.neto)}</span>` : '';
     return `<tr>
       <td style="font-weight:600">${mes}</td>
       <td style="text-align:right">
@@ -13420,8 +13417,7 @@ function renderTopChargebacks() {
     return (rep&&rep.bruto>0) || appData.chargebacks[m]!==undefined;
   }).map(m=>{
     const rep = appData.rsiReportes[m];
-    const saraplusM = parseFloat(appData.gastosNomina[m]?.saraplus || 0);
-    return rep&&rep.bruto>0 ? ((rep.bruto-rep.neto-saraplusM)/rep.bruto)*100 : parseFloat(appData.chargebacks[m]||0);
+    return rep&&rep.bruto>0 ? ((rep.bruto-rep.neto)/rep.bruto)*100 : parseFloat(appData.chargebacks[m]||0);
   });
   const prom = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
   const promColor = prom===null?'#99ACC2':prom<UMBRAL_OK?'#00A492':prom<UMBRAL_WARN?'#D4A017':'#E04048';
@@ -13463,8 +13459,7 @@ function abrirRSIReporte(mes) {
   // Actualizar también el ingreso RS&I almacenado
   const idx = appData.ingresos.findIndex(i=>i.mes===mes && i.fuente==='RS&I');
   if(idx>=0) appData.ingresos[idx].monto = n;
-  const saraplusMes = parseFloat(appData.gastosNomina[mes]?.saraplus || 0);
-  guardar(); renderTopChargebacks(); showNotif(`✅ Reporte RS&I ${mes} guardado — CB: ${((b-n-saraplusMes)/b*100).toFixed(2)}%`);
+  guardar(); renderTopChargebacks(); showNotif(`✅ Reporte RS&I ${mes} guardado — CB: ${((b-n)/b*100).toFixed(2)}%`);
 }
 
 function guardarChargeback(mes, valor) {
@@ -14113,30 +14108,28 @@ function renderAdminGastoNominaTable() {
 
   // Calcular totales por mes
   let datos = [];
-  let totalAnualNominas = 0, totalAnualComisiones = 0, totalAnualGastosVar = 0, totalAnualGastosFijos = 0, totalAnualSaraplus = 0, totalAnualCostosBravo = 0;
+  let totalAnualNominas = 0, totalAnualComisiones = 0, totalAnualGastosVar = 0, totalAnualGastosFijos = 0, totalAnualCostosBravo = 0;
 
   meses.forEach(mes => {
     const nominas = (appData.gastosNomina[mes]?.nominas || 0);
     const comisiones = (appData.gastosNomina[mes]?.comisiones || 0);
     const gastosVar = (appData.gastosNomina[mes]?.gastosVar || 0);
     const gastosFijos = (appData.gastosNomina[mes]?.gastosFijos || 0);
-    const saraplus = (appData.gastosNomina[mes]?.saraplus || 0);
     const [mesNombre, anioStr] = mes.split(' ');
     const mesNum = MESES_ES.indexOf(mesNombre) + 1;
     const anioNum = parseInt(anioStr) || new Date().getFullYear();
     const costosBravo = mesNum > 0 ? calcCostosBravoMes(mesNum, anioNum) : 0;
-    const totalMes = nominas + comisiones + gastosVar + gastosFijos + saraplus + costosBravo;
+    const totalMes = nominas + comisiones + gastosVar + gastosFijos + costosBravo;
 
-    datos.push({ mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, costosBravo, totalMes });
+    datos.push({ mes, nominas, comisiones, gastosVar, gastosFijos, costosBravo, totalMes });
     totalAnualNominas += nominas;
     totalAnualComisiones += comisiones;
     totalAnualGastosVar += gastosVar;
     totalAnualGastosFijos += gastosFijos;
-    totalAnualSaraplus += saraplus;
     totalAnualCostosBravo += costosBravo;
   });
 
-  const totalAnual = totalAnualNominas + totalAnualComisiones + totalAnualGastosVar + totalAnualGastosFijos + totalAnualSaraplus + totalAnualCostosBravo;
+  const totalAnual = totalAnualNominas + totalAnualComisiones + totalAnualGastosVar + totalAnualGastosFijos + totalAnualCostosBravo;
 
   const html = `
     <div class="tbl-wrap" style="overflow-x:auto">
@@ -14148,7 +14141,6 @@ function renderAdminGastoNominaTable() {
             <th style="text-align:right;min-width:130px">💰 Comisiones</th>
             <th style="text-align:right;min-width:150px">📊 Gastos Var.</th>
             <th style="text-align:right;min-width:130px">📌 Gastos Fijos</th>
-            <th style="text-align:right;min-width:120px">🔌 Saraplus</th>
             <th style="text-align:right;min-width:140px;background:#FFF3EE" title="Se calcula automático desde Bravo → ROI de Bravo → Nuevo Gasto. No editable aquí.">🏪 Costos Bravo</th>
             <th style="text-align:right;min-width:130px">💵 Total Mensual</th>
           </tr>
@@ -14161,7 +14153,6 @@ function renderAdminGastoNominaTable() {
               <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00BDA5" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
-              <td style="padding:12px;text-align:right"><input type="number" value="${d.saraplus}" data-field="saraplus" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#6A78D1" /></td>
               <td style="padding:12px;text-align:right;font-weight:700;background:#FFFAF7;color:#B94A00">${fmt(d.costosBravo)}</td>
               <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
             </tr>
@@ -14172,7 +14163,6 @@ function renderAdminGastoNominaTable() {
             <td style="padding:12px;text-align:right;color:#00BDA5">${fmt(totalAnualComisiones)}</td>
             <td style="padding:12px;text-align:right;color:#FF7A59">${fmt(totalAnualGastosVar)}</td>
             <td style="padding:12px;text-align:right;color:#F2545B">${fmt(totalAnualGastosFijos)}</td>
-            <td style="padding:12px;text-align:right;color:#6A78D1">${fmt(totalAnualSaraplus)}</td>
             <td style="padding:12px;text-align:right;color:#B94A00">${fmt(totalAnualCostosBravo)}</td>
             <td style="padding:12px;text-align:right;color:#009FDB;font-size:16px">${fmt(totalAnual)}</td>
           </tr>
@@ -14207,7 +14197,6 @@ function renderTopGastoNominaGanancias() {
     const comisiones = (appData.gastosNomina[mes]?.comisiones || 0);
     const gastosVar = (appData.gastosNomina[mes]?.gastosVar || 0);
     const gastosFijos = (appData.gastosNomina[mes]?.gastosFijos || 0);
-    const saraplus = (appData.gastosNomina[mes]?.saraplus || 0);
 
     const [mesNombre, anioStr] = mes.split(' ');
     const mesNum = MESES_ES.indexOf(mesNombre) + 1;
@@ -14221,7 +14210,7 @@ function renderTopGastoNominaGanancias() {
     // explícito aquí), lo que subestimaba la Utilidad Global y el ROI% de
     // todos los meses con costos de Bravo — bug real corregido. Los costos
     // de Bravo se siguen viendo y editando en Bravo → ROI de Bravo.
-    const totalMes = nominas + comisiones + gastosVar + gastosFijos + saraplus;
+    const totalMes = nominas + comisiones + gastosVar + gastosFijos;
     // Ganancia Salud/Dental se ingresa manualmente aquí mismo (igual que
     // Nóminas, Comisiones, etc.) en vez de tomarse de Salud → ROI Mensual,
     // a pedido del usuario, para que no dependa de la sincronización con el
@@ -14232,12 +14221,11 @@ function renderTopGastoNominaGanancias() {
     const rsiNeto = parseFloat(rep.neto||0);
 
     // Utilidad Global = (RS&I Neto − Total Gastos) + Ganancia Bravo +
-    // Ganancia Salud/Dental — ya NETA de gastos, no una suma bruta. Total
-    // Gastos aquí SÍ incluye Saraplus (a pedido del usuario), así que se resta
-    // por completo. Ya no se usan Ingresos AT&T ni el cálculo interno de
-    // calcROI(), a pedido del usuario, para que no haya cifras "escondidas".
-    // El ROI% se calcula sobre esa misma Utilidad Global ya neta, dividida
-    // entre Total Gastos: ROI% = Utilidad Global / Total Gastos × 100.
+    // Ganancia Salud/Dental — ya NETA de gastos, no una suma bruta. Ya no se
+    // usan Ingresos AT&T ni el cálculo interno de calcROI(), a pedido del
+    // usuario, para que no haya cifras "escondidas". El ROI% se calcula
+    // sobre esa misma Utilidad Global ya neta, dividida entre Total Gastos:
+    // ROI% = Utilidad Global / Total Gastos × 100.
     const ingresosTotales = rsiNeto + bravo.gananciaNeta + gananciaSalud;
     const utilidadGlobal = ingresosTotales - totalMes;
     const roiPct = totalMes > 0 ? (utilidadGlobal / totalMes * 100) : 0;
@@ -14246,7 +14234,7 @@ function renderTopGastoNominaGanancias() {
     // mide sobre los Ingresos Totales (RS&I Neto + Bravo + Salud).
     const margenOperativoPct = ingresosTotales > 0 ? (utilidadGlobal / ingresosTotales * 100) : 0;
 
-    return { mes, nominas, comisiones, gastosVar, gastosFijos, saraplus, totalMes,
+    return { mes, nominas, comisiones, gastosVar, gastosFijos, totalMes,
       rsiBruto, rsiNeto, ingresosTotales, roiPct, margenOperativoPct,
       gananciaBravo: bravo.gananciaNeta, gananciaSalud, utilidadGlobal };
   });
@@ -14274,7 +14262,6 @@ function renderTopGastoNominaGanancias() {
             <th style="text-align:right;min-width:130px">💰 Comisiones</th>
             <th style="text-align:right;min-width:150px">📊 Gastos Var.</th>
             <th style="text-align:right;min-width:130px">📌 Gastos Fijos</th>
-            <th style="text-align:right;min-width:120px">🔌 Saraplus</th>
             <th style="text-align:right;min-width:130px">💵 Total Gastos</th>
             <th style="text-align:right;min-width:120px;background:#FFF9F0">🔴 RS&I Bruto</th>
             <th style="text-align:right;min-width:120px;background:#FFF9F0">🔴 RS&I Neto</th>
@@ -14293,7 +14280,6 @@ function renderTopGastoNominaGanancias() {
               <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00BDA5" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosVar}" data-field="gastosVar" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
               <td style="padding:12px;text-align:right"><input type="number" value="${d.gastosFijos}" data-field="gastosFijos" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#F2545B" /></td>
-              <td style="padding:12px;text-align:right"><input type="number" value="${d.saraplus}" data-field="saraplus" data-mes="${d.mes}" onchange="guardarGastoNominaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#6A78D1" /></td>
               <td style="padding:12px;text-align:right;font-weight:700;color:#009FDB">${fmt(d.totalMes)}</td>
               <td style="padding:12px;text-align:right;background:#FFF9F0"><input type="number" value="${d.rsiBruto||''}" placeholder="0.00" step="0.01" data-field="bruto" data-mes="${d.mes}" onchange="guardarRSIReporteCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#B94A00" /></td>
               <td style="padding:12px;text-align:right;background:#FFF9F0"><input type="number" value="${d.rsiNeto||''}" placeholder="0.00" step="0.01" data-field="neto" data-mes="${d.mes}" onchange="guardarRSIReporteCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#B94A00" /></td>
@@ -14303,14 +14289,13 @@ function renderTopGastoNominaGanancias() {
               <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF">${roiPctBadge(d.roiPct)}</td>
               <td style="padding:12px;text-align:right;font-weight:700;background:#FAFAFF">${roiPctBadge(d.margenOperativoPct)}</td>
             </tr>
-          `).join('') || `<tr><td colspan="14" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
+          `).join('') || `<tr><td colspan="13" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
           <tr style="background:#F5F8FA;font-weight:700;border-top:2px solid #CBD6E2;border-bottom:none">
             <td style="padding:12px;color:#33475B">📊 Total${selAnio?' '+selAnio:' (todos los años)'}</td>
             <td style="padding:12px;text-align:right;color:#009FDB">${fmt(sum('nominas'))}</td>
             <td style="padding:12px;text-align:right;color:#00BDA5">${fmt(sum('comisiones'))}</td>
             <td style="padding:12px;text-align:right;color:#FF7A59">${fmt(sum('gastosVar'))}</td>
             <td style="padding:12px;text-align:right;color:#F2545B">${fmt(sum('gastosFijos'))}</td>
-            <td style="padding:12px;text-align:right;color:#6A78D1">${fmt(sum('saraplus'))}</td>
             <td style="padding:12px;text-align:right;color:#009FDB;font-size:15px">${fmt(sum('totalMes'))}</td>
             <td style="padding:12px;text-align:right;color:#B94A00;background:#FFF9F0">${fmt(sum('rsiBruto'))}</td>
             <td style="padding:12px;text-align:right;color:#B94A00;background:#FFF9F0">${fmt(sum('rsiNeto'))}</td>
@@ -14339,7 +14324,7 @@ function guardarGastoNominaCell(input) {
   const valor = parseFloat(input.value) || 0;
 
   if (!appData.gastosNomina[mes]) {
-    appData.gastosNomina[mes] = { nominas: 0, comisiones: 0, gastosVar: 0, gastosFijos: 0, saraplus: 0, gananciaSaludManual: 0 };
+    appData.gastosNomina[mes] = { nominas: 0, comisiones: 0, gastosVar: 0, gastosFijos: 0, gananciaSaludManual: 0 };
   }
 
   appData.gastosNomina[mes][field] = valor;
