@@ -433,6 +433,8 @@ table thead,table tbody{display:table;width:100%}
   <nav class="sidebar-nav" id="sidebar-nav-agente-salud" style="display:none">
     <div class="nav-section">💚 MIS VENTAS SALUD</div>
     <div class="nav-item active" onclick="showPage('agente-salud-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
+    <div class="nav-item" onclick="saludReportarEditGrupoId=null;showPage('agente-salud-reportar',this)"><span class="icon">📝</span><span>Reportar Cliente</span></div>
+    <div class="nav-item" onclick="showPage('agente-salud-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -953,9 +955,59 @@ table thead,table tbody{display:table;width:100%}
     </div>
 
     <div class="page" id="page-agente-salud-dashboard">
+      <div id="agente-salud-dashboard-content"></div>
+    </div>
+
+    <div class="page" id="page-agente-salud-reportar">
       <div class="section">
-        <div class="section-header"><h2>💚 Mis Ventas Salud</h2></div>
-        <div style="color:#7C98B6;padding:30px;text-align:center">🚧 Próximamente podrás reportar aquí tus clientes de Salud/Dental.</div>
+        <div class="section-header"><h2 id="sr-form-titulo">📝 Reportar Cliente</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Tu reporte queda pendiente hasta que lo revisen y lo aprueben.</div>
+        <div id="sr-editando-banner" style="display:none;background:#FFFBEF;border:1.5px solid #F5C26B;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#B45309;justify-content:space-between;align-items:center">
+          <span>✏️ Estás editando un reporte ya enviado.</span>
+          <button onclick="saludCancelarEdicionReporte()" style="background:none;border:1px solid #B45309;color:#B45309;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">✕ Cancelar edición</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>Nombre Completo *</label><input type="text" id="sr-nombre" placeholder="Ej: María García"></div>
+          <div class="form-group"><label># Cuenta / Policy</label><input type="text" id="sr-cuenta" placeholder="Ej: 1234567"></div>
+          <div class="form-group"><label>Teléfono</label><input type="text" id="sr-telefono" placeholder="(305) 000-0000"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="sr-email" placeholder="correo@email.com"></div>
+          <div class="form-group">
+            <label>Tipo de Venta *</label>
+            <select id="sr-tipo" onchange="saludReportarOnTipoChange()">
+              <option value="dental">Dental</option>
+              <option value="referido">Referido (Dental)</option>
+              <option value="directo">Directo (Dental)</option>
+              <option value="salud">Salud</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Agente</label><input type="text" id="sr-agente-nombre" readonly style="background:#F5F8FA;color:#7C98B6;font-weight:600"></div>
+          <div class="form-group"><label>Prima Mensual ($) *</label><input type="number" id="sr-prima" placeholder="0.00" step="0.01" min="0"></div>
+          <div class="form-group" id="sr-residual-wrap" style="display:none">
+            <label>💚 Comisión Residual Mensual ($)</label>
+            <input type="number" id="sr-residual" placeholder="Ej: 5.00" step="0.01" min="0">
+          </div>
+          <div class="form-group"><label>Fecha de Venta *</label><input type="date" id="sr-fecha"></div>
+          <div class="form-group"><label>Fecha Efectiva</label><input type="date" id="sr-fecha-efectiva"></div>
+          <div class="form-group"><label>Campaña Origen</label><select id="sr-campana"><option value="">Ninguna / Orgánico</option></select></div>
+        </div>
+        <div class="form-group" style="margin-top:14px"><label>Notas</label><textarea id="sr-notas" placeholder="Observaciones..."></textarea></div>
+        <div class="modal-footer" style="padding:16px 0 0">
+          <button class="btn btn-primary" onclick="saludGuardarClienteAgente()">💾 Enviar Reporte</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-agente-salud-mis-reportes">
+      <div class="section">
+        <div class="section-header"><h2>📋 Mis Reportes</h2></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Estado</th><th>Cliente</th><th>Tipo</th><th>Fecha</th><th>Notas</th><th></th>
+            </tr></thead>
+            <tbody id="salud-agente-mis-reportes-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -3777,6 +3829,13 @@ function normalizarSaludData() {
   if(saludData.comisiones.tasaAnual === undefined) saludData.comisiones.tasaAnual = 0.30;
   if(saludData.comisiones.splitAdelantoMeses === undefined) saludData.comisiones.splitAdelantoMeses = 9;
   if(!saludData.comisiones.comAgenteDefault) saludData.comisiones.comAgenteDefault = { dental:8, salud:8, referido:8, directo:8 };
+  // Auto-reporte de vendedores de Salud — colecciones separadas de
+  // saludData.clientes (nunca se mezclan), invisibles para el resto del
+  // sitio hasta que se aprueben (mismo patrón que appData.ventasPendientes
+  // en AT&T). Contador propio, independiente de saludData.nextId.
+  if(!saludData.clientesPendientes) saludData.clientesPendientes = [];
+  if(!saludData.clientesRechazados) saludData.clientesRechazados = [];
+  if(!saludData.nextClientePendienteId) saludData.nextClientePendienteId = 1;
   saludData.clientes.forEach(c => {
     if(c.proveedor === undefined) c.proveedor = '';
     if(c.fechaNacimiento === undefined) c.fechaNacimiento = '';
@@ -4280,6 +4339,8 @@ const PAGE_TITLES = {
   'agente-chargebacks':'⚠️ Chargebacks',
   'agente-comisiones':'💰 Mis Comisiones',
   'agente-salud-dashboard':'💚 Mis Ventas Salud',
+  'agente-salud-reportar':'📝 Reportar Cliente',
+  'agente-salud-mis-reportes':'📋 Mis Reportes — Salud',
   'inspector-clientes':'🔍 Clientes',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
@@ -4341,6 +4402,9 @@ function renderPage(name) {
   if(name==='agente-mis-reportes') renderAgenteMisReportes();
   if(name==='agente-chargebacks') renderAgenteChargebacks();
   if(name==='agente-comisiones') renderAgenteComisiones();
+  if(name==='agente-salud-dashboard') renderAgenteSaludDashboard();
+  if(name==='agente-salud-reportar') renderAgenteSaludReportar();
+  if(name==='agente-salud-mis-reportes') renderAgenteSaludMisReportes();
   if(name==='inspector-clientes') renderInspectorClientes();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
@@ -8030,6 +8094,179 @@ function reenviarResetPasswordAgenteSalud(id) {
   fbAuth.sendPasswordResetEmail(a.loginEmail)
     .then(()=> showNotif(`✅ Correo de restablecimiento enviado a ${a.loginEmail}`))
     .catch(e => showNotif('❌ ' + e.message, 'error'));
+}
+
+// ============================================================
+// AGENTE-SALUD — REPORTAR CLIENTE + MIS REPORTES (Fase 4)
+// A diferencia de AT&T, un cliente de Salud es UN SOLO registro (no hay
+// líneas de múltiples productos que agrupar), así que no hace falta
+// ningún equivalente a grupoId — cada reporte es directamente un objeto
+// con la forma de saludData.clientes[] más metadata de auto-reporte. El
+// campo Agente queda fijo al agente logueado (nunca un <select>), y la
+// comisión del agente se autocalcula con saludGetComisionDirectaAgente()
+// — el vendedor nunca la ve ni la edita directamente.
+// ============================================================
+function renderAgenteSaludDashboard() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const nombre = perms ? perms.nombre : '';
+  const pendientes = (saludData.clientesPendientes||[]).filter(c => c.reportadoPor === perms?.agenteSaludId);
+  const btnStyle = 'flex:1;min-width:220px;background:#fff;border:1.5px solid #CBD6E2;border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.15s;text-align:center';
+  document.getElementById('agente-salud-dashboard-content').innerHTML = `
+    <div class="section">
+      <div class="section-header"><h2>👋 Hola, ${nombre}</h2></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+        <button onclick="saludReportarEditId=null;showPage('agente-salud-reportar')" style="${btnStyle};border-color:#00BDA5"
+          onmouseover="this.style.background='#E8F9F7'" onmouseout="this.style.background='#fff'">
+          <div style="font-size:36px;margin-bottom:8px">📝</div>
+          <div style="color:#00A492;font-size:16px;font-weight:800">Reportar Cliente</div>
+          <div style="color:#7C98B6;font-size:11px;margin-top:4px">Anota un cliente que acabas de activar</div>
+        </button>
+        <button onclick="showPage('agente-salud-mis-reportes')" style="${btnStyle};border-color:#6A78D1"
+          onmouseover="this.style.background='#F4F5FF'" onmouseout="this.style.background='#fff'">
+          <div style="font-size:36px;margin-bottom:8px">📋</div>
+          <div style="color:#6A78D1;font-size:16px;font-weight:800">Mis Reportes</div>
+          <div style="color:#7C98B6;font-size:11px;margin-top:4px">
+            ${pendientes.length>0 ? `${pendientes.length} pendiente${pendientes.length>1?'s':''} de revisión` : 'Revisa el estado de tus reportes'}
+          </div>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Cuando no es null, "Reportar Cliente" está editando un reporte PENDIENTE
+// ya enviado (en vez de crear uno nuevo).
+let saludReportarEditId = null;
+
+function saludReportarOnTipoChange() {
+  const tipo = document.getElementById('sr-tipo')?.value;
+  document.getElementById('sr-residual-wrap').style.display = tipo==='salud' ? 'block' : 'none';
+}
+
+function renderAgenteSaludReportar() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  document.getElementById('sr-agente-nombre').value = perms ? perms.nombre : '';
+  document.getElementById('sr-campana').innerHTML = '<option value="">Ninguna / Orgánico</option>' +
+    (saludData.campanas||[]).filter(c=>c.estado==='activa').map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+
+  const c = saludReportarEditId ? (saludData.clientesPendientes||[]).find(x=>x.id===saludReportarEditId) : null;
+  document.getElementById('sr-form-titulo').textContent = c ? '✏️ Editar Reporte' : '📝 Reportar Cliente';
+  document.getElementById('sr-editando-banner').style.display = c ? 'flex' : 'none';
+  document.getElementById('sr-nombre').value = c ? c.nombre : '';
+  document.getElementById('sr-cuenta').value = c ? (c.cuenta||'') : '';
+  document.getElementById('sr-telefono').value = c ? (c.tel||'') : '';
+  document.getElementById('sr-email').value = c ? (c.email||'') : '';
+  document.getElementById('sr-tipo').value = c ? c.tipo : 'dental';
+  document.getElementById('sr-prima').value = c ? (c.prima||'') : '';
+  document.getElementById('sr-residual').value = c ? (c.comResidualMensual||'') : '';
+  document.getElementById('sr-fecha').value = c ? c.fecha : new Date().toISOString().split('T')[0];
+  document.getElementById('sr-fecha-efectiva').value = c ? (c.fechaEfectiva||'') : '';
+  document.getElementById('sr-campana').value = c ? (c.campana||'') : '';
+  document.getElementById('sr-notas').value = c ? (c.notas||'') : '';
+  saludReportarOnTipoChange();
+}
+
+// Abre "Reportar Cliente" precargado con los datos de un reporte PENDIENTE
+// ya enviado, para corregirlo sin tener que volver a escribir todo.
+function saludEditarReportePendiente(id) {
+  saludReportarEditId = id;
+  showPage('agente-salud-reportar', null);
+}
+function saludCancelarEdicionReporte() {
+  saludReportarEditId = null;
+  renderAgenteSaludReportar();
+}
+
+function saludGuardarClienteAgente() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(!perms || !perms.agenteSaludId) { showNotif('⚠️ No se pudo identificar tu perfil de agente','error'); return; }
+
+  const nombre = document.getElementById('sr-nombre').value.trim();
+  const tipo   = document.getElementById('sr-tipo').value;
+  const prima  = parseFloat(document.getElementById('sr-prima').value)||0;
+  const isSalud = tipo==='salud';
+  const residual = parseFloat(document.getElementById('sr-residual').value)||0;
+  const fecha = document.getElementById('sr-fecha').value;
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
+  if(!fecha) { showNotif('⚠️ Selecciona la fecha de venta','error'); return; }
+  if(isSalud && residual<=0) { showNotif('⚠️ Ingresa la comisión residual mensual de Salud','error'); return; }
+  if(!isSalud && prima<=0) { showNotif('⚠️ Ingresa una prima válida','error'); return; }
+
+  const agenteObj = saludData.agentes.find(a=>a.id===perms.agenteSaludId);
+  const nombreAgente = agenteObj ? agenteObj.nombre : perms.nombre;
+  // El vendedor nunca ve ni edita este monto directamente — se autocalcula
+  // con su tarifa de venta directa (o el default, si no tiene una propia).
+  const comAgente = saludGetComisionDirectaAgente(tipo, nombreAgente);
+  const [y, m] = fecha.split('-');
+  const mes = mesStrDesdeNum(parseInt(y,10), parseInt(m,10));
+
+  const data = {
+    nombre, tipo,
+    cuenta: document.getElementById('sr-cuenta').value.trim(),
+    tel:    document.getElementById('sr-telefono').value.trim(),
+    email:  document.getElementById('sr-email').value.trim(),
+    agente: nombreAgente,
+    prima:  isSalud ? 0 : prima,
+    comResidualMensual: isSalud ? residual : 0,
+    comAgente,
+    fecha,
+    fechaEfectiva: document.getElementById('sr-fecha-efectiva').value,
+    mes,
+    campana: document.getElementById('sr-campana').value,
+    notas:  document.getElementById('sr-notas').value.trim(),
+    reportadoPor: perms.agenteSaludId,
+  };
+
+  if(!saludData.clientesPendientes) saludData.clientesPendientes = [];
+  if(!saludData.nextClientePendienteId) saludData.nextClientePendienteId = 1;
+
+  let id;
+  if(saludReportarEditId !== null) {
+    id = saludReportarEditId;
+    const existing = saludData.clientesPendientes.find(x=>x.id===id);
+    if(existing) Object.assign(existing, data);
+    showNotif('✅ Reporte actualizado');
+  } else {
+    id = saludData.nextClientePendienteId++;
+    saludData.clientesPendientes.push({ id, creadoEn: new Date().toISOString(), ...data });
+    showNotif('🕓 Reporte enviado — pendiente de revisión');
+  }
+  saludReportarEditId = null;
+  saludCrearNotificacion({ paraSalud: true }, 'reporte', `${nombreAgente} reportó un nuevo cliente: ${nombre}`, id);
+  guardarSalud();
+  showPage('agente-salud-mis-reportes', null);
+}
+
+function renderAgenteSaludMisReportes() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteSaludId = perms ? perms.agenteSaludId : null;
+
+  const pendientes = (saludData.clientesPendientes||[]).filter(c => c.reportadoPor === agenteSaludId);
+  const rechazados = (saludData.clientesRechazados||[]).filter(c => c.reportadoPor === agenteSaludId);
+  const aprobados  = (saludData.clientes||[]).filter(c => c.reportadoPor === agenteSaludId);
+
+  const badges = {
+    pendiente: '<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">🟡 Pendiente</span>',
+    aprobado:  '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">✅ Activo</span>',
+    rechazado: '<span style="background:#FEE2E2;color:#DC2626;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600">❌ Rechazado</span>',
+  };
+
+  const todos = [
+    ...pendientes.map(c=>({ c, estado:'pendiente' })),
+    ...rechazados.map(c=>({ c, estado:'rechazado' })),
+    ...aprobados.map(c=>({ c, estado:'aprobado' })),
+  ].sort((a,b)=>(b.c.fecha||'').localeCompare(a.c.fecha||''));
+
+  const body = document.getElementById('salud-agente-mis-reportes-body');
+  body.innerHTML = todos.length ? todos.map(({c,estado})=>`
+    <tr>
+      <td>${badges[estado]}</td>
+      <td><b>${c.nombre}</b>${c.cuenta?`<br><span style="font-size:10px;color:#7C98B6">${c.cuenta}</span>`:''}</td>
+      <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
+      <td>${c.fecha}</td>
+      <td style="font-size:11px;color:#7C98B6">${estado==='rechazado' ? (c.motivoRechazo||'') : (c.notas||'')}</td>
+      <td>${estado==='pendiente' ? `<button class="btn btn-ghost btn-xs" onclick="saludEditarReportePendiente(${c.id})">✏️</button>` : ''}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Aún no has reportado ningún cliente</td></tr>';
 }
 
 // ── Productos Extra ─────────────────────────────────────────
