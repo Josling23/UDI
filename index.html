@@ -408,6 +408,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('salud-roi-mensual',this)"><span class="icon">📊</span><span>ROI Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-clientes',this)"><span class="icon">👥</span><span>Clientes</span></div>
     <div class="nav-item" onclick="showPage('salud-agentes',this)"><span class="icon">🤝</span><span>Agentes</span></div>
+    <div class="nav-item" onclick="showPage('salud-productos',this)"><span class="icon">💼</span><span>Productos & Comisiones</span></div>
     <div class="nav-item" onclick="showPage('salud-comisiones',this)"><span class="icon">💵</span><span>Comisiones</span></div>
     <div class="nav-item" onclick="showPage('salud-campanas',this)"><span class="icon">📢</span><span>Campañas ROI</span></div>
     <div class="nav-item" onclick="showPage('salud-resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
@@ -1099,6 +1100,30 @@ table thead,table tbody{display:table;width:100%}
             <tbody id="salud-agente-ventas-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-salud-productos">
+      <div class="section">
+        <div class="section-header"><h2>💼 Configuración de Comisiones — Dental/Referido/Directo</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Los cambios aquí SOLO aplican a clientes nuevos que se creen de ahora en adelante — los ya guardados conservan la tasa con la que se crearon, para no cambiar montos ya calculados.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:22px;max-width:640px">
+          <div class="form-group" style="margin:0">
+            <label>Tasa Anual (%)</label>
+            <input type="number" id="sp-tasa-anual" step="0.1" min="0" max="100" onchange="saludGuardarConfigComisiones()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Meses de Adelanto <span style="font-weight:400;color:#99ACC2">— de 12</span></label>
+            <input type="number" id="sp-split-adelanto" step="1" min="0" max="12" onchange="saludGuardarConfigComisiones()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Meses de Final <span style="font-weight:400;color:#99ACC2">— se calcula solo</span></label>
+            <input type="text" id="sp-split-final" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700">
+          </div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">💰 Comisión Default del Agente por Tipo de Póliza</div>
+        <div style="font-size:11px;color:#99ACC2;margin:-4px 0 12px">Se usa cuando el agente NO tiene una tarifa personal configurada en su perfil (Admin → Agentes de Salud).</div>
+        <div id="salud-productos-tipos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-width:900px"></div>
       </div>
     </div>
 
@@ -3700,6 +3725,14 @@ function normalizarSaludData() {
   if(!saludData.nextMensajeId)    saludData.nextMensajeId    = 1;
   if(!saludData.notificaciones)   saludData.notificaciones   = [];
   if(!saludData.nextNotificacionId) saludData.nextNotificacionId = 1;
+  // Config global de comisiones — reemplaza los valores que antes estaban
+  // hardcodeados en saludCalcCom() (30% anual, split 9/12+3/12, $8 default
+  // de comAgente). Los valores por defecto son EXACTAMENTE los que ya
+  // estaban en el código, para que nada cambie el día del despliegue.
+  if(!saludData.comisiones) saludData.comisiones = {};
+  if(saludData.comisiones.tasaAnual === undefined) saludData.comisiones.tasaAnual = 0.30;
+  if(saludData.comisiones.splitAdelantoMeses === undefined) saludData.comisiones.splitAdelantoMeses = 9;
+  if(!saludData.comisiones.comAgenteDefault) saludData.comisiones.comAgenteDefault = { dental:8, salud:8, referido:8, directo:8 };
   saludData.clientes.forEach(c => {
     if(c.proveedor === undefined) c.proveedor = '';
     if(c.fechaNacimiento === undefined) c.fechaNacimiento = '';
@@ -3708,6 +3741,14 @@ function normalizarSaludData() {
     if(c.renovaciones === undefined) c.renovaciones = '';
     if(c.estadoUS === undefined) c.estadoUS = '';
     if(!c.pagosPorMes) c.pagosPorMes = {};
+    // Snapshot de la tasa/split vigente al momento de crear el cliente —
+    // se congela aquí (igual que AT&T congela "comision" en cada venta al
+    // aprobarla) para que si mañana cambia la tasa global, los clientes ya
+    // guardados NO cambien de valor retroactivamente. Backfill con los
+    // valores hardcodeados de siempre para que ningún cliente existente
+    // cambie ni un centavo hoy.
+    if(c.tasaComAnual === undefined) c.tasaComAnual = 0.30;
+    if(c.splitAdelantoMeses === undefined) c.splitAdelantoMeses = 9;
   });
   // Roles y comisiones configurables por agente — agentes ya existentes no
   // tenían ninguno de estos campos; se rellenan con el default ('agente'
@@ -3802,6 +3843,7 @@ function activarListenerSalud() {
           'salud-roi-mensual': saludRenderROIMensual,
           'salud-clientes':    saludRenderClientes,
           'salud-agentes':     saludRenderAgentes,
+          'salud-productos':   saludRenderProductos,
           'salud-comisiones':  saludRenderComisiones,
           'salud-campanas':    saludRenderCampanas,
           'salud-resumen':     saludRenderResumen,
@@ -4199,6 +4241,7 @@ const PAGE_TITLES = {
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
   'salud-clientes':'💚 Salud — Clientes',
   'salud-agentes':'💚 Salud — Agentes',
+  'salud-productos':'💼 Salud — Productos & Comisiones',
   'salud-comisiones':'💚 Salud — Comisiones',
   'salud-campanas':'💚 Salud — Campañas ROI',
   'salud-resumen':'💚 Salud — Resumen Mensual',
@@ -4259,6 +4302,7 @@ function renderPage(name) {
   if(name==='salud-roi-mensual') saludRenderROIMensual();
   if(name==='salud-clientes') saludRenderClientes();
   if(name==='salud-agentes') saludRenderAgentes();
+  if(name==='salud-productos') saludRenderProductos();
   if(name==='salud-comisiones') saludRenderComisiones();
   if(name==='salud-campanas') saludRenderCampanas();
   if(name==='salud-resumen') saludRenderResumen();
@@ -12710,7 +12754,7 @@ function calcSaludMes(m) {
   const clientes = saludData.clientes.filter(c=>c.mes===m);
   const activos = clientes.filter(c=>c.estado==='activo');
   const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
-  const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
+  const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).final,0);
 
   // Ganancia Neta real: Pagos Recibidos ya no se escribe a mano aquí — se
   // suma automáticamente desde Salud -> Pagos Recibidos (calcPagosRecibidosMes).
@@ -13907,9 +13951,14 @@ function guardarRSIReporteCell(input) {
 // ============================================================
 
 // ─── Salud Calc Utils ────────────────────────────────────────
-function saludCalcCom(prima) {
-  const total = prima * 12 * 0.30;
-  return { total, adelanto: total * 9/12, final: total * 3/12 };
+// tasa/mesesAdelanto: opcionales — cuando no se pasan, usa los valores de
+// siempre (0.30 / 9), así cualquier llamador viejo sigue igual. Los
+// llamadores que sí conocen un cliente específico deben pasar su propio
+// snapshot congelado (c.tasaComAnual/c.splitAdelantoMeses) vía
+// saludClienteCom(), no el config global en vivo — ver comentario ahí.
+function saludCalcCom(prima, tasa=0.30, mesesAdelanto=9) {
+  const total = prima * 12 * tasa;
+  return { total, adelanto: total * mesesAdelanto/12, final: total * (12-mesesAdelanto)/12 };
 }
 function saludClienteCom(c) {
   if (c.tipo === 'salud') {
@@ -13919,7 +13968,10 @@ function saludClienteCom(c) {
     const proyectado = mensual * 12;
     return { tipo:'salud', mensual, meses, cobrado, proyectado, total: proyectado, adelanto: cobrado, final: proyectado - cobrado };
   }
-  return { tipo:'dental', ...saludCalcCom(c.prima) };
+  // Usa la tasa/split CONGELADOS en el cliente al crearse (ver
+  // normalizarSaludData) — no el config global vigente, para que cambiar
+  // la tasa hoy no altere retroactivamente clientes ya guardados.
+  return { tipo:'dental', ...saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses) };
 }
 function getSaludMeses() { return saludData.meses || []; }
 function getSaludAgenteNombres() { return ['Sin agente', ...saludData.agentes.map(a=>a.nombre)]; }
@@ -13953,7 +14005,7 @@ function saludRenderDashboard() {
   const activos = saludData.clientes.filter(c=>c.estado==='activo');
   const totalPrimas = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+c.prima,0);
   const totalCom = activos.reduce((s,c)=>s+saludClienteCom(c).total,0);
-  const comPendiente = activos.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0)
+  const comPendiente = activos.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).adelanto,0)
     + activos.filter(c=>c.tipo==='salud').reduce((s,c)=>s+saludClienteCom(c).final,0);
   const mesActual = MESES_ES[new Date().getMonth()]+' '+new Date().getFullYear();
   const ventasMes = saludData.clientes.filter(c=>c.mes===mesActual).length;
@@ -13995,9 +14047,9 @@ function saludRenderDashboard() {
   const agSum = saludData.agentes.map(a=>{
     const nombre = (a.nombre||'').trim().toLowerCase();
     const ventas = saludData.clientes.filter(c=>(c.agente||'').trim().toLowerCase()===nombre && c.estado==='activo');
-    const adelantoPend = ventas.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0)
+    const adelantoPend = ventas.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).adelanto,0)
       + ventas.filter(c=>c.tipo==='salud').reduce((s,c)=>s+saludClienteCom(c).final,0);
-    const finalPend = ventas.filter(c=>c.tipo!=='salud'&&!c.finalPagado).reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
+    const finalPend = ventas.filter(c=>c.tipo!=='salud'&&!c.finalPagado).reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).final,0);
     return { nombre:a.nombre, ventas:ventas.length, adelantoPend, finalPend, totalPend:adelantoPend+finalPend };
   });
   document.getElementById('salud-dash-agent-summary').innerHTML = agSum.length ? agSum.map(a=>`
@@ -14007,7 +14059,7 @@ function saludRenderDashboard() {
     </div>`).join('') : '<div style="color:#7C98B6;padding:10px">Sin agentes</div>';
   document.getElementById('salud-dash-campaigns').innerHTML = saludData.campanas.map(c=>{
     const ventas = saludData.clientes.filter(cl=>cl.campana===c.nombre);
-    const ingresos = ventas.reduce((s,cl)=>s+saludCalcCom(cl.prima).adelanto,0);
+    const ingresos = ventas.reduce((s,cl)=>s+saludCalcCom(cl.prima, cl.tasaComAnual, cl.splitAdelantoMeses).adelanto,0);
     const roi = c.gasto ? ((ingresos-c.gasto)/c.gasto*100) : 0;
     return `<div style="padding:10px 0;border-bottom:1px solid #F5F8FA">
       <div style="display:flex;justify-content:space-between">
@@ -14350,7 +14402,7 @@ function saludOpenClienteModal(id=null) {
     document.getElementById('sc-agente').value='Sin agente';
     document.getElementById('sc-prima').value='';
     document.getElementById('sc-residual').value='';
-    document.getElementById('sc-com-agente').value=8;
+    document.getElementById('sc-com-agente').value = saludData.comisiones.comAgenteDefault.dental;
     document.getElementById('sc-fecha').value=new Date().toISOString().split('T')[0];
     document.getElementById('sc-fecha-efectiva').value='';
     document.getElementById('sc-estado').value='activo';
@@ -14386,7 +14438,14 @@ function saludUpdateComPreview() {
     const prima = parseFloat(document.getElementById('sc-prima')?.value||0);
     if(!prevDental) return;
     if(!prima) { prevDental.style.display='none'; return; }
-    const com = saludCalcCom(prima);
+    // Si se está editando un cliente ya existente, la vista previa usa SU
+    // tasa/split ya congelados (lo que realmente se va a seguir usando);
+    // si es un cliente nuevo, usa la config global vigente (lo que se le
+    // va a congelar al guardarlo).
+    const clienteEditando = saludEditClienteId ? saludData.clientes.find(x=>x.id===saludEditClienteId) : null;
+    const tasaPreview  = clienteEditando ? clienteEditando.tasaComAnual      : saludData.comisiones.tasaAnual;
+    const splitPreview = clienteEditando ? clienteEditando.splitAdelantoMeses : saludData.comisiones.splitAdelantoMeses;
+    const com = saludCalcCom(prima, tasaPreview, splitPreview);
     prevDental.style.display='block';
     document.getElementById('sc-prev-total').textContent    = fmt(com.total);
     document.getElementById('sc-prev-adelanto').textContent = fmt(com.adelanto);
@@ -14424,7 +14483,10 @@ function saludGuardarCliente() {
     Object.assign(saludData.clientes.find(x=>x.id===saludEditClienteId), data);
     showNotif('✅ Cliente actualizado');
   } else {
-    saludData.clientes.push({ id:saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0, ...data });
+    // Congela la tasa/split vigente en este momento — cambios futuros a
+    // saludData.comisiones no afectan retroactivamente a este cliente.
+    saludData.clientes.push({ id:saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0,
+      tasaComAnual: saludData.comisiones.tasaAnual, splitAdelantoMeses: saludData.comisiones.splitAdelantoMeses, ...data });
     showNotif('✅ Cliente agregado');
   }
   guardarSalud(); closeModal('modal-salud-cliente'); saludRenderClientes();
@@ -14440,7 +14502,7 @@ function saludRenderAgentes() {
     const ventas = saludData.clientes.filter(c=>(c.agente||'').trim().toLowerCase()===nombre);
     const activos = ventas.filter(c=>c.estado==='activo');
     const totalCom = activos.reduce((s,c)=>s+saludClienteCom(c).total,0);
-    const adelantosPend = activos.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0)
+    const adelantosPend = activos.filter(c=>c.tipo!=='salud'&&!c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).adelanto,0)
       + activos.filter(c=>c.tipo==='salud').reduce((s,c)=>s+saludClienteCom(c).final,0);
     const rol = a.rol||'agente';
     const comPs = a.comisionesPersonales||{};
@@ -14520,6 +14582,44 @@ const SALUD_TIPOS_COM = [
   { id:'referido', nombre:'Referido' },
   { id:'directo',  nombre:'Directo' },
 ];
+
+// ─── Salud: Productos & Comisiones (config global) ──────────────────
+// Plantilla exacta: renderProductos() de AT&T, mucho más simple aquí
+// porque Salud no tiene catálogo de unidades — solo 2 parámetros de
+// fórmula (tasa/split) + un default de comAgente por tipo de póliza.
+function saludRenderProductos() {
+  document.getElementById('sp-tasa-anual').value = (saludData.comisiones.tasaAnual*100).toFixed(1);
+  document.getElementById('sp-split-adelanto').value = saludData.comisiones.splitAdelantoMeses;
+  document.getElementById('sp-split-final').value = (12 - saludData.comisiones.splitAdelantoMeses) + ' meses';
+
+  document.getElementById('salud-productos-tipos').innerHTML = SALUD_TIPOS_COM.map(t => `
+    <div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;border:1px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:12px;font-weight:600;color:#33475B">${t.nombre}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:#7C98B6">$</span>
+        <input type="number" step="0.01" min="0" value="${saludData.comisiones.comAgenteDefault[t.id]}"
+          style="width:75px;background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:5px 8px;border-radius:6px;font-size:13px;font-weight:700;outline:none"
+          onchange="saludUpdateComAgenteDefault('${t.id}',parseFloat(this.value)||0)"
+          onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
+      </div>
+    </div>`).join('');
+}
+function saludGuardarConfigComisiones() {
+  const tasaPct = parseFloat(document.getElementById('sp-tasa-anual').value);
+  const split = parseInt(document.getElementById('sp-split-adelanto').value);
+  if(isNaN(tasaPct) || tasaPct < 0 || tasaPct > 100) { showNotif('⚠️ La tasa anual debe estar entre 0 y 100','error'); saludRenderProductos(); return; }
+  if(isNaN(split) || split < 0 || split > 12) { showNotif('⚠️ Los meses de adelanto deben estar entre 0 y 12','error'); saludRenderProductos(); return; }
+  saludData.comisiones.tasaAnual = tasaPct / 100;
+  saludData.comisiones.splitAdelantoMeses = split;
+  guardarSalud();
+  saludRenderProductos();
+  showNotif('✅ Configuración actualizada — aplica solo a clientes nuevos');
+}
+function saludUpdateComAgenteDefault(tipoId, val) {
+  saludData.comisiones.comAgenteDefault[tipoId] = val;
+  guardarSalud();
+  showNotif('✅ Comisión default actualizada');
+}
 
 function saludGetComisionParaAgente(tipo, agenteNombre) {
   const a = saludData.agentes.find(x=>(x.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
@@ -14647,9 +14747,9 @@ function saludRenderComisiones() {
   const activos = saludData.clientes.filter(c=>c.estado==='activo');
   const activosDental = activos.filter(c=>c.tipo!=='salud');
   const activosSalud  = activos.filter(c=>c.tipo==='salud');
-  const totalAd   = activosDental.reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0);
-  const adPagado  = activosDental.filter(c=>c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0);
-  const totalFin  = activosDental.reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
+  const totalAd   = activosDental.reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).adelanto,0);
+  const adPagado  = activosDental.filter(c=>c.adelantoPagado).reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).adelanto,0);
+  const totalFin  = activosDental.reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).final,0);
   const saludCobrado = activosSalud.reduce((s,c)=>s+(parseFloat(c.comResidualMensual)||0)*(parseInt(c.mesesCobradosSalud)||0),0);
   const saludProyect = activosSalud.reduce((s,c)=>s+(parseFloat(c.comResidualMensual)||0)*12,0);
   const comAg = activos.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
@@ -14703,7 +14803,7 @@ function saludRenderComisiones() {
         <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
       </tr>`;
     }
-    const com = saludCalcCom(c.prima);
+    const com = saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses);
     return `<tr>
       <td>${i+1}</td>
       <td><b>${c.nombre}</b><br><span style="font-size:10px;color:#7C98B6">${c.cuenta||'sin cuenta'}</span></td>
@@ -15081,7 +15181,7 @@ function saludRenderCampanas() {
   const grid = document.getElementById('salud-campanas-grid');
   grid.innerHTML = saludData.campanas.map(c=>{
     const ventas = saludData.clientes.filter(cl=>cl.campana===c.nombre);
-    const ingresos = ventas.reduce((s,cl)=>s+saludCalcCom(cl.prima).adelanto,0);
+    const ingresos = ventas.reduce((s,cl)=>s+saludCalcCom(cl.prima, cl.tasaComAnual, cl.splitAdelantoMeses).adelanto,0);
     const roi = c.gasto ? ((ingresos-c.gasto)/c.gasto*100) : 0;
     const cpl = c.leads ? (c.gasto/c.leads) : 0;
     const conv = c.leads ? (ventas.length/c.leads*100) : 0;
@@ -15193,7 +15293,7 @@ function saludRenderResumen() {
   const totalPrimas = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+c.prima,0);
   const totalCom = activos.reduce((s,c)=>s+saludClienteCom(c).total,0);
   const totalAdelanto = activos.reduce((s,c)=>s+saludClienteCom(c).adelanto,0);
-  const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima).final,0);
+  const totalFinal = activos.filter(c=>c.tipo!=='salud').reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).final,0);
   const comAgentes = clientes.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
   const [mesMes, mesAnio] = mes.split(' ');
   const mesNum = String(MESES_ES.indexOf(mesMes)+1).padStart(2,'0');
@@ -15325,17 +15425,17 @@ function saludRenderPagos() {
 
 // ─── Salud Chargebacks ────────────────────────────────────────
 let saludCbClienteId = null;
-function saludCalcChargeback(prima, mesesPagados) {
-  const comMensual = prima * 0.30;
-  const adelanto = saludCalcCom(prima).adelanto;
+function saludCalcChargeback(prima, mesesPagados, tasa=0.30, mesesAdelanto=9) {
+  const comMensual = prima * tasa;
+  const adelanto = saludCalcCom(prima, tasa, mesesAdelanto).adelanto;
   const ganado = comMensual * mesesPagados;
   const devolver = Math.max(0, adelanto - ganado);
-  return { adelanto, ganado, devolver, mesesDevolver: Math.max(0, 9 - mesesPagados) };
+  return { adelanto, ganado, devolver, mesesDevolver: Math.max(0, mesesAdelanto - mesesPagados) };
 }
 function saludOpenChargebackModal(id) {
   saludCbClienteId = id;
   const c = saludData.clientes.find(x=>x.id===id); if(!c) return;
-  const com = saludCalcCom(c.prima);
+  const com = saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses);
   document.getElementById('scb-cliente-info').innerHTML = `
     <div style="font-weight:700;color:#33475B;margin-bottom:4px">👤 ${c.nombre}</div>
     <div style="color:#7C98B6;font-size:12px">Cuenta: ${c.cuenta||'—'} · Agente: ${c.agente} · Prima: ${fmt(c.prima)}/mes</div>
@@ -15353,7 +15453,7 @@ function saludUpdateCBPreview() {
   const prev = document.getElementById('scb-preview');
   if(isNaN(meses)||meses<0) { prev.style.display='none'; return; }
   prev.style.display='block';
-  const cb = saludCalcChargeback(c.prima, meses);
+  const cb = saludCalcChargeback(c.prima, meses, c.tasaComAnual, c.splitAdelantoMeses);
   document.getElementById('scb-prev-adelanto').textContent = fmt(cb.adelanto);
   document.getElementById('scb-prev-pagado').textContent   = fmt(cb.ganado)+` (${meses}m)`;
   document.getElementById('scb-prev-meses').textContent    = `${cb.mesesDevolver} meses`;
@@ -15367,7 +15467,7 @@ function saludGuardarChargeback() {
   const c = saludData.clientes.find(x=>x.id===saludCbClienteId); if(!c) return;
   const meses = parseInt(document.getElementById('scb-meses-pagados').value);
   if(isNaN(meses)||meses<0) { showNotif('⚠️ Ingresa los meses pagados','error'); return; }
-  const cb = saludCalcChargeback(c.prima, meses);
+  const cb = saludCalcChargeback(c.prima, meses, c.tasaComAnual, c.splitAdelantoMeses);
   c.esChargeback=true; c.mesesPagados=meses;
   c.mesCancelacion=document.getElementById('scb-mes-cancel').value;
   c.notasChargeback=document.getElementById('scb-notas').value.trim();
@@ -15388,7 +15488,7 @@ function saludRenderChargebacks() {
   const fAgente = document.getElementById('salud-cb-filter-agente')?.value||'';
   const cbs = saludData.clientes.filter(c=>{ if(!c.esChargeback) return false; if(fMes&&c.mes!==fMes) return false; if(fAgente&&c.agente!==fAgente) return false; return true; });
   const totalCBMonto = cbs.reduce((s,c)=>s+(c.chargebackMonto||0),0);
-  const totalAdelantoOrig = cbs.reduce((s,c)=>s+saludCalcCom(c.prima).adelanto,0);
+  const totalAdelantoOrig = cbs.reduce((s,c)=>s+saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses).adelanto,0);
   document.getElementById('salud-cb-cards').innerHTML = `
     <div class="card red"><label>Chargebacks Totales</label><div class="val">${cbs.length}</div></div>
     <div class="card orange"><label>Total a Devolver</label><div class="val">${fmt(totalCBMonto)}</div></div>
@@ -15396,7 +15496,7 @@ function saludRenderChargebacks() {
     <div class="card ${totalAdelantoOrig-totalCBMonto>=0?'green':'red'}"><label>Neto Real Retenido</label><div class="val">${fmt(totalAdelantoOrig-totalCBMonto)}</div></div>`;
   const body = document.getElementById('salud-cb-body');
   body.innerHTML = cbs.length ? cbs.map((c,i)=>{
-    const com=saludCalcCom(c.prima); const cb=saludCalcChargeback(c.prima,c.mesesPagados||0);
+    const com=saludCalcCom(c.prima, c.tasaComAnual, c.splitAdelantoMeses); const cb=saludCalcChargeback(c.prima,c.mesesPagados||0,c.tasaComAnual,c.splitAdelantoMeses);
     return `<tr style="background:rgba(239,68,68,0.06)">
       <td style="color:#7C98B6">${i+1}</td>
       <td><b style="color:#F2545B">${c.nombre}</b>${c.notasChargeback?`<br><span style="font-size:10px;color:#7C98B6">${c.notasChargeback}</span>`:''}</td>
@@ -15416,7 +15516,7 @@ function saludRenderChargebacks() {
 function saludActualizarMesesPagados(id, meses) {
   const c = saludData.clientes.find(x=>x.id===id); if(!c||isNaN(meses)) return;
   c.mesesPagados=Math.max(0,Math.min(9,meses));
-  c.chargebackMonto=saludCalcChargeback(c.prima,c.mesesPagados).devolver;
+  c.chargebackMonto=saludCalcChargeback(c.prima,c.mesesPagados,c.tasaComAnual,c.splitAdelantoMeses).devolver;
   guardarSalud(); saludRenderChargebacks(); showNotif('✅ Chargeback actualizado');
 }
 
