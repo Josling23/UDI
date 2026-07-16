@@ -674,6 +674,7 @@ table thead,table tbody{display:table;width:100%}
             <button class="btn btn-primary btn-sm" onclick="openAgenteModal()">➕ Nuevo Agente</button>
           </div>
         </div>
+        <div id="agentes-ubicacion-resumen" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
         <div class="agent-cards" id="agent-cards"></div>
       </div>
       <div class="section">
@@ -7649,6 +7650,22 @@ function renderAgentes() {
   if (!canManageJP) {
     visibles = visibles.filter(a=>!esJosePina(a.nombre));
   }
+
+  // Resumen de ubicación — calculado ANTES del filtro de búsqueda, para que
+  // dé un vistazo rápido y estable de quién está remoto ahora mismo, sin
+  // importar qué se haya escrito en el buscador.
+  const remotos = visibles.filter(a=>a.ubicacion==='remoto');
+  const enOficina = visibles.filter(a=>a.ubicacion!=='remoto');
+  document.getElementById('agentes-ubicacion-resumen').innerHTML = `
+    <div style="background:#F0FFFB;border:1px solid #00A492;border-radius:10px;padding:10px 16px;flex:1;min-width:220px">
+      <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase">🟢 Trabajando Remoto (${remotos.length})</div>
+      <div style="font-size:12px;color:#33475B;margin-top:4px">${remotos.length ? remotos.map(a=>a.nombre).join(', ') : 'Nadie remoto ahora mismo'}</div>
+    </div>
+    <div style="background:#EAF4FF;border:1px solid #009FDB;border-radius:10px;padding:10px 16px;flex:1;min-width:220px">
+      <div style="font-size:10px;font-weight:700;color:#1D4ED8;text-transform:uppercase">🔵 En Oficina (${enOficina.length})</div>
+      <div style="font-size:12px;color:#33475B;margin-top:4px">${enOficina.length ? enOficina.map(a=>a.nombre).join(', ') : 'Nadie en oficina'}</div>
+    </div>
+  `;
 
   const busqueda = (document.getElementById('agentes-search')?.value||'').trim().toLowerCase();
   if(busqueda) {
