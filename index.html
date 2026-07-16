@@ -12644,23 +12644,67 @@ function calcBravoMes(mes, anio) {
   return { reportesMes, gananciaMes, gananciaNeta, costosBravoMes, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
 }
 
+// Enumera todos los (mes,año) para los que Bravo tiene algún dato registrado
+// (reportes diarios, reparaciones, líneas Lyca o gastos), sin depender de un
+// arreglo `meses` explícito como appData/saludData — Bravo deriva sus meses
+// de las fechas reales de cada colección.
+function getBravoMesesConDatos() {
+  const set = new Set();
+  const addFecha = (fecha) => {
+    if(!fecha) return;
+    const d = new Date(fecha);
+    if(isNaN(d)) return;
+    set.add((d.getMonth()+1)+'-'+d.getFullYear());
+  };
+  (appData.bravo?.reportesDiarios||[]).forEach(r=>addFecha(r.fecha));
+  (appData.bravo?.reparaciones||[]).forEach(r=>addFecha(r.fecha));
+  (appData.bravo?.gastos||[]).forEach(g=>addFecha(g.fecha));
+  (appData.bravo?.lineasLyca||[]).forEach(l=>{
+    if(!l.mes) return;
+    const [mn, ay] = l.mes.split(' ');
+    const mNum = MESES_ES.indexOf(mn) + 1;
+    if(mNum>0 && ay) set.add(mNum+'-'+ay);
+  });
+  return [...set].map(s=>{ const [m,a] = s.split('-').map(Number); return { mes:m, anio:a }; })
+    .sort((x,y)=> x.anio!==y.anio ? x.anio-y.anio : x.mes-y.mes);
+}
+
+function sumarBravoMeses(mesesArr) {
+  return mesesArr.reduce((acc, { mes, anio }) => {
+    const d = calcBravoMes(mes, anio);
+    acc.reportesMes = acc.reportesMes.concat(d.reportesMes);
+    acc.gananciaMes += d.gananciaMes; acc.gananciaNeta += d.gananciaNeta; acc.costosBravoMes += d.costosBravoMes;
+    acc.accesoriosMes += d.accesoriosMes; acc.lycasMes += d.lycasMes; acc.reparacionesMes += d.reparacionesMes;
+    acc.combosMes += d.combosMes; acc.telefonosMes += d.telefonosMes;
+    return acc;
+  }, { reportesMes:[], gananciaMes:0, gananciaNeta:0, costosBravoMes:0, accesoriosMes:0, lycasMes:0, reparacionesMes:0, combosMes:0, telefonosMes:0 });
+}
+
 function renderTopBravo() {
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
 
   const hoy = new Date();
   const selMesEl = document.getElementById('top-bravo-mes-sel');
   const selAnioEl = document.getElementById('top-bravo-anio-sel');
-  const mesSel = selMesEl ? parseInt(selMesEl.value) : hoy.getMonth() + 1;
+  const mesSelRaw = selMesEl ? selMesEl.value : (hoy.getMonth() + 1).toString();
+  const esTodos = mesSelRaw === '__todos__';
+  const mesSel = esTodos ? null : parseInt(mesSelRaw);
   const anioSel = selAnioEl ? parseInt(selAnioEl.value) : hoy.getFullYear();
 
-  const d = calcBravoMes(mesSel, anioSel);
+  const mesesConDatos = getBravoMesesConDatos();
+  const d = esTodos ? sumarBravoMeses(mesesConDatos) : calcBravoMes(mesSel, anioSel);
 
-  const historial = [];
-  for(let i=5;i>=0;i--) {
-    const dt = new Date(anioSel, mesSel-1-i, 1);
-    const hm = dt.getMonth()+1, ha = dt.getFullYear();
-    historial.push({ mes: MESES_ES[hm-1], anio: ha, ...calcBravoMes(hm, ha) });
-  }
+  const historial = esTodos
+    ? mesesConDatos.map(({ mes, anio }) => ({ mes: MESES_ES[mes-1], anio, ...calcBravoMes(mes, anio) }))
+    : (() => {
+        const h = [];
+        for(let i=5;i>=0;i--) {
+          const dt = new Date(anioSel, mesSel-1-i, 1);
+          const hm = dt.getMonth()+1, ha = dt.getFullYear();
+          h.push({ mes: MESES_ES[hm-1], anio: ha, ...calcBravoMes(hm, ha) });
+        }
+        return h;
+      })();
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
   (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(new Date(r.fecha).getFullYear()); });
@@ -12672,9 +12716,10 @@ function renderTopBravo() {
         <h3 style="font-size:14px;font-weight:700;color:#33475B">🏪 ROI Bravo</h3>
         <div style="display:flex;gap:8px">
           <select id="top-bravo-mes-sel" onchange="renderTopBravo()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
-            ${MESES_ES.map((m,i)=>`<option value="${i+1}" ${i+1===mesSel?'selected':''}>${m}</option>`).join('')}
+            <option value="__todos__" ${esTodos?'selected':''}>📊 Todos los Meses</option>
+            ${MESES_ES.map((m,i)=>`<option value="${i+1}" ${!esTodos && i+1===mesSel?'selected':''}>${m}</option>`).join('')}
           </select>
-          <select id="top-bravo-anio-sel" onchange="renderTopBravo()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+          <select id="top-bravo-anio-sel" onchange="renderTopBravo()" ${esTodos?'disabled':''} style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px${esTodos?';opacity:0.5':''}">
             ${aniosArr.map(a=>`<option value="${a}" ${a===anioSel?'selected':''}>${a}</option>`).join('')}
           </select>
         </div>
@@ -12682,7 +12727,7 @@ function renderTopBravo() {
 
       <div class="cards" style="margin-bottom:20px">
         <div class="card green">
-          <label>💰 Ganancia del Mes</label>
+          <label>${esTodos?'💰 Ganancia (todos los meses)':'💰 Ganancia del Mes'}</label>
           <div class="val">${fmt(d.gananciaMes)}</div>
           <div class="sub">${d.reportesMes.length} días registrados</div>
         </div>
@@ -12690,7 +12735,7 @@ function renderTopBravo() {
       <div style="font-size:10px;color:#99ACC2;margin:-12px 0 16px">Renta y sueldo de Bravo ya se contabilizan en Admin → Gastos & Nómina, por eso aquí no se restan de nuevo.</div>
 
       <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB;margin-bottom:20px">
-        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción Mes</div>
+        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción ${esTodos?'(todos los meses)':'Mes'}</div>
         <div style="font-size:11px;color:#7C98B6">
           <div>🏷️ Accesorios: <span style="font-weight:600;color:#33475B">${d.accesoriosMes}</span></div>
           <div>📱 Lycas: <span style="font-weight:600;color:#33475B">${d.lycasMes}</span></div>
@@ -12700,14 +12745,14 @@ function renderTopBravo() {
         </div>
       </div>
 
-      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (últimos 6 meses)</div>
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 ${esTodos?'Historial (todos los meses)':'Historial (últimos 6 meses)'}</div>
       <div style="overflow-x:auto">
       <table>
         <thead><tr><th>Mes</th><th>Ganancia del Mes</th></tr></thead>
         <tbody>${historial.map(h=>`<tr>
           <td>${h.mes} ${h.anio}</td>
           <td style="font-weight:700;color:#00BDA5">${fmt(h.gananciaMes)}</td>
-        </tr>`).join('')}</tbody>
+        </tr>`).join('') || '<tr><td colspan="2" class="tbl-empty">Sin datos</td></tr>'}</tbody>
       </table>
       </div>
 
