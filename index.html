@@ -407,6 +407,8 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('salud-pagos-recibidos',this)"><span class="icon">💰</span><span>Pagos Recibidos</span></div>
     <div class="nav-item" onclick="showPage('salud-roi-mensual',this)"><span class="icon">📊</span><span>ROI Mensual</span></div>
     <div class="nav-item" onclick="showPage('salud-clientes',this)"><span class="icon">👥</span><span>Clientes</span></div>
+    <div class="nav-item" onclick="showPage('salud-clientes-pendientes',this)"><span class="icon">🕓</span><span>Clientes Pendientes</span><span id="nav-salud-pendientes-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
+    <div class="nav-item" onclick="showPage('salud-clientes-rechazados',this)"><span class="icon">❌</span><span>Clientes Rechazados</span></div>
     <div class="nav-item" onclick="showPage('salud-agentes',this)"><span class="icon">🤝</span><span>Agentes</span></div>
     <div class="nav-item" onclick="showPage('salud-productos',this)"><span class="icon">💼</span><span>Productos & Comisiones</span></div>
     <div class="nav-item" onclick="showPage('salud-comisiones',this)"><span class="icon">💵</span><span>Comisiones</span></div>
@@ -1164,6 +1166,36 @@ table thead,table tbody{display:table;width:100%}
               <th>Com.Total</th><th>Adelanto(9m)</th><th>Final(3m)</th><th>Com.$8</th><th>Agente</th><th>Estado</th><th>Fecha</th><th>✕</th>
             </tr></thead>
             <tbody id="salud-agente-ventas-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-salud-clientes-pendientes">
+      <div class="section">
+        <div class="section-header"><h2>🕓 Clientes Pendientes</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Reportes enviados por vendedores de Salud, esperando revisión.</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Tipo</th><th>Prima/Residual</th><th></th>
+            </tr></thead>
+            <tbody id="salud-clientes-pendientes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-salud-clientes-rechazados">
+      <div class="section">
+        <div class="section-header"><h2>❌ Clientes Rechazados</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Reportes de vendedores que se rechazaron, con el motivo. Se pueden reactivar, aprobar directo o eliminar.</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Fecha</th><th>Agente</th><th>Cliente</th><th>Cuenta</th><th>Tipo</th><th>Prima/Residual</th><th>Motivo</th><th></th>
+            </tr></thead>
+            <tbody id="salud-clientes-rechazados-body"></tbody>
           </table>
         </div>
       </div>
@@ -3945,6 +3977,8 @@ function activarListenerSalud() {
           'salud-pagos-recibidos': saludRenderPagosRecibidos,
           'salud-roi-mensual': saludRenderROIMensual,
           'salud-clientes':    saludRenderClientes,
+          'salud-clientes-pendientes': saludRenderClientesPendientes,
+          'salud-clientes-rechazados': saludRenderClientesRechazados,
           'salud-agentes':     saludRenderAgentes,
           'salud-productos':   saludRenderProductos,
           'salud-comisiones':  saludRenderComisiones,
@@ -4346,6 +4380,8 @@ const PAGE_TITLES = {
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
   'salud-roi-mensual':'📊 Salud — ROI Mensual',
   'salud-clientes':'💚 Salud — Clientes',
+  'salud-clientes-pendientes':'🕓 Salud — Clientes Pendientes',
+  'salud-clientes-rechazados':'❌ Salud — Clientes Rechazados',
   'salud-agentes':'💚 Salud — Agentes',
   'salud-productos':'💼 Salud — Productos & Comisiones',
   'salud-comisiones':'💚 Salud — Comisiones',
@@ -4410,6 +4446,8 @@ function renderPage(name) {
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
   if(name==='salud-roi-mensual') saludRenderROIMensual();
   if(name==='salud-clientes') saludRenderClientes();
+  if(name==='salud-clientes-pendientes') saludRenderClientesPendientes();
+  if(name==='salud-clientes-rechazados') saludRenderClientesRechazados();
   if(name==='salud-agentes') saludRenderAgentes();
   if(name==='salud-productos') saludRenderProductos();
   if(name==='salud-comisiones') saludRenderComisiones();
@@ -9514,7 +9552,7 @@ function abrirArea(area) {
   if(area==='admin')  { showPage('dashboard', document.getElementById('nav-dashboard')); actualizarBadgePendientes(); }
   else if(area==='hq')    showPage('hq', null);
   else if(area==='top')   showPage('top', null);
-  else if(area==='salud') { cargarSalud().then(()=>showPage('salud-dashboard', null)); }
+  else if(area==='salud') { cargarSalud().then(()=>{ showPage('salud-dashboard', null); actualizarBadgeSaludPendientes(); }); }
   else if(area==='bravo') { showPage('bravo-dashboard', null); }
   else if(area==='agente') {
     // "Mis Comisiones" (con montos en $) solo es visible para el rol
@@ -14865,6 +14903,193 @@ function saludGuardarCliente() {
     showNotif('✅ Cliente agregado');
   }
   guardarSalud(); closeModal('modal-salud-cliente'); saludRenderClientes();
+}
+
+// ============================================================
+// SALUD — COLA DE REVISIÓN DE BACK-OFFICE (Fase 5)
+// "Clientes Pendientes" + "Clientes Rechazados". Plantilla exacta:
+// aprobarVentaPendiente()/rechazarVentaPendiente()/renderVentasRechazadasTabla()
+// de AT&T, adaptada a que un cliente de Salud es un solo registro (sin
+// grupoId). Al aprobar, el registro pasa a saludData.clientes con un id
+// NUEVO (del contador oficial saludData.nextId, para no chocar con el
+// espacio de ids de saludData.nextClientePendienteId) — para no perder la
+// continuidad de cualquier chat ya iniciado sobre ese reporte, se
+// re-etiquetan sus mensajes (saludData.mensajesClientes) del id viejo al
+// id nuevo en el mismo paso.
+// ============================================================
+function actualizarBadgeSaludPendientes() {
+  const badge = document.getElementById('nav-salud-pendientes-badge');
+  if(!badge) return;
+  const n = (saludData.clientesPendientes||[]).length;
+  badge.style.display = n > 0 ? 'inline-block' : 'none';
+  badge.textContent = n;
+}
+
+// Mueve un reporte (pendiente o rechazado) a saludData.clientes como
+// cliente oficial — congelando la tasa/split vigentes AHORA (momento en
+// que el registro se vuelve oficial), igual que saludGuardarCliente()
+// hace para un cliente metido directo. Devuelve el id nuevo.
+function saludAprobarClienteInterno(c) {
+  const idViejo = c.id;
+  const { id, creadoEn, motivoRechazo, reportadoPor, ...resto } = c;
+  const nuevoId = saludData.nextId++;
+  saludData.clientes.push({
+    ...resto, id: nuevoId, reportadoPor,
+    tasaComAnual: saludData.comisiones.tasaAnual, splitAdelantoMeses: saludData.comisiones.splitAdelantoMeses,
+    estado: 'activo', adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0,
+  });
+  // El motor de chat compartido (deptoMensajesDe/deptoEnviarMensaje) guarda
+  // la referencia bajo el campo genérico "grupoId" (mismo nombre que usa
+  // AT&T para sus ventas) — no "clienteId", aunque para Salud representa
+  // el id del cliente/reporte.
+  (saludData.mensajesClientes||[]).forEach(m => { if(m.grupoId===idViejo) m.grupoId=nuevoId; });
+  if(reportadoPor) saludCrearNotificacion({ paraAgenteId: reportadoPor }, 'aprobado', `Tu reporte de ${c.nombre} fue activado`, nuevoId);
+  return nuevoId;
+}
+
+function saludRenderClientesPendientes() {
+  actualizarBadgeSaludPendientes();
+  const lista = [...(saludData.clientesPendientes||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const body = document.getElementById('salud-clientes-pendientes-body');
+  if(!body) return;
+  if(!lista.length) { body.innerHTML = '<tr><td colspan="7" class="tbl-empty">No hay clientes pendientes de revisión</td></tr>'; return; }
+  body.innerHTML = lista.map(c=>{
+    const montoTxt = c.tipo==='salud' ? `${fmt(c.comResidualMensual)}/mes` : fmt(c.prima);
+    const numMensajes = saludMensajesDeCliente(c.id).length;
+    return `<tr>
+        <td style="font-weight:600">${c.fecha}</td>
+        <td style="font-weight:600">${c.agente}</td>
+        <td>${c.nombre}${c.notas?`<br><span style="font-size:10px;color:#7C98B6">${c.notas}</span>`:''}</td>
+        <td>${c.cuenta||'—'}</td>
+        <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
+        <td style="text-align:right;font-weight:700;color:#0091AE">${montoTxt}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-success btn-xs" onclick="saludAprobarClientePendiente(${c.id})">✅ Aprobar</button>
+          <button class="btn btn-danger btn-xs" onclick="saludRechazarClientePendiente(${c.id})">❌ Rechazar</button>
+          <button class="btn btn-ghost btn-xs" onclick="saludToggleChatClientePendiente(${c.id})">💬${numMensajes?' '+numMensajes:''}</button>
+        </td>
+      </tr>
+      ${_scpChatAbierto===c.id ? `<tr><td colspan="7" style="padding:0 8px 8px">${saludChatHtml(c.id,'scp-chat-input-'+c.id,'saludEnviarMensajeClientePendiente')}</td></tr>` : ''}`;
+  }).join('');
+}
+
+function saludAprobarClientePendiente(id) {
+  const c = (saludData.clientesPendientes||[]).find(x=>x.id===id);
+  if(!c) return;
+  saludAprobarClienteInterno(c);
+  saludData.clientesPendientes = saludData.clientesPendientes.filter(x=>x.id!==id);
+  guardarSalud();
+  saludRenderClientesPendientes();
+  showNotif(`✅ ${c.nombre} activado — ya cuenta como cliente oficial`);
+}
+
+function saludRechazarClientePendiente(id) {
+  const c = (saludData.clientesPendientes||[]).find(x=>x.id===id);
+  if(!c) return;
+  const motivo = prompt('¿Por qué se rechaza este reporte?', '');
+  if(motivo === null) return;
+  if(!saludData.clientesRechazados) saludData.clientesRechazados = [];
+  saludData.clientesRechazados.push({ ...c, motivoRechazo: motivo.trim() || 'Sin motivo especificado' });
+  saludData.clientesPendientes = saludData.clientesPendientes.filter(x=>x.id!==id);
+  if(c.reportadoPor) saludCrearNotificacion({ paraAgenteId: c.reportadoPor }, 'rechazado', `Tu reporte fue rechazado: ${motivo.trim()||'Sin motivo especificado'}`, id);
+  guardarSalud();
+  saludRenderClientesPendientes();
+  showNotif('❌ Reporte rechazado');
+}
+
+let _scpChatAbierto = null;
+function saludToggleChatClientePendiente(id) {
+  _scpChatAbierto = (_scpChatAbierto===id) ? null : id;
+  saludRenderClientesPendientes();
+}
+function saludEnviarMensajeClientePendiente(id) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = saludEnviarMensajeCliente(id, 'salud', perms ? perms.nombre : 'Salud', 'scp-chat-input-'+id);
+  if(texto) {
+    const c = (saludData.clientesPendientes||[]).find(x=>x.id===id);
+    if(c && c.reportadoPor) saludCrearNotificacion({ paraAgenteId: c.reportadoPor }, 'mensaje', `${perms?perms.nombre:'Salud'}: ${texto}`, id);
+    guardarSalud();
+  }
+  saludRenderClientesPendientes();
+}
+
+function saludRenderClientesRechazados() {
+  const lista = [...(saludData.clientesRechazados||[])].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const body = document.getElementById('salud-clientes-rechazados-body');
+  if(!body) return;
+  if(!lista.length) { body.innerHTML = '<tr><td colspan="8" class="tbl-empty">No hay clientes rechazados</td></tr>'; return; }
+  body.innerHTML = lista.map(c=>{
+    const montoTxt = c.tipo==='salud' ? `${fmt(c.comResidualMensual)}/mes` : fmt(c.prima);
+    const numMensajes = saludMensajesDeCliente(c.id).length;
+    return `<tr>
+        <td style="font-weight:600">${c.fecha}</td>
+        <td style="font-weight:600">${c.agente}</td>
+        <td>${c.nombre}</td>
+        <td>${c.cuenta||'—'}</td>
+        <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
+        <td style="text-align:right;font-weight:700;color:#0091AE">${montoTxt}</td>
+        <td style="font-size:11px;color:#F2545B;max-width:180px">${c.motivoRechazo||'Sin motivo especificado'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-success btn-xs" onclick="saludAprobarClienteRechazado(${c.id})">✅ Aprobar</button>
+          <button class="btn btn-ghost btn-xs" onclick="saludReactivarClienteRechazado(${c.id})">↩️ Reactivar</button>
+          <button class="btn btn-danger btn-xs" onclick="saludEliminarClienteRechazado(${c.id})">🗑️ Eliminar</button>
+          <button class="btn btn-ghost btn-xs" onclick="saludToggleChatClienteRechazado(${c.id})">💬${numMensajes?' '+numMensajes:''}</button>
+        </td>
+      </tr>
+      ${_scrChatAbierto===c.id ? `<tr><td colspan="8" style="padding:0 8px 8px">${saludChatHtml(c.id,'scr-chat-input-'+c.id,'saludEnviarMensajeClienteRechazado')}</td></tr>` : ''}`;
+  }).join('');
+}
+
+// Aprueba directo desde Rechazados sin pasar por Pendientes — para cuando
+// back-office se da cuenta de que el rechazo fue un error.
+function saludAprobarClienteRechazado(id) {
+  const c = (saludData.clientesRechazados||[]).find(x=>x.id===id);
+  if(!c) return;
+  saludAprobarClienteInterno(c);
+  saludData.clientesRechazados = saludData.clientesRechazados.filter(x=>x.id!==id);
+  guardarSalud();
+  saludRenderClientesRechazados();
+  showNotif(`✅ ${c.nombre} activado — ya cuenta como cliente oficial`);
+}
+
+// Manda el reporte de vuelta a Clientes Pendientes (mismo id, sin
+// motivoRechazo) para que back-office lo revise otra vez con calma.
+function saludReactivarClienteRechazado(id) {
+  const c = (saludData.clientesRechazados||[]).find(x=>x.id===id);
+  if(!c) return;
+  const { motivoRechazo, ...resto } = c;
+  if(!saludData.clientesPendientes) saludData.clientesPendientes = [];
+  saludData.clientesPendientes.push({ ...resto, creadoEn: new Date().toISOString() });
+  saludData.clientesRechazados = saludData.clientesRechazados.filter(x=>x.id!==id);
+  if(c.reportadoPor) saludCrearNotificacion({ paraAgenteId: c.reportadoPor }, 'reactivado', `Tu reporte de ${c.nombre} fue reconsiderado — vuelve a estar en revisión`, id);
+  guardarSalud();
+  saludRenderClientesRechazados();
+  actualizarBadgeSaludPendientes();
+  showNotif('↩️ Reporte reactivado — pasa a Clientes Pendientes para revisión');
+}
+
+function saludEliminarClienteRechazado(id) {
+  if(!confirm('¿Eliminar este reporte rechazado definitivamente?')) return;
+  saludData.clientesRechazados = (saludData.clientesRechazados||[]).filter(x=>x.id!==id);
+  guardarSalud();
+  saludRenderClientesRechazados();
+  showNotif('🗑️ Reporte eliminado');
+}
+
+let _scrChatAbierto = null;
+function saludToggleChatClienteRechazado(id) {
+  _scrChatAbierto = (_scrChatAbierto===id) ? null : id;
+  saludRenderClientesRechazados();
+}
+function saludEnviarMensajeClienteRechazado(id) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const texto = saludEnviarMensajeCliente(id, 'salud', perms ? perms.nombre : 'Salud', 'scr-chat-input-'+id);
+  if(texto) {
+    const c = (saludData.clientesRechazados||[]).find(x=>x.id===id);
+    if(c && c.reportadoPor) saludCrearNotificacion({ paraAgenteId: c.reportadoPor }, 'mensaje', `${perms?perms.nombre:'Salud'}: ${texto}`, id);
+    guardarSalud();
+  }
+  saludRenderClientesRechazados();
 }
 
 // ─── Salud Agentes ────────────────────────────────────────────
