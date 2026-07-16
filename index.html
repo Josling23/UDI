@@ -4336,6 +4336,16 @@ function calcNominaQuincena(mes, q) {
 
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
+// Fecha de HOY en horario LOCAL, formato YYYY-MM-DD (mismo formato que
+// <input type="date">). new Date().toISOString() usa UTC, así que en
+// cualquier zona horaria detrás de UTC (todo EE.UU.) ya muestra el día
+// SIGUIENTE desde la tarde/noche en adelante — eso hacía que comparaciones
+// de "hoy" (p.ej. Bravo → Dashboard → Ganancia Hoy) no encontraran un
+// registro creado esa misma tarde con la fecha local correcta.
+function fechaLocalHoy() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 // Normaliza un nombre para comparaciones (minúsculas, sin tildes) — evita que
 // ventas de un vendedor supervisado no se emparejen por diferencias de acentos.
 function normNombre(s) { return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
@@ -16665,8 +16675,8 @@ function bravoDashboard() {
   if(!validarAccesoBravo()) return;
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1 };
 
-  const hoy = new Date().toISOString().split('T')[0];
-  const reporteHoy = appData.bravo.reportesDiarios.find(r => r.fecha === hoy);
+  const hoy = fechaLocalHoy();
+  const reportesHoy = appData.bravo.reportesDiarios.filter(r => r.fecha === hoy);
 
   const mesActual = new Date().getMonth() + 1;
   const añoActual = new Date().getFullYear();
@@ -16690,7 +16700,9 @@ function bravoDashboard() {
   });
   const repTicketsHoy = (appData.bravo.reparaciones||[]).filter(r => r.fecha === hoy);
   const lycaMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStr);
-  const gananciaHoy = (reporteHoy ? (reporteHoy.gananciaTotal || 0) : 0) + repTicketsHoy.reduce((s,r)=>s+(r.ganancia||0),0);
+  // Suma TODOS los registros diarios de hoy, no solo el primero — puede
+  // haber más de uno si se agregó más de un "Nuevo Registro" el mismo día.
+  const gananciaHoy = reportesHoy.reduce((s,r)=>s+(r.gananciaTotal||0),0) + repTicketsHoy.reduce((s,r)=>s+(r.ganancia||0),0);
   const gananciaMes = gananciaDelMes(mesActual, añoActual);
   const gananciaMesAnterior = gananciaDelMes(mesAnteriorNum, añoAnteriorNum);
 
@@ -17280,7 +17292,7 @@ function abrirModalReparacion(id=null) {
   document.getElementById('rep-totalcosto').value = totalCosto!=null ? totalCosto : '';
   document.getElementById('rep-abono').value = r?.abono!=null ? r.abono : '';
   document.getElementById('rep-estado').value = r?.estado||'recibido';
-  document.getElementById('rep-fecha').value = r?.fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('rep-fecha').value = r?.fecha || fechaLocalHoy();
   document.getElementById('rep-pago').value = r?.pago||'cash';
   calcularReparacionAuto();
   document.getElementById('modal-bravo-reparacion').classList.add('open');
@@ -17849,7 +17861,7 @@ function abrirModalGastoBravo(id = null) {
   bravoGastoEditId = id;
   const g = id ? (appData.bravo.gastos||[]).find(x=>x.id===id) : null;
   document.getElementById('modal-bravo-gasto-title').textContent = id ? '✏️ Editar Gasto de Bravo' : '💸 Nuevo Gasto de Bravo';
-  document.getElementById('bravo-gasto-fecha').value = g ? g.fecha : new Date().toISOString().slice(0,10);
+  document.getElementById('bravo-gasto-fecha').value = g ? g.fecha : fechaLocalHoy();
   // Gastos guardados antes de este cambio no tienen tipoGasto/cantidad/costoUnitario
   // — caen en modo 'otro' con cantidad 1 y el monto total como costo unitario,
   // sin perder ni romper el dato ya guardado.
@@ -17962,7 +17974,7 @@ function bravoSincronizarGastosDeReporte(reporte) {
 // Estructura de datos temporal para el formulario
 let bravoRegistroTemp = {
   id: null,
-  fecha: new Date().toISOString().split('T')[0],
+  fecha: fechaLocalHoy(),
   accesorios: [],
   lycas: [],
   reparaciones: [],
@@ -17998,7 +18010,7 @@ function abrirFormularioRegistroDiario(id=null) {
   } else {
     bravoRegistroTemp = {
       id: null,
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: fechaLocalHoy(),
       accesorios: [],
       lycas: [],
       reparaciones: [],
@@ -19025,7 +19037,7 @@ function bravoCaja() {
 }
 
 function bravoRenderCajaTabla() {
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = fechaLocalHoy();
   const cajaHoy = (appData.bravo.caja||[]).find(c => c.fecha === hoy);
 
   const mesActual = new Date().getMonth() + 1;
@@ -19102,7 +19114,7 @@ function abrirModalCajaChica(id=null) {
   const c = id ? (appData.bravo.caja||[]).find(x=>x.id===id) : null;
   document.getElementById('modal-bravo-caja').dataset.editId = id||'';
   document.getElementById('modal-bravo-caja-title').textContent = id ? '✏️ Editar Caja Chica' : '💵 Registrar Caja Chica';
-  document.getElementById('caja-fecha').value = c?.fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('caja-fecha').value = c?.fecha || fechaLocalHoy();
   document.getElementById('caja-inicial').value = c?.cajaInicial != null ? c.cajaInicial : '';
   document.getElementById('caja-entradas').value = c?.totalEntradas != null ? c.totalEntradas : '';
   document.getElementById('caja-salidas').value = c?.totalSalidas != null ? c.totalSalidas : '';
@@ -19113,7 +19125,7 @@ function abrirModalCajaChica(id=null) {
 
 // Abre el registro de HOY si ya existe, o uno nuevo si no
 function abrirCajaChicaHoy() {
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = fechaLocalHoy();
   const existente = (appData.bravo.caja||[]).find(c => c.fecha === hoy);
   abrirModalCajaChica(existente ? existente.id : null);
 }
@@ -19308,7 +19320,7 @@ function toggleCompraVendida() {
   const fields = document.getElementById('compra-vendido-fields');
   fields.style.display = checked ? 'block' : 'none';
   if(checked && !document.getElementById('compra-fecha-venta').value) {
-    document.getElementById('compra-fecha-venta').value = new Date().toISOString().split('T')[0];
+    document.getElementById('compra-fecha-venta').value = fechaLocalHoy();
   }
 }
 
@@ -19317,13 +19329,13 @@ function abrirModalCompraBravo(id=null, marcarVendido=false) {
   const c = id ? (appData.bravo.compras||[]).find(x=>x.id===id) : null;
   document.getElementById('modal-bravo-compra').dataset.editId = id||'';
   document.getElementById('modal-bravo-compra-title').textContent = id ? '✏️ Editar Compra Diaria' : '🛒 Registrar Compra Diaria';
-  document.getElementById('compra-fecha').value = c?.fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('compra-fecha').value = c?.fecha || fechaLocalHoy();
   document.getElementById('compra-proveedor').value = c?.proveedor || '';
   document.getElementById('compra-descripcion').value = c?.descripcion || '';
   document.getElementById('compra-monto').value = c?.monto != null ? c.monto : '';
   document.getElementById('compra-tipo-pago').value = c?.tipoPago || 'efectivo';
   document.getElementById('compra-vendido').checked = marcarVendido || !!c?.vendido;
-  document.getElementById('compra-fecha-venta').value = c?.fechaVenta || (marcarVendido ? new Date().toISOString().split('T')[0] : '');
+  document.getElementById('compra-fecha-venta').value = c?.fechaVenta || (marcarVendido ? fechaLocalHoy() : '');
   document.getElementById('compra-cliente').value = c?.cliente || '';
   document.getElementById('compra-tipo-pago-venta').value = c?.tipoPagoVenta || 'efectivo';
   toggleCompraVendida();
