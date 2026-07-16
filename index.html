@@ -17562,6 +17562,13 @@ function bravoReparaciones() {
 function bravoReparacionesDesdeRegistros() {
   const out = [];
   (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    // reportesDiarios NUNCA guarda un campo .mes propio (a diferencia de
+    // lineasLyca, que sí lo tiene) — se deriva aquí directamente de
+    // reg.fecha ("YYYY-MM-DD"), partiendo el string en vez de usar
+    // new Date(reg.fecha), para no arrastrar el mismo problema de zona
+    // horaria (UTC vs. local) ya corregido en Ganancia Hoy.
+    const [anioReg, mesReg] = (reg.fecha||'').split('-').map(Number);
+    const mesStr = (anioReg && mesReg) ? mesStrDesdeNum(anioReg, mesReg) : '';
     (reg.reparaciones||[]).forEach(item => {
       out.push({
         origen: 'registro',
@@ -17576,7 +17583,7 @@ function bravoReparacionesDesdeRegistros() {
         estado: item.estado,
         fecha: reg.fecha,
         pago: item.metodo || '',
-        mes: reg.mes,
+        mes: mesStr,
       });
     });
   });
