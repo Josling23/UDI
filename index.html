@@ -16704,6 +16704,20 @@ function importarDatosJunio() {
     }
   ];
 
+  // Blindaje contra doble importación: este botón no tiene ningún control de
+  // "ya se hizo" — si se presiona una segunda vez (por accidente o sin saber
+  // que ya se había importado antes), volvía a insertar TODOS los reportes
+  // de junio como registros NUEVOS, duplicando cada reparación/accesorio/
+  // lyca/combo de junio 2026. Se verifica primero si alguna de esas fechas
+  // ya existe en reportesDiarios antes de importar nada.
+  const fechasYaImportadas = datosJunio
+    .map(r => r.fecha)
+    .filter(f => (appData.bravo.reportesDiarios||[]).some(r => r.fecha === f));
+  if(fechasYaImportadas.length) {
+    showNotif(`⚠️ Los datos de Junio 2026 ya fueron importados antes (ej. ${fechasYaImportadas[0]}) — no se importó de nuevo para evitar duplicados. Si de verdad necesitas reimportar, borra primero los registros de junio existentes en "Ver Registros".`, 'error', 8000);
+    return;
+  }
+
   let nextId = (appData.bravo?.nextDiarioId || 1);
 
   datosJunio.forEach(reporte => {
@@ -16773,8 +16787,17 @@ function importarDatosJunio() {
 
   appData.bravo.nextDiarioId = nextId;
 
-  // Guardar en Firebase
-  guardarEnFirebase('bravo', appData.bravo);
+  // guardarEnFirebase() nunca existió como función real en esta app — esta
+  // línea SIEMPRE lanzaba un error aquí, así que este botón nunca terminaba
+  // de guardar nada en el momento del clic (el error interrumpía la
+  // ejecución antes de llegar al showNotif de éxito y a bravoDashboard()).
+  // Los reportes ya empujados a appData.bravo.reportesDiarios en memoria
+  // solo se sincronizaban con Firebase más tarde, de rebote, la próxima vez
+  // que CUALQUIER otra acción llamara a guardar() — y si el botón se
+  // presionaba más de una vez (algo muy probable si parecía no hacer nada),
+  // cada intento agregaba otro juego completo de reportes de junio
+  // duplicados. Ahora usa guardar(), la función real de guardado de la app.
+  guardar();
 
   showNotif('✅ ' + datosJunio.length + ' reportes de junio importados correctamente', 'success');
   bravoDashboard();
