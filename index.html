@@ -4686,6 +4686,17 @@ function fechaLocalHoy() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
+// Extrae {mes (1-12), anio} de una fecha guardada como texto "YYYY-MM-DD" sin
+// pasar por new Date(texto) — new Date('2026-07-01') se interpreta como
+// medianoche UTC, y en cualquier zona horaria de EE.UU. (detrás de UTC) el
+// .getMonth()/.getFullYear() en hora LOCAL da el día/mes ANTERIOR. Eso hacía
+// que un gasto o registro fechado el día 1 de un mes se contara en el mes
+// anterior en cualquier filtro que usara new Date(fecha).getMonth(). Partir
+// el texto evita cualquier conversión de zona horaria.
+function mesAnioDeFecha(fechaStr) {
+  const partes = (fechaStr||'').split('-');
+  return { mes: parseInt(partes[1], 10) || 0, anio: parseInt(partes[0], 10) || 0 };
+}
 // Normaliza un nombre para comparaciones (minúsculas, sin tildes) — evita que
 // ventas de un vendedor supervisado no se emparejen por diferencias de acentos.
 function normNombre(s) { return (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
@@ -13102,8 +13113,8 @@ function bravoSumarCantidad(items) {
 // dos veces en dos lugares distintos.
 function calcCostosBravoMes(mes, anio) {
   return (appData.bravo?.gastos||[]).reduce((s,g) => {
-    const gd = new Date(g.fecha);
-    return (gd.getMonth()+1===mes && gd.getFullYear()===anio) ? s+parseFloat(g.monto||0) : s;
+    const gd = mesAnioDeFecha(g.fecha);
+    return (gd.mes===mes && gd.anio===anio) ? s+parseFloat(g.monto||0) : s;
   }, 0);
 }
 
@@ -13111,12 +13122,12 @@ function calcBravoMes(mes, anio) {
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
 
   const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mes && d.getFullYear() === anio;
+    const d = mesAnioDeFecha(r.fecha);
+    return d.mes === mes && d.anio === anio;
   });
   const repTicketsMes = (appData.bravo.reparaciones||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mes && d.getFullYear() === anio;
+    const d = mesAnioDeFecha(r.fecha);
+    return d.mes === mes && d.anio === anio;
   });
   const gananciaReparacionesMes = repTicketsMes.reduce((s, r) => s + (r.ganancia || 0), 0);
   const mesStr = MESES_ES[mes-1] + ' ' + anio;
@@ -13203,7 +13214,7 @@ function renderTopBravo() {
       })();
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
-  (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(new Date(r.fecha).getFullYear()); });
+  (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(mesAnioDeFecha(r.fecha).anio); });
   const aniosArr = [...anios].sort((a,b)=>b-a);
 
   document.getElementById('top-bravo').innerHTML = `
@@ -17237,9 +17248,9 @@ function bravoDashboard() {
   const añoAnteriorNum = mesActual===1 ? añoActual-1 : añoActual;
 
   function gananciaDelMes(mes, año) {
-    const rep = (appData.bravo.reportesDiarios||[]).filter(r=>{ const d=new Date(r.fecha); return d.getMonth()+1===mes && d.getFullYear()===año; })
+    const rep = (appData.bravo.reportesDiarios||[]).filter(r=>{ const d=mesAnioDeFecha(r.fecha); return d.mes===mes && d.anio===año; })
       .reduce((s,r)=>s+(r.gananciaTotal||0),0);
-    const tickets = (appData.bravo.reparaciones||[]).filter(r=>{ const d=new Date(r.fecha); return d.getMonth()+1===mes && d.getFullYear()===año; })
+    const tickets = (appData.bravo.reparaciones||[]).filter(r=>{ const d=mesAnioDeFecha(r.fecha); return d.mes===mes && d.anio===año; })
       .reduce((s,r)=>s+(r.ganancia||0),0);
     const lyca = (appData.bravo.lineasLyca||[]).filter(l=>l.mes===(MESES_ES[mes-1]+' '+año))
       .reduce((s,l)=>s+(l.ganancia||0),0);
@@ -17247,8 +17258,8 @@ function bravoDashboard() {
   }
 
   const reportesMes = (appData.bravo.reportesDiarios||[]).filter(r => {
-    const d = new Date(r.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActual;
+    const d = mesAnioDeFecha(r.fecha);
+    return d.mes === mesActual && d.anio === añoActual;
   });
   const repTicketsHoy = (appData.bravo.reparaciones||[]).filter(r => r.fecha === hoy);
   const lycaMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStr);
@@ -18405,8 +18416,8 @@ function bravoROI() {
   const d = calcBravoMes(mesSel, anioSel);
 
   const gastosMes = (appData.bravo.gastos||[]).filter(g => {
-    const gd = new Date(g.fecha);
-    return gd.getMonth() + 1 === mesSel && gd.getFullYear() === anioSel;
+    const gd = mesAnioDeFecha(g.fecha);
+    return gd.mes === mesSel && gd.anio === anioSel;
   }).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
   // d.costosBravoMes (de calcBravoMes) ya es esta misma suma — se reutiliza
   // en vez de recalcularla, para que no haya dos fuentes que puedan
@@ -18416,8 +18427,8 @@ function bravoROI() {
   const roiPct = d.gananciaMes > 0 ? (roiIndependiente / d.gananciaMes * 100) : 0;
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
-  (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(new Date(r.fecha).getFullYear()); });
-  (appData.bravo.gastos||[]).forEach(g=>{ if(g.fecha) anios.add(new Date(g.fecha).getFullYear()); });
+  (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(mesAnioDeFecha(r.fecha).anio); });
+  (appData.bravo.gastos||[]).forEach(g=>{ if(g.fecha) anios.add(mesAnioDeFecha(g.fecha).anio); });
   const aniosArr = [...anios].sort((a,b)=>b-a);
 
   document.getElementById('bravo-roi-content').innerHTML = `
@@ -19699,8 +19710,8 @@ function bravoRenderCajaTabla() {
   const mesActual = new Date().getMonth() + 1;
   const añoActualNum = new Date().getFullYear();
   const cajaMes = (appData.bravo.caja||[]).filter(c => {
-    const d = new Date(c.fecha);
-    return d.getMonth() + 1 === mesActual && d.getFullYear() === añoActualNum;
+    const d = mesAnioDeFecha(c.fecha);
+    return d.mes === mesActual && d.anio === añoActualNum;
   });
   const totalEntradasMes = cajaMes.reduce((s, c) => s + (c.totalEntradas || 0), 0);
   const totalSalidasMes = cajaMes.reduce((s, c) => s + (c.totalSalidas || 0), 0);
