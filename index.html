@@ -396,7 +396,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item" onclick="showPage('bravo-lyca',this)"><span class="icon">📱</span><span>Líneas Lyca</span></div>
     <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
     <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
-    <div class="nav-item" onclick="showPage('bravo-compras',this)"><span class="icon">🛒</span><span>Compras Diarias</span></div>
+    <div class="nav-item" onclick="showPage('bravo-compras',this)"><span class="icon">🛒</span><span>Compras y Gastos</span></div>
     <div class="nav-item" onclick="showPage('enlaces-bravo',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -4712,7 +4712,7 @@ const PAGE_TITLES = {
   'bravo-lyca':'📱 Bravo — Líneas Lyca',
   'bravo-roi':'🏪 Bravo — ROI',
   'bravo-caja':'💵 Caja Chica — Bravo',
-  'bravo-compras':'🛒 Bravo — Compras Diarias',
+  'bravo-compras':'🛒 Bravo — Compras y Gastos',
   'agente-dashboard':'📝 Mis Ventas',
   'agente-reportar':'📝 Reportar Venta',
   'agente-mis-reportes':'📋 Mis Reportes',
@@ -5922,7 +5922,7 @@ const AYUDA_TOPICS = [
   { area:'bravo', pregunta:'¿Cómo registro la venta de una línea Lyca?', respuesta:'"📱 Líneas Lyca" → "➕ Nueva Línea". También controla el inventario disponible y te avisa cuando quedan 5 líneas o menos.' },
   { area:'bravo', pregunta:'¿Cómo cierro la caja chica del día?', respuesta:'"💵 Caja Chica" → "➕ Registrar Caja" — pon caja inicial, entradas y salidas; la caja final se calcula sola. Cada día es independiente, no se suman entre sí.' },
   { area:'bravo', pregunta:'¿Cómo registro un gasto de Bravo?', respuesta:'"🔄 ROI Bravo" → "➕ Nuevo Gasto". Ese gasto se refleja automáticamente en Admin → Gastos & Nómina y en TOP — no hace falta anotarlo dos veces.' },
-  { area:'bravo', pregunta:'¿Para qué es "Compras Diarias"?', respuesta:'Es solo informativo, para llevar control de lo que se compra de inventario — no afecta la ganancia ni el ROI de Bravo.' },
+  { area:'bravo', pregunta:'¿Para qué es "Compras y Gastos"?', respuesta:'Es solo informativo, para llevar control de lo que se compra de inventario — no afecta la ganancia ni el ROI de Bravo.' },
 
   { area:'top', pregunta:'¿Qué es la pestaña "Comparativo" en TOP?', respuesta:'Compara la utilidad de AT&T, Bravo y Salud/Dental del mismo mes, lado a lado, más un historial de los últimos 6 meses.' },
   { area:'top', pregunta:'¿Cómo cambio el PIN de acceso de cada área?', respuesta:'Pestaña "⚙️ Config" → "🔑 Acceso & Seguridad" — ahí guardas el PIN de Administración, TOP, HQ y Salud para compartirlo con cada persona.' },
@@ -19828,7 +19828,7 @@ function bravoCompras() {
   document.getElementById('bravo-compras-content').innerHTML = `
     <div class="section">
       <div class="section-header">
-        <h2>🛒 Compras Diarias</h2>
+        <h2>🛒 Compras y Gastos</h2>
         <button class="btn btn-primary btn-sm" onclick="abrirModalCompraBravo()">➕ Registrar Compra</button>
       </div>
       <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Solo informativo — para llevar cuenta de cuánto se gasta comprando inventario. No afecta la Ganancia ni el ROI de Bravo.</div>
