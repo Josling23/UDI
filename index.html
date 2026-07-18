@@ -2505,6 +2505,10 @@ table thead,table tbody{display:table;width:100%}
               <option value="diagnostico">Diagnóstico</option>
             </optgroup>
             <option value="lyca">📱 Líneas Lyca</option>
+            <optgroup label="🏢 Gastos Operativos">
+              <option value="sueldo">💼 Pago de Sueldo — especificar</option>
+              <option value="renta">🏠 Pago de Renta</option>
+            </optgroup>
             <option value="combo">🎁 Combo — especificar</option>
             <option value="telefono">📞 Teléfono — especificar</option>
             <option value="otro">🆕 Otro / No listado</option>
@@ -18488,8 +18492,9 @@ const BRAVO_GASTO_TIPO_LABELS = {
   pantalla:'Pantalla', tapa:'Tapa Trasera', pin:'Pin de Carga', mojado:'Mojado',
   speaker:'Speaker', diagnostico:'Diagnóstico',
   lyca:'Líneas Lyca',
+  sueldo:'Pago de Sueldo', renta:'Pago de Renta',
 };
-const BRAVO_GASTO_TIPOS_ESPECIFICAR = ['combo','telefono','otro'];
+const BRAVO_GASTO_TIPOS_ESPECIFICAR = ['combo','telefono','sueldo','otro'];
 
 function bravoGastoOnTipoChange() {
   const tipo = document.getElementById('bravo-gasto-tipo').value;
