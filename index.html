@@ -13159,9 +13159,9 @@ function getBravoMesesConDatos() {
   const set = new Set();
   const addFecha = (fecha) => {
     if(!fecha) return;
-    const d = new Date(fecha);
-    if(isNaN(d)) return;
-    set.add((d.getMonth()+1)+'-'+d.getFullYear());
+    const d = mesAnioDeFecha(fecha);
+    if(!d.mes || !d.anio) return;
+    set.add(d.mes+'-'+d.anio);
   };
   (appData.bravo?.reportesDiarios||[]).forEach(r=>addFecha(r.fecha));
   (appData.bravo?.reparaciones||[]).forEach(r=>addFecha(r.fecha));
@@ -18410,18 +18410,22 @@ function bravoROI() {
   const hoy = new Date();
   const selMesEl = document.getElementById('bravo-roi-mes-sel');
   const selAnioEl = document.getElementById('bravo-roi-anio-sel');
-  const mesSel = selMesEl ? parseInt(selMesEl.value) : hoy.getMonth() + 1;
+  const mesSelRaw = selMesEl ? selMesEl.value : (hoy.getMonth() + 1).toString();
+  const esTodos = mesSelRaw === '__todos__';
+  const mesSel = esTodos ? null : parseInt(mesSelRaw);
   const anioSel = selAnioEl ? parseInt(selAnioEl.value) : hoy.getFullYear();
 
-  const d = calcBravoMes(mesSel, anioSel);
+  const mesesConDatos = getBravoMesesConDatos();
+  const d = esTodos ? sumarBravoMeses(mesesConDatos) : calcBravoMes(mesSel, anioSel);
 
   const gastosMes = (appData.bravo.gastos||[]).filter(g => {
+    if(esTodos) return true;
     const gd = mesAnioDeFecha(g.fecha);
     return gd.mes === mesSel && gd.anio === anioSel;
   }).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-  // d.costosBravoMes (de calcBravoMes) ya es esta misma suma — se reutiliza
-  // en vez de recalcularla, para que no haya dos fuentes que puedan
-  // desincronizarse. d.gananciaNeta ya viene neta de este costo.
+  // d.costosBravoMes (de calcBravoMes/sumarBravoMeses) ya es esta misma suma
+  // — se reutiliza en vez de recalcularla, para que no haya dos fuentes que
+  // puedan desincronizarse. d.gananciaNeta ya viene neta de este costo.
   const totalGastosMes = d.costosBravoMes;
   const roiIndependiente = d.gananciaNeta;
   const roiPct = d.gananciaMes > 0 ? (roiIndependiente / d.gananciaMes * 100) : 0;
@@ -18437,9 +18441,10 @@ function bravoROI() {
         <h2>📊 ROI de Bravo (independiente)</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <select id="bravo-roi-mes-sel" onchange="bravoROI()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
-            ${MESES_ES.map((m,i)=>`<option value="${i+1}" ${i+1===mesSel?'selected':''}>${m}</option>`).join('')}
+            <option value="__todos__" ${esTodos?'selected':''}>📊 Todos los Meses</option>
+            ${MESES_ES.map((m,i)=>`<option value="${i+1}" ${!esTodos && i+1===mesSel?'selected':''}>${m}</option>`).join('')}
           </select>
-          <select id="bravo-roi-anio-sel" onchange="bravoROI()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px">
+          <select id="bravo-roi-anio-sel" onchange="bravoROI()" ${esTodos?'disabled':''} style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px${esTodos?';opacity:0.5':''}">
             ${aniosArr.map(a=>`<option value="${a}" ${a===anioSel?'selected':''}>${a}</option>`).join('')}
           </select>
           <button class="btn btn-primary btn-sm" onclick="abrirModalGastoBravo()">➕ Nuevo Gasto</button>
@@ -18449,17 +18454,17 @@ function bravoROI() {
 
       <div class="cards">
         <div class="card green">
-          <label>💰 Ganancia del Mes</label>
+          <label>${esTodos?'💰 Ganancia (todos los meses)':'💰 Ganancia del Mes'}</label>
           <div class="val">${fmt(d.gananciaMes)}</div>
           <div class="sub">${d.reportesMes.length} días</div>
         </div>
         <div class="card orange">
-          <label>💸 Gastos del Mes</label>
+          <label>${esTodos?'💸 Gastos (todos los meses)':'💸 Gastos del Mes'}</label>
           <div class="val">${fmt(totalGastosMes)}</div>
           <div class="sub">${gastosMes.length} gasto${gastosMes.length!==1?'s':''} reportado${gastosMes.length!==1?'s':''}</div>
         </div>
         <div class="card blue">
-          <label>💵 ROI Bravo Independiente</label>
+          <label>${esTodos?'💵 ROI Bravo (todos los meses)':'💵 ROI Bravo Independiente'}</label>
           <div class="val" style="color:${roiIndependiente>=0?'#00BDA5':'#E04048'}">${fmt(roiIndependiente)}</div>
           <div class="sub">${roiIndependiente>=0?'✅ Rentable':'❌ En pérdida'}</div>
         </div>
