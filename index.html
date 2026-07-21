@@ -13172,6 +13172,13 @@ function getBravoMesesConDatos() {
     const mNum = MESES_ES.indexOf(mn) + 1;
     if(mNum>0 && ay) set.add(mNum+'-'+ay);
   });
+  // Un mes con solo "Otros Ingresos" (internet/celulares, sin ninguna otra
+  // actividad de Bravo ese mes) tampoco debe perderse de "Todos los Meses".
+  Object.keys(appData.bravo?.otrosIngresos||{}).forEach(mesStr=>{
+    const [mn, ay] = mesStr.split(' ');
+    const mNum = MESES_ES.indexOf(mn) + 1;
+    if(mNum>0 && ay) set.add(mNum+'-'+ay);
+  });
   return [...set].map(s=>{ const [m,a] = s.split('-').map(Number); return { mes:m, anio:a }; })
     .sort((x,y)=> x.anio!==y.anio ? x.anio-y.anio : x.mes-y.mes);
 }
@@ -13201,17 +13208,33 @@ function renderTopBravo() {
   const mesesConDatos = getBravoMesesConDatos();
   const d = esTodos ? sumarBravoMeses(mesesConDatos) : calcBravoMes(mesSel, anioSel);
 
+  // "Otros Ingresos" (internet, celulares, etc.) — se ingresa a mano por mes,
+  // SOLO se usa aquí en TOP → ROI Bravo. No toca calcBravoMes() ni
+  // calcCostosBravoMes(), así que no afecta el Dashboard de Bravo, el ROI de
+  // Bravo (bravoROI), Admin → Gastos & Nómina, ni la columna "Ganancia
+  // Bravo"/"Utilidad Global" de la otra tabla de TOP — a propósito, a pedido
+  // del usuario.
+  const otroIngresoDeMes = (mes, anio) => (appData.bravo.otrosIngresos||{})[MESES_ES[mes-1]+' '+anio] || 0;
+
   const historial = esTodos
-    ? mesesConDatos.map(({ mes, anio }) => ({ mes: MESES_ES[mes-1], anio, ...calcBravoMes(mes, anio) }))
+    ? mesesConDatos.map(({ mes, anio }) => ({ mes: MESES_ES[mes-1], anio, ...calcBravoMes(mes, anio), otrosIngresos: otroIngresoDeMes(mes, anio) }))
     : (() => {
         const h = [];
         for(let i=5;i>=0;i--) {
           const dt = new Date(anioSel, mesSel-1-i, 1);
           const hm = dt.getMonth()+1, ha = dt.getFullYear();
-          h.push({ mes: MESES_ES[hm-1], anio: ha, ...calcBravoMes(hm, ha) });
+          h.push({ mes: MESES_ES[hm-1], anio: ha, ...calcBravoMes(hm, ha), otrosIngresos: otroIngresoDeMes(hm, ha) });
         }
         return h;
       })();
+
+  // Para el card de resumen: si es "Todos los Meses", suma Otros Ingresos de
+  // TODOS los meses con datos (no solo los 6 del historial); si es un mes
+  // específico, es solo el de ese mes.
+  const otrosIngresosTotal = esTodos
+    ? mesesConDatos.reduce((s,{mes,anio})=>s+otroIngresoDeMes(mes,anio), 0)
+    : otroIngresoDeMes(mesSel, anioSel);
+  const gananciaTotalConOtros = d.gananciaMes + otrosIngresosTotal;
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
   (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(mesAnioDeFecha(r.fecha).anio); });
@@ -13234,12 +13257,22 @@ function renderTopBravo() {
 
       <div class="cards" style="margin-bottom:20px">
         <div class="card green">
-          <label>${esTodos?'💰 Ganancia (todos los meses)':'💰 Ganancia del Mes'}</label>
+          <label>${esTodos?'💰 Ganancia Ventas (todos los meses)':'💰 Ganancia Ventas del Mes'}</label>
           <div class="val">${fmt(d.gananciaMes)}</div>
           <div class="sub">${d.reportesMes.length} días registrados</div>
         </div>
+        <div class="card teal">
+          <label>🌐 Otros Ingresos (Internet/Celulares)</label>
+          <div class="val">${fmt(otrosIngresosTotal)}</div>
+          <div class="sub">${esTodos?'Suma de todos los meses':'Editable en la tabla de abajo'}</div>
+        </div>
+        <div class="card blue">
+          <label>${esTodos?'💵 Ganancia Total Bravo (todos los meses)':'💵 Ganancia Total Bravo del Mes'}</label>
+          <div class="val" style="color:${gananciaTotalConOtros>=0?'#00BDA5':'#E04048'}">${fmt(gananciaTotalConOtros)}</div>
+          <div class="sub">Ventas + Otros Ingresos</div>
+        </div>
       </div>
-      <div style="font-size:10px;color:#99ACC2;margin:-12px 0 16px">Renta y sueldo de Bravo ya se contabilizan en Admin → Gastos & Nómina, por eso aquí no se restan de nuevo.</div>
+      <div style="font-size:10px;color:#99ACC2;margin:-12px 0 16px">Renta y sueldo de Bravo ya se contabilizan en Admin → Gastos & Nómina, por eso aquí no se restan de nuevo. "Otros Ingresos" (internet, celulares, etc.) solo se usa en esta pantalla — no afecta el Dashboard de Bravo, el ROI de Bravo, ni ningún otro cálculo del resto de la app.</div>
 
       <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB;margin-bottom:20px">
         <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción ${esTodos?'(todos los meses)':'Mes'}</div>
@@ -13255,11 +13288,13 @@ function renderTopBravo() {
       <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 ${esTodos?'Historial (todos los meses)':'Historial (últimos 6 meses)'}</div>
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Mes</th><th>Ganancia del Mes</th></tr></thead>
+        <thead><tr><th>Mes</th><th>Ganancia Ventas</th><th style="background:#F0FFFB">🌐 Otros Ingresos</th><th style="background:#FAFAFF">💵 Total</th></tr></thead>
         <tbody>${historial.map(h=>`<tr>
           <td>${h.mes} ${h.anio}</td>
           <td style="font-weight:700;color:#00BDA5">${fmt(h.gananciaMes)}</td>
-        </tr>`).join('') || '<tr><td colspan="2" class="tbl-empty">Sin datos</td></tr>'}</tbody>
+          <td style="background:#F0FFFB"><input type="number" value="${h.otrosIngresos||''}" placeholder="0.00" step="0.01" data-mes="${h.mes} ${h.anio}" onchange="guardarBravoOtroIngreso(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00A492" /></td>
+          <td style="font-weight:800;background:#FAFAFF;color:${(h.gananciaMes+h.otrosIngresos)>=0?'#00BDA5':'#E04048'}">${fmt(h.gananciaMes+h.otrosIngresos)}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="tbl-empty">Sin datos</td></tr>'}</tbody>
       </table>
       </div>
 
@@ -13268,6 +13303,18 @@ function renderTopBravo() {
       </div>
     </div>
   `;
+}
+// "Otros Ingresos" de Bravo (internet, celulares, etc.) — solo vive en TOP →
+// ROI Bravo (renderTopBravo), un valor manual por mes. A propósito NO se lee
+// desde calcBravoMes()/calcCostosBravoMes(), para no afectar el Dashboard de
+// Bravo, el ROI de Bravo, Admin → Gastos & Nómina, ni la otra tabla de TOP.
+function guardarBravoOtroIngreso(inputEl) {
+  const mesStr = inputEl.dataset.mes;
+  const valor = parseFloat(inputEl.value) || 0;
+  if(!appData.bravo.otrosIngresos) appData.bravo.otrosIngresos = {};
+  appData.bravo.otrosIngresos[mesStr] = valor;
+  guardar();
+  renderTopBravo();
 }
 
 function renderTopChargebacks() {
