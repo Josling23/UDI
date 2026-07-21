@@ -13235,6 +13235,12 @@ function renderTopBravo() {
     ? mesesConDatos.reduce((s,{mes,anio})=>s+otroIngresoDeMes(mes,anio), 0)
     : otroIngresoDeMes(mesSel, anioSel);
   const gananciaTotalConOtros = d.gananciaMes + otrosIngresosTotal;
+  // Gastos y ROI% puramente informativos en esta pantalla: reutilizan
+  // d.costosBravoMes (ya calculado por calcBravoMes/sumarBravoMeses, el
+  // mismo que se resta en Admin/TOP → Gastos & Nómina) solo para mostrarlo
+  // aquí también — no se resta de nuevo en ningún otro lado.
+  const gananciaNetaConOtros = gananciaTotalConOtros - d.costosBravoMes;
+  const roiPctInformativo = d.costosBravoMes > 0 ? (gananciaNetaConOtros / d.costosBravoMes * 100) : 0;
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
   (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(mesAnioDeFecha(r.fecha).anio); });
@@ -13271,8 +13277,18 @@ function renderTopBravo() {
           <div class="val" style="color:${gananciaTotalConOtros>=0?'#00BDA5':'#E04048'}">${fmt(gananciaTotalConOtros)}</div>
           <div class="sub">Ventas + Otros Ingresos</div>
         </div>
+        <div class="card orange">
+          <label>${esTodos?'💸 Gastos (todos los meses)':'💸 Gastos del Mes'}</label>
+          <div class="val">${fmt(d.costosBravoMes)}</div>
+          <div class="sub">Informativo — mismo dato de Bravo → ROI de Bravo</div>
+        </div>
+        <div class="card purple">
+          <label>📈 ROI% (informativo)</label>
+          <div class="val">${roiPctBadge(roiPctInformativo)}</div>
+          <div class="sub">Ganancia Neta ÷ Gastos</div>
+        </div>
       </div>
-      <div style="font-size:10px;color:#99ACC2;margin:-12px 0 16px">Renta y sueldo de Bravo ya se contabilizan en Admin → Gastos & Nómina, por eso aquí no se restan de nuevo. "Otros Ingresos" (internet, celulares, etc.) solo se usa en esta pantalla — no afecta el Dashboard de Bravo, el ROI de Bravo, ni ningún otro cálculo del resto de la app.</div>
+      <div style="font-size:10px;color:#99ACC2;margin:-12px 0 16px">Renta y sueldo de Bravo ya se contabilizan en Admin → Gastos & Nómina, por eso aquí no se restan de nuevo. "Otros Ingresos", "Gastos" y "ROI%" son solo informativos en esta pantalla — no afectan el Dashboard de Bravo, el ROI de Bravo, ni ningún otro cálculo del resto de la app.</div>
 
       <div style="background:#F5F8FA;border-radius:8px;padding:12px;border-left:3px solid #009FDB;margin-bottom:20px">
         <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Producción ${esTodos?'(todos los meses)':'Mes'}</div>
@@ -13288,13 +13304,27 @@ function renderTopBravo() {
       <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 ${esTodos?'Historial (todos los meses)':'Historial (últimos 6 meses)'}</div>
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Mes</th><th>Ganancia Ventas</th><th style="background:#F0FFFB">🌐 Otros Ingresos</th><th style="background:#FAFAFF">💵 Total</th></tr></thead>
-        <tbody>${historial.map(h=>`<tr>
+        <thead><tr>
+          <th>Mes</th><th>Ganancia Ventas</th>
+          <th style="background:#F0FFFB">🌐 Otros Ingresos</th>
+          <th style="background:#FAFAFF">💵 Total Ingresos</th>
+          <th style="background:#FFFAF7">💸 Gastos</th>
+          <th style="background:#F0FDF9">✅ Ganancia Neta</th>
+          <th style="background:#F5F4FF">📈 ROI%</th>
+        </tr></thead>
+        <tbody>${historial.map(h=>{
+          const totalIngresos = h.gananciaMes + h.otrosIngresos;
+          const gananciaNeta = totalIngresos - h.costosBravoMes;
+          const roiMes = h.costosBravoMes > 0 ? (gananciaNeta / h.costosBravoMes * 100) : 0;
+          return `<tr>
           <td>${h.mes} ${h.anio}</td>
           <td style="font-weight:700;color:#00BDA5">${fmt(h.gananciaMes)}</td>
           <td style="background:#F0FFFB"><input type="number" value="${h.otrosIngresos||''}" placeholder="0.00" step="0.01" data-mes="${h.mes} ${h.anio}" onchange="guardarBravoOtroIngreso(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#00A492" /></td>
-          <td style="font-weight:800;background:#FAFAFF;color:${(h.gananciaMes+h.otrosIngresos)>=0?'#00BDA5':'#E04048'}">${fmt(h.gananciaMes+h.otrosIngresos)}</td>
-        </tr>`).join('') || '<tr><td colspan="4" class="tbl-empty">Sin datos</td></tr>'}</tbody>
+          <td style="font-weight:800;background:#FAFAFF;color:${totalIngresos>=0?'#00BDA5':'#E04048'}">${fmt(totalIngresos)}</td>
+          <td style="background:#FFFAF7;color:#E04048">${fmt(h.costosBravoMes)}</td>
+          <td style="font-weight:800;background:#F0FDF9;color:${gananciaNeta>=0?'#00BDA5':'#E04048'}">${fmt(gananciaNeta)}</td>
+          <td style="background:#F5F4FF">${roiPctBadge(roiMes)}</td>
+        </tr>`;}).join('') || '<tr><td colspan="7" class="tbl-empty">Sin datos</td></tr>'}</tbody>
       </table>
       </div>
 
