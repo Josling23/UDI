@@ -12442,6 +12442,7 @@ function renderTop() {
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('bravo',this)">🏪 ROI Bravo</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('chargebacks',this)">🔴 Chargebacks</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('rsi',this)">💳 RS&I Pagos</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTopTab('iul',this)">🛡️ IUL/Gastos Finales</button>
         <button class="btn btn-ghost btn-sm" onclick="switchTopTab('config',this)">⚙️ Config</button>
       </div>
     </div>
@@ -12458,6 +12459,7 @@ function renderTop() {
     <div class="priv-section" id="top-bravo"></div>
     <div class="priv-section" id="top-chargebacks"></div>
     <div class="priv-section" id="top-rsi"></div>
+    <div class="priv-section" id="top-iul"></div>
     <div class="priv-section" id="top-config"></div>
   `;
   renderTopComparativo();
@@ -12466,6 +12468,7 @@ function renderTop() {
   renderTopBravo();
   renderTopChargebacks();
   renderTopRSI();
+  renderTopIUL();
   renderTopConfig();
 }
 
@@ -13456,6 +13459,286 @@ function guardarChargeback(mes, valor) {
   if(!isNaN(v) && v >= 0) appData.chargebacks[mes] = v;
   else delete appData.chargebacks[mes];
   guardar(); renderTopChargebacks(); showNotif('✅ Chargeback actualizado');
+}
+
+// ============================================================
+// IUL / GASTOS FINALES — calculadora de comisiones por compañía,
+// adaptada del Excel "Calculadora de Comisiones — UDI Vida y Gastos
+// Finales". Mismas fórmulas exactas de las 4 hojas del Excel
+// (Supuestos, Tabla por Compañía, Simulador Rápido, Metas y Niveles),
+// pero interactivo: el % por compañía se elige en un dropdown en vez
+// de escribir el nombre a mano, y donde el Excel decía "Tú" (la
+// perspectiva de un vendedor individual) aquí dice "La Empresa" —
+// esta calculadora vive en TOP, así que representa lo que le queda a
+// la empresa, no a una persona.
+// ============================================================
+function iulInit() {
+  if(!appData.iulGastosFinales) {
+    appData.iulGastosFinales = {
+      supuestos: {
+        primaMensual: 200, mesesPrima: 12,
+        pctAdelantoCompania: 0.75, pctCerrador: 0.10, pctLideres: 0.10, pctLeonardo: 0.015,
+        numLideres: 3, costoPorLead: 12, leadsPorVenta: 8,
+      },
+      companias: [
+        { id:1, compania:'Transamerica', producto:'Express Solution', pctCompania:1.00 },
+        { id:2, compania:'Transamerica', producto:'IUL Express', pctCompania:0.85 },
+        { id:3, compania:'American Amicable', producto:'Safecare Term', pctCompania:1.00 },
+        { id:4, compania:'American Amicable', producto:'IUL Inteligente', pctCompania:0.80 },
+        { id:5, compania:'Mutual of Omaha', producto:'Accidental Death', pctCompania:0.90 },
+        { id:6, compania:'Mutual of Omaha', producto:'IUL Express', pctCompania:0.90 },
+        { id:7, compania:'Fidelity', producto:'Patselife IUL', pctCompania:0.85 },
+      ],
+      nextCompaniaId: 8,
+      metas: [
+        { id:1, nivel:'Base',      ventasMinCerrador:0,  pctCerrador:0.10, pctLideres:0.10, promMinEquipo:0,  totalMinEquipo:0 },
+        { id:2, nivel:'Bueno',     ventasMinCerrador:4,  pctCerrador:0.12, pctLideres:0.12, promMinEquipo:4,  totalMinEquipo:12 },
+        { id:3, nivel:'Excelente', ventasMinCerrador:7,  pctCerrador:0.14, pctLideres:0.14, promMinEquipo:7,  totalMinEquipo:21 },
+        { id:4, nivel:'Élite',     ventasMinCerrador:10, pctCerrador:0.16, pctLideres:0.16, promMinEquipo:10, totalMinEquipo:30 },
+      ],
+      nextMetaId: 5,
+    };
+  }
+  return appData.iulGastosFinales;
+}
+function iulPrimaAnual(s) { return (parseFloat(s.primaMensual)||0) * (parseFloat(s.mesesPrima)||0); }
+// Replica exacta de las columnas E..L de "Tabla por Compañía" del Excel.
+function iulCalcFila(fila, s) {
+  const primaAnual = iulPrimaAnual(s);
+  const comisionTotal = primaAnual * (parseFloat(fila.pctCompania)||0);
+  const adelanto = comisionTotal * (parseFloat(s.pctAdelantoCompania)||0);
+  const pendiente = comisionTotal - adelanto;
+  const cerrador = adelanto * (parseFloat(s.pctCerrador)||0);
+  const numLideres = parseFloat(s.numLideres)||0;
+  const liderCadaUno = numLideres > 0 ? (adelanto * (parseFloat(s.pctLideres)||0)) / numLideres : 0;
+  const leonardo = adelanto * (parseFloat(s.pctLeonardo)||0);
+  const pctEmpresa = 1 - (parseFloat(s.pctCerrador)||0) - (parseFloat(s.pctLideres)||0) - (parseFloat(s.pctLeonardo)||0);
+  const empresaDelAdelanto = adelanto * pctEmpresa;
+  const costoLeads = (parseFloat(s.costoPorLead)||0) * (parseFloat(s.leadsPorVenta)||0);
+  const totalNetoEmpresa = empresaDelAdelanto + pendiente - costoLeads;
+  return { primaAnual, comisionTotal, adelanto, pendiente, cerrador, liderCadaUno, leonardo, pctEmpresa, empresaDelAdelanto, costoLeads, totalNetoEmpresa };
+}
+// Replica de MATCH(valor, umbrales, 1) sobre un arreglo ascendente: toma el
+// nivel más alto cuyo umbral sea <= al valor (igual que Excel con match_type=1).
+function iulNivelPorUmbral(valor, metas, campo) {
+  let elegido = metas[0];
+  metas.forEach(m => { if((parseFloat(m[campo])||0) <= (parseFloat(valor)||0)) elegido = m; });
+  return elegido;
+}
+// Replica de =INDEX(...,MIN(MATCH(promedio,...),MATCH(total,...))) — el nivel
+// de los líderes es el MENOR (más conservador) entre el nivel por promedio
+// del equipo y el nivel por total del equipo.
+function iulNivelLideres(promedioEquipo, totalEquipo, metas) {
+  const porPromedio = iulNivelPorUmbral(promedioEquipo, metas, 'promMinEquipo');
+  const porTotal = iulNivelPorUmbral(totalEquipo, metas, 'totalMinEquipo');
+  const idxProm = metas.indexOf(porPromedio);
+  const idxTotal = metas.indexOf(porTotal);
+  return metas[Math.min(idxProm, idxTotal)];
+}
+
+function renderTopIUL() {
+  const iul = iulInit();
+  const s = iul.supuestos;
+  const primaAnual = iulPrimaAnual(s);
+  const costoLeadsPorVenta = (parseFloat(s.costoPorLead)||0) * (parseFloat(s.leadsPorVenta)||0);
+  const pctEmpresa = 1 - (parseFloat(s.pctCerrador)||0) - (parseFloat(s.pctLideres)||0) - (parseFloat(s.pctLeonardo)||0);
+
+  const opcionesCompania = iul.companias.map(c=>`<option value="${c.id}">${c.compania} — ${c.producto}</option>`).join('');
+  const simSelId = document.getElementById('iul-sim-compania')?.value;
+  const simFila = iul.companias.find(c=>String(c.id)===String(simSelId)) || iul.companias[0];
+  const simCalc = simFila ? iulCalcFila(simFila, s) : null;
+
+  const nivSelId = document.getElementById('iul-niv-compania')?.value;
+  const nivFila = iul.companias.find(c=>String(c.id)===String(nivSelId)) || iul.companias[0];
+  const nivCalc = nivFila ? iulCalcFila(nivFila, s) : null;
+  const ventasCerrador = parseFloat(document.getElementById('iul-niv-ventas-cerrador')?.value) || 0;
+  const promedioEquipo = parseFloat(document.getElementById('iul-niv-promedio-equipo')?.value) || 0;
+  const totalEquipo = parseFloat(document.getElementById('iul-niv-total-equipo')?.value) || 0;
+  const nivelCerrador = iulNivelPorUmbral(ventasCerrador, iul.metas, 'ventasMinCerrador');
+  const nivelLideres = iulNivelLideres(promedioEquipo, totalEquipo, iul.metas);
+  const dolarCerrador = nivCalc ? nivCalc.adelanto * (parseFloat(nivelCerrador.pctCerrador)||0) : 0;
+  const dolarLideresCombinado = nivCalc ? nivCalc.adelanto * (parseFloat(nivelLideres.pctLideres)||0) : 0;
+  const numLideres = parseFloat(s.numLideres)||0;
+  const dolarPorLider = numLideres > 0 ? dolarLideresCombinado / numLideres : 0;
+
+  document.getElementById('top-iul').innerHTML = `
+    <div class="section" style="margin-bottom:18px;border-left:4px solid #6A78D1">
+      <div style="font-size:12px;font-weight:700;color:#6A78D1;margin-bottom:4px">🛡️ IUL / Gastos Finales — Calculadora de Comisiones por Compañía</div>
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:14px">Adaptado del Excel de comisiones. Edita solo lo que quieras ajustar — todo se guarda automáticamente. "La Empresa" es lo que le queda a USA Distributor después de repartir con Cerrador, Líderes y Leonardo.</div>
+
+      <div style="font-size:11px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📋 Supuestos</div>
+      <div class="form-grid" style="margin-bottom:8px">
+        <div class="form-group"><label>Prima mensual del cliente ($)</label><input type="number" step="0.01" min="0" value="${s.primaMensual}" data-field="primaMensual" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Meses de prima (normalmente 12)</label><input type="number" step="1" min="1" value="${s.mesesPrima}" data-field="mesesPrima" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Prima anual (calculado)</label><input type="text" value="${fmt(primaAnual)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
+        <div class="form-group"><label>% Adelanto de la compañía</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctAdelantoCompania*100).toFixed(1)}" data-field="pctAdelantoCompania" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Cerrador (setter)</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctCerrador*100).toFixed(1)}" data-field="pctCerrador" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Líderes (combinado)</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctLideres*100).toFixed(1)}" data-field="pctLideres" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label># de líderes (reparto en partes iguales)</label><input type="number" step="1" min="1" value="${s.numLideres}" data-field="numLideres" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Supervisor Junior (Leonardo)</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctLeonardo*100).toFixed(1)}" data-field="pctLeonardo" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% La Empresa (resto del adelanto, calculado)</label><input type="text" value="${(pctEmpresa*100).toFixed(1)}%" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
+        <div class="form-group"><label>Costo por lead ($)</label><input type="number" step="0.01" min="0" value="${s.costoPorLead}" data-field="costoPorLead" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Leads necesarios por venta (promedio)</label><input type="number" step="0.1" min="0" value="${s.leadsPorVenta}" data-field="leadsPorVenta" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Costo total de leads por venta (calculado)</label><input type="text" value="${fmt(costoLeadsPorVenta)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
+      </div>
+    </div>
+
+    <div class="section" style="margin-bottom:18px">
+      <div class="section-header">
+        <h2 style="font-size:12px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px">🏢 Tabla por Compañía / Producto</h2>
+        <button class="btn btn-primary btn-sm" onclick="iulAgregarCompania()">➕ Agregar Compañía</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Compañía</th><th>Producto</th><th>% Compañía</th>
+            <th style="text-align:right">Comisión Total</th><th style="text-align:right">Adelanto (75%)</th><th style="text-align:right">Pendiente (25%)</th>
+            <th style="text-align:right">Cerrador</th><th style="text-align:right">Líderes (c/u)</th><th style="text-align:right">Leonardo</th>
+            <th style="text-align:right;background:#F0FFFB">La Empresa (del adelanto)</th>
+            <th style="text-align:right;background:#F5F4FF">TOTAL NETO PARA LA EMPRESA</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${iul.companias.map(c=>{
+              const r = iulCalcFila(c, s);
+              return `<tr>
+                <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
+                <td><input type="text" value="${c.producto}" data-field="producto" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:140px;border:1px solid #CBD6E2;padding:6px;border-radius:4px"></td>
+                <td><input type="number" step="0.1" min="0" max="100" value="${(c.pctCompania*100).toFixed(1)}" data-field="pctCompania" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+                <td style="text-align:right">${fmt(r.comisionTotal)}</td>
+                <td style="text-align:right">${fmt(r.adelanto)}</td>
+                <td style="text-align:right">${fmt(r.pendiente)}</td>
+                <td style="text-align:right">${fmt(r.cerrador)}</td>
+                <td style="text-align:right">${fmt(r.liderCadaUno)}</td>
+                <td style="text-align:right">${fmt(r.leonardo)}</td>
+                <td style="text-align:right;font-weight:700;background:#F0FFFB;color:#00A492">${fmt(r.empresaDelAdelanto)}</td>
+                <td style="text-align:right;font-weight:800;background:#F5F4FF;color:${r.totalNetoEmpresa>=0?'#00BDA5':'#E04048'}">${fmt(r.totalNetoEmpresa)}</td>
+                <td><button class="btn btn-danger btn-xs" onclick="iulEliminarCompania(${c.id})">✕</button></td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="12" class="tbl-empty">Sin compañías — agrega una arriba</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:#99ACC2;margin-top:8px">"Pendiente (25%)" es 100% de la empresa (no se comparte). "TOTAL NETO PARA LA EMPRESA" ya resta el costo estimado de leads por venta.</div>
+    </div>
+
+    <div class="section" style="margin-bottom:18px">
+      <div class="section-header"><h2 style="font-size:12px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px">⚡ Simulador Rápido</h2></div>
+      <div class="form-group" style="max-width:400px;margin-bottom:16px">
+        <label>Compañía / Producto</label>
+        <select id="iul-sim-compania" onchange="renderTopIUL()">${opcionesCompania}</select>
+      </div>
+      ${simCalc ? `
+      <div class="cards">
+        <div class="card blue"><label>% Compañía</label><div class="val">${(simFila.pctCompania*100).toFixed(1)}%</div></div>
+        <div class="card blue"><label>Comisión Total</label><div class="val">${fmt(simCalc.comisionTotal)}</div></div>
+        <div class="card orange"><label>Adelanto (75%)</label><div class="val">${fmt(simCalc.adelanto)}</div></div>
+        <div class="card orange"><label>Pendiente (25%, de la empresa)</label><div class="val">${fmt(simCalc.pendiente)}</div></div>
+        <div class="card teal"><label>Cerrador recibe</label><div class="val">${fmt(simCalc.cerrador)}</div></div>
+        <div class="card teal"><label>Cada líder recibe</label><div class="val">${fmt(simCalc.liderCadaUno)}</div></div>
+        <div class="card teal"><label>Leonardo recibe</label><div class="val">${fmt(simCalc.leonardo)}</div></div>
+        <div class="card green"><label>La Empresa recibe (del adelanto)</label><div class="val">${fmt(simCalc.empresaDelAdelanto)}</div></div>
+        <div class="card purple"><label>TOTAL NETO PARA LA EMPRESA</label><div class="val" style="color:${simCalc.totalNetoEmpresa>=0?'#00BDA5':'#E04048'}">${fmt(simCalc.totalNetoEmpresa)}</div></div>
+      </div>` : '<div class="tbl-empty">Agrega una compañía arriba para simular</div>'}
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h2 style="font-size:12px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px">🏆 Metas y Niveles Escalonados</h2>
+        <button class="btn btn-primary btn-sm" onclick="iulAgregarMeta()">➕ Agregar Nivel</button>
+      </div>
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:10px">Edita los umbrales y porcentajes — deben quedar en orden ascendente. Leonardo se mantiene fijo (no escalona), se ajusta en Supuestos.</div>
+      <div class="tbl-wrap" style="margin-bottom:18px">
+        <table>
+          <thead><tr>
+            <th>Nivel</th><th>Ventas mín. cerrador (indiv.)</th><th>% Cerrador</th><th>% Líderes (combinado)</th>
+            <th>Prom. mín. por cerrador (equipo)</th><th>Total mín. ventas equipo</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${iul.metas.map(m=>`<tr>
+              <td><input type="text" value="${m.nivel}" data-field="nivel" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
+              <td><input type="number" step="1" min="0" value="${m.ventasMinCerrador}" data-field="ventasMinCerrador" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="0.1" min="0" max="100" value="${(m.pctCerrador*100).toFixed(1)}" data-field="pctCerrador" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="0.1" min="0" max="100" value="${(m.pctLideres*100).toFixed(1)}" data-field="pctLideres" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="0.1" min="0" value="${m.promMinEquipo}" data-field="promMinEquipo" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="1" min="0" value="${m.totalMinEquipo}" data-field="totalMinEquipo" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><button class="btn btn-danger btn-xs" onclick="iulEliminarMeta(${m.id})">✕</button></td>
+            </tr>`).join('') || '<tr><td colspan="7" class="tbl-empty">Sin niveles</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📊 Simulador del mes</div>
+      <div class="form-grid" style="margin-bottom:16px">
+        <div class="form-group"><label>Compañía / Producto</label><select id="iul-niv-compania" onchange="renderTopIUL()">${opcionesCompania}</select></div>
+        <div class="form-group"><label>Ventas del mes — cerrador individual</label><input type="number" step="1" min="0" id="iul-niv-ventas-cerrador" value="${document.getElementById('iul-niv-ventas-cerrador')?.value||0}" oninput="renderTopIUL()"></div>
+        <div class="form-group"><label>Promedio de ventas por cerrador (equipo)</label><input type="number" step="0.1" min="0" id="iul-niv-promedio-equipo" value="${document.getElementById('iul-niv-promedio-equipo')?.value||0}" oninput="renderTopIUL()"></div>
+        <div class="form-group"><label>Total de ventas del equipo (este mes)</label><input type="number" step="1" min="0" id="iul-niv-total-equipo" value="${document.getElementById('iul-niv-total-equipo')?.value||0}" oninput="renderTopIUL()"></div>
+      </div>
+      ${nivCalc ? `
+      <div class="cards">
+        <div class="card teal"><label>Nivel del cerrador</label><div class="val" style="font-size:16px">${nivelCerrador.nivel}</div><div class="sub">${(nivelCerrador.pctCerrador*100).toFixed(1)}% aplicable</div></div>
+        <div class="card green"><label>$ para el cerrador</label><div class="val">${fmt(dolarCerrador)}</div></div>
+        <div class="card teal"><label>Nivel de los líderes (combinado)</label><div class="val" style="font-size:16px">${nivelLideres.nivel}</div><div class="sub">${(nivelLideres.pctLideres*100).toFixed(1)}% aplicable</div></div>
+        <div class="card green"><label>$ combinado (3 líderes)</label><div class="val">${fmt(dolarLideresCombinado)}</div></div>
+        <div class="card purple"><label>$ por líder</label><div class="val">${fmt(dolarPorLider)}</div></div>
+      </div>` : '<div class="tbl-empty">Agrega una compañía arriba para simular</div>'}
+    </div>
+  `;
+}
+function iulGuardarSupuesto(input) {
+  const iul = iulInit();
+  const field = input.dataset.field;
+  const esPorcentaje = ['pctAdelantoCompania','pctCerrador','pctLideres','pctLeonardo'].includes(field);
+  const valor = parseFloat(input.value) || 0;
+  iul.supuestos[field] = esPorcentaje ? valor/100 : valor;
+  guardar();
+  renderTopIUL();
+}
+function iulGuardarCompaniaCell(input) {
+  const iul = iulInit();
+  const c = iul.companias.find(x=>x.id===parseInt(input.dataset.id));
+  if(!c) return;
+  const field = input.dataset.field;
+  c[field] = field==='pctCompania' ? (parseFloat(input.value)||0)/100 : (field==='compania'||field==='producto' ? input.value.trim() : parseFloat(input.value)||0);
+  guardar();
+  renderTopIUL();
+}
+function iulAgregarCompania() {
+  const iul = iulInit();
+  iul.companias.push({ id: iul.nextCompaniaId++, compania:'Nueva Compañía', producto:'Producto', pctCompania:1.00 });
+  guardar();
+  renderTopIUL();
+}
+function iulEliminarCompania(id) {
+  const iul = iulInit();
+  if(!confirm('¿Eliminar esta compañía/producto de la tabla?')) return;
+  iul.companias = iul.companias.filter(c=>c.id!==id);
+  guardar();
+  renderTopIUL();
+}
+function iulGuardarMetaCell(input) {
+  const iul = iulInit();
+  const m = iul.metas.find(x=>x.id===parseInt(input.dataset.id));
+  if(!m) return;
+  const field = input.dataset.field;
+  const esPorcentaje = field==='pctCerrador' || field==='pctLideres';
+  m[field] = field==='nivel' ? input.value.trim() : (esPorcentaje ? (parseFloat(input.value)||0)/100 : parseFloat(input.value)||0);
+  guardar();
+  renderTopIUL();
+}
+function iulAgregarMeta() {
+  const iul = iulInit();
+  iul.metas.push({ id: iul.nextMetaId++, nivel:'Nuevo Nivel', ventasMinCerrador:0, pctCerrador:0.10, pctLideres:0.10, promMinEquipo:0, totalMinEquipo:0 });
+  guardar();
+  renderTopIUL();
+}
+function iulEliminarMeta(id) {
+  const iul = iulInit();
+  if(!confirm('¿Eliminar este nivel?')) return;
+  iul.metas = iul.metas.filter(m=>m.id!==id);
+  guardar();
+  renderTopIUL();
 }
 
 function renderTopConfig() {
