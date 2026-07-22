@@ -15589,6 +15589,17 @@ function saludRenderProductos() {
 // equipo (Cerrador/Líderes/Supervisor) sin ver cuánto gana la empresa.
 // Vive en saludData.calculadoraComisiones — independiente de la de TOP.
 // ============================================================
+// Compañías de seguro reales de Salud/Dental — las mismas que ya se usan en
+// "💰 Pagos Recibidos" (campo "Compañía de Salud", ej: Ambetter, Molina,
+// Aetna...), para que la tabla arranque con las aseguradoras reales que
+// pagan, no con un placeholder genérico. El % de cada una es editable —
+// no hay una tasa oficial documentada por compañía, así que arrancan en
+// 100% y se ajustan aquí mismo.
+const SALUD_CALC_COMPANIAS_DEFAULT = [
+  { id:1, compania:'Ambetter', producto:'Dental', pctCompania:100 },
+  { id:2, compania:'Molina',   producto:'Dental', pctCompania:100 },
+  { id:3, compania:'Aetna',    producto:'Dental', pctCompania:100 },
+];
 function saludCalcInit() {
   if(!saludData.calculadoraComisiones) {
     saludData.calculadoraComisiones = {
@@ -15597,10 +15608,8 @@ function saludCalcInit() {
         pctAdelantoCompania: 75, pctCerrador: 10, pctLideres: 10, pctSupervisor: 1.5,
         numLideres: 3, costoPorLead: 12, leadsPorVenta: 8,
       },
-      companias: [
-        { id:1, compania:'Compañía 1', producto:'Producto A', pctCompania:100 },
-      ],
-      nextCompaniaId: 2,
+      companias: SALUD_CALC_COMPANIAS_DEFAULT.map(c=>({...c})),
+      nextCompaniaId: 4,
       metas: [
         { id:1, nivel:'Base',      ventasMinCerrador:0,  pctCerrador:10, pctLideres:10, promMinEquipo:0,  totalMinEquipo:0 },
         { id:2, nivel:'Bueno',     ventasMinCerrador:4,  pctCerrador:12, pctLideres:12, promMinEquipo:4,  totalMinEquipo:12 },
@@ -15609,6 +15618,12 @@ function saludCalcInit() {
       ],
       nextMetaId: 5,
     };
+  } else if(saludData.calculadoraComisiones.companias.length===1 && saludData.calculadoraComisiones.companias[0].compania==='Compañía 1') {
+    // Reemplaza el placeholder genérico por las compañías reales si ya se
+    // había guardado sin querer con el valor de ejemplo — no pisa nada que
+    // el usuario haya escrito de verdad (solo entra si sigue intacto).
+    saludData.calculadoraComisiones.companias = SALUD_CALC_COMPANIAS_DEFAULT.map(c=>({...c}));
+    saludData.calculadoraComisiones.nextCompaniaId = 4;
   }
   return saludData.calculadoraComisiones;
 }
