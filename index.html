@@ -4373,6 +4373,20 @@ function fmt(n) {
   const v = parseFloat(n||0);
   return '$' + v.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 }
+// Dropdown de 1% a 30% (en vez de escribir el número a mano) para los
+// porcentajes de reparto de equipo (Cerrador/Líderes/Supervisor) en las
+// calculadoras de comisiones (TOP → IUL/Gastos Finales y Salud → Productos
+// & Comisiones). Si el valor ya guardado no es un entero de 1 a 30 (ej. el
+// 1.5% de Supervisor Junior), se agrega como opción extra para no perderlo
+// ni cambiarlo solo por mostrar el dropdown.
+function pctDropdownHTML(valorActual, attrsExtra) {
+  const val = parseFloat(valorActual)||0;
+  const opciones = [];
+  for(let i=1;i<=30;i++) opciones.push(i);
+  if(!opciones.includes(val)) opciones.push(val);
+  opciones.sort((a,b)=>a-b);
+  return `<select ${attrsExtra}>${opciones.map(o=>`<option value="${o}" ${o===val?'selected':''}>${o}%</option>`).join('')}</select>`;
+}
 
 // Semáforo visual para interpretar un % (ROI Global o Margen Operativo) de
 // un vistazo: 🔴 negativo · 🟠 0-19.9% bajo · 🟡 20-34.9% aceptable ·
@@ -13573,10 +13587,10 @@ function renderTopIUL() {
         <div class="form-group"><label>Meses de prima (normalmente 12)</label><input type="number" step="1" min="1" value="${s.mesesPrima}" data-field="mesesPrima" onchange="iulGuardarSupuesto(this)"></div>
         <div class="form-group"><label>Prima anual (calculado)</label><input type="text" value="${fmt(primaAnual)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
         <div class="form-group"><label>% Adelanto de la compañía</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctAdelantoCompania*100).toFixed(1)}" data-field="pctAdelantoCompania" onchange="iulGuardarSupuesto(this)"></div>
-        <div class="form-group"><label>% Cerrador (setter)</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctCerrador*100).toFixed(1)}" data-field="pctCerrador" onchange="iulGuardarSupuesto(this)"></div>
-        <div class="form-group"><label>% Líderes (combinado)</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctLideres*100).toFixed(1)}" data-field="pctLideres" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Cerrador (setter)</label>${pctDropdownHTML((s.pctCerrador*100).toFixed(1), 'data-field="pctCerrador" onchange="iulGuardarSupuesto(this)"')}</div>
+        <div class="form-group"><label>% Líderes (combinado)</label>${pctDropdownHTML((s.pctLideres*100).toFixed(1), 'data-field="pctLideres" onchange="iulGuardarSupuesto(this)"')}</div>
         <div class="form-group"><label># de líderes (reparto en partes iguales)</label><input type="number" step="1" min="1" value="${s.numLideres}" data-field="numLideres" onchange="iulGuardarSupuesto(this)"></div>
-        <div class="form-group"><label>% Supervisor Junior (Leonardo)</label><input type="number" step="0.1" min="0" max="100" value="${(s.pctLeonardo*100).toFixed(1)}" data-field="pctLeonardo" onchange="iulGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Supervisor Junior (Leonardo)</label>${pctDropdownHTML((s.pctLeonardo*100).toFixed(1), 'data-field="pctLeonardo" onchange="iulGuardarSupuesto(this)"')}</div>
         <div class="form-group"><label>% La Empresa (resto del adelanto, calculado)</label><input type="text" value="${(pctEmpresa*100).toFixed(1)}%" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
         <div class="form-group"><label>Costo por lead ($)</label><input type="number" step="0.01" min="0" value="${s.costoPorLead}" data-field="costoPorLead" onchange="iulGuardarSupuesto(this)"></div>
         <div class="form-group"><label>Leads necesarios por venta (promedio)</label><input type="number" step="0.1" min="0" value="${s.leadsPorVenta}" data-field="leadsPorVenta" onchange="iulGuardarSupuesto(this)"></div>
@@ -13659,8 +13673,8 @@ function renderTopIUL() {
             ${iul.metas.map(m=>`<tr>
               <td><input type="text" value="${m.nivel}" data-field="nivel" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
               <td><input type="number" step="1" min="0" value="${m.ventasMinCerrador}" data-field="ventasMinCerrador" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
-              <td><input type="number" step="0.1" min="0" max="100" value="${(m.pctCerrador*100).toFixed(1)}" data-field="pctCerrador" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
-              <td><input type="number" step="0.1" min="0" max="100" value="${(m.pctLideres*100).toFixed(1)}" data-field="pctLideres" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td>${pctDropdownHTML((m.pctCerrador*100).toFixed(1), `data-field="pctCerrador" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"`)}</td>
+              <td>${pctDropdownHTML((m.pctLideres*100).toFixed(1), `data-field="pctLideres" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"`)}</td>
               <td><input type="number" step="0.1" min="0" value="${m.promMinEquipo}" data-field="promMinEquipo" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
               <td><input type="number" step="1" min="0" value="${m.totalMinEquipo}" data-field="totalMinEquipo" data-id="${m.id}" onchange="iulGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
               <td><button class="btn btn-danger btn-xs" onclick="iulEliminarMeta(${m.id})">✕</button></td>
@@ -15589,18 +15603,11 @@ function saludRenderProductos() {
 // equipo (Cerrador/Líderes/Supervisor) sin ver cuánto gana la empresa.
 // Vive en saludData.calculadoraComisiones — independiente de la de TOP.
 // ============================================================
-// Compañías de seguro reales de Salud/Dental — las mismas que ya se usan en
-// "💰 Pagos Recibidos" (campo "Compañía de Salud", ej: Ambetter, Molina,
-// Aetna...), para que la tabla arranque con las aseguradoras reales que
-// pagan, no con un placeholder genérico. El % de cada una es editable —
-// no hay una tasa oficial documentada por compañía, así que arrancan en
-// 100% y se ajustan aquí mismo.
-const SALUD_CALC_COMPANIAS_DEFAULT = [
-  { id:1, compania:'Ambetter', producto:'Dental', pctCompania:100 },
-  { id:2, compania:'Molina',   producto:'Dental', pctCompania:100 },
-  { id:3, compania:'Aetna',    producto:'Dental', pctCompania:100 },
-];
+// La tabla de compañías arranca VACÍA — no se inventan nombres de
+// aseguradoras reales aquí (eso lo agrega la usuaria con "➕ Agregar
+// Compañía", con los nombres/porcentajes reales que ella conoce).
 function saludCalcInit() {
+  const PLACEHOLDERS_A_LIMPIAR = ['Compañía 1', 'Ambetter', 'Molina', 'Aetna'];
   if(!saludData.calculadoraComisiones) {
     saludData.calculadoraComisiones = {
       supuestos: {
@@ -15608,8 +15615,8 @@ function saludCalcInit() {
         pctAdelantoCompania: 75, pctCerrador: 10, pctLideres: 10, pctSupervisor: 1.5,
         numLideres: 3, costoPorLead: 12, leadsPorVenta: 8,
       },
-      companias: SALUD_CALC_COMPANIAS_DEFAULT.map(c=>({...c})),
-      nextCompaniaId: 4,
+      companias: [],
+      nextCompaniaId: 1,
       metas: [
         { id:1, nivel:'Base',      ventasMinCerrador:0,  pctCerrador:10, pctLideres:10, promMinEquipo:0,  totalMinEquipo:0 },
         { id:2, nivel:'Bueno',     ventasMinCerrador:4,  pctCerrador:12, pctLideres:12, promMinEquipo:4,  totalMinEquipo:12 },
@@ -15618,12 +15625,13 @@ function saludCalcInit() {
       ],
       nextMetaId: 5,
     };
-  } else if(saludData.calculadoraComisiones.companias.length===1 && saludData.calculadoraComisiones.companias[0].compania==='Compañía 1') {
-    // Reemplaza el placeholder genérico por las compañías reales si ya se
-    // había guardado sin querer con el valor de ejemplo — no pisa nada que
-    // el usuario haya escrito de verdad (solo entra si sigue intacto).
-    saludData.calculadoraComisiones.companias = SALUD_CALC_COMPANIAS_DEFAULT.map(c=>({...c}));
-    saludData.calculadoraComisiones.nextCompaniaId = 4;
+  } else if(saludData.calculadoraComisiones.companias.every(c=>PLACEHOLDERS_A_LIMPIAR.includes(c.compania))) {
+    // Si ya se había guardado con nombres de ejemplo (placeholder viejo, o
+    // Ambetter/Molina/Aetna de una versión anterior) y nadie los editó
+    // todavía, se limpia — no se inventan compañías reales, la usuaria las
+    // agrega ella misma. Si YA hay algo que no sea uno de estos ejemplos,
+    // nunca se toca.
+    saludData.calculadoraComisiones.companias = [];
   }
   return saludData.calculadoraComisiones;
 }
@@ -15691,10 +15699,10 @@ function renderSaludCalculadoraComisiones() {
         <div class="form-group"><label>Meses de prima</label><input type="number" step="1" min="1" value="${s.mesesPrima}" data-field="mesesPrima" onchange="saludCalcGuardarSupuesto(this)"></div>
         <div class="form-group"><label>Prima anual (calculado)</label><input type="text" value="${fmt(primaAnual)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
         <div class="form-group"><label>% Adelanto de la compañía</label><input type="number" step="0.1" min="0" max="100" value="${s.pctAdelantoCompania}" data-field="pctAdelantoCompania" onchange="saludCalcGuardarSupuesto(this)"></div>
-        <div class="form-group"><label>% Cerrador (setter)</label><input type="number" step="0.1" min="0" max="100" value="${s.pctCerrador}" data-field="pctCerrador" onchange="saludCalcGuardarSupuesto(this)"></div>
-        <div class="form-group"><label>% Líderes (combinado)</label><input type="number" step="0.1" min="0" max="100" value="${s.pctLideres}" data-field="pctLideres" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Cerrador (setter)</label>${pctDropdownHTML(s.pctCerrador, 'data-field="pctCerrador" onchange="saludCalcGuardarSupuesto(this)"')}</div>
+        <div class="form-group"><label>% Líderes (combinado)</label>${pctDropdownHTML(s.pctLideres, 'data-field="pctLideres" onchange="saludCalcGuardarSupuesto(this)"')}</div>
         <div class="form-group"><label># de líderes (reparto en partes iguales)</label><input type="number" step="1" min="1" value="${s.numLideres}" data-field="numLideres" onchange="saludCalcGuardarSupuesto(this)"></div>
-        <div class="form-group"><label>% Supervisor Junior</label><input type="number" step="0.1" min="0" max="100" value="${s.pctSupervisor}" data-field="pctSupervisor" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Supervisor Junior</label>${pctDropdownHTML(s.pctSupervisor, 'data-field="pctSupervisor" onchange="saludCalcGuardarSupuesto(this)"')}</div>
         <div class="form-group"><label>Costo por lead ($)</label><input type="number" step="0.01" min="0" value="${s.costoPorLead}" data-field="costoPorLead" onchange="saludCalcGuardarSupuesto(this)"></div>
         <div class="form-group"><label>Leads necesarios por venta (promedio)</label><input type="number" step="0.1" min="0" value="${s.leadsPorVenta}" data-field="leadsPorVenta" onchange="saludCalcGuardarSupuesto(this)"></div>
         <div class="form-group"><label>Costo total de leads por venta (calculado)</label><input type="text" value="${fmt(costoLeadsPorVenta)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
@@ -15756,8 +15764,8 @@ function renderSaludCalculadoraComisiones() {
             ${calc.metas.map(m=>`<tr>
               <td><input type="text" value="${m.nivel}" data-field="nivel" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
               <td><input type="number" step="1" min="0" value="${m.ventasMinCerrador}" data-field="ventasMinCerrador" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
-              <td><input type="number" step="0.1" min="0" max="100" value="${m.pctCerrador}" data-field="pctCerrador" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
-              <td><input type="number" step="0.1" min="0" max="100" value="${m.pctLideres}" data-field="pctLideres" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td>${pctDropdownHTML(m.pctCerrador, `data-field="pctCerrador" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"`)}</td>
+              <td>${pctDropdownHTML(m.pctLideres, `data-field="pctLideres" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"`)}</td>
               <td><input type="number" step="0.1" min="0" value="${m.promMinEquipo}" data-field="promMinEquipo" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
               <td><input type="number" step="1" min="0" value="${m.totalMinEquipo}" data-field="totalMinEquipo" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
               <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarMeta(${m.id})">✕</button></td>
