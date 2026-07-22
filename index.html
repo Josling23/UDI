@@ -14249,17 +14249,18 @@ function renderTopGastoNominaGanancias() {
   const totalMargenOperativoPct = totalIngresosTotales > 0 ? (totalUtilidad / totalIngresosTotales * 100) : 0;
 
   // Cuadro aparte de ROI de Marketing — puramente informativo, no toca nada
-  // de la tabla de arriba. "Invertido en Marketing" = TODO el gasto de TODAS
-  // las campañas (AT&T + Salud/Dental), histórico completo (no por mes, a
-  // propósito — así lo pidió el usuario, "gasto de marketing global").
-  // "Ganado" = la misma Utilidad Global YA sumada arriba (respeta el filtro
-  // de año y el botón Con/Sin Bravo, porque reutiliza totalUtilidad/
-  // totalIngresosTotales tal cual, sin recalcular nada por su cuenta).
-  const marketingInvertido = (appData.campanas||[]).reduce((s,c)=>s+(parseFloat(c.gasto)||0),0)
-    + (saludData.campanas||[]).reduce((s,c)=>s+(parseFloat(c.gasto)||0),0);
-  const gananciaNetaMarketing = totalUtilidad - marketingInvertido;
+  // de la tabla de arriba. A diferencia del resto de la tabla, "Invertido en
+  // Marketing" y "Ganado en Total" son 100% manuales, mes a mes (el usuario
+  // los escribe directamente, no se calculan de campañas ni de la Utilidad
+  // Global) — solo el ROI% y el Margen% se calculan solos, a partir de esos
+  // dos números. Se guardan en appData.gastosNomina[mes], mismo lugar que
+  // Nóminas/Comisiones/etc., pero en campos nuevos que esa tabla y el resto
+  // de la app no leen, así que no afecta nada más.
+  const marketingInvertido = mesesFiltrados.reduce((s,mes)=>s+(appData.gastosNomina[mes]?.marketingInvertidoManual||0),0);
+  const ganadoTotalMarketing = mesesFiltrados.reduce((s,mes)=>s+(appData.gastosNomina[mes]?.ganadoTotalManual||0),0);
+  const gananciaNetaMarketing = ganadoTotalMarketing - marketingInvertido;
   const roiMarketingPct = marketingInvertido > 0 ? (gananciaNetaMarketing / marketingInvertido * 100) : 0;
-  const margenMarketingPct = totalIngresosTotales > 0 ? (gananciaNetaMarketing / totalIngresosTotales * 100) : 0;
+  const margenMarketingPct = ganadoTotalMarketing > 0 ? (gananciaNetaMarketing / ganadoTotalMarketing * 100) : 0;
 
   el.innerHTML = `
     <div style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -14339,28 +14340,41 @@ function renderTopGastoNominaGanancias() {
     </div>
 
     <div style="margin-top:24px;border:1.5px solid #CBD6E2;border-radius:10px;padding:20px;background:#FAFBFF">
-      <div style="font-size:13px;font-weight:700;color:#33475B;margin-bottom:4px">📢 ROI de Marketing (global)</div>
-      <div style="font-size:10px;color:#99ACC2;margin-bottom:14px">Cuadro aparte, solo informativo — no afecta la tabla de arriba ni ningún otro cálculo. "Invertido en Marketing" es el gasto histórico de TODAS las campañas (AT&T + Salud/Dental), sin filtrar por mes. "Ganado" es la misma Utilidad Global ya sumada arriba${selAnio?' para '+selAnio:''}${_topROIIncluirBravo?'':' (sin Bravo)'}.</div>
+      <div style="font-size:13px;font-weight:700;color:#33475B;margin-bottom:4px">📢 ROI de Marketing (manual, por mes)</div>
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:14px">Cuadro aparte, solo informativo — no afecta la tabla de arriba ni ningún otro cálculo. Ingresa "Invertido en Marketing" y "Ganado en Total" mes a mes; el ROI% y el Margen% de abajo se calculan solos a partir de esos dos números.</div>
+      <div class="tbl-wrap" style="margin-bottom:18px">
+        <table>
+          <thead><tr><th>Mes</th><th>💸 Invertido en Marketing</th><th>💰 Ganado en Total</th></tr></thead>
+          <tbody>
+            ${mesesFiltrados.map(mes => {
+              const gn = appData.gastosNomina[mes] || {};
+              return `<tr>
+                <td style="padding:12px;font-weight:600;color:#33475B">${mes}</td>
+                <td style="padding:12px;text-align:right"><input type="number" value="${gn.marketingInvertidoManual||''}" placeholder="0.00" step="0.01" data-field="marketingInvertidoManual" data-mes="${mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#FF7A59" /></td>
+                <td style="padding:12px;text-align:right"><input type="number" value="${gn.ganadoTotalManual||''}" placeholder="0.00" step="0.01" data-field="ganadoTotalManual" data-mes="${mes}" onchange="guardarGastoNominaCell(this)" style="width:110px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#009FDB" /></td>
+              </tr>`;
+            }).join('') || `<tr><td colspan="3" class="tbl-empty">Sin datos${selAnio?' para '+selAnio:''}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
       <div class="cards">
         <div class="card orange">
-          <label>💸 Invertido en Marketing</label>
+          <label>💸 Invertido en Marketing${selAnio?' ('+selAnio+')':' (todos los años)'}</label>
           <div class="val">${fmt(marketingInvertido)}</div>
-          <div class="sub">Todas las campañas, histórico completo</div>
         </div>
         <div class="card blue">
           <label>💰 Ganado en Total${selAnio?' ('+selAnio+')':' (todos los años)'}</label>
-          <div class="val">${fmt(totalUtilidad)}</div>
-          <div class="sub">Misma Utilidad Global de la tabla de arriba</div>
+          <div class="val">${fmt(ganadoTotalMarketing)}</div>
         </div>
         <div class="card purple">
           <label>📈 ROI de Marketing %</label>
           <div class="val">${roiPctBadge(roiMarketingPct)}</div>
-          <div class="sub">Ganado ÷ Invertido en Marketing</div>
+          <div class="sub">(Ganado − Invertido) ÷ Invertido</div>
         </div>
         <div class="card purple">
-          <label>📊 Margen Operativo con Marketing %</label>
+          <label>📊 Margen con Marketing %</label>
           <div class="val">${roiPctBadge(margenMarketingPct)}</div>
-          <div class="sub">Ganado ÷ Ingresos Totales</div>
+          <div class="sub">(Ganado − Invertido) ÷ Ganado</div>
         </div>
       </div>
     </div>
