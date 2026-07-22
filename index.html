@@ -14248,6 +14248,19 @@ function renderTopGastoNominaGanancias() {
   const totalRoiPct = totalMesSum > 0 ? (totalUtilidad / totalMesSum * 100) : 0;
   const totalMargenOperativoPct = totalIngresosTotales > 0 ? (totalUtilidad / totalIngresosTotales * 100) : 0;
 
+  // Cuadro aparte de ROI de Marketing — puramente informativo, no toca nada
+  // de la tabla de arriba. "Invertido en Marketing" = TODO el gasto de TODAS
+  // las campañas (AT&T + Salud/Dental), histórico completo (no por mes, a
+  // propósito — así lo pidió el usuario, "gasto de marketing global").
+  // "Ganado" = la misma Utilidad Global YA sumada arriba (respeta el filtro
+  // de año y el botón Con/Sin Bravo, porque reutiliza totalUtilidad/
+  // totalIngresosTotales tal cual, sin recalcular nada por su cuenta).
+  const marketingInvertido = (appData.campanas||[]).reduce((s,c)=>s+(parseFloat(c.gasto)||0),0)
+    + (saludData.campanas||[]).reduce((s,c)=>s+(parseFloat(c.gasto)||0),0);
+  const gananciaNetaMarketing = totalUtilidad - marketingInvertido;
+  const roiMarketingPct = marketingInvertido > 0 ? (gananciaNetaMarketing / marketingInvertido * 100) : 0;
+  const margenMarketingPct = totalIngresosTotales > 0 ? (gananciaNetaMarketing / totalIngresosTotales * 100) : 0;
+
   el.innerHTML = `
     <div style="margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <select id="top-gn-anio-sel" onchange="renderTopGastoNominaGanancias()" style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600">
@@ -14323,6 +14336,33 @@ function renderTopGastoNominaGanancias() {
       <span>🟡 Aceptable</span>
       <span>🟢 Bueno</span>
       <span>✅ Excelente</span>
+    </div>
+
+    <div style="margin-top:24px;border:1.5px solid #CBD6E2;border-radius:10px;padding:20px;background:#FAFBFF">
+      <div style="font-size:13px;font-weight:700;color:#33475B;margin-bottom:4px">📢 ROI de Marketing (global)</div>
+      <div style="font-size:10px;color:#99ACC2;margin-bottom:14px">Cuadro aparte, solo informativo — no afecta la tabla de arriba ni ningún otro cálculo. "Invertido en Marketing" es el gasto histórico de TODAS las campañas (AT&T + Salud/Dental), sin filtrar por mes. "Ganado" es la misma Utilidad Global ya sumada arriba${selAnio?' para '+selAnio:''}${_topROIIncluirBravo?'':' (sin Bravo)'}.</div>
+      <div class="cards">
+        <div class="card orange">
+          <label>💸 Invertido en Marketing</label>
+          <div class="val">${fmt(marketingInvertido)}</div>
+          <div class="sub">Todas las campañas, histórico completo</div>
+        </div>
+        <div class="card blue">
+          <label>💰 Ganado en Total${selAnio?' ('+selAnio+')':' (todos los años)'}</label>
+          <div class="val">${fmt(totalUtilidad)}</div>
+          <div class="sub">Misma Utilidad Global de la tabla de arriba</div>
+        </div>
+        <div class="card purple">
+          <label>📈 ROI de Marketing %</label>
+          <div class="val">${roiPctBadge(roiMarketingPct)}</div>
+          <div class="sub">Ganado ÷ Invertido en Marketing</div>
+        </div>
+        <div class="card purple">
+          <label>📊 Margen Operativo con Marketing %</label>
+          <div class="val">${roiPctBadge(margenMarketingPct)}</div>
+          <div class="sub">Ganado ÷ Ingresos Totales</div>
+        </div>
+      </div>
     </div>
   `;
 }
