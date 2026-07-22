@@ -15569,7 +15569,7 @@ function saludRenderProductos() {
           onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
       </div>
     </div>`).join('');
-  saludProductosRenderCalculadora();
+  renderSaludCalculadoraComisiones();
 }
 // ============================================================
 // CALCULADORA DE COMISIONES — dentro de 💼 Productos & Comisiones, visible
@@ -15580,45 +15580,243 @@ function saludRenderProductos() {
 // guardar()/guardarSalud(), así que nada de esto queda registrado ni visible
 // para nadie más.
 // ============================================================
-function saludProductosRenderCalculadora() {
+// ============================================================
+// CALCULADORA DE COMISIONES — misma estructura completa que TOP →
+// 🛡️ IUL/Gastos Finales (Supuestos, Tabla por Compañía con dropdown,
+// Metas y Niveles), pero SIN mostrar la Comisión Total de la póliza ni
+// el total neto que le queda a la empresa — a propósito, para que
+// cualquiera con acceso a Salud & Dental pueda calcular el reparto del
+// equipo (Cerrador/Líderes/Supervisor) sin ver cuánto gana la empresa.
+// Vive en saludData.calculadoraComisiones — independiente de la de TOP.
+// ============================================================
+function saludCalcInit() {
+  if(!saludData.calculadoraComisiones) {
+    saludData.calculadoraComisiones = {
+      supuestos: {
+        primaMensual: 100, mesesPrima: 12,
+        pctAdelantoCompania: 75, pctCerrador: 10, pctLideres: 10, pctSupervisor: 1.5,
+        numLideres: 3, costoPorLead: 12, leadsPorVenta: 8,
+      },
+      companias: [
+        { id:1, compania:'Compañía 1', producto:'Producto A', pctCompania:100 },
+      ],
+      nextCompaniaId: 2,
+      metas: [
+        { id:1, nivel:'Base',      ventasMinCerrador:0,  pctCerrador:10, pctLideres:10, promMinEquipo:0,  totalMinEquipo:0 },
+        { id:2, nivel:'Bueno',     ventasMinCerrador:4,  pctCerrador:12, pctLideres:12, promMinEquipo:4,  totalMinEquipo:12 },
+        { id:3, nivel:'Excelente', ventasMinCerrador:7,  pctCerrador:14, pctLideres:14, promMinEquipo:7,  totalMinEquipo:21 },
+        { id:4, nivel:'Élite',     ventasMinCerrador:10, pctCerrador:16, pctLideres:16, promMinEquipo:10, totalMinEquipo:30 },
+      ],
+      nextMetaId: 5,
+    };
+  }
+  return saludData.calculadoraComisiones;
+}
+function saludCalcPrimaAnual(s) { return (parseFloat(s.primaMensual)||0) * (parseFloat(s.mesesPrima)||0); }
+// Nota: comisionTotal se calcula internamente porque de ahí sale el
+// Adelanto, pero NUNCA se devuelve/muestra — a propósito, para no revelar
+// cuánto factura la empresa por esa póliza.
+function saludCalcFila(fila, s) {
+  const primaAnual = saludCalcPrimaAnual(s);
+  const comisionTotal = primaAnual * ((parseFloat(fila.pctCompania)||0)/100);
+  const adelanto = comisionTotal * ((parseFloat(s.pctAdelantoCompania)||0)/100);
+  const pendiente = comisionTotal - adelanto;
+  const cerrador = adelanto * ((parseFloat(s.pctCerrador)||0)/100);
+  const numLideres = parseFloat(s.numLideres)||0;
+  const liderCadaUno = numLideres > 0 ? (adelanto * ((parseFloat(s.pctLideres)||0)/100)) / numLideres : 0;
+  const supervisor = adelanto * ((parseFloat(s.pctSupervisor)||0)/100);
+  return { primaAnual, adelanto, pendiente, cerrador, liderCadaUno, supervisor };
+}
+function saludCalcNivelPorUmbral(valor, metas, campo) {
+  let elegido = metas[0];
+  metas.forEach(m => { if((parseFloat(m[campo])||0) <= (parseFloat(valor)||0)) elegido = m; });
+  return elegido;
+}
+function saludCalcNivelLideres(promedioEquipo, totalEquipo, metas) {
+  const porPromedio = saludCalcNivelPorUmbral(promedioEquipo, metas, 'promMinEquipo');
+  const porTotal = saludCalcNivelPorUmbral(totalEquipo, metas, 'totalMinEquipo');
+  const idxProm = metas.indexOf(porPromedio);
+  const idxTotal = metas.indexOf(porTotal);
+  return metas[Math.min(idxProm, idxTotal)];
+}
+function renderSaludCalculadoraComisiones() {
   const el = document.getElementById('salud-productos-calculadora-content');
   if(!el) return;
-  const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
-  const primaMensual   = document.getElementById('spc-prima')            ? g('spc-prima')            : 100;
-  const mesesPrima      = document.getElementById('spc-meses')            ? g('spc-meses')            : 12;
-  const pctAseguradora  = document.getElementById('spc-pct-aseguradora')  ? g('spc-pct-aseguradora')  : (saludData.comisiones.tasaAnual*100);
-  const pctAdelanto     = document.getElementById('spc-pct-adelanto')     ? g('spc-pct-adelanto')     : (saludData.comisiones.splitAdelantoMeses/12*100);
-  const pctComision     = document.getElementById('spc-pct-comision')     ? g('spc-pct-comision')     : 0;
-  const cantidadVentas  = document.getElementById('spc-cantidad')         ? g('spc-cantidad')         : 1;
+  const calc = saludCalcInit();
+  const s = calc.supuestos;
+  const primaAnual = saludCalcPrimaAnual(s);
+  const costoLeadsPorVenta = (parseFloat(s.costoPorLead)||0) * (parseFloat(s.leadsPorVenta)||0);
 
-  const primaAnual = primaMensual * mesesPrima;
-  const comisionTotal = primaAnual * (pctAseguradora/100);
-  const adelanto = comisionTotal * (pctAdelanto/100);
-  const comisionPorVenta = adelanto * (pctComision/100);
-  const gananciaProyectada = comisionPorVenta * cantidadVentas;
+  const opcionesCompania = calc.companias.map(c=>`<option value="${c.id}">${c.compania} — ${c.producto}</option>`).join('');
+  const simSelId = document.getElementById('sc-sim-compania')?.value;
+  const simFila = calc.companias.find(c=>String(c.id)===String(simSelId)) || calc.companias[0];
+  const simCalc = simFila ? saludCalcFila(simFila, s) : null;
+
+  const nivSelId = document.getElementById('sc-niv-compania')?.value;
+  const nivFila = calc.companias.find(c=>String(c.id)===String(nivSelId)) || calc.companias[0];
+  const nivCalc = nivFila ? saludCalcFila(nivFila, s) : null;
+  const ventasCerrador = parseFloat(document.getElementById('sc-niv-ventas-cerrador')?.value) || 0;
+  const promedioEquipo = parseFloat(document.getElementById('sc-niv-promedio-equipo')?.value) || 0;
+  const totalEquipo = parseFloat(document.getElementById('sc-niv-total-equipo')?.value) || 0;
+  const nivelCerrador = saludCalcNivelPorUmbral(ventasCerrador, calc.metas, 'ventasMinCerrador');
+  const nivelLideres = saludCalcNivelLideres(promedioEquipo, totalEquipo, calc.metas);
+  const dolarCerrador = nivCalc ? nivCalc.adelanto * ((parseFloat(nivelCerrador.pctCerrador)||0)/100) : 0;
+  const dolarLideresCombinado = nivCalc ? nivCalc.adelanto * ((parseFloat(nivelLideres.pctLideres)||0)/100) : 0;
+  const numLideres = parseFloat(s.numLideres)||0;
+  const dolarPorLider = numLideres > 0 ? dolarLideresCombinado / numLideres : 0;
 
   el.innerHTML = `
-    <div class="section" style="max-width:640px;margin-top:22px;padding-top:18px;border-top:1px solid #CBD6E2">
+    <div class="section" style="margin-top:22px;padding-top:18px;border-top:1px solid #CBD6E2">
       <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px">🧮 Calculadora de Comisiones</div>
-      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Simulador — nada de lo que escribas aquí se guarda ni afecta ningún cálculo real. Úsalo para estimar una comisión según la prima de un cliente y un porcentaje.</div>
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:16px">Reparto del equipo por venta (Cerrador/Líderes/Supervisor) según la prima y el % de cada compañía — no muestra la comisión total ni lo que le queda a la empresa.</div>
 
-      <div class="form-grid" style="margin-bottom:10px">
-        <div class="form-group"><label>Prima mensual del cliente ($)</label><input type="number" step="0.01" min="0" id="spc-prima" value="${primaMensual}" oninput="saludProductosRenderCalculadora()"></div>
-        <div class="form-group"><label>Meses de prima</label><input type="number" step="1" min="1" id="spc-meses" value="${mesesPrima}" oninput="saludProductosRenderCalculadora()"></div>
-        <div class="form-group"><label>% que paga la aseguradora (comisión total)</label><input type="number" step="0.1" min="0" max="100" id="spc-pct-aseguradora" value="${pctAseguradora.toFixed(1)}" oninput="saludProductosRenderCalculadora()"></div>
-        <div class="form-group"><label>% Adelanto (de esa comisión total)</label><input type="number" step="0.1" min="0" max="100" id="spc-pct-adelanto" value="${pctAdelanto.toFixed(1)}" oninput="saludProductosRenderCalculadora()"></div>
-        <div class="form-group"><label>% Comisión (sobre el adelanto)</label><input type="number" step="0.1" min="0" max="100" id="spc-pct-comision" value="${pctComision}" oninput="saludProductosRenderCalculadora()"></div>
-        <div class="form-group"><label>Cantidad de ventas (para proyectar)</label><input type="number" step="1" min="1" id="spc-cantidad" value="${cantidadVentas}" oninput="saludProductosRenderCalculadora()"></div>
+      <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📋 Supuestos</div>
+      <div class="form-grid" style="margin-bottom:8px">
+        <div class="form-group"><label>Prima mensual del cliente ($)</label><input type="number" step="0.01" min="0" value="${s.primaMensual}" data-field="primaMensual" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Meses de prima</label><input type="number" step="1" min="1" value="${s.mesesPrima}" data-field="mesesPrima" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Prima anual (calculado)</label><input type="text" value="${fmt(primaAnual)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
+        <div class="form-group"><label>% Adelanto de la compañía</label><input type="number" step="0.1" min="0" max="100" value="${s.pctAdelantoCompania}" data-field="pctAdelantoCompania" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Cerrador (setter)</label><input type="number" step="0.1" min="0" max="100" value="${s.pctCerrador}" data-field="pctCerrador" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Líderes (combinado)</label><input type="number" step="0.1" min="0" max="100" value="${s.pctLideres}" data-field="pctLideres" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label># de líderes (reparto en partes iguales)</label><input type="number" step="1" min="1" value="${s.numLideres}" data-field="numLideres" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>% Supervisor Junior</label><input type="number" step="0.1" min="0" max="100" value="${s.pctSupervisor}" data-field="pctSupervisor" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Costo por lead ($)</label><input type="number" step="0.01" min="0" value="${s.costoPorLead}" data-field="costoPorLead" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Leads necesarios por venta (promedio)</label><input type="number" step="0.1" min="0" value="${s.leadsPorVenta}" data-field="leadsPorVenta" onchange="saludCalcGuardarSupuesto(this)"></div>
+        <div class="form-group"><label>Costo total de leads por venta (calculado)</label><input type="text" value="${fmt(costoLeadsPorVenta)}" disabled style="background:#F5F8FA;color:#7C98B6;font-weight:700"></div>
       </div>
 
+      <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 10px">🏢 Tabla por Compañía / Producto</div>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="saludCalcAgregarCompania()">➕ Agregar Compañía</button>
+      <div class="tbl-wrap" style="margin-bottom:8px">
+        <table>
+          <thead><tr>
+            <th>Compañía</th><th>Producto</th><th>% Compañía</th>
+            <th style="text-align:right">Adelanto</th><th style="text-align:right">Pendiente</th>
+            <th style="text-align:right">Cerrador</th><th style="text-align:right">Líderes (c/u)</th><th style="text-align:right">Supervisor</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${calc.companias.map(c=>{
+              const r = saludCalcFila(c, s);
+              return `<tr>
+                <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
+                <td><input type="text" value="${c.producto}" data-field="producto" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:140px;border:1px solid #CBD6E2;padding:6px;border-radius:4px"></td>
+                <td><input type="number" step="0.1" min="0" max="100" value="${c.pctCompania}" data-field="pctCompania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+                <td style="text-align:right">${fmt(r.adelanto)}</td>
+                <td style="text-align:right">${fmt(r.pendiente)}</td>
+                <td style="text-align:right">${fmt(r.cerrador)}</td>
+                <td style="text-align:right">${fmt(r.liderCadaUno)}</td>
+                <td style="text-align:right">${fmt(r.supervisor)}</td>
+                <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarCompania(${c.id})">✕</button></td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="9" class="tbl-empty">Sin compañías — agrega una arriba</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 10px">⚡ Simulador Rápido</div>
+      <div class="form-group" style="max-width:400px;margin-bottom:16px">
+        <label>Compañía / Producto</label>
+        <select id="sc-sim-compania" onchange="renderSaludCalculadoraComisiones()">${opcionesCompania}</select>
+      </div>
+      ${simCalc ? `
       <div class="cards">
-        <div class="card blue"><label>Prima Anual</label><div class="val">${fmt(primaAnual)}</div></div>
-        <div class="card blue"><label>Comisión Total (de esa póliza)</label><div class="val">${fmt(comisionTotal)}</div></div>
-        <div class="card orange"><label>Adelanto</label><div class="val">${fmt(adelanto)}</div></div>
-        <div class="card teal"><label>Comisión (por venta)</label><div class="val">${fmt(comisionPorVenta)}</div></div>
-        <div class="card purple"><label>Ganancia Proyectada (${cantidadVentas} venta${cantidadVentas!==1?'s':''})</label><div class="val" style="color:#00BDA5">${fmt(gananciaProyectada)}</div></div>
+        <div class="card blue"><label>% Compañía</label><div class="val">${simFila.pctCompania}%</div></div>
+        <div class="card orange"><label>Adelanto</label><div class="val">${fmt(simCalc.adelanto)}</div></div>
+        <div class="card orange"><label>Pendiente</label><div class="val">${fmt(simCalc.pendiente)}</div></div>
+        <div class="card teal"><label>Cerrador recibe</label><div class="val">${fmt(simCalc.cerrador)}</div></div>
+        <div class="card teal"><label>Cada líder recibe</label><div class="val">${fmt(simCalc.liderCadaUno)}</div></div>
+        <div class="card teal"><label>Supervisor recibe</label><div class="val">${fmt(simCalc.supervisor)}</div></div>
+      </div>` : '<div class="tbl-empty">Agrega una compañía arriba para simular</div>'}
+
+      <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin:22px 0 10px">🏆 Metas y Niveles Escalonados</div>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="saludCalcAgregarMeta()">➕ Agregar Nivel</button>
+      <div class="tbl-wrap" style="margin-bottom:18px">
+        <table>
+          <thead><tr>
+            <th>Nivel</th><th>Ventas mín. cerrador (indiv.)</th><th>% Cerrador</th><th>% Líderes (combinado)</th>
+            <th>Prom. mín. por cerrador (equipo)</th><th>Total mín. ventas equipo</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${calc.metas.map(m=>`<tr>
+              <td><input type="text" value="${m.nivel}" data-field="nivel" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:100px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
+              <td><input type="number" step="1" min="0" value="${m.ventasMinCerrador}" data-field="ventasMinCerrador" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="0.1" min="0" max="100" value="${m.pctCerrador}" data-field="pctCerrador" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="0.1" min="0" max="100" value="${m.pctLideres}" data-field="pctLideres" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="0.1" min="0" value="${m.promMinEquipo}" data-field="promMinEquipo" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><input type="number" step="1" min="0" value="${m.totalMinEquipo}" data-field="totalMinEquipo" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+              <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarMeta(${m.id})">✕</button></td>
+            </tr>`).join('') || '<tr><td colspan="7" class="tbl-empty">Sin niveles</td></tr>'}
+          </tbody>
+        </table>
       </div>
+
+      <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📊 Simulador del mes</div>
+      <div class="form-grid" style="margin-bottom:16px">
+        <div class="form-group"><label>Compañía / Producto</label><select id="sc-niv-compania" onchange="renderSaludCalculadoraComisiones()">${opcionesCompania}</select></div>
+        <div class="form-group"><label>Ventas del mes — cerrador individual</label><input type="number" step="1" min="0" id="sc-niv-ventas-cerrador" value="${document.getElementById('sc-niv-ventas-cerrador')?.value||0}" oninput="renderSaludCalculadoraComisiones()"></div>
+        <div class="form-group"><label>Promedio de ventas por cerrador (equipo)</label><input type="number" step="0.1" min="0" id="sc-niv-promedio-equipo" value="${document.getElementById('sc-niv-promedio-equipo')?.value||0}" oninput="renderSaludCalculadoraComisiones()"></div>
+        <div class="form-group"><label>Total de ventas del equipo (este mes)</label><input type="number" step="1" min="0" id="sc-niv-total-equipo" value="${document.getElementById('sc-niv-total-equipo')?.value||0}" oninput="renderSaludCalculadoraComisiones()"></div>
+      </div>
+      ${nivCalc ? `
+      <div class="cards">
+        <div class="card teal"><label>Nivel del cerrador</label><div class="val" style="font-size:16px">${nivelCerrador.nivel}</div><div class="sub">${nivelCerrador.pctCerrador}% aplicable</div></div>
+        <div class="card green"><label>$ para el cerrador</label><div class="val">${fmt(dolarCerrador)}</div></div>
+        <div class="card teal"><label>Nivel de los líderes (combinado)</label><div class="val" style="font-size:16px">${nivelLideres.nivel}</div><div class="sub">${nivelLideres.pctLideres}% aplicable</div></div>
+        <div class="card green"><label>$ combinado (líderes)</label><div class="val">${fmt(dolarLideresCombinado)}</div></div>
+        <div class="card purple"><label>$ por líder</label><div class="val">${fmt(dolarPorLider)}</div></div>
+      </div>` : '<div class="tbl-empty">Agrega una compañía arriba para simular</div>'}
     </div>`;
+}
+function saludCalcGuardarSupuesto(input) {
+  const calc = saludCalcInit();
+  calc.supuestos[input.dataset.field] = parseFloat(input.value) || 0;
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
+}
+function saludCalcGuardarCompaniaCell(input) {
+  const calc = saludCalcInit();
+  const c = calc.companias.find(x=>x.id===parseInt(input.dataset.id));
+  if(!c) return;
+  const field = input.dataset.field;
+  c[field] = (field==='compania'||field==='producto') ? input.value.trim() : (parseFloat(input.value)||0);
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
+}
+function saludCalcAgregarCompania() {
+  const calc = saludCalcInit();
+  calc.companias.push({ id: calc.nextCompaniaId++, compania:'Nueva Compañía', producto:'Producto', pctCompania:100 });
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
+}
+function saludCalcEliminarCompania(id) {
+  const calc = saludCalcInit();
+  if(!confirm('¿Eliminar esta compañía/producto de la tabla?')) return;
+  calc.companias = calc.companias.filter(c=>c.id!==id);
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
+}
+function saludCalcGuardarMetaCell(input) {
+  const calc = saludCalcInit();
+  const m = calc.metas.find(x=>x.id===parseInt(input.dataset.id));
+  if(!m) return;
+  const field = input.dataset.field;
+  m[field] = field==='nivel' ? input.value.trim() : (parseFloat(input.value)||0);
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
+}
+function saludCalcAgregarMeta() {
+  const calc = saludCalcInit();
+  calc.metas.push({ id: calc.nextMetaId++, nivel:'Nuevo Nivel', ventasMinCerrador:0, pctCerrador:10, pctLideres:10, promMinEquipo:0, totalMinEquipo:0 });
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
+}
+function saludCalcEliminarMeta(id) {
+  const calc = saludCalcInit();
+  if(!confirm('¿Eliminar este nivel?')) return;
+  calc.metas = calc.metas.filter(m=>m.id!==id);
+  guardarSalud();
+  renderSaludCalculadoraComisiones();
 }
 function saludGuardarConfigComisiones() {
   const tasaPct = parseFloat(document.getElementById('sp-tasa-anual').value);
