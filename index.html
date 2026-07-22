@@ -439,7 +439,6 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item active" onclick="showPage('agente-salud-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
     <div class="nav-item" onclick="saludReportarEditGrupoId=null;showPage('agente-salud-reportar',this)"><span class="icon">📝</span><span>Reportar Cliente</span></div>
     <div class="nav-item" onclick="showPage('agente-salud-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span></div>
-    <div class="nav-item" id="nav-agente-salud-calculadora" style="display:none" onclick="showPage('agente-salud-calculadora',this)"><span class="icon">🧮</span><span>Calculadora de Comisiones</span></div>
     <div class="nav-item" onclick="showPage('agente-salud-perfil',this)"><span class="icon">👤</span><span>Mi Perfil</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -1026,10 +1025,6 @@ table thead,table tbody{display:table;width:100%}
       <div id="agente-salud-perfil-content"></div>
     </div>
 
-    <div class="page" id="page-agente-salud-calculadora">
-      <div id="agente-salud-calculadora-content"></div>
-    </div>
-
     <!-- ====================================================== -->
     <!-- INSPECTOR — solo lectura: clientes, grabaciones y        -->
     <!-- chargebacks de TODOS los agentes, sin comisión/cantidad, -->
@@ -1240,6 +1235,7 @@ table thead,table tbody{display:table;width:100%}
         <div style="font-size:11px;color:#99ACC2;margin:-4px 0 12px">Se usa cuando el agente NO tiene una tarifa personal configurada en su perfil (Admin → Agentes de Salud).</div>
         <div id="salud-productos-tipos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-width:900px"></div>
       </div>
+      <div id="salud-productos-calculadora-content"></div>
     </div>
 
     <div class="page" id="page-salud-comisiones">
@@ -4743,7 +4739,6 @@ const PAGE_TITLES = {
   'agente-salud-reportar':'📝 Reportar Cliente',
   'agente-salud-mis-reportes':'📋 Mis Reportes — Salud',
   'agente-salud-perfil':'👤 Mi Perfil',
-  'agente-salud-calculadora':'🧮 Calculadora de Comisiones',
   'inspector-clientes':'🔍 Clientes',
   'salud-dashboard':'💚 Salud — Dashboard',
   'salud-pagos-recibidos':'💰 Salud — Pagos Recibidos',
@@ -4812,7 +4807,6 @@ function renderPage(name) {
   if(name==='agente-salud-reportar') renderAgenteSaludReportar();
   if(name==='agente-salud-mis-reportes') renderAgenteSaludMisReportes();
   if(name==='agente-salud-perfil') renderAgenteSaludPerfil();
-  if(name==='agente-salud-calculadora') renderAgenteSaludCalculadora();
   if(name==='inspector-clientes') renderInspectorClientes();
   if(name==='salud-dashboard') saludRenderDashboard();
   if(name==='salud-pagos-recibidos') saludRenderPagosRecibidos();
@@ -8721,54 +8715,6 @@ function renderAgenteSaludPerfil() {
     </div>`;
 }
 
-// ============================================================
-// CALCULADORA DE COMISIONES (self-service, solo supervisor/gerente) —
-// simulador LOCAL: no lee ni guarda ningún dato real de clientes, agentes,
-// ni ganancias de la empresa. Solo con lo que el propio supervisor escribe
-// (prima, %, cantidad de ventas) calcula cuánto ganaría ÉL. No usa guardar()
-// en ningún momento — nada de esto se envía a Firebase ni queda visible
-// para nadie más, a propósito, para que puedan calcular sin que se muestren
-// las ganancias de la empresa.
-// ============================================================
-function renderAgenteSaludCalculadora() {
-  const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
-  const primaMensual   = document.getElementById('asc-prima')            ? g('asc-prima')            : 100;
-  const mesesPrima      = document.getElementById('asc-meses')            ? g('asc-meses')            : 12;
-  const pctAseguradora  = document.getElementById('asc-pct-aseguradora')  ? g('asc-pct-aseguradora')  : 30;
-  const pctAdelanto     = document.getElementById('asc-pct-adelanto')     ? g('asc-pct-adelanto')     : 75;
-  const pctTuyo         = document.getElementById('asc-pct-tuyo')         ? g('asc-pct-tuyo')         : 0;
-  const cantidadVentas  = document.getElementById('asc-cantidad')         ? g('asc-cantidad')         : 1;
-
-  const primaAnual = primaMensual * mesesPrima;
-  const comisionTotal = primaAnual * (pctAseguradora/100);
-  const adelanto = comisionTotal * (pctAdelanto/100);
-  const tuComisionPorVenta = adelanto * (pctTuyo/100);
-  const tuGananciaProyectada = tuComisionPorVenta * cantidadVentas;
-
-  document.getElementById('agente-salud-calculadora-content').innerHTML = `
-    <div class="section" style="max-width:640px">
-      <div class="section-header"><h2>🧮 Calculadora de Comisiones</h2></div>
-      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 16px">Simulador personal — nada de lo que escribas aquí se guarda ni lo ve nadie más. Úsalo para estimar cuánto ganarías según la prima de un cliente y tu propio porcentaje.</div>
-
-      <div class="form-grid" style="margin-bottom:10px">
-        <div class="form-group"><label>Prima mensual del cliente ($)</label><input type="number" step="0.01" min="0" id="asc-prima" value="${primaMensual}" oninput="renderAgenteSaludCalculadora()"></div>
-        <div class="form-group"><label>Meses de prima</label><input type="number" step="1" min="1" id="asc-meses" value="${mesesPrima}" oninput="renderAgenteSaludCalculadora()"></div>
-        <div class="form-group"><label>% que paga la aseguradora (comisión total)</label><input type="number" step="0.1" min="0" max="100" id="asc-pct-aseguradora" value="${pctAseguradora}" oninput="renderAgenteSaludCalculadora()"></div>
-        <div class="form-group"><label>% Adelanto (de esa comisión total)</label><input type="number" step="0.1" min="0" max="100" id="asc-pct-adelanto" value="${pctAdelanto}" oninput="renderAgenteSaludCalculadora()"></div>
-        <div class="form-group"><label>Tu % (tu comisión sobre el adelanto)</label><input type="number" step="0.1" min="0" max="100" id="asc-pct-tuyo" value="${pctTuyo}" oninput="renderAgenteSaludCalculadora()"></div>
-        <div class="form-group"><label>Cantidad de ventas (para proyectar)</label><input type="number" step="1" min="1" id="asc-cantidad" value="${cantidadVentas}" oninput="renderAgenteSaludCalculadora()"></div>
-      </div>
-
-      <div class="cards">
-        <div class="card blue"><label>Prima Anual</label><div class="val">${fmt(primaAnual)}</div></div>
-        <div class="card blue"><label>Comisión Total (de esa póliza)</label><div class="val">${fmt(comisionTotal)}</div></div>
-        <div class="card orange"><label>Adelanto</label><div class="val">${fmt(adelanto)}</div></div>
-        <div class="card teal"><label>Tu Comisión (por venta)</label><div class="val">${fmt(tuComisionPorVenta)}</div></div>
-        <div class="card purple"><label>Tu Ganancia Proyectada (${cantidadVentas} venta${cantidadVentas!==1?'s':''})</label><div class="val" style="color:#00BDA5">${fmt(tuGananciaProyectada)}</div></div>
-      </div>
-    </div>`;
-}
-
 // Vista de solo lectura, para el back-office — muestra exactamente lo que
 // este agente de Salud ve en "Mis Reportes" (mismo patrón/lógica que
 // abrirVistaPreviaAgente() para AT&T). No hay equivalente a Chargebacks ni
@@ -10092,19 +10038,7 @@ function abrirArea(area) {
     showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente();
   }
   else if(area==='inspector') { showPage('inspector-clientes', null); }
-  else if(area==='agente-salud') {
-    cargarSalud().then(()=>{
-      // "Calculadora de Comisiones" (simulador de ganancias propias) solo es
-      // visible para supervisor/gerente — a pedido explícito, para que
-      // puedan estimar sus comisiones sin depender de nadie más, sin que
-      // esto muestre nunca datos reales de clientes ni las ganancias de
-      // la empresa (es un simulador local, no lee ni guarda nada real).
-      const permsAgSalud = getUserPermissions(email);
-      const agenteSaludObj = permsAgSalud ? (saludData.agentes||[]).find(a=>a.id===permsAgSalud.agenteSaludId) : null;
-      document.getElementById('nav-agente-salud-calculadora').style.display = (agenteSaludObj && (agenteSaludObj.rol==='supervisor'||agenteSaludObj.rol==='gerente')) ? 'flex' : 'none';
-      showPage('agente-salud-dashboard', null);
-    });
-  }
+  else if(area==='agente-salud') { cargarSalud().then(()=>showPage('agente-salud-dashboard', null)); }
   actualizarBadgeNotifCampana();
   actualizarBadgeSolicitudes();
   actualizarAvatarTopbar();
@@ -15635,6 +15569,56 @@ function saludRenderProductos() {
           onfocus="this.style.borderColor='#009FDB'" onblur="this.style.borderColor='#CBD6E2'">
       </div>
     </div>`).join('');
+  saludProductosRenderCalculadora();
+}
+// ============================================================
+// CALCULADORA DE COMISIONES — dentro de 💼 Productos & Comisiones, visible
+// para cualquiera que tenga acceso a Salud & Dental (mismo permiso que el
+// resto de esta pantalla). Simulador LOCAL: no lee ni guarda ningún dato
+// real de clientes ni de otros agentes — solo con lo que la persona escribe
+// (prima, %, cantidad de ventas) calcula una comisión estimada. Nunca llama
+// guardar()/guardarSalud(), así que nada de esto queda registrado ni visible
+// para nadie más.
+// ============================================================
+function saludProductosRenderCalculadora() {
+  const el = document.getElementById('salud-productos-calculadora-content');
+  if(!el) return;
+  const g = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+  const primaMensual   = document.getElementById('spc-prima')            ? g('spc-prima')            : 100;
+  const mesesPrima      = document.getElementById('spc-meses')            ? g('spc-meses')            : 12;
+  const pctAseguradora  = document.getElementById('spc-pct-aseguradora')  ? g('spc-pct-aseguradora')  : (saludData.comisiones.tasaAnual*100);
+  const pctAdelanto     = document.getElementById('spc-pct-adelanto')     ? g('spc-pct-adelanto')     : (saludData.comisiones.splitAdelantoMeses/12*100);
+  const pctComision     = document.getElementById('spc-pct-comision')     ? g('spc-pct-comision')     : 0;
+  const cantidadVentas  = document.getElementById('spc-cantidad')         ? g('spc-cantidad')         : 1;
+
+  const primaAnual = primaMensual * mesesPrima;
+  const comisionTotal = primaAnual * (pctAseguradora/100);
+  const adelanto = comisionTotal * (pctAdelanto/100);
+  const comisionPorVenta = adelanto * (pctComision/100);
+  const gananciaProyectada = comisionPorVenta * cantidadVentas;
+
+  el.innerHTML = `
+    <div class="section" style="max-width:640px;margin-top:22px;padding-top:18px;border-top:1px solid #CBD6E2">
+      <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px">🧮 Calculadora de Comisiones</div>
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Simulador — nada de lo que escribas aquí se guarda ni afecta ningún cálculo real. Úsalo para estimar una comisión según la prima de un cliente y un porcentaje.</div>
+
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="form-group"><label>Prima mensual del cliente ($)</label><input type="number" step="0.01" min="0" id="spc-prima" value="${primaMensual}" oninput="saludProductosRenderCalculadora()"></div>
+        <div class="form-group"><label>Meses de prima</label><input type="number" step="1" min="1" id="spc-meses" value="${mesesPrima}" oninput="saludProductosRenderCalculadora()"></div>
+        <div class="form-group"><label>% que paga la aseguradora (comisión total)</label><input type="number" step="0.1" min="0" max="100" id="spc-pct-aseguradora" value="${pctAseguradora.toFixed(1)}" oninput="saludProductosRenderCalculadora()"></div>
+        <div class="form-group"><label>% Adelanto (de esa comisión total)</label><input type="number" step="0.1" min="0" max="100" id="spc-pct-adelanto" value="${pctAdelanto.toFixed(1)}" oninput="saludProductosRenderCalculadora()"></div>
+        <div class="form-group"><label>% Comisión (sobre el adelanto)</label><input type="number" step="0.1" min="0" max="100" id="spc-pct-comision" value="${pctComision}" oninput="saludProductosRenderCalculadora()"></div>
+        <div class="form-group"><label>Cantidad de ventas (para proyectar)</label><input type="number" step="1" min="1" id="spc-cantidad" value="${cantidadVentas}" oninput="saludProductosRenderCalculadora()"></div>
+      </div>
+
+      <div class="cards">
+        <div class="card blue"><label>Prima Anual</label><div class="val">${fmt(primaAnual)}</div></div>
+        <div class="card blue"><label>Comisión Total (de esa póliza)</label><div class="val">${fmt(comisionTotal)}</div></div>
+        <div class="card orange"><label>Adelanto</label><div class="val">${fmt(adelanto)}</div></div>
+        <div class="card teal"><label>Comisión (por venta)</label><div class="val">${fmt(comisionPorVenta)}</div></div>
+        <div class="card purple"><label>Ganancia Proyectada (${cantidadVentas} venta${cantidadVentas!==1?'s':''})</label><div class="val" style="color:#00BDA5">${fmt(gananciaProyectada)}</div></div>
+      </div>
+    </div>`;
 }
 function saludGuardarConfigComisiones() {
   const tasaPct = parseFloat(document.getElementById('sp-tasa-anual').value);
