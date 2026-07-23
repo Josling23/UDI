@@ -15636,9 +15636,12 @@ function saludCalcInit() {
   return saludData.calculadoraComisiones;
 }
 function saludCalcPrimaAnual(s) { return (parseFloat(s.primaMensual)||0) * (parseFloat(s.mesesPrima)||0); }
-// Nota: comisionTotal se calcula internamente porque de ahí sale el
-// Adelanto, pero NUNCA se devuelve/muestra — a propósito, para no revelar
-// cuánto factura la empresa por esa póliza.
+// Se muestra todo lo mismo que en TOP/IUL EXCEPTO lo que le queda a la
+// empresa ("La Empresa (del adelanto)" y "TOTAL NETO PARA LA EMPRESA") — a
+// propósito, para no revelar la ganancia de la empresa. Comisión Total,
+// Adelanto y Pendiente SÍ se muestran (no son "comisión mía", son el
+// desglose de la póliza que hace falta para que el reparto del equipo
+// tenga sentido).
 function saludCalcFila(fila, s) {
   const primaAnual = saludCalcPrimaAnual(s);
   const comisionTotal = primaAnual * ((parseFloat(fila.pctCompania)||0)/100);
@@ -15648,7 +15651,7 @@ function saludCalcFila(fila, s) {
   const numLideres = parseFloat(s.numLideres)||0;
   const liderCadaUno = numLideres > 0 ? (adelanto * ((parseFloat(s.pctLideres)||0)/100)) / numLideres : 0;
   const supervisor = adelanto * ((parseFloat(s.pctSupervisor)||0)/100);
-  return { primaAnual, adelanto, pendiente, cerrador, liderCadaUno, supervisor };
+  return { primaAnual, comisionTotal, adelanto, pendiente, cerrador, liderCadaUno, supervisor };
 }
 function saludCalcNivelPorUmbral(valor, metas, campo) {
   let elegido = metas[0];
@@ -15714,6 +15717,7 @@ function renderSaludCalculadoraComisiones() {
         <table>
           <thead><tr>
             <th>Compañía</th><th>Producto</th><th>% Compañía</th>
+            <th style="text-align:right">Comisión Total</th>
             <th style="text-align:right">Adelanto</th><th style="text-align:right">Pendiente</th>
             <th style="text-align:right">Cerrador</th><th style="text-align:right">Líderes (c/u)</th><th style="text-align:right">Supervisor</th>
             <th></th>
@@ -15725,6 +15729,7 @@ function renderSaludCalculadoraComisiones() {
                 <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
                 <td><input type="text" value="${c.producto}" data-field="producto" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:140px;border:1px solid #CBD6E2;padding:6px;border-radius:4px"></td>
                 <td><input type="number" step="0.1" min="0" max="100" value="${c.pctCompania}" data-field="pctCompania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
+                <td style="text-align:right">${fmt(r.comisionTotal)}</td>
                 <td style="text-align:right">${fmt(r.adelanto)}</td>
                 <td style="text-align:right">${fmt(r.pendiente)}</td>
                 <td style="text-align:right">${fmt(r.cerrador)}</td>
@@ -15732,7 +15737,7 @@ function renderSaludCalculadoraComisiones() {
                 <td style="text-align:right">${fmt(r.supervisor)}</td>
                 <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarCompania(${c.id})">✕</button></td>
               </tr>`;
-            }).join('') || '<tr><td colspan="9" class="tbl-empty">Sin compañías — agrega una arriba</td></tr>'}
+            }).join('') || '<tr><td colspan="10" class="tbl-empty">Sin compañías — agrega una arriba</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -15745,6 +15750,7 @@ function renderSaludCalculadoraComisiones() {
       ${simCalc ? `
       <div class="cards">
         <div class="card blue"><label>% Compañía</label><div class="val">${simFila.pctCompania}%</div></div>
+        <div class="card blue"><label>Comisión Total</label><div class="val">${fmt(simCalc.comisionTotal)}</div></div>
         <div class="card orange"><label>Adelanto</label><div class="val">${fmt(simCalc.adelanto)}</div></div>
         <div class="card orange"><label>Pendiente</label><div class="val">${fmt(simCalc.pendiente)}</div></div>
         <div class="card teal"><label>Cerrador recibe</label><div class="val">${fmt(simCalc.cerrador)}</div></div>
