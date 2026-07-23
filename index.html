@@ -439,6 +439,7 @@ table thead,table tbody{display:table;width:100%}
     <div class="nav-item active" onclick="showPage('agente-salud-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
     <div class="nav-item" onclick="saludReportarEditGrupoId=null;showPage('agente-salud-reportar',this)"><span class="icon">📝</span><span>Reportar Cliente</span></div>
     <div class="nav-item" onclick="showPage('agente-salud-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span></div>
+    <div class="nav-item" id="nav-agente-salud-calculadora" style="display:none" onclick="showPage('agente-salud-calculadora',this);renderSaludCalculadoraComisiones('agente-salud-calculadora-content')"><span class="icon">🧮</span><span>Calculadora de Comisiones</span></div>
     <div class="nav-item" onclick="showPage('agente-salud-perfil',this)"><span class="icon">👤</span><span>Mi Perfil</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
@@ -1023,6 +1024,10 @@ table thead,table tbody{display:table;width:100%}
 
     <div class="page" id="page-agente-salud-perfil">
       <div id="agente-salud-perfil-content"></div>
+    </div>
+
+    <div class="page" id="page-agente-salud-calculadora">
+      <div id="agente-salud-calculadora-content"></div>
     </div>
 
     <!-- ====================================================== -->
@@ -10052,7 +10057,17 @@ function abrirArea(area) {
     showPage('agente-dashboard', null); actualizarBadgeRechazadosAgente(); actualizarBadgeChargebacksAgente();
   }
   else if(area==='inspector') { showPage('inspector-clientes', null); }
-  else if(area==='agente-salud') { cargarSalud().then(()=>showPage('agente-salud-dashboard', null)); }
+  else if(area==='agente-salud') {
+    // "Calculadora de Comisiones" solo es visible para supervisor/gerente
+    // de Salud — igual que "Mis Comisiones" en AT&T se limita a subdealer,
+    // los vendedores rasos no ven esta pantalla.
+    cargarSalud().then(()=>{
+      const permsAgSalud = getUserPermissions(email);
+      const agenteSaludObj = permsAgSalud ? (saludData.agentes||[]).find(a=>a.id===permsAgSalud.agenteSaludId) : null;
+      document.getElementById('nav-agente-salud-calculadora').style.display = (agenteSaludObj && (agenteSaludObj.rol==='supervisor'||agenteSaludObj.rol==='gerente')) ? 'flex' : 'none';
+      showPage('agente-salud-dashboard', null);
+    });
+  }
   actualizarBadgeNotifCampana();
   actualizarBadgeSolicitudes();
   actualizarAvatarTopbar();
@@ -15676,8 +15691,23 @@ function saludCalcNivelLideres(promedioEquipo, totalEquipo, metas) {
   const idxTotal = metas.indexOf(porTotal);
   return metas[Math.min(idxProm, idxTotal)];
 }
-function renderSaludCalculadoraComisiones() {
-  const el = document.getElementById('salud-productos-calculadora-content');
+// Vive en dos lugares: el back-office (Salud & Dental -> Productos &
+// Comisiones) y, para supervisores/gerentes con su propio login, dentro de
+// su área de agente ("Calculadora de Comisiones" en el menú). Ambos
+// contenedores comparten el mismo saludData.calculadoraComisiones -- se
+// pasa el id del contenedor (o el elemento que disparó el cambio) para que
+// cada instancia lea/escriba sus propios inputs sin pisar al otro.
+function saludCalcContainerId(ctx) {
+  if(typeof ctx === 'string') return ctx;
+  if(ctx && ctx.closest) {
+    const wrap = ctx.closest('[data-calc-container]');
+    if(wrap) return wrap.dataset.calcContainer;
+  }
+  return 'salud-productos-calculadora-content';
+}
+function renderSaludCalculadoraComisiones(ctx) {
+  const containerId = saludCalcContainerId(ctx);
+  const el = document.getElementById(containerId);
   if(!el) return;
   const calc = saludCalcInit();
   const s = calc.supuestos;
@@ -15685,16 +15715,16 @@ function renderSaludCalculadoraComisiones() {
   const costoLeadsPorVenta = (parseFloat(s.costoPorLead)||0) * (parseFloat(s.leadsPorVenta)||0);
 
   const opcionesCompania = calc.companias.map(c=>`<option value="${c.id}">${c.compania} — ${c.producto}</option>`).join('');
-  const simSelId = document.getElementById('sc-sim-compania')?.value;
+  const simSelId = el.querySelector('#sc-sim-compania')?.value;
   const simFila = calc.companias.find(c=>String(c.id)===String(simSelId)) || calc.companias[0];
   const simCalc = simFila ? saludCalcFila(simFila, s) : null;
 
-  const nivSelId = document.getElementById('sc-niv-compania')?.value;
+  const nivSelId = el.querySelector('#sc-niv-compania')?.value;
   const nivFila = calc.companias.find(c=>String(c.id)===String(nivSelId)) || calc.companias[0];
   const nivCalc = nivFila ? saludCalcFila(nivFila, s) : null;
-  const ventasCerrador = parseFloat(document.getElementById('sc-niv-ventas-cerrador')?.value) || 0;
-  const promedioEquipo = parseFloat(document.getElementById('sc-niv-promedio-equipo')?.value) || 0;
-  const totalEquipo = parseFloat(document.getElementById('sc-niv-total-equipo')?.value) || 0;
+  const ventasCerrador = parseFloat(el.querySelector('#sc-niv-ventas-cerrador')?.value) || 0;
+  const promedioEquipo = parseFloat(el.querySelector('#sc-niv-promedio-equipo')?.value) || 0;
+  const totalEquipo = parseFloat(el.querySelector('#sc-niv-total-equipo')?.value) || 0;
   const nivelCerrador = saludCalcNivelPorUmbral(ventasCerrador, calc.metas, 'ventasMinCerrador');
   const nivelLideres = saludCalcNivelLideres(promedioEquipo, totalEquipo, calc.metas);
   const dolarCerrador = nivCalc ? nivCalc.adelanto * ((parseFloat(nivelCerrador.pctCerrador)||0)/100) : 0;
@@ -15703,7 +15733,7 @@ function renderSaludCalculadoraComisiones() {
   const dolarPorLider = numLideres > 0 ? dolarLideresCombinado / numLideres : 0;
 
   el.innerHTML = `
-    <div class="section" style="margin-top:22px;padding-top:18px;border-top:1px solid #CBD6E2">
+    <div class="section" data-calc-container="${containerId}" style="margin-top:22px;padding-top:18px;border-top:1px solid #CBD6E2">
       <div style="font-size:10px;font-weight:700;color:#009FDB;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px">🧮 Calculadora de Comisiones</div>
       <div style="font-size:11px;color:#99ACC2;margin-bottom:16px">Reparto del equipo por venta (Cerrador/Líderes/Supervisor) según la prima y el % de cada compañía — no muestra la comisión total ni lo que le queda a la empresa.</div>
 
@@ -15723,7 +15753,7 @@ function renderSaludCalculadoraComisiones() {
       </div>
 
       <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 10px">🏢 Tabla por Compañía / Producto</div>
-      <button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="saludCalcAgregarCompania()">➕ Agregar Compañía</button>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="saludCalcAgregarCompania(this)">➕ Agregar Compañía</button>
       <div class="tbl-wrap" style="margin-bottom:8px">
         <table>
           <thead><tr>
@@ -15746,7 +15776,7 @@ function renderSaludCalculadoraComisiones() {
                 <td style="text-align:right">${fmt(r.cerrador)}</td>
                 <td style="text-align:right">${fmt(r.liderCadaUno)}</td>
                 <td style="text-align:right">${fmt(r.supervisor)}</td>
-                <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarCompania(${c.id})">✕</button></td>
+                <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarCompania(${c.id},this)">✕</button></td>
               </tr>`;
             }).join('') || '<tr><td colspan="10" class="tbl-empty">Sin compañías — agrega una arriba</td></tr>'}
           </tbody>
@@ -15756,7 +15786,7 @@ function renderSaludCalculadoraComisiones() {
       <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 10px">⚡ Simulador Rápido</div>
       <div class="form-group" style="max-width:400px;margin-bottom:16px">
         <label>Compañía / Producto</label>
-        <select id="sc-sim-compania" onchange="renderSaludCalculadoraComisiones()">${opcionesCompania}</select>
+        <select id="sc-sim-compania" onchange="renderSaludCalculadoraComisiones(this)">${opcionesCompania}</select>
       </div>
       ${simCalc ? `
       <div class="cards">
@@ -15770,7 +15800,7 @@ function renderSaludCalculadoraComisiones() {
       </div>` : '<div class="tbl-empty">Agrega una compañía arriba para simular</div>'}
 
       <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin:22px 0 10px">🏆 Metas y Niveles Escalonados</div>
-      <button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="saludCalcAgregarMeta()">➕ Agregar Nivel</button>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:10px" onclick="saludCalcAgregarMeta(this)">➕ Agregar Nivel</button>
       <div class="tbl-wrap" style="margin-bottom:18px">
         <table>
           <thead><tr>
@@ -15785,7 +15815,7 @@ function renderSaludCalculadoraComisiones() {
               <td>${pctDropdownHTML(m.pctLideres, `data-field="pctLideres" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"`)}</td>
               <td><input type="number" step="0.1" min="0" value="${m.promMinEquipo}" data-field="promMinEquipo" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
               <td><input type="number" step="1" min="0" value="${m.totalMinEquipo}" data-field="totalMinEquipo" data-id="${m.id}" onchange="saludCalcGuardarMetaCell(this)" style="width:90px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
-              <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarMeta(${m.id})">✕</button></td>
+              <td><button class="btn btn-danger btn-xs" onclick="saludCalcEliminarMeta(${m.id},this)">✕</button></td>
             </tr>`).join('') || '<tr><td colspan="7" class="tbl-empty">Sin niveles</td></tr>'}
           </tbody>
         </table>
@@ -15793,10 +15823,10 @@ function renderSaludCalculadoraComisiones() {
 
       <div style="font-size:10px;font-weight:700;color:#0057A8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📊 Simulador del mes</div>
       <div class="form-grid" style="margin-bottom:16px">
-        <div class="form-group"><label>Compañía / Producto</label><select id="sc-niv-compania" onchange="renderSaludCalculadoraComisiones()">${opcionesCompania}</select></div>
-        <div class="form-group"><label>Ventas del mes — cerrador individual</label><input type="number" step="1" min="0" id="sc-niv-ventas-cerrador" value="${document.getElementById('sc-niv-ventas-cerrador')?.value||0}" oninput="renderSaludCalculadoraComisiones()"></div>
-        <div class="form-group"><label>Promedio de ventas por cerrador (equipo)</label><input type="number" step="0.1" min="0" id="sc-niv-promedio-equipo" value="${document.getElementById('sc-niv-promedio-equipo')?.value||0}" oninput="renderSaludCalculadoraComisiones()"></div>
-        <div class="form-group"><label>Total de ventas del equipo (este mes)</label><input type="number" step="1" min="0" id="sc-niv-total-equipo" value="${document.getElementById('sc-niv-total-equipo')?.value||0}" oninput="renderSaludCalculadoraComisiones()"></div>
+        <div class="form-group"><label>Compañía / Producto</label><select id="sc-niv-compania" onchange="renderSaludCalculadoraComisiones(this)">${opcionesCompania}</select></div>
+        <div class="form-group"><label>Ventas del mes — cerrador individual</label><input type="number" step="1" min="0" id="sc-niv-ventas-cerrador" value="${ventasCerrador||0}" oninput="renderSaludCalculadoraComisiones(this)"></div>
+        <div class="form-group"><label>Promedio de ventas por cerrador (equipo)</label><input type="number" step="0.1" min="0" id="sc-niv-promedio-equipo" value="${promedioEquipo||0}" oninput="renderSaludCalculadoraComisiones(this)"></div>
+        <div class="form-group"><label>Total de ventas del equipo (este mes)</label><input type="number" step="1" min="0" id="sc-niv-total-equipo" value="${totalEquipo||0}" oninput="renderSaludCalculadoraComisiones(this)"></div>
       </div>
       ${nivCalc ? `
       <div class="cards">
@@ -15812,7 +15842,7 @@ function saludCalcGuardarSupuesto(input) {
   const calc = saludCalcInit();
   calc.supuestos[input.dataset.field] = parseFloat(input.value) || 0;
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(input);
 }
 function saludCalcGuardarCompaniaCell(input) {
   const calc = saludCalcInit();
@@ -15821,20 +15851,20 @@ function saludCalcGuardarCompaniaCell(input) {
   const field = input.dataset.field;
   c[field] = (field==='compania'||field==='producto') ? input.value.trim() : (parseFloat(input.value)||0);
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(input);
 }
-function saludCalcAgregarCompania() {
+function saludCalcAgregarCompania(btn) {
   const calc = saludCalcInit();
   calc.companias.push({ id: calc.nextCompaniaId++, compania:'Nueva Compañía', producto:'Producto', pctCompania:100 });
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(btn);
 }
-function saludCalcEliminarCompania(id) {
+function saludCalcEliminarCompania(id, btn) {
   const calc = saludCalcInit();
   if(!confirm('¿Eliminar esta compañía/producto de la tabla?')) return;
   calc.companias = calc.companias.filter(c=>c.id!==id);
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(btn);
 }
 function saludCalcGuardarMetaCell(input) {
   const calc = saludCalcInit();
@@ -15843,20 +15873,20 @@ function saludCalcGuardarMetaCell(input) {
   const field = input.dataset.field;
   m[field] = field==='nivel' ? input.value.trim() : (parseFloat(input.value)||0);
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(input);
 }
-function saludCalcAgregarMeta() {
+function saludCalcAgregarMeta(btn) {
   const calc = saludCalcInit();
   calc.metas.push({ id: calc.nextMetaId++, nivel:'Nuevo Nivel', ventasMinCerrador:0, pctCerrador:10, pctLideres:10, promMinEquipo:0, totalMinEquipo:0 });
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(btn);
 }
-function saludCalcEliminarMeta(id) {
+function saludCalcEliminarMeta(id, btn) {
   const calc = saludCalcInit();
   if(!confirm('¿Eliminar este nivel?')) return;
   calc.metas = calc.metas.filter(m=>m.id!==id);
   guardarSalud();
-  renderSaludCalculadoraComisiones();
+  renderSaludCalculadoraComisiones(btn);
 }
 function saludGuardarConfigComisiones() {
   const tasaPct = parseFloat(document.getElementById('sp-tasa-anual').value);
