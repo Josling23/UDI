@@ -3438,6 +3438,18 @@ async function subirFotoPerfil(file, carpeta, id) {
   await ref.put(blob, { contentType: 'image/jpeg' });
   return await ref.getDownloadURL();
 }
+// La subida a Storage puede "tener éxito" (getDownloadURL() devuelve una
+// URL) y aun así el navegador no logre CARGAR esa URL como imagen (bucket
+// no habilitado, reglas de Storage no publicadas, etc.) — avatarHTML() ya
+// cae de vuelta a las iniciales en ese caso, pero en silencio. Esto avisa
+// con la URL exacta para poder diagnosticar la causa real.
+function avisarSiImagenFalla(preview, url) {
+  const img = preview && preview.querySelector('img');
+  if(!img) return;
+  img.addEventListener('error', () => {
+    showNotif('⚠️ La foto se subió pero el navegador no pudo cargarla. URL: ' + url, 'error');
+  }, { once: true });
+}
 // Wiring genérico para cualquier <input type=file> de foto de perfil: sube,
 // guarda la URL en el agente correspondiente (AT&T o Salud) y refresca el
 // preview. Usado tanto por los modales de Admin como por "Mi Perfil" de
@@ -3455,7 +3467,7 @@ async function subirYGuardarFotoAgente(inputEl, esSalud, agenteId, previewId) {
     const agente = (lista||[]).find(a=>a.id===agenteId);
     if(agente) agente.fotoUrl = url;
     if(esSalud) guardarSalud(); else guardar();
-    if(preview) preview.innerHTML = avatarHTML(agente?agente.nombre:'', 56, url);
+    if(preview) { preview.innerHTML = avatarHTML(agente?agente.nombre:'', 56, url); avisarSiImagenFalla(preview, url); }
     actualizarAvatarTopbar();
     showNotif('📸 Foto de perfil actualizada');
   } catch(err) {
@@ -3483,7 +3495,7 @@ async function subirYGuardarFotoAdmin(inputEl, previewId) {
     appData.fotosAdmin[email] = url;
     guardar();
     const perms = getUserPermissions(email);
-    if(preview) preview.innerHTML = avatarHTML(perms?perms.nombre:'', 56, url);
+    if(preview) { preview.innerHTML = avatarHTML(perms?perms.nombre:'', 56, url); avisarSiImagenFalla(preview, url); }
     actualizarAvatarTopbar();
     showNotif('📸 Foto de perfil actualizada');
   } catch(err) {
