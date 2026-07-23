@@ -484,7 +484,7 @@ table thead,table tbody{display:table;width:100%}
         </button>
         <div id="solicitudes-panel" style="display:none;position:absolute;top:34px;right:0;width:300px;max-width:90vw;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
       </div>
-      <div id="topbar-avatar" title=""></div>
+      <div id="topbar-avatar" title="" style="cursor:pointer" onclick="abrirMiPerfilAdmin()"></div>
       <span class="badge-dealer">AT&T VND</span>
     </div>
   </div>
@@ -2080,6 +2080,28 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-mi-perfil-admin">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-header">
+      <h3>👤 Mi Perfil</h3>
+      <button class="modal-close" onclick="closeModal('modal-mi-perfil-admin')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0 12px">
+        <div id="mpa-foto-preview"></div>
+        <div id="mpa-nombre" style="font-size:15px;font-weight:700;color:#33475B"></div>
+        <label class="btn btn-primary btn-sm" style="cursor:pointer">📸 Cambiar Foto
+          <input type="file" accept="image/*" style="display:none" onchange="subirYGuardarFotoAdmin(this,'mpa-foto-preview')">
+        </label>
+        <div style="font-size:10px;color:#99ACC2;text-align:center">JPG/PNG — se ajusta automáticamente.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-mi-perfil-admin')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL SOLICITUD DE DESCARGA ===== -->
 <div class="modal-overlay" id="modal-solicitud-descarga">
   <div class="modal" style="max-width:400px">
@@ -3379,6 +3401,8 @@ function fotoUrlDeUsuarioActual(perms) {
   if(!perms) return null;
   if(perms.agenteId) { const a=(appData.agentes||[]).find(x=>x.id===perms.agenteId); if(a?.fotoUrl) return a.fotoUrl; }
   if(perms.agenteSaludId) { const a=(saludData.agentes||[]).find(x=>x.id===perms.agenteSaludId); if(a?.fotoUrl) return a.fotoUrl; }
+  const email = (currentUser ? currentUser.email : '').toLowerCase();
+  if(email && appData.fotosAdmin && appData.fotosAdmin[email]) return appData.fotosAdmin[email];
   return null;
 }
 // ============================================================
@@ -3440,6 +3464,43 @@ async function subirYGuardarFotoAgente(inputEl, esSalud, agenteId, previewId) {
   } finally {
     inputEl.value = '';
   }
+}
+// Misma idea que subirYGuardarFotoAgente(), pero para cuentas de back-office
+// (Admin/HQ/TOP/Bravo/Salud) que viven en USERS_CONFIG por correo fijo, no
+// en appData.agentes — se guarda en appData.fotosAdmin, por correo.
+async function subirYGuardarFotoAdmin(inputEl, previewId) {
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')) { showNotif('⚠️ Selecciona un archivo de imagen', 'error'); inputEl.value=''; return; }
+  const email = (currentUser ? currentUser.email : '').toLowerCase();
+  if(!email) { showNotif('⚠️ No se pudo identificar tu cuenta', 'error'); inputEl.value=''; return; }
+  const preview = previewId ? document.getElementById(previewId) : null;
+  const previoHTML = preview ? preview.innerHTML : '';
+  if(preview) preview.innerHTML = '<div style="font-size:11px;color:#99ACC2">Subiendo...</div>';
+  try {
+    const url = await subirFotoPerfil(file, 'admin', email);
+    if(!appData.fotosAdmin) appData.fotosAdmin = {};
+    appData.fotosAdmin[email] = url;
+    guardar();
+    const perms = getUserPermissions(email);
+    if(preview) preview.innerHTML = avatarHTML(perms?perms.nombre:'', 56, url);
+    actualizarAvatarTopbar();
+    showNotif('📸 Foto de perfil actualizada');
+  } catch(err) {
+    if(preview) preview.innerHTML = previoHTML;
+    showNotif('❌ No se pudo subir la foto: ' + err.message, 'error');
+  } finally {
+    inputEl.value = '';
+  }
+}
+function abrirMiPerfilAdmin() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  if(!perms) return;
+  const email = (currentUser ? currentUser.email : '').toLowerCase();
+  const fotoActual = (appData.fotosAdmin && appData.fotosAdmin[email]) || null;
+  document.getElementById('mpa-nombre').textContent = perms.nombre || '';
+  document.getElementById('mpa-foto-preview').innerHTML = avatarHTML(perms.nombre||'', 84, fotoActual);
+  document.getElementById('modal-mi-perfil-admin').classList.add('open');
 }
 
 // ============================================================
@@ -3520,6 +3581,11 @@ function normalizarAppData() {
   // respaldo) — control transversal a todos los departamentos, por eso
   // vive en appData y no en saludData/appData.bravo.
   if(!appData.solicitudesDescarga) appData.solicitudesDescarga = [];
+  // Fotos de perfil de cuentas de back-office/administrador (Admin, HQ, TOP,
+  // Bravo, Salud) — estas cuentas viven en USERS_CONFIG (correo fijo), no en
+  // appData.agentes, así que no tienen dónde guardar su fotoUrl. Se guarda
+  // aquí, por correo, transversal a toda la app.
+  if(!appData.fotosAdmin) appData.fotosAdmin = {};
   if(!appData.enlaces) appData.enlaces = { admin: [], top: [], bravo: [] };
   if(!appData.enlaces.admin) appData.enlaces.admin = [];
   if(!appData.enlaces.top) appData.enlaces.top = [];
