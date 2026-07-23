@@ -13617,7 +13617,7 @@ function renderTopIUL() {
             ${iul.companias.map(c=>{
               const r = iulCalcFila(c, s);
               return `<tr>
-                <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
+                <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:170px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
                 <td><input type="text" value="${c.producto}" data-field="producto" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:140px;border:1px solid #CBD6E2;padding:6px;border-radius:4px"></td>
                 <td><input type="number" step="0.1" min="0" max="100" value="${(c.pctCompania*100).toFixed(1)}" data-field="pctCompania" data-id="${c.id}" onchange="iulGuardarCompaniaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
                 <td style="text-align:right">${fmt(r.comisionTotal)}</td>
@@ -15737,7 +15737,7 @@ function renderSaludCalculadoraComisiones() {
             ${calc.companias.map(c=>{
               const r = saludCalcFila(c, s);
               return `<tr>
-                <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:130px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
+                <td><input type="text" value="${c.compania}" data-field="compania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:170px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;font-weight:600"></td>
                 <td><input type="text" value="${c.producto}" data-field="producto" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:140px;border:1px solid #CBD6E2;padding:6px;border-radius:4px"></td>
                 <td><input type="number" step="0.1" min="0" max="100" value="${c.pctCompania}" data-field="pctCompania" data-id="${c.id}" onchange="saludCalcGuardarCompaniaCell(this)" style="width:75px;border:1px solid #CBD6E2;padding:6px;border-radius:4px;text-align:right"></td>
                 <td style="text-align:right">${fmt(r.comisionTotal)}</td>
