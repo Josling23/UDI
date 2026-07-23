@@ -15603,11 +15603,22 @@ function saludRenderProductos() {
 // equipo (Cerrador/Líderes/Supervisor) sin ver cuánto gana la empresa.
 // Vive en saludData.calculadoraComisiones — independiente de la de TOP.
 // ============================================================
-// La tabla de compañías arranca VACÍA — no se inventan nombres de
-// aseguradoras reales aquí (eso lo agrega la usuaria con "➕ Agregar
-// Compañía", con los nombres/porcentajes reales que ella conoce).
+// La tabla de compañías arranca con las mismas compañías/productos reales
+// de seguros de vida y gastos finales que ya se usan en TOP →
+// IUL/Gastos Finales (Transamerica, American Amicable, Mutual of Omaha,
+// Fidelity) — mismo negocio, mismos nombres, adaptados aquí al formato de
+// porcentaje 0-100 (en TOP se guardan como fracción 0-1).
 function saludCalcInit() {
   const PLACEHOLDERS_A_LIMPIAR = ['Compañía 1', 'Ambetter', 'Molina', 'Aetna'];
+  const COMPANIAS_DEFAULT = [
+    { id:1, compania:'Transamerica',      producto:'Express Solution',  pctCompania:100 },
+    { id:2, compania:'Transamerica',      producto:'IUL Express',       pctCompania:85 },
+    { id:3, compania:'American Amicable', producto:'Safecare Term',     pctCompania:100 },
+    { id:4, compania:'American Amicable', producto:'IUL Inteligente',   pctCompania:80 },
+    { id:5, compania:'Mutual of Omaha',   producto:'Accidental Death',  pctCompania:90 },
+    { id:6, compania:'Mutual of Omaha',   producto:'IUL Express',       pctCompania:90 },
+    { id:7, compania:'Fidelity',          producto:'Patselife IUL',     pctCompania:85 },
+  ];
   if(!saludData.calculadoraComisiones) {
     saludData.calculadoraComisiones = {
       supuestos: {
@@ -15615,8 +15626,8 @@ function saludCalcInit() {
         pctAdelantoCompania: 75, pctCerrador: 10, pctLideres: 10, pctSupervisor: 1.5,
         numLideres: 3, costoPorLead: 12, leadsPorVenta: 8,
       },
-      companias: [],
-      nextCompaniaId: 1,
+      companias: COMPANIAS_DEFAULT.map(c=>({...c})),
+      nextCompaniaId: 8,
       metas: [
         { id:1, nivel:'Base',      ventasMinCerrador:0,  pctCerrador:10, pctLideres:10, promMinEquipo:0,  totalMinEquipo:0 },
         { id:2, nivel:'Bueno',     ventasMinCerrador:4,  pctCerrador:12, pctLideres:12, promMinEquipo:4,  totalMinEquipo:12 },
@@ -15625,13 +15636,13 @@ function saludCalcInit() {
       ],
       nextMetaId: 5,
     };
-  } else if(saludData.calculadoraComisiones.companias.every(c=>PLACEHOLDERS_A_LIMPIAR.includes(c.compania))) {
-    // Si ya se había guardado con nombres de ejemplo (placeholder viejo, o
-    // Ambetter/Molina/Aetna de una versión anterior) y nadie los editó
-    // todavía, se limpia — no se inventan compañías reales, la usuaria las
-    // agrega ella misma. Si YA hay algo que no sea uno de estos ejemplos,
-    // nunca se toca.
-    saludData.calculadoraComisiones.companias = [];
+  } else if(saludData.calculadoraComisiones.companias.length===0 || saludData.calculadoraComisiones.companias.every(c=>PLACEHOLDERS_A_LIMPIAR.includes(c.compania))) {
+    // Si ya se había guardado vacía, o con nombres de ejemplo (placeholder
+    // viejo, o Ambetter/Molina/Aetna de una versión anterior) y nadie los
+    // editó todavía, se reemplaza por las compañías reales de vida/gastos
+    // finales. Si YA hay algo que no sea uno de estos casos, nunca se toca.
+    saludData.calculadoraComisiones.companias = COMPANIAS_DEFAULT.map(c=>({...c}));
+    saludData.calculadoraComisiones.nextCompaniaId = Math.max(saludData.calculadoraComisiones.nextCompaniaId||1, 8);
   }
   return saludData.calculadoraComisiones;
 }
