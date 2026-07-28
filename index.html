@@ -13383,10 +13383,20 @@ function renderTopBravo() {
       </div>
 
       <div class="cards" style="margin-bottom:20px">
+        <div class="card teal">
+          <label>${esTodos?'📥 Ingresos Brutos (todos los meses)':'📥 Ingresos Brutos'}</label>
+          <div class="val">${fmt(d.ingresosBrutosMes)}</div>
+          <div class="sub">${d.reportesMes.length} días registrados</div>
+        </div>
+        <div class="card red">
+          <label>${esTodos?'📦 Costo de Mercancía (todos los meses)':'📦 Costo de Mercancía'}</label>
+          <div class="val">${fmt(d.costoMercanciaMes)}</div>
+          <div class="sub">costo de lo vendido</div>
+        </div>
         <div class="card green">
           <label>${esTodos?'💰 Ganancia Ventas (todos los meses)':'💰 Ganancia Ventas del Mes'}</label>
           <div class="val">${fmt(d.gananciaMes)}</div>
-          <div class="sub">${d.reportesMes.length} días registrados</div>
+          <div class="sub">Ingresos − Costo de Mercancía</div>
         </div>
         <div class="card teal">
           <label>🌐 Otros Ingresos (Internet/Celulares)</label>
