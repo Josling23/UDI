@@ -13224,6 +13224,24 @@ function calcCostosBravoMes(mes, anio) {
   }, 0);
 }
 
+// r.gananciaTotal es NETA (precio-costo) para registros guardados antes del
+// 9-jul-2026 y BRUTA (solo precio, o precio-comisión en combos) para los
+// guardados después — desde entonces el costo se saca de ahí y se sincroniza
+// como Gasto en ROI de Bravo con origenReporteId = r.id (ver
+// bravoSincronizarGastosDeReporte). Cualquier pantalla que muestre
+// "Ganancia" sumando r.gananciaTotal directamente debe restar aquí el costo
+// ya sincronizado de ese registro (0 para los registros viejos, que nunca
+// tuvieron gasto sincronizado) para no mostrar de más la ganancia de los
+// registros nuevos.
+function bravoCostoSincronizadoDeRegistro(registroId) {
+  return (appData.bravo?.gastos||[])
+    .filter(g => g.origenReporteId === registroId)
+    .reduce((s,g) => s + (g.monto||0), 0);
+}
+function bravoGananciaNetaRegistro(registro) {
+  return (registro.gananciaTotal||0) - bravoCostoSincronizadoDeRegistro(registro.id);
+}
+
 function calcBravoMes(mes, anio) {
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1, caja: [] };
 
@@ -17791,7 +17809,7 @@ function bravoDashboard() {
 
   function gananciaDelMes(mes, año) {
     const rep = (appData.bravo.reportesDiarios||[]).filter(r=>{ const d=mesAnioDeFecha(r.fecha); return d.mes===mes && d.anio===año; })
-      .reduce((s,r)=>s+(r.gananciaTotal||0),0);
+      .reduce((s,r)=>s+bravoGananciaNetaRegistro(r),0);
     const tickets = (appData.bravo.reparaciones||[]).filter(r=>{ const d=mesAnioDeFecha(r.fecha); return d.mes===mes && d.anio===año; })
       .reduce((s,r)=>s+(r.ganancia||0),0);
     const lyca = (appData.bravo.lineasLyca||[]).filter(l=>l.mes===(MESES_ES[mes-1]+' '+año))
@@ -17807,7 +17825,7 @@ function bravoDashboard() {
   const lycaMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStr);
   // Suma TODOS los registros diarios de hoy, no solo el primero — puede
   // haber más de uno si se agregó más de un "Nuevo Registro" el mismo día.
-  const gananciaHoy = reportesHoy.reduce((s,r)=>s+(r.gananciaTotal||0),0) + repTicketsHoy.reduce((s,r)=>s+(r.ganancia||0),0);
+  const gananciaHoy = reportesHoy.reduce((s,r)=>s+bravoGananciaNetaRegistro(r),0) + repTicketsHoy.reduce((s,r)=>s+(r.ganancia||0),0);
   const gananciaMes = gananciaDelMes(mesActual, añoActual);
   const gananciaMesAnterior = gananciaDelMes(mesAnteriorNum, añoAnteriorNum);
 
@@ -17998,7 +18016,7 @@ function bravoRenderRegistrosTabla() {
 
   const sum = (arr, key) => arr.reduce((s,r)=> s + ((r[key]||[]).length), 0);
   const sumAccesorios = (arr) => arr.reduce((s,r)=> s + bravoSumarCantidad(r.accesorios), 0);
-  const totalGanancia = filtrados.reduce((s,r)=>s+(r.gananciaTotal||0),0);
+  const totalGanancia = filtrados.reduce((s,r)=>s+bravoGananciaNetaRegistro(r),0);
   const totalProductos = filtrados.reduce((s,r)=>s+(r.productosCount || bravoSumarCantidad(r.accesorios)+(r.lycas||[]).length+(r.reparaciones||[]).length+(r.combos||[]).length+(r.telefonos||[]).length),0);
 
   const etiquetaResumen = filtroFecha ? `Resumen del Día (${filtroFecha})` : filtroMes ? `Resumen Mensual (${MESES_ES[parseInt(filtroMes,10)-1]}${filtroAnio?' '+filtroAnio:''})` : 'Resumen (todo el histórico)';
@@ -18281,7 +18299,7 @@ function bravoDescargarReportesExcel() {
     return [
       r.fecha, diaSemana,
       bravoSumarCantidad(r.accesorios), (r.lycas||[]).length, (r.reparaciones||[]).length, (r.combos||[]).length, (r.telefonos||[]).length,
-      r.gananciaTotal||0, cajaPorFecha[r.fecha] != null ? cajaPorFecha[r.fecha] : '',
+      bravoGananciaNetaRegistro(r), cajaPorFecha[r.fecha] != null ? cajaPorFecha[r.fecha] : '',
       actividadesResumen, notasGenerales
     ];
   });
@@ -18373,20 +18391,21 @@ function bravoDescargarReportesExcel() {
     const totalRep = regsDelMes.reduce((s,r)=>s+(r.reparaciones||[]).length,0);
     const totalCombo = regsDelMes.reduce((s,r)=>s+(r.combos||[]).length,0);
     const totalTel = regsDelMes.reduce((s,r)=>s+(r.telefonos||[]).length,0);
-    const gananciaTotalMes = regsDelMes.reduce((s,r)=>s+(r.gananciaTotal||0),0);
+    const gananciaTotalMes = regsDelMes.reduce((s,r)=>s+bravoGananciaNetaRegistro(r),0);
     const diasConDatos = regsDelMes.length;
     const promedioDiario = diasConDatos>0 ? gananciaTotalMes/diasConDatos : 0;
-    let mejorDia = null, peorDia = null;
+    let mejorDia = null, peorDiaGanancia = null, mejorDiaGanancia = null, peorDia = null;
     regsDelMes.forEach(r => {
-      if(!mejorDia || (r.gananciaTotal||0) > mejorDia.gananciaTotal) mejorDia = r;
-      if(!peorDia || (r.gananciaTotal||0) < peorDia.gananciaTotal) peorDia = r;
+      const g = bravoGananciaNetaRegistro(r);
+      if(!mejorDia || g > mejorDiaGanancia) { mejorDia = r; mejorDiaGanancia = g; }
+      if(!peorDia || g < peorDiaGanancia) { peorDia = r; peorDiaGanancia = g; }
     });
     const cajaDelMes = cajaFiltrada.filter(c=>(c.fecha||'').startsWith(ym)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     const cajaFinalMes = cajaDelMes.length ? (cajaDelMes[cajaDelMes.length-1].cajaInicial + cajaDelMes[cajaDelMes.length-1].totalEntradas - cajaDelMes[cajaDelMes.length-1].totalSalidas) : '';
     return [
       `${MESES_ES[parseInt(mm,10)-1]} ${yy}`, totalAcc, totalLyca, totalRep, totalCombo, totalTel, gananciaTotalMes,
-      promedioDiario, mejorDia ? `${mejorDia.fecha} (${fmt(mejorDia.gananciaTotal||0)})` : '—',
-      peorDia ? `${peorDia.fecha} (${fmt(peorDia.gananciaTotal||0)})` : '—', cajaFinalMes
+      promedioDiario, mejorDia ? `${mejorDia.fecha} (${fmt(mejorDiaGanancia)})` : '—',
+      peorDia ? `${peorDia.fecha} (${fmt(peorDiaGanancia)})` : '—', cajaFinalMes
     ];
   });
   const wsResumenMensual = XLSX.utils.aoa_to_sheet([
