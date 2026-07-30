@@ -13236,6 +13236,19 @@ function calcCostosBravoMes(mes, anio) {
     return (gd.mes===mes && gd.anio===anio) ? s+parseFloat(g.monto||0) : s;
   }, 0);
 }
+// Igual que calcCostosBravoMes() pero excluyendo los gastos auto-sincronizados
+// desde Registro Diario (origen='registro-diario', que son el costo de
+// mercancía) — deja solo lo que se metió a mano con "➕ Nuevo Gasto" (renta,
+// sueldos, compras al por mayor, etc.). Se usa únicamente para desglosar la
+// tarjeta "Gastos Operativos del Mes" en ROI de Bravo; no reemplaza
+// calcCostosBravoMes() en ningún otro lado (Admin/TOP → Gastos & Nómina
+// sigue usando el total combinado, sin cambios).
+function calcGastosOperativosBravoMes(mes, anio) {
+  return (appData.bravo?.gastos||[]).reduce((s,g) => {
+    const gd = mesAnioDeFecha(g.fecha);
+    return (gd.mes===mes && gd.anio===anio && g.origen!=='registro-diario') ? s+parseFloat(g.monto||0) : s;
+  }, 0);
+}
 
 // r.gananciaTotal es NETA (precio-costo) para registros guardados antes del
 // 9-jul-2026 y BRUTA (solo precio, o precio-comisión en combos) para los
@@ -13293,13 +13306,22 @@ function calcBravoMes(mes, anio) {
   repTicketsMes.forEach(rt => { ingresosBrutosMes += (rt.totalCosto||0); costoMercanciaMes += (rt.costoRepuesto||0); });
   lycaLineasMes.forEach(l => { ingresosBrutosMes += (l.pago||0); costoMercanciaMes += (l.costo||0)+(l.comision||0); });
 
+  // Desglose correcto en 4 pasos (Ingresos Brutos → Costo de Mercancía →
+  // Ganancia Ventas → Gastos Operativos → Ganancia Neta Real), en vez de
+  // los 2 pasos mezclados de antes. gastosOperativosMes excluye el costo de
+  // mercancía ya contado en costoMercanciaMes, así que Ganancia Ventas −
+  // Gastos Operativos da exactamente lo mismo que gananciaMes − costosBravoMes
+  // (gananciaNeta, sin cambios) — no se resta el costo dos veces.
+  const gastosOperativosMes = calcGastosOperativosBravoMes(mes, anio);
+  const gananciaVentasMes = ingresosBrutosMes - costoMercanciaMes;
+
   const accesoriosMes = reportesMes.reduce((s, r) => s + bravoSumarCantidad(r.accesorios), 0);
   const lycasMes = reportesMes.reduce((s, r) => s + (r.lycas ? r.lycas.length : 0), 0) + lycaLineasMes.length;
   const reparacionesMes = reportesMes.reduce((s, r) => s + (r.reparaciones ? r.reparaciones.length : 0), 0) + repTicketsMes.length;
   const combosMes = reportesMes.reduce((s, r) => s + (r.combos ? r.combos.length : 0), 0);
   const telefonosMes = reportesMes.reduce((s, r) => s + (r.telefonos ? r.telefonos.length : 0), 0);
 
-  return { reportesMes, gananciaMes, gananciaNeta, costosBravoMes, ingresosBrutosMes, costoMercanciaMes, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
+  return { reportesMes, gananciaMes, gananciaNeta, costosBravoMes, ingresosBrutosMes, costoMercanciaMes, gastosOperativosMes, gananciaVentasMes, accesoriosMes, lycasMes, reparacionesMes, combosMes, telefonosMes };
 }
 
 // Enumera todos los (mes,año) para los que Bravo tiene algún dato registrado
@@ -13340,10 +13362,11 @@ function sumarBravoMeses(mesesArr) {
     acc.reportesMes = acc.reportesMes.concat(d.reportesMes);
     acc.gananciaMes += d.gananciaMes; acc.gananciaNeta += d.gananciaNeta; acc.costosBravoMes += d.costosBravoMes;
     acc.ingresosBrutosMes += d.ingresosBrutosMes; acc.costoMercanciaMes += d.costoMercanciaMes;
+    acc.gastosOperativosMes += d.gastosOperativosMes; acc.gananciaVentasMes += d.gananciaVentasMes;
     acc.accesoriosMes += d.accesoriosMes; acc.lycasMes += d.lycasMes; acc.reparacionesMes += d.reparacionesMes;
     acc.combosMes += d.combosMes; acc.telefonosMes += d.telefonosMes;
     return acc;
-  }, { reportesMes:[], gananciaMes:0, gananciaNeta:0, costosBravoMes:0, ingresosBrutosMes:0, costoMercanciaMes:0, accesoriosMes:0, lycasMes:0, reparacionesMes:0, combosMes:0, telefonosMes:0 });
+  }, { reportesMes:[], gananciaMes:0, gananciaNeta:0, costosBravoMes:0, ingresosBrutosMes:0, costoMercanciaMes:0, gastosOperativosMes:0, gananciaVentasMes:0, accesoriosMes:0, lycasMes:0, reparacionesMes:0, combosMes:0, telefonosMes:0 });
 }
 
 function renderTopBravo() {
@@ -19077,6 +19100,7 @@ function bravoROI() {
   // mercancía + gastos operativos: renta, sueldos, compras, etc.) — no un
   // margen sobre lo vendido. A pedido explícito de la usuaria.
   const roiPct = totalGastosMes > 0 ? (roiIndependiente / totalGastosMes * 100) : 0;
+  const gastosOperativosCount = gastosMes.filter(g=>g.origen!=='registro-diario').length;
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
   (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(mesAnioDeFecha(r.fecha).anio); });
@@ -19099,7 +19123,7 @@ function bravoROI() {
           <button class="btn btn-primary btn-sm" onclick="abrirModalGastoBravo()">➕ Nuevo Gasto</button>
         </div>
       </div>
-      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Desglose completo: Ingresos Brutos − Costo de Mercancía = Ganancia del Mes. Los gastos se registran aquí UNA sola vez — ya no hace falta volver a escribirlos en Admin: se reflejan automáticamente como "🏪 Costos Bravo" en Admin → Gastos & Nómina y en TOP, y ya están restados en la Ganancia Neta Real de abajo.</div>
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Desglose completo: Ingresos Brutos − Costo de Mercancía = Ganancia Ventas del Mes; Ganancia Ventas − Gastos Operativos = Ganancia Neta Real. Los gastos se registran aquí UNA sola vez — ya no hace falta volver a escribirlos en Admin: se reflejan automáticamente como "🏪 Costos Bravo" en Admin → Gastos & Nómina y en TOP (costo de mercancía + gastos operativos juntos, como siempre).</div>
 
       <div class="cards">
         <div class="card teal">
@@ -19113,14 +19137,14 @@ function bravoROI() {
           <div class="sub">costo de lo vendido (accesorios, lycas, reparaciones, combos, teléfonos)</div>
         </div>
         <div class="card green">
-          <label>${esTodos?'💰 Ganancia (todos los meses)':'💰 Ganancia del Mes'}</label>
-          <div class="val">${fmt(d.gananciaMes)}</div>
+          <label>${esTodos?'💰 Ganancia Ventas (todos los meses)':'💰 Ganancia Ventas del Mes'}</label>
+          <div class="val">${fmt(d.gananciaVentasMes)}</div>
           <div class="sub">Ingresos − Costo de Mercancía</div>
         </div>
         <div class="card orange">
           <label>${esTodos?'💸 Gastos Operativos (todos los meses)':'💸 Gastos Operativos del Mes'}</label>
-          <div class="val">${fmt(totalGastosMes)}</div>
-          <div class="sub">${gastosMes.length} gasto${gastosMes.length!==1?'s':''} reportado${gastosMes.length!==1?'s':''}</div>
+          <div class="val">${fmt(d.gastosOperativosMes)}</div>
+          <div class="sub">${gastosOperativosCount} gasto${gastosOperativosCount!==1?'s':''} reportado${gastosOperativosCount!==1?'s':''} (renta, sueldos, compras, etc. — no incluye costo de mercancía)</div>
         </div>
         <div class="card blue">
           <label>${esTodos?'💵 Ganancia Neta Real (todos los meses)':'💵 Ganancia Neta Real'}</label>
