@@ -2368,6 +2368,19 @@ table thead,table tbody{display:table;width:100%}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-bravo-costo-duplicado">
+  <div class="modal" style="max-width:920px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3>🔍 Revisar Ganancia vs. Costo</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-costo-duplicado')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-bravo-costo-duplicado-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-costo-duplicado')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - REPARACIONES ===== -->
 <div class="modal-overlay" id="modal-bravo-reparacion">
   <div class="modal" style="max-width:560px">
@@ -18077,6 +18090,77 @@ function bravoDetectarDuplicados() {
   document.getElementById('modal-bravo-duplicados').classList.add('open');
 }
 
+// Diagnóstico de solo lectura (no cambia ningún dato): en el flujo normal
+// (formulario manual, o "Pegar Reporte(s)" sin un campo "Ganancia"
+// explícito) la Ganancia de cada línea siempre se guarda BRUTA — precio
+// (×cantidad, o −comisión en combos) — y el costo se resta aparte, una sola
+// vez, al sincronizarse automáticamente como Gasto (bravoLineaAGasto/
+// bravoSincronizarGastosDeReporte). Pero si un reporte pegado trae un
+// campo "Ganancia" explícito que YA viene neto de costo (precio−costo, en
+// vez de bruto), el costo de esa línea igual se sincroniza como Gasto —
+// restándose una segunda vez. Esto busca exactamente ese caso: líneas con
+// costo>0 donde la Ganancia guardada coincide con "bruto−costo" en vez de
+// con "bruto".
+function bravoDetectarCostoDuplicado() {
+  if(!validarAccesoBravo()) return;
+  const EPS = 0.02;
+  const hallazgos = [];
+
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    const revisar = (categoria, items, brutoEsperado, descDe) => {
+      (items||[]).forEach(item => {
+        const costo = parseFloat(item.costo)||0;
+        if(costo <= 0) return;
+        const ganancia = parseFloat(item.ganancia)||0;
+        const bruto = brutoEsperado(item);
+        if(Math.abs(ganancia - bruto) <= EPS) return; // coincide con lo esperado -> normal
+        if(Math.abs(ganancia - (bruto - costo)) <= EPS) {
+          hallazgos.push({
+            fecha: reg.fecha, registroId: reg.id, categoria, descripcion: descDe(item),
+            precio: item.precio, costo, gananciaGuardada: ganancia, gananciaBrutaEsperada: bruto,
+            diferencia: bruto - ganancia,
+          });
+        }
+      });
+    };
+    revisar('Accesorio', reg.accesorios, it => (parseFloat(it.precio)||0) * (parseInt(it.cantidad)||1), it => BRAVO_ACC_TIPO_LABELS_FULL[it.tipo]||it.tipo||'—');
+    revisar('Lyca', reg.lycas, it => parseFloat(it.precio)||0, it => it.cliente||'—');
+    revisar('Reparación', reg.reparaciones, it => parseFloat(it.precio)||0, it => `${it.equipo||'—'} - ${BRAVO_REP_TIPO_LABELS_FULL?.[it.tipo]||it.tipo||'—'}`);
+    revisar('Combo', reg.combos, it => (parseFloat(it.precio)||0) - (parseFloat(it.comision)||0), it => it.desc||'—');
+    revisar('Teléfono', reg.telefonos, it => parseFloat(it.precio)||0, it => it.modelo||'—');
+  });
+
+  hallazgos.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const totalDiferencia = hallazgos.reduce((s,h)=>s+h.diferencia, 0);
+
+  document.getElementById('modal-bravo-costo-duplicado-body').innerHTML = !hallazgos.length
+    ? `<div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:16px;font-size:13px;font-weight:700;color:#059669">✅ No se encontró ninguna línea donde el costo parezca estarse restando dos veces.</div>`
+    : `
+      <div style="background:#FFFBE8;border:1.5px solid #F5C26B;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400E">
+        ⚠️ Se encontraron ${hallazgos.length} línea${hallazgos.length!==1?'s':''} donde la "Ganancia" guardada coincide con precio−costo en vez del bruto esperado. El costo de estas líneas TAMBIÉN se sincronizó como Gasto en ROI Bravo, así que podría estarse restando dos veces. Esto no cambia nada automáticamente — solo te lo muestra para que decidas si hace falta corregir alguna a mano (✏️ abre el Registro Diario completo).
+        <div style="margin-top:8px;font-weight:800">Posible sobre-resta total: ${fmt(totalDiferencia)}</div>
+      </div>
+      <div class="tbl-wrap"><table style="width:100%">
+        <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th style="text-align:right">Precio</th><th style="text-align:right">Costo</th><th style="text-align:right">Ganancia Guardada</th><th style="text-align:right">Ganancia Bruta Esperada</th><th style="text-align:right">Diferencia</th><th></th></tr></thead>
+        <tbody>${hallazgos.map(h=>`
+          <tr>
+            <td>${h.fecha}</td>
+            <td>${h.categoria}</td>
+            <td>${h.descripcion}</td>
+            <td style="text-align:right">${fmt(h.precio)}</td>
+            <td style="text-align:right">${fmt(h.costo)}</td>
+            <td style="text-align:right;color:#E04048;font-weight:700">${fmt(h.gananciaGuardada)}</td>
+            <td style="text-align:right;color:#00BDA5">${fmt(h.gananciaBrutaEsperada)}</td>
+            <td style="text-align:right;font-weight:800">${fmt(h.diferencia)}</td>
+            <td><button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${h.registroId})">✏️</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    `;
+
+  document.getElementById('modal-bravo-costo-duplicado').classList.add('open');
+}
+
 const BRAVO_METODO_PAGO_LABELS_FULL = { efectivo:'Efectivo', zelle:'Zelle', paypal:'PayPal', punto:'Punto', otro:'Otro' };
 const BRAVO_ACC_TIPO_LABELS_FULL = { fundas:'Funda', vidrios:'Vidrio Templado', camara:'Protector de Cámara',
   'cargador-carro':'Cargador de Carro', tacos:'Taco de Carga', cables:'Cable de Carga', powerbank:'Power Bank',
@@ -18964,6 +19048,7 @@ function bravoROI() {
           <select id="bravo-roi-anio-sel" onchange="bravoROI()" ${esTodos?'disabled':''} style="border:1px solid #CBD6E2;padding:6px 10px;border-radius:6px${esTodos?';opacity:0.5':''}">
             ${aniosArr.map(a=>`<option value="${a}" ${a===anioSel?'selected':''}>${a}</option>`).join('')}
           </select>
+          <button class="btn btn-ghost btn-sm" onclick="bravoDetectarCostoDuplicado()" title="Busca líneas donde la Ganancia guardada parezca ya venir neta de costo (posible resta doble)">🔍 Revisar Ganancia vs. Costo</button>
           <button class="btn btn-primary btn-sm" onclick="abrirModalGastoBravo()">➕ Nuevo Gasto</button>
         </div>
       </div>
