@@ -19073,7 +19073,10 @@ function bravoROI() {
   // puedan desincronizarse. d.gananciaNeta ya viene neta de este costo.
   const totalGastosMes = d.costosBravoMes;
   const roiIndependiente = d.gananciaNeta;
-  const roiPct = d.gananciaMes > 0 ? (roiIndependiente / d.gananciaMes * 100) : 0;
+  // ROI clásico: cuánto se ganó neto por cada $ gastado ese mes (costo de
+  // mercancía + gastos operativos: renta, sueldos, compras, etc.) — no un
+  // margen sobre lo vendido. A pedido explícito de la usuaria.
+  const roiPct = totalGastosMes > 0 ? (roiIndependiente / totalGastosMes * 100) : 0;
 
   const anios = new Set([hoy.getFullYear(), anioSel]);
   (appData.bravo.reportesDiarios||[]).forEach(r=>{ if(r.fecha) anios.add(mesAnioDeFecha(r.fecha).anio); });
