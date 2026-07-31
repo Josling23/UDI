@@ -727,6 +727,7 @@ table thead,table tbody{display:table;width:100%}
         </select>
         <button onclick="document.getElementById('fp-agente').value='';document.getElementById('fp-mes').value='';document.getElementById('fp-quincena').value='';renderPagos()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
         <button onclick="abrirDetalleAgenteModal()" style="background:#009FDB;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">👤 Ver Detalle Completo</button>
+        <button id="btn-reporte-todos-agentes" onclick="generarReporteTodosAgentes()" style="display:none;background:#25D366;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">📲 Reporte de Todos</button>
       </div>
       <div class="section">
         <div id="pagos-content"></div>
@@ -2322,6 +2323,24 @@ table thead,table tbody{display:table;width:100%}
     <div class="modal-body" id="modal-detalle-body"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-detalle-agente')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL REPORTE DE TODOS LOS AGENTES (para copiar/pegar) ===== -->
+<div class="modal-overlay" id="modal-reporte-todos">
+  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h3 id="modal-reporte-todos-titulo">📲 Reporte de Todos los Agentes</h3>
+      <button class="modal-close" onclick="closeModal('modal-reporte-todos')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:10px">Copia este texto y pégalo donde lo necesites (WhatsApp, correo, etc.).</div>
+      <textarea id="modal-reporte-todos-texto" readonly style="width:100%;min-height:360px;padding:12px;border:1.5px solid #CBD6E2;border-radius:8px;font-size:13px;font-family:inherit;white-space:pre-wrap;resize:vertical"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-reporte-todos')">Cerrar</button>
+      <button class="btn btn-primary" onclick="copiarReporteTodosAgentes()">📋 Copiar</button>
     </div>
   </div>
 </div>
@@ -9343,6 +9362,9 @@ function renderPagos() {
   const filtroMes   = document.getElementById('fp-mes')?.value||'';
   const filtroQ     = document.getElementById('fp-quincena')?.value||'';
   const mesesVis    = filtroMes ? [filtroMes] : meses;
+  // "Reporte de Todos" solo tiene sentido con "Todos los agentes" seleccionado.
+  const btnReporteTodos = document.getElementById('btn-reporte-todos-agentes');
+  if(btnReporteTodos) btnReporteTodos.style.display = filtroAgId ? 'none' : 'inline-block';
   // CRITICAL: Only include selected quincena(s) in filter
   let qVis = [1,2]; // Default: both quincenas
   if(filtroQ === '1') {
@@ -9737,9 +9759,11 @@ function renderPagos() {
 // descripción del servicio/producto. Deliberadamente NO menciona montos,
 // "comisión", "pago" ni "quincena" — solo lo que se registró.
 // ============================================================
-function generarReporteWhatsApp(agenteId, mes, q) {
-  const a = appData.agentes.find(x=>x.id===agenteId);
-  if(!a) return;
+// Arma el bloque de texto "*Nombre*\nQ{q}\n\n*ANOTADAS:*\n..." de un agente
+// para un mes/quincena — usado tanto por el botón individual de WhatsApp
+// como por "📲 Reporte de Todos". Devuelve null si no hay nada que reportar
+// en ese período (mismo criterio de antes, ahora compartido en un solo lugar).
+function construirBloqueReporteAgente(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
 
   // Grabaciones (llamadas grabadas) — pueden venir de dos formas distintas
@@ -9765,10 +9789,7 @@ function generarReporteWhatsApp(agenteId, mes, q) {
   const totalGrabaciones = grabacionesPeriodo.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
   const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
 
-  if(!ventasPeriodo.length && !extrasDelMes.length && !totalGrabaciones) {
-    showNotif('⚠️ No hay servicios registrados en este período', 'error');
-    return;
-  }
+  if(!ventasPeriodo.length && !extrasDelMes.length && !totalGrabaciones) return null;
 
   // Agrupado por producto y contado — igual a como los agentes ya lo
   // reportan por WhatsApp (ej. "1 Línea <=15, 1 Lyca Mobile"), no un
@@ -9792,12 +9813,65 @@ function generarReporteWhatsApp(agenteId, mes, q) {
     items.push(`${totalGrabaciones} Llamada${totalGrabaciones>1?'s':''} Grabada${totalGrabaciones>1?'s':''}`);
   }
 
-  const texto = `*${a.nombre}*\n` +
+  return `*${a.nombre}*\n` +
     `Q${q}\n\n` +
     `*ANOTADAS:*\n` +
     items.join(', ');
-
+}
+function generarReporteWhatsApp(agenteId, mes, q) {
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+  const texto = construirBloqueReporteAgente(a, mes, q);
+  if(!texto) { showNotif('⚠️ No hay servicios registrados en este período', 'error'); return; }
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+}
+// "📲 Reporte de Todos" — mismo bloque de texto de cada agente, uno tras
+// otro, respetando el mes/quincena que ya esté filtrado en la pantalla
+// (un mes específico o todos; Q1, Q2, o Q1+Q2). Se muestra en un cuadro
+// para copiar/pegar en vez de abrir WhatsApp directo, porque el link de
+// WhatsApp tiene un límite de longitud que un reporte de varios agentes
+// juntos podría superar fácilmente.
+function generarReporteTodosAgentes() {
+  const meses = getMeses();
+  const filtroMes = document.getElementById('fp-mes')?.value || '';
+  const filtroQ   = document.getElementById('fp-quincena')?.value || '';
+  const mesesVis  = filtroMes ? [filtroMes] : meses;
+  let qVis = [1,2];
+  if(filtroQ === '1') qVis = [1];
+  else if(filtroQ === '2') qVis = [2];
+
+  const todos = [
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
+  ];
+
+  const bloques = [];
+  todos.forEach(a=>{
+    mesesVis.forEach(mes=>{
+      qVis.forEach(q=>{
+        const texto = construirBloqueReporteAgente(a, mes, q);
+        if(texto) bloques.push(mesesVis.length>1 ? `📅 ${mes}\n${texto}` : texto);
+      });
+    });
+  });
+
+  if(!bloques.length) { showNotif('⚠️ No hay servicios registrados en este período para ningún agente', 'error'); return; }
+
+  document.getElementById('modal-reporte-todos-texto').value = bloques.join('\n\n———\n\n');
+  document.getElementById('modal-reporte-todos').classList.add('open');
+}
+function copiarReporteTodosAgentes() {
+  const el = document.getElementById('modal-reporte-todos-texto');
+  el.select();
+  el.setSelectionRange(0, 999999);
+  const hecho = () => showNotif('📋 Copiado al portapapeles');
+  if(navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(el.value).then(hecho).catch(() => { document.execCommand('copy'); hecho(); });
+  } else {
+    document.execCommand('copy');
+    hecho();
+  }
 }
 
 // ============================================================
