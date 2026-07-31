@@ -11645,6 +11645,34 @@ function guardarHQAgente() {
   renderHQ();
 }
 
+// Total a Pagar de Admin -> Pagos Agentes (todos los agentes, sin HQ) para
+// un mes+quincena específico -- misma fórmula por agente que renderPagos()
+// (comisiones de ventas + grabaciones + básico + bonos + préstamos + de
+// quincena anterior - descuentos), para poder mostrarlo también en HQ y
+// sumarlo al total de Jose Piña sin duplicar código de renderPagos().
+function getTotalNominaAgentesQuincena(mes, q) {
+  const meses = getMeses();
+  const todos = appData.agentes.filter(a=>!a.soloHQ);
+  return todos.reduce((total, a)=>{
+    const comQ = getComisionesQuincena(a, mes, q);
+    const nombreLow = (a.nombre||'').trim().toLowerCase();
+    const grabRows = appData.ventas.filter(v=>{
+      if(!v.esGrabacion && !v._esGrabacion) return false;
+      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+      const pp = getPeríodoPago(v);
+      return pp.mes===mes && pp.q===q;
+    });
+    const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+    const basico = a.sueldoQuincenal||0;
+    const bonos  = getExtra('bono',  a.nombre, mes+'Q'+q);
+    const prest  = getExtra('prest', a.nombre, mes+'Q'+q);
+    const desc   = getExtra('desc',  a.nombre, mes+'Q'+q);
+    const prev   = getPrevQuincena(meses, mes, q);
+    const deAnt  = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
+    return total + comQ + comGrab + basico + bonos + prest + deAnt - desc;
+  }, 0);
+}
+
 // ============================================================
 // HEADQUARTERS — RENDER
 // ============================================================
@@ -11738,6 +11766,12 @@ function renderHQ() {
       s + qFiltro.reduce((sq,q)=>sq+getExtra('desc',a.nombre,m+'Q'+q),0), 0);
     const netTotal = comTotal+basicoTot+bonosTot+prestTot-descTot;
 
+    // Total a Pagar de Admin -> Pagos Agentes (todos los agentes, sin HQ)
+    // del mismo período filtrado aquí, para poder sumarlo al de HQ.
+    const totalAdminAgentes = msFiltro.reduce((s,m)=>
+      s + qFiltro.reduce((sq,q)=>sq+getTotalNominaAgentesQuincena(m,q),0), 0);
+    const totalGeneral = netTotal + totalAdminAgentes;
+
     const comPs    = a.comisionesPersonales||{};
     const comDirs  = a.comisionesDirectas||{};
     const supervisa= a.agentesSupervisa||[];
@@ -11776,6 +11810,16 @@ function renderHQ() {
           <div style="background:rgba(255,255,255,0.12);border-radius:8px;padding:10px">
             <div style="font-size:9px;opacity:0.7;text-transform:uppercase">TOTAL A PAGAR</div>
             <div style="font-size:22px;font-weight:900">${fmt(netTotal)}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.2);margin-top:14px;padding-top:14px">
+          <div>
+            <div style="font-size:9px;opacity:0.6;text-transform:uppercase">🏢 Total Admin — Pagos Agentes (mismo período)</div>
+            <div style="font-size:18px;font-weight:800">${fmt(totalAdminAgentes)}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.18);border-radius:8px;padding:10px 18px">
+            <div style="font-size:9px;opacity:0.8;text-transform:uppercase">💰 TOTAL GENERAL (HQ + Admin)</div>
+            <div style="font-size:26px;font-weight:900">${fmt(totalGeneral)}</div>
           </div>
         </div>
       </div>`;
