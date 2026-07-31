@@ -9419,9 +9419,12 @@ function renderPagos() {
     const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
     return total;
   })();
-  // Agregar José Piña (Inversión-Activa) solo al total general — no debe sumarse
-  // cuando se filtra a un agente individual, ya que ese total es solo de José.
-  if(!filtroAgId) totalNominaQuincena += josePinaTotal;
+  // José Piña (Inversión-Activa) NO se suma al total de esta pantalla — su
+  // sueldo y comisiones se pagan y se verifican aparte, en HEADQUARTERS. El
+  // "Total a Pagar" de aquí debe reflejar solo la suma de las tarjetas de
+  // agente que se ven en esta misma pantalla (para que siempre sea
+  // verificable a mano). Su tarjeta "Inversión-Activa" se sigue mostrando
+  // abajo, pero solo a modo informativo.
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
     const comQ   = getComisionesQuincena(a, mesAct, qAct);
