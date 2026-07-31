@@ -11491,7 +11491,11 @@ function openHQConfig(id=null) {
   const otros = appData.agentes.filter(x=>!x.soloHQ);
 
   const comDirs = a?.comisionesDirectas||{};
-  const comFields = PRODUCTOS_CATALOG.map(p=>{
+  // getCatalogoCompleto() (no PRODUCTOS_CATALOG a secas) para que también
+  // aparezcan los productos agregados desde Admin -> Productos & Com. (ej.
+  // "Grabación Sola") -- si no, no hay forma de ponerle a HQ una tarifa
+  // (incluido $0) para esos productos.
+  const comFields = getCatalogoCompleto().map(p=>{
     const valSup = comPs[p.id]!==undefined ? comPs[p.id] : '';
     const valDir = comDirs[p.id]!==undefined ? comDirs[p.id] : '';
     return `<div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2">
@@ -11553,7 +11557,7 @@ function hqcCargarTarifaAgente() {
   const sel = document.getElementById('hqc-tarifa-agente-sel');
   const key = sel.value;
   const overrides = _hqcTarifasPorAgente[key] || {};
-  document.getElementById('hqc-tarifa-comisiones').innerHTML = PRODUCTOS_CATALOG.map(p=>`
+  document.getElementById('hqc-tarifa-comisiones').innerHTML = getCatalogoCompleto().map(p=>`
     <div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2">
       <div style="font-size:11px;font-weight:600;color:#33475B;margin-bottom:6px">${p.nombre}</div>
       <input type="number" min="0" step="0.01" value="${overrides[p.id]!==undefined?overrides[p.id]:''}" placeholder="usar general"
