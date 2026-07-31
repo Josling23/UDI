@@ -1317,14 +1317,22 @@ table thead,table tbody{display:table;width:100%}
     </div>
 
     <div class="page" id="page-salud-pagos">
-      <div class="section" style="margin-bottom:16px">
-        <div class="section-header">
-          <h2>💳 Historial de Pagos por Agente</h2>
-          <select id="salud-pagos-agente-sel" class="inline-sel" style="padding:7px 12px;font-size:12px" onchange="saludRenderPagos()"><option value="">Todos los Agentes</option></select>
-        </div>
-        <div class="cards" id="salud-pagos-cards"></div>
+      <div class="filters" style="margin-bottom:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <select id="salud-pagos-agente-sel" onchange="saludRenderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none;min-width:200px">
+          <option value="">👥 Todos los Agentes</option>
+        </select>
+        <select id="salud-pagos-mes-sel" onchange="saludRenderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none;min-width:160px">
+          <option value="">📅 Todos los meses</option>
+        </select>
+        <select id="salud-pagos-quincena-sel" onchange="saludRenderPagos()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none">
+          <option value="">Q1 + Q2</option>
+          <option value="1">Q1 (días 1–14)</option>
+          <option value="2">Q2 (días 15–fin de mes)</option>
+        </select>
+        <button onclick="document.getElementById('salud-pagos-agente-sel').value='';document.getElementById('salud-pagos-mes-sel').value='';document.getElementById('salud-pagos-quincena-sel').value='';saludRenderPagos()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
+        <button id="btn-reporte-todos-salud" onclick="generarReporteTodosAgentesSalud()" style="display:none;background:#25D366;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">📲 Reporte de Todos</button>
       </div>
-      <div id="salud-pagos-por-agente"></div>
+      <div id="salud-pagos-content"></div>
     </div>
 
     <div class="page" id="page-salud-chargebacks">
@@ -16566,86 +16574,187 @@ function saludSetQuincenaFecha(agenteNombre, mes, q, fecha) {
   const key = saludGetQuincenaKey(agenteNombre, mes, q);
   if(saludData.quincenas[key]) { saludData.quincenas[key].fecha = fecha; guardarSalud(); }
 }
+// Igual que clienteEnQ() interno de las funciones viejas de Pagos —
+// centralizado aquí porque ahora lo usan saludRenderPagos() y el reporte
+// agrupado por igual.
+function saludClienteEnQ(c, q) {
+  if(c.quincenaPago) return parseInt(c.quincenaPago)===q;
+  const dia = parseInt((c.fecha||'').split('-')[2]||'1');
+  return q===1 ? dia<=15 : dia>15;
+}
+// Mismo orden que Admin/Pagos Agentes (gerente > supervisor > agente).
+function saludAgentesOrdenados() {
+  return [
+    ...saludData.agentes.filter(a=>a.rol==='gerente'),
+    ...saludData.agentes.filter(a=>a.rol==='supervisor'),
+    ...saludData.agentes.filter(a=>!a.rol||a.rol==='agente'),
+  ];
+}
+// Salud/Dental → 💳 Pagos Agentes -- mismo patrón que Admin/Pagos Agentes:
+// filtros de Agente/Mes/Quincena (Q1, Q2 o Q1+Q2), tarjeta de "Total a
+// Pagar" del período filtrado, una tarjeta resumen por agente, y la tabla
+// detallada de quincenas debajo (con los mismos botones de marcar
+// pagado/pendiente y fecha que ya existían). A diferencia de Admin, Salud
+// no tiene bonos/préstamos/descuentos/pendiente-de-quincena-anterior, así
+// que el total aquí es solo Sueldo + Comisiones.
 function saludRenderPagos() {
   if(!saludData.quincenas) saludData.quincenas = {};
-  const sel = document.getElementById('salud-pagos-agente-sel');
-  if(sel) {
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">Todos los Agentes</option>' + saludData.agentes.map(a=>`<option value="${a.nombre}" ${a.nombre===cur?'selected':''}>${a.nombre}</option>`).join('');
-  }
-  const filtroAgente = sel?.value||'';
-  const agentes = filtroAgente ? saludData.agentes.filter(a=>a.nombre===filtroAgente) : saludData.agentes;
+  const selAg  = document.getElementById('salud-pagos-agente-sel');
+  const selMes = document.getElementById('salud-pagos-mes-sel');
   const meses = getSaludMeses();
-  let totalQPagadas=0, totalQPend=0;
-  saludData.agentes.forEach(a=>{ meses.forEach(mes=>{ [1,2].forEach(q=>{ const key=saludGetQuincenaKey(a.nombre,mes,q); if(saludData.quincenas[key]) totalQPagadas+=a.sueldoQuincenal; else totalQPend+=a.sueldoQuincenal; }); }); });
-  const totalComAgPagadas = saludData.clientes.filter(c=>c.comAgentePagada).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-  const totalComAgPend = saludData.clientes.filter(c=>!c.comAgentePagada).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-  document.getElementById('salud-pagos-cards').innerHTML = `
-    <div class="card green"><label>Quincenas Pagadas</label><div class="val">${fmt(totalQPagadas)}</div></div>
-    <div class="card red"><label>Quincenas Pendientes</label><div class="val">${fmt(totalQPend)}</div></div>
-    <div class="card teal"><label>Com. Agentes Pagadas</label><div class="val">${fmt(totalComAgPagadas)}</div></div>
-    <div class="card yellow"><label>Com. Agentes Pendientes</label><div class="val">${fmt(totalComAgPend)}</div></div>
-    <div class="card blue"><label>Total Pagado Agentes</label><div class="val">${fmt(totalQPagadas+totalComAgPagadas)}</div></div>`;
-  document.getElementById('salud-pagos-por-agente').innerHTML = agentes.map(a=>{
-    const nombre = (a.nombre||'').trim().toLowerCase();
-    const ventasAgente = saludData.clientes.filter(c=>(c.agente||'').trim().toLowerCase()===nombre);
-    let totalPagadoAg=0, totalPendAg=0;
-    meses.forEach(mes=>{ [1,2].forEach(q=>{ const key=saludGetQuincenaKey(a.nombre,mes,q); if(saludData.quincenas[key]) totalPagadoAg+=a.sueldoQuincenal; else totalPendAg+=a.sueldoQuincenal; }); });
-    const filasMeses = meses.map(mes=>{
-      const q1key=saludGetQuincenaKey(a.nombre,mes,1); const q2key=saludGetQuincenaKey(a.nombre,mes,2);
-      const q1=saludData.quincenas[q1key]; const q2=saludData.quincenas[q2key];
-      const vMes=ventasAgente.filter(c=>c.mes===mes);
-      // Separar comisiones por quincena (usa quincenaPago si existe, sino determina por fecha)
-      function clienteEnQ(c, q) {
-        if(c.quincenaPago) return parseInt(c.quincenaPago)===q;
-        const dia=parseInt((c.fecha||'').split('-')[2]||'1');
-        return q===1 ? dia<=15 : dia>15;
-      }
-      const comQ1=vMes.filter(c=>clienteEnQ(c,1)).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-      const comQ2=vMes.filter(c=>clienteEnQ(c,2)).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-      const comMes=comQ1+comQ2;
-      const comMesPag=vMes.filter(c=>c.comAgentePagada).reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
-      const sueldoMes=(q1?a.sueldoQuincenal:0)+(q2?a.sueldoQuincenal:0);
-      return { mes, q1, q2, sueldoMes, sueldoPend:a.sueldoQuincenal*2-sueldoMes, comMes, comQ1, comQ2, comMesPag, vMes:vMes.length };
+  if(selAg) {
+    const cur = selAg.value;
+    selAg.innerHTML = '<option value="">👥 Todos los Agentes</option>' +
+      saludAgentesOrdenados().map(a=>`<option value="${a.nombre}" ${a.nombre===cur?'selected':''}>${a.nombre}</option>`).join('');
+  }
+  if(selMes) {
+    const curMes = selMes.value;
+    selMes.innerHTML = '<option value="">📅 Todos los meses</option>' +
+      meses.map(m=>`<option value="${m}" ${m===curMes?'selected':''}>${m}</option>`).join('');
+  }
+
+  const filtroAgente = selAg?.value||'';
+  const filtroMes    = selMes?.value||'';
+  const filtroQ      = document.getElementById('salud-pagos-quincena-sel')?.value||'';
+  const mesesVis     = filtroMes ? [filtroMes] : meses;
+  let qVis = [1,2];
+  if(filtroQ==='1') qVis=[1]; else if(filtroQ==='2') qVis=[2];
+
+  const btnReporteTodos = document.getElementById('btn-reporte-todos-salud');
+  if(btnReporteTodos) btnReporteTodos.style.display = filtroAgente ? 'none' : 'inline-block';
+
+  const agentes = filtroAgente ? saludAgentesOrdenados().filter(a=>a.nombre===filtroAgente) : saludAgentesOrdenados();
+
+  let totalPeriodo = 0;
+  const datosPorAgente = agentes.map(a=>{
+    const nombreLow = (a.nombre||'').trim().toLowerCase();
+    const ventasAgente = saludData.clientes.filter(c=>(c.agente||'').trim().toLowerCase()===nombreLow);
+    let sueldoPeriodo=0, comPeriodo=0, quincenasPagadas=0, quincenasTotales=0;
+    const filas = [];
+    mesesVis.forEach(mes=>{
+      qVis.forEach(q=>{
+        const key = saludGetQuincenaKey(a.nombre, mes, q);
+        const pagado = saludData.quincenas[key];
+        const vMesQ = ventasAgente.filter(c=>c.mes===mes && saludClienteEnQ(c,q));
+        const comQ = vMesQ.reduce((s,c)=>s+(c.comAgente!==undefined?c.comAgente:8),0);
+        const sueldoQ = a.sueldoQuincenal||0;
+        sueldoPeriodo += sueldoQ; comPeriodo += comQ;
+        quincenasTotales++; if(pagado) quincenasPagadas++;
+        filas.push({ mes, q, pagado, comQ, sueldoQ, total: sueldoQ+comQ });
+      });
     });
-    return `<div class="section" style="margin-bottom:20px">
-      <div class="section-header">
-        <h2>👤 ${a.nombre} <span style="font-size:12px;color:#7C98B6;font-weight:400">— ${fmt(a.sueldoQuincenal)}/quinc.</span></h2>
-        <div style="display:flex;gap:14px;font-size:12px">
-          <span>Sueldos pagados: <b style="color:#00BDA5">${fmt(totalPagadoAg)}</b></span>
-          <span>Pendientes: <b style="color:#F2545B">${fmt(totalPendAg)}</b></span>
+    const total = sueldoPeriodo + comPeriodo;
+    totalPeriodo += total;
+    return { a, sueldoPeriodo, comPeriodo, total, quincenasPagadas, quincenasTotales, filas };
+  });
+
+  const etiquetaPeriodo = (filtroMes || 'Todos los meses') + ' — ' + (filtroQ==='1' ? 'Q1' : filtroQ==='2' ? 'Q2' : 'Q1+Q2');
+
+  const cards = datosPorAgente.map(d=>{
+    const rol = d.a.rol||'agente';
+    const badge = d.quincenasTotales===0 ? { txt:'—', bg:'#F5F8FA', color:'#7C98B6' }
+      : d.quincenasPagadas===d.quincenasTotales ? { txt:'✅ Pagado', bg:'#D1FAE5', color:'#059669' }
+      : d.quincenasPagadas===0 ? { txt:'⏳ Pendiente', bg:'#FFF3EE', color:'#FF7A59' }
+      : { txt:`🔶 ${d.quincenasPagadas}/${d.quincenasTotales}`, bg:'#FFFBE8', color:'#B45309' };
+    return `<div style="background:#fff;border-radius:10px;padding:14px 16px;border:2px solid ${d.quincenasTotales>0 && d.quincenasPagadas===d.quincenasTotales?'#86EFAC':'#CBD6E2'};min-width:190px;flex:1">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#33475B">${d.a.nombre}</div>
+          <div style="font-size:10px;color:${ROL_COLORS[rol]||'#7C98B6'};font-weight:600">${ROL_LABELS[rol]||rol}</div>
         </div>
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${badge.bg};color:${badge.color}">${badge.txt}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;font-size:11px">
+        <div style="color:#7C98B6">Sueldo</div><div style="text-align:right;font-weight:600;color:#33475B">${fmt(d.sueldoPeriodo)}</div>
+        <div style="color:#7C98B6">Comisiones</div><div style="text-align:right;font-weight:600;color:#009FDB">${fmt(d.comPeriodo)}</div>
+      </div>
+      <div style="border-top:1px solid #F0F2F5;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#7C98B6">Total</span>
+        <span style="font-size:16px;font-weight:800;color:#00BDA5">${fmt(d.total)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const tablaDetalle = datosPorAgente.filter(d=>d.filas.length).map(d=>`
+    <div class="section" style="margin-bottom:20px">
+      <div class="section-header">
+        <h2>👤 ${d.a.nombre} <span style="font-size:12px;color:#7C98B6;font-weight:400">— ${fmt(d.a.sueldoQuincenal)}/quinc.</span></h2>
       </div>
       <div class="tbl-wrap"><table>
         <thead><tr>
-          <th>Mes</th>
-          <th style="text-align:center">💳 1ra Quincena</th><th style="text-align:center">📅 Fecha Q1</th>
-          <th style="text-align:center">💳 2da Quincena</th><th style="text-align:center">📅 Fecha Q2</th>
-          <th style="text-align:right">🏠 Sueldo</th><th style="text-align:right">Com. Q1</th><th style="text-align:right">Com. Q2</th>
-          <th style="text-align:right">💰 Total Q1</th><th style="text-align:right">💰 Total Q2</th>
-          <th style="text-align:right">Pend. Sueldo</th>
+          <th>Mes</th><th style="text-align:center">Quincena</th>
+          <th style="text-align:right">🏠 Sueldo</th><th style="text-align:right">Comisión</th><th style="text-align:right">💰 Total</th>
+          <th style="text-align:center">Estado</th><th style="text-align:center">📅 Fecha</th>
         </tr></thead>
-        <tbody>${filasMeses.map(f=>{
-          const danger=f.sueldoPend>0;
-          const totalQ1=(f.q1?a.sueldoQuincenal:0)+f.comQ1;
-          const totalQ2=(f.q2?a.sueldoQuincenal:0)+f.comQ2;
-          return `<tr style="${danger?'background:rgba(239,68,68,0.05)':''}">
+        <tbody>${d.filas.map(f=>`
+          <tr>
             <td style="font-weight:700">${f.mes}</td>
-            <td style="text-align:center"><button class="toggle-btn ${f.q1?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${a.nombre}','${f.mes}',1,${a.sueldoQuincenal})">${f.q1?`✅ PAGADO<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`:`⏳ PEND.<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`}</button></td>
-            <td style="text-align:center"><input type="date" style="background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.q1?.fecha||''}" ${!f.q1?'disabled':''} onchange="saludSetQuincenaFecha('${a.nombre}','${f.mes}',1,this.value)"></td>
-            <td style="text-align:center"><button class="toggle-btn ${f.q2?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${a.nombre}','${f.mes}',2,${a.sueldoQuincenal})">${f.q2?`✅ PAGADO<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`:`⏳ PEND.<br><span style="font-size:9px">${fmt(a.sueldoQuincenal)}</span>`}</button></td>
-            <td style="text-align:center"><input type="date" style="background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.q2?.fecha||''}" ${!f.q2?'disabled':''} onchange="saludSetQuincenaFecha('${a.nombre}','${f.mes}',2,this.value)"></td>
-            <td style="color:#0091AE;font-weight:700;text-align:right">${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal)+'/q':'—'}</td>
-            <td style="color:#6A78D1;font-weight:700;text-align:right">${f.comQ1>0?fmt(f.comQ1):'—'}</td>
-            <td style="color:#6A78D1;font-weight:700;text-align:right">${f.comQ2>0?fmt(f.comQ2):'—'}</td>
-            <td style="font-weight:800;text-align:right;background:#F0FDF4;border-radius:6px;color:#059669">${totalQ1>0?fmt(totalQ1):'—'}</td>
-            <td style="font-weight:800;text-align:right;background:#F0FDF4;border-radius:6px;color:#059669">${totalQ2>0?fmt(totalQ2):'—'}</td>
-            <td style="color:${f.sueldoPend>0?'#ef4444':'#22c55e'};font-weight:700;text-align:right">${f.sueldoPend>0?fmt(f.sueldoPend):'✅'}</td>
-          </tr>`;
-        }).join('')}
+            <td style="text-align:center">Q${f.q}</td>
+            <td style="color:#0091AE;font-weight:700;text-align:right">${f.sueldoQ>0?fmt(f.sueldoQ):'—'}</td>
+            <td style="color:#6A78D1;font-weight:700;text-align:right">${f.comQ>0?fmt(f.comQ):'—'}</td>
+            <td style="font-weight:800;text-align:right;background:#F0FDF4;border-radius:6px;color:#059669">${fmt(f.total)}</td>
+            <td style="text-align:center"><button class="toggle-btn ${f.pagado?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${d.a.nombre}','${f.mes}',${f.q},${f.sueldoQ})">${f.pagado?'✅ PAGADO':'⏳ PEND.'}</button></td>
+            <td style="text-align:center"><input type="date" style="background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.pagado?.fecha||''}" ${!f.pagado?'disabled':''} onchange="saludSetQuincenaFecha('${d.a.nombre}','${f.mes}',${f.q},this.value)"></td>
+          </tr>`).join('')}
         </tbody></table></div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
+
+  document.getElementById('salud-pagos-content').innerHTML = `
+    <div style="background:linear-gradient(135deg,#00BDA5,#059669);border-radius:14px;padding:28px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,189,165,0.2)">
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;margin-bottom:12px;letter-spacing:1px">💰 Total a Pagar — ${etiquetaPeriodo}</div>
+      <div style="font-size:48px;font-weight:900;color:#fff">${fmt(totalPeriodo)}</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px">${cards}</div>
+    ${tablaDetalle || '<div class="tbl-empty">Sin datos para este período</div>'}
+  `;
+}
+// Reporte agrupado por tipo de cliente (Dental/Salud/Referido/Directo) --
+// mismo formato y mismo modal para copiar/pegar que "📲 Reporte de Todos"
+// de Admin/Pagos Agentes, adaptado a que Salud reporta clientes/pólizas en
+// vez de productos.
+const SALUD_TIPO_LABELS_REPORTE = { dental:'Dental', referido:'Referido', directo:'Directo', salud:'Salud' };
+function construirBloqueReporteAgenteSalud(a, mes, q) {
+  const nombreLow = (a.nombre||'').trim().toLowerCase();
+  const clientesPeriodo = saludData.clientes.filter(c=>
+    (c.agente||'').trim().toLowerCase()===nombreLow && c.mes===mes && saludClienteEnQ(c,q));
+  if(!clientesPeriodo.length) return null;
+
+  const conteo = {};
+  const orden = [];
+  clientesPeriodo.forEach(c=>{
+    const nombre = SALUD_TIPO_LABELS_REPORTE[c.tipo] || c.tipo || 'Otro';
+    if(conteo[nombre]===undefined) orden.push(nombre);
+    conteo[nombre] = (conteo[nombre]||0) + 1;
+  });
+  const items = orden.map(nombre=>`${conteo[nombre]} ${nombre}`);
+
+  return `*${a.nombre}*\n` +
+    `Q${q}\n\n` +
+    `*ANOTADAS:*\n` +
+    items.join(', ');
+}
+function generarReporteTodosAgentesSalud() {
+  const meses = getSaludMeses();
+  const filtroMes = document.getElementById('salud-pagos-mes-sel')?.value || '';
+  const filtroQ   = document.getElementById('salud-pagos-quincena-sel')?.value || '';
+  const mesesVis  = filtroMes ? [filtroMes] : meses;
+  let qVis = [1,2];
+  if(filtroQ==='1') qVis=[1]; else if(filtroQ==='2') qVis=[2];
+
+  const bloques = [];
+  saludAgentesOrdenados().forEach(a=>{
+    mesesVis.forEach(mes=>{
+      qVis.forEach(q=>{
+        const texto = construirBloqueReporteAgenteSalud(a, mes, q);
+        if(texto) bloques.push(mesesVis.length>1 ? `📅 ${mes}\n${texto}` : texto);
+      });
+    });
+  });
+
+  if(!bloques.length) { showNotif('⚠️ No hay clientes registrados en este período para ningún agente', 'error'); return; }
+
+  document.getElementById('modal-reporte-todos-texto').value = bloques.join('\n\n———\n\n');
+  document.getElementById('modal-reporte-todos').classList.add('open');
 }
 
 // ─── Salud Chargebacks ────────────────────────────────────────
