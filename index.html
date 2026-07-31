@@ -9868,6 +9868,7 @@ function generarReporteTodosAgentes() {
 
   if(!bloques.length) { showNotif('⚠️ No hay servicios registrados en este período para ningún agente', 'error'); return; }
 
+  document.getElementById('modal-reporte-todos-titulo').textContent = '📲 Reporte de Todos los Agentes';
   document.getElementById('modal-reporte-todos-texto').value = bloques.join('\n\n———\n\n');
   document.getElementById('modal-reporte-todos').classList.add('open');
 }
@@ -11873,9 +11874,11 @@ function renderHQ() {
         <div class="section" style="margin-bottom:18px">
           <div class="section-header">
             <h2>📦 Desglose de Comisiones — ${mesPara}</h2>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-success btn-sm" onclick="openHQConfig(${a.id})">⚙️ Configurar Tarifas</button>
               <button class="btn btn-primary btn-sm" onclick="openVentaHQ()">➕ Venta Directa</button>
+              <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="generarReporteWhatsAppHQ(${a.id})">📲 WhatsApp</button>
+              <button class="btn btn-sm" style="background:#6A78D1;color:#fff" onclick="generarReporteCopiarHQ(${a.id})">📋 Copiar Reporte</button>
             </div>
           </div>
           ${desglose ? `
@@ -11973,6 +11976,118 @@ function openVentaHQ() {
   openVentaModal();
   if(hqA) setTimeout(()=>{ document.getElementById('v-agente').value=hqA.nombre; },50);
   showNotif('📝 Registra la venta directa de '+( hqA?.nombre||'HQ'));
+}
+
+// ============================================================
+// REPORTE HQ (WhatsApp / Copiar) — a diferencia del reporte de agentes
+// (que solo lista productos, "sin montos"), este SÍ incluye dinero: es
+// para el gerente/back-office, no para un vendedor. Desglosa cuánto se
+// está ganando de comisión por cada agente supervisado (y de sus propias
+// ventas directas), y cierra con el mismo resumen de la tarjeta de arriba
+// (comisiones + básico + bonos + préstamos − descuentos = TOTAL A PAGAR).
+// ============================================================
+
+// Lee el filtro de mes/quincena actualmente seleccionado en la pantalla HQ.
+function _hqFiltroActual() {
+  const mesSel = document.getElementById('hq-mes-sel')?.value || '';
+  const qSel   = document.getElementById('hq-q-sel')?.value || '';
+  const msFiltro = mesSel ? [mesSel] : getMeses();
+  const qFiltro  = qSel==='1' ? [1] : qSel==='2' ? [2] : [1,2];
+  return { msFiltro, qFiltro };
+}
+
+function construirReporteHQTexto(a, msFiltro, qFiltro) {
+  const nombreLow = normNombre(a.nombre);
+  const supervisa = a.agentesSupervisa || [];
+
+  function enPeriodo(v) {
+    const pp = getPeríodoPago(v);
+    return msFiltro.includes(pp.mes) && qFiltro.includes(pp.q);
+  }
+
+  const secciones = [];
+
+  // Por cada agente supervisado: qué vendió y cuánto ganó Jose de ahí.
+  supervisa.forEach(agNombre=>{
+    const vv = appData.ventas.filter(v=>!v.esGrabacion && !v._esGrabacion && normNombre(v.agente)===normNombre(agNombre) && enPeriodo(v));
+    if(!vv.length) return;
+    const conteo = {}; const orden = [];
+    let subAg = 0;
+    vv.forEach(v=>{
+      const qty = parseFloat(v.cantidad)||1;
+      const nombre = getProdNombre(v.productoId);
+      if(conteo[nombre]===undefined) orden.push(nombre);
+      conteo[nombre] = (conteo[nombre]||0) + qty;
+      subAg += getComisionSupervisionPorAgente(a.nombre, agNombre, v.productoId) * qty;
+    });
+    const items = orden.map(n=>`${conteo[n]} ${n}`).join(', ');
+    secciones.push(`👤 *${agNombre}*\n${items}\n💰 Comisión ganada: ${fmt(subAg)}`);
+  });
+
+  // Ventas directas propias — usa la comisión CONGELADA de cada venta
+  // (misma lógica que getComisionesQuincena, para que sume igual que el total oficial).
+  const propias = appData.ventas.filter(v=>!v.esGrabacion && !v._esGrabacion && normNombre(v.agente)===nombreLow && enPeriodo(v));
+  if(propias.length) {
+    const conteo = {}; const orden = [];
+    let subProp = 0;
+    propias.forEach(v=>{
+      const qty = parseFloat(v.cantidad)||1;
+      const nombre = getProdNombre(v.productoId);
+      if(conteo[nombre]===undefined) orden.push(nombre);
+      conteo[nombre] = (conteo[nombre]||0) + qty;
+      const stored = parseFloat(v.comision);
+      const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
+      subProp += Math.max(rate,0) * qty;
+    });
+    const items = orden.map(n=>`${conteo[n]} ${n}`).join(', ');
+    secciones.push(`⭐ *Ventas directas — ${a.nombre}*\n${items}\n💰 Comisión ganada: ${fmt(subProp)}`);
+  }
+
+  if(!secciones.length) return null;
+
+  // Resumen final — misma fórmula que la tarjeta "TOTAL A PAGAR" de arriba.
+  const comTotal = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getComisionesQuincena(a,m,q),0),0);
+  const basicoTot = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>{
+    const sueldoUSD = getExtra('sueldousd', a.nombre, m+'Q'+q);
+    return sq + (a.sueldoQuincenal||0) + sueldoUSD;
+  },0),0);
+  const bonosTot = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getExtra('bono',a.nombre,m+'Q'+q),0),0);
+  const prestTot = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getExtra('prest',a.nombre,m+'Q'+q),0),0);
+  const descTot  = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getExtra('desc',a.nombre,m+'Q'+q),0),0);
+  const netTotal = comTotal + basicoTot + bonosTot + prestTot - descTot;
+
+  const qLabel = qFiltro.length===1 ? `Q${qFiltro[0]}` : 'Q1+Q2';
+  const periodoLabel = msFiltro.length===1 ? `${msFiltro[0]} — ${qLabel}` : `Todos los meses — ${qLabel}`;
+
+  const resumen = `\n\n*RESUMEN — ${periodoLabel}*\n` +
+    `Comisiones: ${fmt(comTotal)}\n` +
+    (basicoTot>0 ? `Básico: ${fmt(basicoTot)}\n` : '') +
+    (bonosTot>0 ? `Bonos: ${fmt(bonosTot)}\n` : '') +
+    (prestTot>0 ? `Préstamos: ${fmt(prestTot)}\n` : '') +
+    (descTot>0 ? `Descuentos: -${fmt(descTot)}\n` : '') +
+    `*TOTAL A PAGAR: ${fmt(netTotal)}*`;
+
+  return `*${a.nombre}*\n${periodoLabel}\n\n` + secciones.join('\n\n') + resumen;
+}
+
+function generarReporteWhatsAppHQ(agenteId) {
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+  const { msFiltro, qFiltro } = _hqFiltroActual();
+  const texto = construirReporteHQTexto(a, msFiltro, qFiltro);
+  if(!texto) { showNotif('⚠️ No hay comisiones registradas en este período', 'error'); return; }
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+}
+
+function generarReporteCopiarHQ(agenteId) {
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+  const { msFiltro, qFiltro } = _hqFiltroActual();
+  const texto = construirReporteHQTexto(a, msFiltro, qFiltro);
+  if(!texto) { showNotif('⚠️ No hay comisiones registradas en este período', 'error'); return; }
+  document.getElementById('modal-reporte-todos-titulo').textContent = '📲 Reporte HQ — ' + a.nombre;
+  document.getElementById('modal-reporte-todos-texto').value = texto;
+  document.getElementById('modal-reporte-todos').classList.add('open');
 }
 
 // ============================================================
@@ -16777,6 +16892,7 @@ function generarReporteTodosAgentesSalud() {
 
   if(!bloques.length) { showNotif('⚠️ No hay clientes registrados en este período para ningún agente', 'error'); return; }
 
+  document.getElementById('modal-reporte-todos-titulo').textContent = '📲 Reporte de Todos los Agentes';
   document.getElementById('modal-reporte-todos-texto').value = bloques.join('\n\n———\n\n');
   document.getElementById('modal-reporte-todos').classList.add('open');
 }
