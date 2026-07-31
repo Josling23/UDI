@@ -16684,7 +16684,7 @@ function saludRenderPagos() {
         <thead><tr>
           <th>Mes</th><th style="text-align:center">Quincena</th>
           <th style="text-align:right">🏠 Sueldo</th><th style="text-align:right">Comisión</th><th style="text-align:right">💰 Total</th>
-          <th style="text-align:center">Estado</th><th style="text-align:center">📅 Fecha</th>
+          <th style="text-align:center">Estado</th><th style="text-align:center">📅 Fecha</th><th></th>
         </tr></thead>
         <tbody>${d.filas.map(f=>`
           <tr>
@@ -16695,6 +16695,7 @@ function saludRenderPagos() {
             <td style="font-weight:800;text-align:right;background:#F0FDF4;border-radius:6px;color:#059669">${fmt(f.total)}</td>
             <td style="text-align:center"><button class="toggle-btn ${f.pagado?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${d.a.nombre}','${f.mes}',${f.q},${f.sueldoQ})">${f.pagado?'✅ PAGADO':'⏳ PEND.'}</button></td>
             <td style="text-align:center"><input type="date" style="background:#F5F8FA;border:1px solid #CBD6E2;color:#33475B;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.pagado?.fecha||''}" ${!f.pagado?'disabled':''} onchange="saludSetQuincenaFecha('${d.a.nombre}','${f.mes}',${f.q},this.value)"></td>
+            <td style="text-align:center"><button onclick="generarReporteWhatsAppSalud('${d.a.nombre}','${f.mes}',${f.q})" title="Reporte de esta quincena para WhatsApp" style="background:#25D366;color:#fff;border:none;padding:5px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">📲</button></td>
           </tr>`).join('')}
         </tbody></table></div>
     </div>`).join('');
@@ -16732,6 +16733,17 @@ function construirBloqueReporteAgenteSalud(a, mes, q) {
     `Q${q}\n\n` +
     `*ANOTADAS:*\n` +
     items.join(', ');
+}
+// Reporte individual por agente/quincena -- igual que el botón de WhatsApp
+// de cada agente en Admin/Pagos Agentes (abre WhatsApp directo; para un
+// solo agente y una sola quincena el texto siempre es corto, no hace falta
+// el cuadro de copiar/pegar que sí usa "Reporte de Todos").
+function generarReporteWhatsAppSalud(nombre, mes, q) {
+  const a = saludData.agentes.find(x=>x.nombre===nombre);
+  if(!a) return;
+  const texto = construirBloqueReporteAgenteSalud(a, mes, q);
+  if(!texto) { showNotif('⚠️ No hay clientes registrados en este período', 'error'); return; }
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 function generarReporteTodosAgentesSalud() {
   const meses = getSaludMeses();
