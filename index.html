@@ -11838,9 +11838,19 @@ function renderHQ() {
         let subProp = 0;
         const filasP = prodsPropios.map(pid=>{
           const vs  = ventasPropias.filter(v=>v.productoId===pid);
-          const qty = vs.reduce((s,v)=>s+v.cantidad,0);
-          const rate= getComisionDirectaAgente(pid, a.nombre);
-          const com = rate*qty;
+          // Misma lógica de respaldo que getComisionesQuincena() (la que
+          // alimenta la tarjeta de arriba): usa la comisión CONGELADA en
+          // cada venta, y solo cae a la tarifa directa actual si esa venta
+          // se guardó sin comisión (<=0) — para que este desglose siempre
+          // coincida con el Total a Pagar, aunque la tarifa cambie después.
+          const qty = vs.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
+          const com = vs.reduce((s,v)=>{
+            const qtyV = parseFloat(v.cantidad)||1;
+            const stored = parseFloat(v.comision);
+            const rateV = stored > 0 ? stored : getComisionDirectaAgente(pid, a.nombre);
+            return s + Math.max(rateV,0)*qtyV;
+          }, 0);
+          const rate = qty > 0 ? com/qty : 0;
           subProp += com;
           return `<tr>
             <td style="padding-left:18px;color:#7C98B6">${getProdNombre(pid)}</td>
