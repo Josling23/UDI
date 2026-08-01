@@ -9874,37 +9874,40 @@ function construirBloqueReporteAgente(a, mes, q) {
     const pp = getPeríodoPago(v);
     return pp.mes===mes && pp.q===q;
   });
-  const totalGrabaciones = grabacionesPeriodo.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
   const extrasDelMes = (appData.ventasExtra||[]).filter(e=>e.agenteId===a.id && e.mes===mes && (e.cantidad||0)>0);
 
-  if(!ventasPeriodo.length && !extrasDelMes.length && !totalGrabaciones) return null;
+  if(!ventasPeriodo.length && !extrasDelMes.length && !grabacionesPeriodo.length) return null;
 
-  // Agrupado por producto y contado — igual a como los agentes ya lo
-  // reportan por WhatsApp (ej. "1 Línea <=15, 1 Lyca Mobile"), no un
-  // desglose línea por línea con fecha/cliente.
-  const conteo = {};
-  const ordenProductos = [];
-  ventasPeriodo.forEach(v=>{
-    const nombre = getProdNombre(v.productoId);
-    if(conteo[nombre]===undefined) ordenProductos.push(nombre);
-    conteo[nombre] = (conteo[nombre]||0) + (parseFloat(v.cantidad)||1);
-  });
+  // Una línea por venta con el nombre del cliente (sin montos) — las
+  // llamadas grabadas también quedan guardadas como una venta con v.cliente,
+  // así que también llevan nombre. Los productos extra (mensuales,
+  // configurados por agente, no ligados a una venta puntual) NO tienen
+  // cliente en el modelo de datos — se quedan agrupados como antes.
+  const lineaVenta = (v, etiquetaProducto) => {
+    const qty = parseFloat(v.cantidad)||1;
+    const cliente = v.cliente || 'Sin cliente';
+    const qtyTxt = qty>1 ? ` (${qty})` : '';
+    return `• ${cliente} — ${etiquetaProducto}${qtyTxt}`;
+  };
+
+  const items = [];
+  ventasPeriodo.forEach(v=>items.push(lineaVenta(v, getProdNombre(v.productoId))));
+  grabacionesPeriodo.forEach(v=>items.push(lineaVenta(v, 'Llamada Grabada')));
+
+  const conteoExtras = {};
+  const ordenExtras = [];
   extrasDelMes.forEach(e=>{
     const prod = (a.productosExtra||[]).find(p=>p.id===e.prodId);
     const nombre = prod ? prod.nombre : e.prodId;
-    if(conteo[nombre]===undefined) ordenProductos.push(nombre);
-    conteo[nombre] = (conteo[nombre]||0) + (e.cantidad||0);
+    if(conteoExtras[nombre]===undefined) ordenExtras.push(nombre);
+    conteoExtras[nombre] = (conteoExtras[nombre]||0) + (e.cantidad||0);
   });
-
-  const items = ordenProductos.map(nombre => `${conteo[nombre]} ${nombre}`);
-  if(totalGrabaciones>0) {
-    items.push(`${totalGrabaciones} Llamada${totalGrabaciones>1?'s':''} Grabada${totalGrabaciones>1?'s':''}`);
-  }
+  ordenExtras.forEach(nombre=>items.push(`• (mensual) — ${nombre}: ${conteoExtras[nombre]}`));
 
   return `*${a.nombre}*\n` +
     `Q${q}\n\n` +
     `*ANOTADAS:*\n` +
-    items.join(', ');
+    items.join('\n');
 }
 function generarReporteWhatsApp(agenteId, mes, q) {
   const a = appData.agentes.find(x=>x.id===agenteId);
