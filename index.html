@@ -324,6 +324,28 @@ body.tema-salud-futuristic th{background:#0B0F1D;color:#67E8F9;border-bottom:1px
 body.tema-salud-futuristic td{border-bottom:1px solid #16213A;color:#CBD5E1}
 body.tema-salud-futuristic tr:hover td{background:rgba(34,211,238,0.04)}
 
+/* Ajuste 2: más contraste + brillo neón en los números importantes (KPIs de
+   dashboard, "Total a Pagar", totales grandes) — sin animaciones ni 3D, solo
+   CSS liviano, para acercarse a la referencia de sitios "futuristas" reales
+   (Awwwards/DesignRush) sin afectar la velocidad de la app. */
+body.tema-salud-futuristic .card{border-left-color:#22D3EE}
+body.tema-salud-futuristic .card label{color:#8FA8C9}
+body.tema-salud-futuristic .card .val{text-shadow:0 0 14px currentColor}
+body.tema-salud-futuristic .card .sub{color:#8FA8C9}
+body.tema-salud-futuristic .prod-card{background:#0F1526;border-color:#1E3A5F}
+body.tema-salud-futuristic .agent-card{background:#0F1526;border-color:#1E3A5F}
+body.tema-salud-futuristic .roi-card{background:linear-gradient(135deg,#0B0F1D,#0F1526);box-shadow:0 0 30px rgba(34,211,238,0.12)}
+body.tema-salud-futuristic [style*="font-size:48px"]{text-shadow:0 0 18px currentColor}
+body.tema-salud-futuristic [style*="font-size:28px;font-weight:800"],
+body.tema-salud-futuristic [style*="font-size:24px;font-weight:800"],
+body.tema-salud-futuristic [style*="font-size:18px;font-weight:800"],
+body.tema-salud-futuristic [style*="font-size:16px;font-weight:800"],
+body.tema-salud-futuristic [style*="font-weight:800;font-size:18px"]{
+  text-shadow:0 0 10px currentColor
+}
+body.tema-salud-futuristic #sidebar-nav-salud .nav-section,
+body.tema-salud-futuristic #sidebar-nav-agente-salud .nav-section{color:#5EEAD4}
+
 </style>
 </head>
 <body>
