@@ -729,6 +729,7 @@ table thead,table tbody{display:table;width:100%}
         <button onclick="document.getElementById('fp-agente').value='';document.getElementById('fp-mes').value='';document.getElementById('fp-quincena').value='';renderPagos()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
         <button onclick="abrirDetalleAgenteModal()" style="background:#009FDB;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">👤 Ver Detalle Completo</button>
         <button id="btn-reporte-todos-agentes" onclick="generarReporteTodosAgentes()" style="display:none;background:#25D366;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">📲 Reporte de Todos</button>
+        <button id="btn-reporte-sueldos-comisiones" onclick="generarReporteSueldosComisiones()" style="display:none;background:#00BDA5;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">💰 Reporte de Sueldos y Comisiones</button>
       </div>
       <div class="section">
         <div id="pagos-content"></div>
@@ -9375,6 +9376,10 @@ function renderPagos() {
   // "Reporte de Todos" solo tiene sentido con "Todos los agentes" seleccionado.
   const btnReporteTodos = document.getElementById('btn-reporte-todos-agentes');
   if(btnReporteTodos) btnReporteTodos.style.display = filtroAgId ? 'none' : 'inline-block';
+  // "Reporte de Sueldos y Comisiones" sí sirve con un agente específico o con
+  // todos — solo se oculta si no hay ningún agente para reportar.
+  const btnReporteSC = document.getElementById('btn-reporte-sueldos-comisiones');
+  if(btnReporteSC) btnReporteSC.style.display = appData.agentes.some(a=>!a.soloHQ) ? 'inline-block' : 'none';
   // CRITICAL: Only include selected quincena(s) in filter
   let qVis = [1,2]; // Default: both quincenas
   if(filtroQ === '1') {
@@ -9715,6 +9720,9 @@ function renderPagos() {
             <button onclick="generarReporteWhatsApp(${a.id},'${mes}',${q})" title="Generar resumen para WhatsApp (sin montos)" style="display:block;margin-top:4px;padding:3px 6px;border-radius:6px;border:none;background:#25D366;color:#fff;font-weight:700;font-size:10px;cursor:pointer">
               📱 Reporte
             </button>
+            <button onclick="generarReporteSueldoComisionWhatsApp(${a.id},'${mes}',${q})" title="Generar resumen de sueldo y comisiones para WhatsApp (con montos)" style="display:block;margin-top:4px;padding:3px 6px;border-radius:6px;border:none;background:#00BDA5;color:#fff;font-weight:700;font-size:10px;cursor:pointer">
+              💰 Reporte
+            </button>
           </td>
           <td style="font-weight:800;color:#009FDB;text-align:right;font-size:13px">${fmt(comQ)}</td>
           <td style="color:#33475B;text-align:right;font-weight:600">${basicoCOPCell(a, mes+'Q'+q, basico)}</td>
@@ -9886,6 +9894,99 @@ function copiarReporteTodosAgentes() {
     document.execCommand('copy');
     hecho();
   }
+}
+
+// ============================================================
+// REPORTE DE SUELDOS Y COMISIONES (con montos) — a diferencia del
+// reporte de arriba (solo productos, "sin montos", pensado para que el
+// agente confirme lo que reportó), este SÍ incluye dinero: sueldo,
+// comisiones (ventas + grabaciones), bonos, préstamos, de quincena
+// anterior y descuentos, con el mismo TOTAL que ya se ve en su tarjeta.
+// ============================================================
+function construirBloqueSueldoComisionAgente(a, mes, q) {
+  const comQ = getComisionesQuincena(a, mes, q);
+  const nombreLow = (a.nombre||'').trim().toLowerCase();
+  const grabRows = appData.ventas.filter(v=>{
+    if(!v.esGrabacion && !v._esGrabacion) return false;
+    if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+    const pp = getPeríodoPago(v);
+    return pp.mes===mes && pp.q===q;
+  });
+  const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+  const basico  = a.sueldoQuincenal||0;
+  const bonos   = getExtra('bono',  a.nombre, mes+'Q'+q);
+  const prest   = getExtra('prest', a.nombre, mes+'Q'+q);
+  const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
+  const prev    = getPrevQuincena(getMeses(), mes, q);
+  const deAnt   = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
+  const total   = comQ + comGrab + basico + bonos + prest + deAnt - desc;
+
+  if(comQ<=0 && comGrab<=0 && basico<=0 && bonos<=0 && prest<=0 && deAnt<=0 && desc<=0) return null;
+
+  const lineas = [`*${a.nombre}*`, `Q${q}`, ''];
+  if(basico>0) lineas.push(`💼 Sueldo: ${fmt(basico)}`);
+  lineas.push(`💰 Comisiones: ${fmt(comQ)}`);
+  if(comGrab>0) lineas.push(`📞 Grabaciones: ${fmt(comGrab)}`);
+  if(bonos>0) lineas.push(`🎁 Bonos: ${fmt(bonos)}`);
+  if(prest>0) lineas.push(`💵 Préstamo: ${fmt(prest)}`);
+  if(deAnt>0) lineas.push(`🔄 De Q. Anterior: ${fmt(deAnt)}`);
+  if(desc>0) lineas.push(`➖ Descuento: -${fmt(desc)}`);
+  lineas.push(`*TOTAL: ${fmt(total)}*`);
+
+  return { texto: lineas.join('\n'), total };
+}
+
+function generarReporteSueldoComisionWhatsApp(agenteId, mes, q) {
+  const a = appData.agentes.find(x=>x.id===agenteId);
+  if(!a) return;
+  const bloque = construirBloqueSueldoComisionAgente(a, mes, q);
+  if(!bloque) { showNotif('⚠️ No hay sueldo ni comisiones registradas en este período', 'error'); return; }
+  window.open(`https://wa.me/?text=${encodeURIComponent(bloque.texto)}`, '_blank');
+}
+
+// "💰 Reporte de Sueldos y Comisiones" — respeta los mismos filtros de
+// agente/mes/quincena de la pantalla (un agente específico o todos, un mes
+// o todos, Q1/Q2/Q1+Q2), separado por agente y por quincena igual que el
+// "Reporte de Todos" de arriba, y cierra con un TOTAL GENERAL.
+function generarReporteSueldosComisiones() {
+  const meses = getMeses();
+  const filtroAgId = parseInt(document.getElementById('fp-agente')?.value)||0;
+  const filtroMes  = document.getElementById('fp-mes')?.value || '';
+  const filtroQ    = document.getElementById('fp-quincena')?.value || '';
+  const mesesVis   = filtroMes ? [filtroMes] : meses;
+  let qVis = [1,2];
+  if(filtroQ === '1') qVis = [1];
+  else if(filtroQ === '2') qVis = [2];
+
+  const todos = [
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
+  ];
+  const agentesVis = filtroAgId ? todos.filter(a=>a.id===filtroAgId) : todos;
+
+  const bloques = [];
+  let totalGeneral = 0;
+  agentesVis.forEach(a=>{
+    mesesVis.forEach(mes=>{
+      qVis.forEach(q=>{
+        const bloque = construirBloqueSueldoComisionAgente(a, mes, q);
+        if(bloque) {
+          bloques.push(mesesVis.length>1 ? `📅 ${mes}\n${bloque.texto}` : bloque.texto);
+          totalGeneral += bloque.total;
+        }
+      });
+    });
+  });
+
+  if(!bloques.length) { showNotif('⚠️ No hay sueldo ni comisiones registradas en este período', 'error'); return; }
+
+  const texto = bloques.join('\n\n———\n\n') +
+    (bloques.length>1 ? `\n\n———\n\n*TOTAL GENERAL: ${fmt(totalGeneral)}*` : '');
+
+  document.getElementById('modal-reporte-todos-titulo').textContent = '💰 Reporte de Sueldos y Comisiones';
+  document.getElementById('modal-reporte-todos-texto').value = texto;
+  document.getElementById('modal-reporte-todos').classList.add('open');
 }
 
 // ============================================================
