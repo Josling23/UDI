@@ -256,16 +256,19 @@ table thead,table tbody{display:table;width:100%}
    'salud' o 'agente-salud'. No toca ninguna otra área: las reglas de abajo
    solo aplican mientras esa clase está presente en <body>, y el contenido
    de las demás áreas está oculto (display:none) en ese momento igual.
-   A diferencia de los dos temas anteriores, este se queda en fondo claro
-   (nada de oscuro ni manchas de color) — el color vive solo en botones,
-   la barra de acento del menú activo, los números grandes de las tarjetas
-   KPI y el borde de acento de cada tarjeta. Todo lo demás se queda
-   blanco/gris clarito para que el degradado resalte por contraste. */
+   Se queda en fondo claro (nada de oscuro ni manchas de color) — el color
+   vive en botones, la barra de acento del menú activo, los números grandes
+   de las tarjetas KPI y el borde de acento de cada tarjeta.
+
+   Paleta ajustada a la captura de referencia ("Kemo"): morado como acento
+   principal (con resplandor, como su tarjeta "Premium"), cian para los
+   botones de acción principal (como su botón "Get Best Value"), y azul/
+   verde como acentos secundarios (como sus planes "Standard"/"Basic"). */
 body.tema-salud-gradientes{background:#fafbfc}
 body.tema-salud-gradientes .content{background:#fafbfc}
 body.tema-salud-gradientes #sidebar-nav-salud .nav-item.active,
 body.tema-salud-gradientes #sidebar-nav-agente-salud .nav-item.active{
-  background:rgba(255,255,255,0.10);color:#fff;border-left-color:#8b5cf6
+  background:rgba(255,255,255,0.10);color:#fff;border-left-color:#22d3ee
 }
 body.tema-salud-gradientes #sidebar-nav-salud .nav-item:hover,
 body.tema-salud-gradientes #sidebar-nav-agente-salud .nav-item:hover{
@@ -278,15 +281,18 @@ body.tema-salud-gradientes .agent-card{
   background:#fff;border:1px solid #e6eaf0;
   box-shadow:0 8px 22px -14px rgba(31,42,55,0.18)
 }
-body.tema-salud-gradientes .roi-card{background:linear-gradient(160deg,#1f2a37,#111826)}
+body.tema-salud-gradientes .roi-card{
+  background:linear-gradient(135deg,#6D28D9,#1A1025);
+  box-shadow:0 12px 32px -12px rgba(109,40,217,0.55)
+}
 body.tema-salud-gradientes .section h2{color:#1f2a37}
 body.tema-salud-gradientes .section-header{border-color:#e6eaf0}
 body.tema-salud-gradientes .card{
   border-left:3px solid transparent;
-  border-image:linear-gradient(180deg,#8b5cf6,#3b82f6) 1
+  border-image:linear-gradient(180deg,#6D28D9,#06B6D4) 1
 }
 body.tema-salud-gradientes .card .val{
-  background:linear-gradient(90deg,#8b5cf6,#3b82f6);
+  background:linear-gradient(90deg,#6D28D9,#06B6D4);
   -webkit-background-clip:text;background-clip:text;
   color:transparent;-webkit-text-fill-color:transparent
 }
@@ -304,24 +310,34 @@ body.tema-salud-gradientes .inline-sel:focus,
 body.tema-salud-gradientes .form-group input:focus,
 body.tema-salud-gradientes .form-group select:focus,
 body.tema-salud-gradientes .form-group textarea:focus{
-  border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.14)
+  border-color:#22d3ee;box-shadow:0 0 0 3px rgba(34,211,238,0.16)
 }
 body.tema-salud-gradientes .btn-ghost{background:#f7f8fb;color:#52667c;border:1px solid #e6eaf0}
 body.tema-salud-gradientes .btn-ghost:hover{background:#eef1fb;color:#1f2a37}
-body.tema-salud-gradientes .btn-primary{background:linear-gradient(135deg,#8b5cf6,#3b82f6);box-shadow:0 8px 20px -10px rgba(139,92,246,0.5)}
-body.tema-salud-gradientes .btn-primary:hover{background:linear-gradient(135deg,#a78bfa,#60a5fa)}
-body.tema-salud-gradientes .btn-success{background:linear-gradient(135deg,#0d9488,#22d3ee);box-shadow:0 8px 20px -10px rgba(13,148,136,0.5)}
-body.tema-salud-gradientes .btn-success:hover{background:linear-gradient(135deg,#2dd4bf,#67e8f9)}
+body.tema-salud-gradientes .btn-primary{
+  background:linear-gradient(135deg,#22d3ee,#06b6d4);
+  box-shadow:0 0 22px -4px rgba(34,211,238,0.6),0 8px 20px -10px rgba(6,182,212,0.5)
+}
+body.tema-salud-gradientes .btn-primary:hover{background:linear-gradient(135deg,#67e8f9,#22d3ee)}
+body.tema-salud-gradientes .btn-success{
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  box-shadow:0 0 22px -4px rgba(34,197,94,0.55),0 8px 20px -10px rgba(22,163,74,0.5)
+}
+body.tema-salud-gradientes .btn-success:hover{background:linear-gradient(135deg,#4ade80,#22c55e)}
 body.tema-salud-gradientes .btn-danger{background:linear-gradient(135deg,#f97316,#ef4444);box-shadow:0 8px 20px -10px rgba(239,68,68,0.4)}
 body.tema-salud-gradientes .btn-danger:hover{background:linear-gradient(135deg,#fb923c,#f87171)}
-body.tema-salud-gradientes .btn-orange{background:linear-gradient(135deg,#f97316,#f59e0b)}
+body.tema-salud-gradientes .btn-orange{
+  background:linear-gradient(135deg,#3b82f6,#2541d6);
+  box-shadow:0 0 22px -4px rgba(37,65,214,0.5),0 8px 20px -10px rgba(37,65,214,0.5)
+}
+body.tema-salud-gradientes .btn-orange:hover{background:linear-gradient(135deg,#60a5fa,#3b82f6)}
 body.tema-salud-gradientes .modal{background:#fff;border:1px solid #e6eaf0;box-shadow:0 24px 60px -20px rgba(31,42,55,0.3)}
 body.tema-salud-gradientes .modal-header{background:linear-gradient(135deg,#f7f8fb,#fff);border-color:#e6eaf0}
 body.tema-salud-gradientes .modal-header h3{color:#1f2a37}
 body.tema-salud-gradientes .modal-footer{border-color:#e6eaf0}
 body.tema-salud-gradientes .modal-close{color:#52667c}
 body.tema-salud-gradientes .modal-close:hover{color:#1f2a37}
-body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
+body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 
 </style>
 </head>
@@ -1141,8 +1157,8 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
     <!-- SALUD & DENTAL PAGES                                    -->
     <!-- ====================================================== -->
     <div class="page" id="page-salud-dashboard">
-      <div style="background:#ecfdf7;border:1.5px solid #0f766e;border-radius:10px;padding:14px 16px;margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:#0f766e;text-transform:uppercase;margin-bottom:8px">💰 Dinero Real (lo que ya entró al banco)</div>
+      <div style="background:#f3eeff;border:1.5px solid #4C1D95;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:#4C1D95;text-transform:uppercase;margin-bottom:8px">💰 Dinero Real (lo que ya entró al banco)</div>
         <div class="cards" id="salud-dash-real-cards"></div>
       </div>
       <div class="cards" id="salud-dash-cards"></div>
@@ -1301,7 +1317,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
             <input type="text" id="sp-split-final" disabled style="background:#f7f8fb;color:#52667c;font-weight:700">
           </div>
         </div>
-        <div style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">💰 Comisión Default del Agente por Tipo de Póliza</div>
+        <div style="font-size:10px;font-weight:700;color:#2541D6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px">💰 Comisión Default del Agente por Tipo de Póliza</div>
         <div style="font-size:11px;color:#7c8ba0;margin:-4px 0 12px">Se usa cuando el agente NO tiene una tarifa personal configurada en su perfil (Admin → Agentes de Salud).</div>
         <div id="salud-productos-tipos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-width:900px"></div>
       </div>
@@ -1485,7 +1501,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
         <div class="form-group"><label>Mes de Registro</label><select id="sc-mes"></select></div>
         <div class="form-group">
           <label>💳 Quincena de Pago</label>
-          <select id="sc-quincena" style="border:1.5px solid #0891b2;border-radius:8px;padding:8px 10px;font-size:13px;background:#e0f7fa;font-weight:600;color:#0891b2">
+          <select id="sc-quincena" style="border:1.5px solid #06B6D4;border-radius:8px;padding:8px 10px;font-size:13px;background:#e0f7fa;font-weight:600;color:#0891b2">
             <option value="">⚡ Auto: últ.día mes ant + días 1-14 → Q1 · días 15-penúlt. → Q2</option>
             <option value="1">Manual: forzar Q1 de este mes</option>
             <option value="2">Manual: forzar Q2 de este mes</option>
@@ -1498,18 +1514,18 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
       <div id="salud-com-preview" style="background:#f7f8fb;border-radius:10px;padding:14px;margin-top:16px;display:none">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#52667c;margin-bottom:10px">📋 Preview Comisión Dental</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Total (30%×12m)</div><div style="font-weight:800;color:#0891b2" id="sc-prev-total">—</div></div>
-          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Cobras Ahora (9m)</div><div style="font-weight:800;color:#0d9488" id="sc-prev-adelanto">—</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Total (30%×12m)</div><div style="font-weight:800;color:#06B6D4" id="sc-prev-total">—</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Cobras Ahora (9m)</div><div style="font-weight:800;color:#6D28D9" id="sc-prev-adelanto">—</div></div>
           <div style="text-align:center"><div style="font-size:10px;color:#52667c">Cobras Después (3m)</div><div style="font-weight:800;color:#f97316" id="sc-prev-final">—</div></div>
-          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Com. Agente</div><div style="font-weight:800;color:#8b5cf6" id="sc-prev-agente">$8.00</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Com. Agente</div><div style="font-weight:800;color:#8B5CF6" id="sc-prev-agente">$8.00</div></div>
         </div>
       </div>
-      <div id="salud-com-preview-salud" style="background:#ecfdf7;border:1px solid #0d9488;border-radius:10px;padding:14px;margin-top:16px;display:none">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#0f766e;margin-bottom:10px">💚 Preview Comisión Salud (Residual Mensual)</div>
+      <div id="salud-com-preview-salud" style="background:#f3eeff;border:1px solid #6D28D9;border-radius:10px;padding:14px;margin-top:16px;display:none">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4C1D95;margin-bottom:10px">💚 Preview Comisión Salud (Residual Mensual)</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Cobras / mes</div><div style="font-weight:800;color:#0f766e" id="sc-prev-salud-mensual">—</div></div>
-          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Proyectado 12 meses</div><div style="font-weight:800;color:#0d9488" id="sc-prev-salud-total">—</div></div>
-          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Com. Agente</div><div style="font-weight:800;color:#8b5cf6">$8.00</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Cobras / mes</div><div style="font-weight:800;color:#4C1D95" id="sc-prev-salud-mensual">—</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Proyectado 12 meses</div><div style="font-weight:800;color:#6D28D9" id="sc-prev-salud-total">—</div></div>
+          <div style="text-align:center"><div style="font-size:10px;color:#52667c">Com. Agente</div><div style="font-weight:800;color:#8B5CF6">$8.00</div></div>
         </div>
       </div>
     </div>
@@ -1555,23 +1571,23 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
       </div>
 
       <div id="sa-supervisa-section" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #e6eaf0">
-        <div style="font-size:10px;font-weight:700;color:#8b5cf6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
+        <div style="font-size:10px;font-weight:700;color:#8B5CF6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
           👥 Gana comisión de ventas de estos agentes:
         </div>
         <div id="sa-supervisa-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
 
       <div style="margin-top:18px;padding-top:16px;border-top:1px solid #e6eaf0">
-        <div id="sa-com-header-simple" style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
+        <div id="sa-com-header-simple" style="font-size:10px;font-weight:700;color:#2541D6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px">
           💰 Comisión Personal por Tipo de Póliza
           <span style="font-size:9px;font-weight:400;color:#7c8ba0;text-transform:none;letter-spacing:0"> — en blanco = tarifa por defecto</span>
         </div>
         <div id="sa-com-header-super" style="display:none;margin-bottom:10px">
-          <div style="font-size:10px;font-weight:700;color:#8b5cf6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">💰 Comisiones por Tipo de Póliza</div>
+          <div style="font-size:10px;font-weight:700;color:#8B5CF6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">💰 Comisiones por Tipo de Póliza</div>
           <div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#f7f8fb;border-radius:7px;padding:7px 10px;border:1px solid #e6eaf0">
             <div style="font-size:10px;color:#52667c;font-weight:700">Tipo</div>
             <div style="text-align:center"><div style="font-size:9px;font-weight:700;color:#f97316">👥 De sus agentes</div></div>
-            <div style="text-align:center"><div style="font-size:9px;font-weight:700;color:#3b82f6">🧑 Venta directa</div></div>
+            <div style="text-align:center"><div style="font-size:9px;font-weight:700;color:#2541D6">🧑 Venta directa</div></div>
           </div>
         </div>
         <div id="sa-comisiones-tipos"></div>
@@ -1736,7 +1752,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#0f766e}
       <div id="scb-preview" style="background:#fff1e6;border:1px solid #f97316;border-radius:10px;padding:14px;margin-top:12px;display:none">
         <div style="font-size:11px;color:#fb923c;font-weight:700;margin-bottom:10px;text-transform:uppercase">Cálculo del Chargeback</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div style="background:#f7f8fb;border-radius:7px;padding:10px"><div style="font-size:10px;color:#52667c">Adelanto recibido (9m)</div><div style="font-weight:800;color:#0d9488;font-size:15px" id="scb-prev-adelanto">—</div></div>
+          <div style="background:#f7f8fb;border-radius:7px;padding:10px"><div style="font-size:10px;color:#52667c">Adelanto recibido (9m)</div><div style="font-weight:800;color:#6D28D9;font-size:15px" id="scb-prev-adelanto">—</div></div>
           <div style="background:#f7f8fb;border-radius:7px;padding:10px"><div style="font-size:10px;color:#52667c">Meses pagados × com.</div><div style="font-weight:800;color:#f97316;font-size:15px" id="scb-prev-pagado">—</div></div>
           <div style="background:#f7f8fb;border-radius:7px;padding:10px"><div style="font-size:10px;color:#52667c">Meses a devolver</div><div style="font-weight:800;color:#f97316;font-size:15px" id="scb-prev-meses">—</div></div>
           <div style="background:#fff1e6;border-radius:7px;padding:10px;border:1px solid #f97316"><div style="font-size:10px;color:#fb923c">⚠️ DEBES DEVOLVER</div><div style="font-weight:800;color:#ef4444;font-size:18px" id="scb-prev-devolver">—</div></div>
@@ -15417,8 +15433,8 @@ function saludRenderDashboard() {
   const recent = [...saludData.clientes].sort((a,b)=>b.id-a.id).slice(0,8);
   document.getElementById('salud-dash-recent-body').innerHTML = recent.map(c=>{
     const cc = saludClienteCom(c);
-    const primaCell = c.tipo==='salud' ? `<span style="color:#0f766e">${fmt(cc.mensual)}/mes 💚</span>` : `${fmt(c.prima)}/mo`;
-    const comCell   = c.tipo==='salud' ? `<span style="color:#0f766e">${fmt(cc.cobrado)} (${cc.meses}m)</span>` : fmt(cc.adelanto);
+    const primaCell = c.tipo==='salud' ? `<span style="color:#4C1D95">${fmt(cc.mensual)}/mes 💚</span>` : `${fmt(c.prima)}/mo`;
+    const comCell   = c.tipo==='salud' ? `<span style="color:#4C1D95">${fmt(cc.cobrado)} (${cc.meses}m)</span>` : fmt(cc.adelanto);
     return `<tr><td><b>${c.nombre}</b></td><td>${c.agente}</td><td>${primaCell}</td><td>${comCell}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td></tr>`;
   }).join('') || '<tr><td colspan="5" class="tbl-empty">Sin ventas aún</td></tr>';
   const mesCount = {};
@@ -15426,7 +15442,7 @@ function saludRenderDashboard() {
   const maxV = Math.max(...Object.values(mesCount),1);
   document.getElementById('salud-dash-bar-chart').innerHTML = Object.entries(mesCount).map(([m,v])=>`
     <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:#52667c;margin-bottom:4px"><span>${m}</span><span><b style="color:#0891b2">${v}</b> cliente${v!==1?'s':''}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#52667c;margin-bottom:4px"><span>${m}</span><span><b style="color:#06B6D4">${v}</b> cliente${v!==1?'s':''}</span></div>
       <div class="bar-wrap"><div class="bar-fill" style="width:${(v/maxV)*100}%"></div></div>
     </div>`).join('') || '<div style="color:#52667c;font-size:13px;text-align:center;padding:20px">Sin datos</div>';
   const agSum = saludData.agentes.map(a=>{
@@ -15440,7 +15456,7 @@ function saludRenderDashboard() {
   document.getElementById('salud-dash-agent-summary').innerHTML = agSum.length ? agSum.map(a=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f7f8fb">
       <div><div style="font-weight:600;font-size:13px">${a.nombre}</div><div style="font-size:10px;color:#52667c">${a.ventas} ventas</div></div>
-      <div style="text-align:right"><div style="font-weight:800;color:#0891b2;font-size:13px">${fmt(a.totalPend)}</div><div style="font-size:9px;color:#52667c">pendiente</div></div>
+      <div style="text-align:right"><div style="font-weight:800;color:#06B6D4;font-size:13px">${fmt(a.totalPend)}</div><div style="font-size:9px;color:#52667c">pendiente</div></div>
     </div>`).join('') : '<div style="color:#52667c;padding:10px">Sin agentes</div>';
   document.getElementById('salud-dash-campaigns').innerHTML = saludData.campanas.map(c=>{
     const ventas = saludData.clientes.filter(cl=>cl.campana===c.nombre);
@@ -15449,7 +15465,7 @@ function saludRenderDashboard() {
     return `<div style="padding:10px 0;border-bottom:1px solid #f7f8fb">
       <div style="display:flex;justify-content:space-between">
         <div><div style="font-weight:600;font-size:12px">${c.nombre}</div><div style="font-size:10px;color:#52667c">${c.plataforma} · ${c.leads} leads · ${ventas.length} ventas</div></div>
-        <div style="text-align:right"><div style="font-weight:800;color:${roi>=0?'#0d9488':'#ef4444'}">${roi>=0?'+':''}${roi.toFixed(0)}%</div><div style="font-size:10px;color:#52667c">ROI</div></div>
+        <div style="text-align:right"><div style="font-weight:800;color:${roi>=0?'#16A34A':'#ef4444'}">${roi>=0?'+':''}${roi.toFixed(0)}%</div><div style="font-size:10px;color:#52667c">ROI</div></div>
       </div></div>`;
   }).join('') || '<div style="color:#52667c;font-size:13px;padding:10px">Sin campañas</div>';
 }
@@ -15490,7 +15506,7 @@ function saludRenderClientes() {
   const mesActualCli = MESES_ES[new Date().getMonth()]+' '+new Date().getFullYear();
   const dineroRealMesCli = calcPagosRecibidosMes(mesActualCli);
   document.getElementById('salud-clientes-stats').innerHTML = `
-    <span style="color:#0f766e;font-weight:700">💰 Dinero real recibido (${mesActualCli}): <b>${fmt(dineroRealMesCli)}</b></span>
+    <span style="color:#4C1D95;font-weight:700">💰 Dinero real recibido (${mesActualCli}): <b>${fmt(dineroRealMesCli)}</b></span>
     <span><b>${list.length}</b> clientes</span>
     <span>Primas totales: <b>${fmt(totalPrimas)}/mes</b></span>
     <span>Comisiones totales (proyectado): <b>${fmt(totalCom)}</b></span>
@@ -15501,7 +15517,7 @@ function saludRenderClientes() {
     const cc = saludClienteCom(c);
     const agenteOpts = getSaludAgenteNombres().map(n=>`<option value="${n}" ${c.agente===n?'selected':''}>${n}</option>`).join('');
     const isSalud = c.tipo==='salud';
-    return `<tr ${isSalud?'style="background:#ecfdf7"':''}>
+    return `<tr ${isSalud?'style="background:#f3eeff"':''}>
       <td><input type="checkbox" data-cliente-id="${c.id}" onchange="saludToggleSeleccionCliente(${c.id},this.checked)"></td>
       <td style="color:#52667c">${i+1}</td>
       <td><input style="${iSty};width:90px" value="${c.cuenta||''}" onchange="saludUpdateField(${c.id},'cuenta',this.value)" placeholder="—"></td>
@@ -15514,11 +15530,11 @@ function saludRenderClientes() {
         <option value="directo" ${c.tipo==='directo'?'selected':''}>Directo</option>
         <option value="salud" ${c.tipo==='salud'?'selected':''}>💚 Salud</option>
       </select></td>
-      <td style="font-weight:700">${isSalud?`<span style="color:#0f766e">${fmt(cc.mensual)}/mes</span>`:fmt(c.prima)}</td>
-      <td style="color:#0891b2;font-weight:700">${fmt(cc.total)}</td>
-      <td style="color:#0d9488">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
+      <td style="font-weight:700">${isSalud?`<span style="color:#4C1D95">${fmt(cc.mensual)}/mes</span>`:fmt(c.prima)}</td>
+      <td style="color:#06B6D4;font-weight:700">${fmt(cc.total)}</td>
+      <td style="color:#6D28D9">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
       <td style="color:#f97316">${isSalud?`<span style="color:#52667c">residual</span>`:fmt(cc.final)}</td>
-      <td><input type="number" step="0.01" min="0" style="${iSty};color:#8b5cf6;font-weight:700;width:70px" value="${(c.comAgente!==undefined?c.comAgente:8)}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
+      <td><input type="number" step="0.01" min="0" style="${iSty};color:#8B5CF6;font-weight:700;width:70px" value="${(c.comAgente!==undefined?c.comAgente:8)}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
       <td><select class="inline-sel" onchange="saludUpdateField(${c.id},'estado',this.value)">
         <option value="activo" ${c.estado==='activo'?'selected':''}>Activo</option>
         <option value="pendiente" ${c.estado==='pendiente'?'selected':''}>Pendiente</option>
@@ -15934,7 +15950,7 @@ function saludRenderClientesPendientes() {
         <td>${c.nombre}${c.notas?`<br><span style="font-size:10px;color:#52667c">${c.notas}</span>`:''}</td>
         <td>${c.cuenta||'—'}</td>
         <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
-        <td style="text-align:right;font-weight:700;color:#0891b2">${montoTxt}</td>
+        <td style="text-align:right;font-weight:700;color:#06B6D4">${montoTxt}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-success btn-xs" onclick="saludAprobarClientePendiente(${c.id})">✅ Aprobar</button>
           <button class="btn btn-danger btn-xs" onclick="saludRechazarClientePendiente(${c.id})">❌ Rechazar</button>
@@ -15999,7 +16015,7 @@ function saludRenderClientesRechazados() {
         <td>${c.nombre}</td>
         <td>${c.cuenta||'—'}</td>
         <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
-        <td style="text-align:right;font-weight:700;color:#0891b2">${montoTxt}</td>
+        <td style="text-align:right;font-weight:700;color:#06B6D4">${montoTxt}</td>
         <td style="font-size:11px;color:#ef4444;max-width:180px">${c.motivoRechazo||'Sin motivo especificado'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-success btn-xs" onclick="saludAprobarClienteRechazado(${c.id})">✅ Aprobar</button>
@@ -16091,28 +16107,28 @@ function saludRenderAgentes() {
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:flex-start">
-          <button onclick="toggleUbicacion('salud',${a.id})" title="Cambiar ubicación" style="border:none;background:${a.ubicacion==='remoto'?'#d1fae5':'#dbeafe'};color:${a.ubicacion==='remoto'?'#0f766e':'#1D4ED8'};border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${a.ubicacion==='remoto'?'🟢 Remoto':'🔵 Oficina'}</button>
+          <button onclick="toggleUbicacion('salud',${a.id})" title="Cambiar ubicación" style="border:none;background:${a.ubicacion==='remoto'?'#d1fae5':'#dbeafe'};color:${a.ubicacion==='remoto'?'#1A1025':'#1D4ED8'};border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${a.ubicacion==='remoto'?'🟢 Remoto':'🔵 Oficina'}</button>
           <button class="btn btn-ghost btn-xs" onclick="abrirVistaPreviaAgenteSalud(${a.id})" title="Ver de solo lectura lo que este vendedor ve en su cuenta">👁️ Vista Previa</button>
           <button class="btn btn-ghost btn-xs" onclick="saludOpenAgenteModal(${a.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="saludEliminarAgente(${a.id})">✕</button>
         </div>
       </div>
       <div class="agent-stats">
-        <div class="agent-stat"><label>Ventas Activas</label><div class="val" style="color:#0891b2">${activos.length}</div></div>
-        <div class="agent-stat"><label>Com.Total</label><div class="val" style="color:#8b5cf6">${fmt(totalCom)}</div></div>
+        <div class="agent-stat"><label>Ventas Activas</label><div class="val" style="color:#06B6D4">${activos.length}</div></div>
+        <div class="agent-stat"><label>Com.Total</label><div class="val" style="color:#8B5CF6">${fmt(totalCom)}</div></div>
         <div class="agent-stat"><label>Adelantos Pend.</label><div class="val" style="color:#f97316">${fmt(adelantosPend)}</div></div>
-        <div class="agent-stat"><label>Total Ventas</label><div class="val" style="color:#0d9488">${ventas.length}</div></div>
+        <div class="agent-stat"><label>Total Ventas</label><div class="val" style="color:#6D28D9">${ventas.length}</div></div>
       </div>
       ${tiposConOverride.length ? `<div style="border-top:1px solid #f7f8fb;padding-top:10px;margin-top:10px">
         <div style="font-size:9px;color:#52667c;text-transform:uppercase;margin-bottom:6px">Comisiones personales configuradas:</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">
-          ${tiposConOverride.map(t=>`<span style="font-size:10px;background:#e0f2fe;color:#2563eb;border:1px solid #3b82f6;border-radius:5px;padding:2px 7px;white-space:nowrap">${t.nombre}: ${fmt(comPs[t.id])}</span>`).join('')}
+          ${tiposConOverride.map(t=>`<span style="font-size:10px;background:#e0f2fe;color:#2541D6;border:1px solid #2541D6;border-radius:5px;padding:2px 7px;white-space:nowrap">${t.nombre}: ${fmt(comPs[t.id])}</span>`).join('')}
         </div>
       </div>` : ''}
       <div style="border-top:1px solid #f7f8fb;padding-top:10px;margin-top:10px">
         ${a.loginHabilitado
-          ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#ecfdf7;border:1px solid #0f766e;border-radius:8px;padding:6px 10px">
-              <span style="font-size:11px;color:#0f766e;font-weight:600">🔑 Login activo — ${a.loginEmail}</span>
+          ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#f3eeff;border:1px solid #4C1D95;border-radius:8px;padding:6px 10px">
+              <span style="font-size:11px;color:#4C1D95;font-weight:600">🔑 Login activo — ${a.loginEmail}</span>
               <button class="btn btn-ghost btn-xs" onclick="reenviarResetPasswordAgenteSalud(${a.id})" title="Enviar correo para que el agente cambie su contraseña">✉️ Reset</button>
               <button class="btn btn-ghost btn-xs" onclick="deshabilitarLoginAgenteSalud(${a.id})" title="Revocar acceso (no borra la cuenta)">🔒 Deshabilitar</button>
              </div>`
@@ -16132,7 +16148,7 @@ function saludRenderAgenteVentas() {
     const cc = saludClienteCom(c);
     const isSalud = c.tipo==='salud';
     const aOpts = getSaludAgenteNombres().map(n=>`<option value="${n}" ${c.agente===n?'selected':''}>${n}</option>`).join('');
-    return `<tr ${isSalud?'style="background:#ecfdf7"':''}>
+    return `<tr ${isSalud?'style="background:#f3eeff"':''}>
       <td style="color:#52667c">${i+1}</td>
       <td><input style="${iSty};width:140px;font-weight:600" value="${c.nombre||''}" onchange="saludUpdateField(${c.id},'nombre',this.value)"></td>
       <td><input style="${iSty};width:90px;font-size:11px" value="${c.cuenta||''}" onchange="saludUpdateField(${c.id},'cuenta',this.value)" placeholder="—"></td>
@@ -16142,11 +16158,11 @@ function saludRenderAgenteVentas() {
         <option value="directo" ${c.tipo==='directo'?'selected':''}>Directo</option>
         <option value="salud" ${c.tipo==='salud'?'selected':''}>💚 Salud</option>
       </select></td>
-      <td>${isSalud?`<span style="color:#0f766e;font-size:11px">${fmt(cc.mensual)}/mes</span>`:`<input style="${iSty};width:80px;font-size:11px" type="number" step="0.01" value="${c.prima||''}" onchange="saludUpdateField(${c.id},'prima',parseFloat(this.value)||0)">`}</td>
-      <td style="color:#0891b2;font-weight:700">${fmt(cc.total)}</td>
-      <td style="color:#0d9488">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
+      <td>${isSalud?`<span style="color:#4C1D95;font-size:11px">${fmt(cc.mensual)}/mes</span>`:`<input style="${iSty};width:80px;font-size:11px" type="number" step="0.01" value="${c.prima||''}" onchange="saludUpdateField(${c.id},'prima',parseFloat(this.value)||0)">`}</td>
+      <td style="color:#06B6D4;font-weight:700">${fmt(cc.total)}</td>
+      <td style="color:#6D28D9">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
       <td style="color:#f97316">${isSalud?`<span style="color:#52667c">residual</span>`:fmt(cc.final)}</td>
-      <td><input type="number" step="0.01" style="${iSty};width:70px;font-size:11px;color:#8b5cf6;font-weight:700" value="${c.comAgente!==undefined?c.comAgente:8}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
+      <td><input type="number" step="0.01" style="${iSty};width:70px;font-size:11px;color:#8B5CF6;font-weight:700" value="${c.comAgente!==undefined?c.comAgente:8}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
       <td><select class="inline-sel" onchange="saludUpdateField(${c.id},'agente',this.value)">${aOpts}</select></td>
       <td><select class="inline-sel" onchange="saludUpdateField(${c.id},'estado',this.value)">
         <option value="activo" ${c.estado==='activo'?'selected':''}>Activo</option>
@@ -16186,7 +16202,7 @@ function saludRenderProductos() {
         <input type="number" step="0.01" min="0" value="${saludData.comisiones.comAgenteDefault[t.id]}"
           style="width:75px;background:#fff;border:1.5px solid #e6eaf0;color:#1f2a37;padding:5px 8px;border-radius:6px;font-size:13px;font-weight:700;outline:none"
           onchange="saludUpdateComAgenteDefault('${t.id}',parseFloat(this.value)||0)"
-          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e6eaf0'">
+          onfocus="this.style.borderColor='#2541D6'" onblur="this.style.borderColor='#e6eaf0'">
       </div>
     </div>`).join('');
 }
@@ -16248,12 +16264,12 @@ function saludRenderComisionesModal(esSupervisor) {
       return `<div style="display:grid;grid-template-columns:1fr 110px 110px;gap:7px;align-items:center;background:#f7f8fb;border-radius:7px;padding:7px 10px;border:1px solid #e6eaf0;margin-bottom:6px">
         <div style="font-size:11px;font-weight:600;color:#1f2a37">${t.nombre}</div>
         <div><input type="number" min="0" step="0.01" value="${valPs}" placeholder="—" data-tipo-id="${t.id}" class="sa-tipo-com" style="${inputStyle};color:#f97316" onfocus="this.style.borderColor='#f97316'" onblur="this.style.borderColor='#e6eaf0'"></div>
-        <div><input type="number" min="0" step="0.01" value="${valDir}" placeholder="—" data-tipo-id="${t.id}" class="sa-tipo-dir" style="${inputStyle};color:#3b82f6" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e6eaf0'"></div>
+        <div><input type="number" min="0" step="0.01" value="${valDir}" placeholder="—" data-tipo-id="${t.id}" class="sa-tipo-dir" style="${inputStyle};color:#2541D6" onfocus="this.style.borderColor='#2541D6'" onblur="this.style.borderColor='#e6eaf0'"></div>
       </div>`;
     } else {
       return `<div style="background:#f7f8fb;border-radius:7px;padding:8px 10px;border:1px solid #e6eaf0;display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px">
         <div style="font-size:11px;font-weight:600;color:#1f2a37">${t.nombre}</div>
-        <input type="number" min="0" step="0.01" value="${valPs}" placeholder="8" data-tipo-id="${t.id}" class="sa-tipo-com" style="width:70px;${inputStyle};color:#3b82f6" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e6eaf0'">
+        <input type="number" min="0" step="0.01" value="${valPs}" placeholder="8" data-tipo-id="${t.id}" class="sa-tipo-com" style="width:70px;${inputStyle};color:#2541D6" onfocus="this.style.borderColor='#2541D6'" onblur="this.style.borderColor='#e6eaf0'">
       </div>`;
     }
   }).join('');
@@ -16370,24 +16386,24 @@ function saludRenderComisiones() {
       const meses   = parseInt(c.mesesCobradosSalud)||0;
       const cobrado = mensual*meses;
       const restantes = Math.max(0,12-meses);
-      return `<tr style="background:#ecfdf7">
+      return `<tr style="background:#f3eeff">
         <td>${i+1}</td>
         <td><b>${c.nombre}</b><br><span style="font-size:10px;color:#52667c">${c.cuenta||'sin cuenta'}</span></td>
         <td>${c.agente}</td>
         <td><span class="badge badge-salud">💚 Salud</span></td>
-        <td style="color:#0f766e;font-weight:700">${fmt(mensual)}<span style="font-size:9px;color:#52667c">/mes</span></td>
+        <td style="color:#4C1D95;font-weight:700">${fmt(mensual)}<span style="font-size:9px;color:#52667c">/mes</span></td>
         <td colspan="3">
           <div style="display:flex;align-items:center;gap:8px">
             <button class="btn btn-ghost btn-xs" onclick="saludSetSaludMeses(${c.id},-1)" ${meses<=0?'disabled':''}>−</button>
-            <span style="font-weight:800;color:#0f766e;font-size:13px">${meses}</span>
+            <span style="font-weight:800;color:#4C1D95;font-size:13px">${meses}</span>
             <span style="font-size:10px;color:#52667c">meses cobrados</span>
             <button class="btn btn-ghost btn-xs" onclick="saludSetSaludMeses(${c.id},1)" ${meses>=12?'disabled':''}>+</button>
             <span style="font-size:10px;color:#52667c">(${restantes} restantes)</span>
           </div>
         </td>
-        <td style="color:#0d9488;font-weight:700">${fmt(cobrado)}</td>
+        <td style="color:#6D28D9;font-weight:700">${fmt(cobrado)}</td>
         <td colspan="2" style="color:#52667c;font-size:10px">—</td>
-        <td><input type="number" step="0.01" min="0" style="${iSty};width:70px;color:#8b5cf6;font-weight:700" value="${comAg}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
+        <td><input type="number" step="0.01" min="0" style="${iSty};width:70px;color:#8B5CF6;font-weight:700" value="${comAg}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
         <td><button class="toggle-btn ${c.comAgentePagada?'toggle-paid':'toggle-pending'}" onclick="saludToggleCom(${c.id},'comAgentePagada')">${c.comAgentePagada?'✅ PAGADO':'⏳ PENDIENTE'}</button></td>
         <td><input type="date" style="${iSty}" value="${c.fechaComAgente||''}" onchange="saludUpdateField(${c.id},'fechaComAgente',this.value)"></td>
         <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
@@ -16400,13 +16416,13 @@ function saludRenderComisiones() {
       <td>${c.agente}</td>
       <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
       <td>${fmt(c.prima)}</td>
-      <td style="color:#0d9488;font-weight:700">${fmt(com.adelanto)}</td>
+      <td style="color:#6D28D9;font-weight:700">${fmt(com.adelanto)}</td>
       <td><button class="toggle-btn ${c.adelantoPagado?'toggle-paid':'toggle-pending'}" onclick="saludToggleCom(${c.id},'adelantoPagado')">${c.adelantoPagado?'✅ PAGADO':'⏳ PENDIENTE'}</button></td>
       <td><input type="date" style="${iSty}" value="${c.fechaAdelanto||''}" onchange="saludUpdateField(${c.id},'fechaAdelanto',this.value)"></td>
       <td style="color:#f97316;font-weight:700">${fmt(com.final)}</td>
       <td><button class="toggle-btn ${c.finalPagado?'toggle-paid':'toggle-pending'}" onclick="saludToggleCom(${c.id},'finalPagado')">${c.finalPagado?'✅ PAGADO':'⏳ PENDIENTE'}</button></td>
       <td><input type="date" style="${iSty}" value="${c.fechaFinal||''}" onchange="saludUpdateField(${c.id},'fechaFinal',this.value)"></td>
-      <td><input type="number" step="0.01" min="0" style="${iSty};width:70px;color:#8b5cf6;font-weight:700" value="${comAg}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
+      <td><input type="number" step="0.01" min="0" style="${iSty};width:70px;color:#8B5CF6;font-weight:700" value="${comAg}" onchange="saludUpdateField(${c.id},'comAgente',parseFloat(this.value)||0)"></td>
       <td><button class="toggle-btn ${c.comAgentePagada?'toggle-paid':'toggle-pending'}" onclick="saludToggleCom(${c.id},'comAgentePagada')">${c.comAgentePagada?'✅ PAGADO':'⏳ PENDIENTE'}</button></td>
       <td><input type="date" style="${iSty}" value="${c.fechaComAgente||''}" onchange="saludUpdateField(${c.id},'fechaComAgente',this.value)"></td>
       <td>${c.mes}</td><td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
@@ -16415,7 +16431,7 @@ function saludRenderComisiones() {
   const sueldos = saludData.sueldos;
   document.getElementById('salud-sueldos-body').innerHTML = sueldos.length ? sueldos.map((s,i)=>`<tr>
     <td>${i+1}</td><td>${s.agenteNombre}</td><td>${s.quincena}</td>
-    <td style="font-weight:700;color:#0d9488">${fmt(s.monto)}</td>
+    <td style="font-weight:700;color:#6D28D9">${fmt(s.monto)}</td>
     <td>${s.fecha}</td><td><span class="badge badge-paid">PAGADO</span></td>
     <td><button class="btn btn-danger btn-xs" onclick="saludEliminarSueldo(${s.id})">✕</button></td>
   </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty">Sin pagos registrados</td></tr>';
@@ -16537,9 +16553,9 @@ function saludRenderPagosRecibidos() {
           <thead><tr><th>Fecha</th><th>Compañía</th><th>Cuenta de Banco</th><th style="text-align:right">Monto</th><th>Notas</th><th></th></tr></thead>
           <tbody>${pagos.length ? pagos.map(p=>`<tr>
             <td>${p.fecha}</td>
-            <td><b style="color:#0f766e">${p.compania}</b></td>
+            <td><b style="color:#4C1D95">${p.compania}</b></td>
             <td>${p.cuentaBanco}</td>
-            <td style="text-align:right;font-weight:700;color:#0d9488">${fmt(p.monto)}</td>
+            <td style="text-align:right;font-weight:700;color:#6D28D9">${fmt(p.monto)}</td>
             <td style="color:#52667c;font-size:11px">${p.notas||''}</td>
             <td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="saludAbrirModalPago(${p.id})">✏️</button><button class="btn btn-danger btn-xs" onclick="saludEliminarPago(${p.id})" style="margin-left:4px">✕</button></td>
           </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Sin pagos registrados' + (selMes?' para '+selMes:'') + '</td></tr>'}</tbody>
@@ -16600,19 +16616,19 @@ function saludRenderROIMensual() {
             ${datos.map(d => `
               <tr style="border-bottom:1px solid #e6eaf0">
                 <td style="padding:12px;font-weight:600;color:#1f2a37">${d.mes}</td>
-                <td style="padding:12px;text-align:right;font-weight:700;color:#0f766e">${fmt(d.pagos)}</td>
+                <td style="padding:12px;text-align:right;font-weight:700;color:#4C1D95">${fmt(d.pagos)}</td>
                 <td style="padding:12px;text-align:right"><input type="number" value="${d.comisiones}" data-field="comisiones" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:110px;border:1px solid #e6eaf0;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#d97706" /></td>
                 <td style="padding:12px;text-align:right"><input type="number" value="${d.sueldos}" data-field="sueldos" data-mes="${d.mes}" onchange="guardarSaludROIMensualCell(this)" style="width:100px;border:1px solid #e6eaf0;padding:6px;border-radius:4px;text-align:right;font-weight:600;color:#ef4444" /></td>
-                <td style="padding:12px;text-align:right;font-weight:800;color:${d.gananciaNeta>=0?'#0d9488':'#dc2626'}">${fmt(d.gananciaNeta)}</td>
+                <td style="padding:12px;text-align:right;font-weight:800;color:${d.gananciaNeta>=0?'#6D28D9':'#dc2626'}">${fmt(d.gananciaNeta)}</td>
                 <td style="padding:12px;text-align:right;font-weight:700">${roiPctBadge(d.roiPct)}</td>
               </tr>
             `).join('') || '<tr><td colspan="6" class="tbl-empty">Sin meses registrados</td></tr>'}
             <tr style="background:#f7f8fb;font-weight:700;border-top:2px solid #e6eaf0;border-bottom:none">
               <td style="padding:12px;color:#1f2a37">📊 Total</td>
-              <td style="padding:12px;text-align:right;color:#0f766e">${fmt(sum('pagos'))}</td>
+              <td style="padding:12px;text-align:right;color:#4C1D95">${fmt(sum('pagos'))}</td>
               <td style="padding:12px;text-align:right;color:#d97706">${fmt(sum('comisiones'))}</td>
               <td style="padding:12px;text-align:right;color:#ef4444">${fmt(sum('sueldos'))}</td>
-              <td style="padding:12px;text-align:right;font-size:15px;color:${totalGanancia>=0?'#0d9488':'#dc2626'}">${fmt(totalGanancia)}</td>
+              <td style="padding:12px;text-align:right;font-size:15px;color:${totalGanancia>=0?'#6D28D9':'#dc2626'}">${fmt(totalGanancia)}</td>
               <td style="padding:12px;text-align:right">${roiPctBadge(totalRoiPct)}</td>
             </tr>
           </tbody>
@@ -16778,7 +16794,7 @@ function saludRenderCampanas() {
     return `<div style="background:#f7f8fb;border-radius:12px;padding:20px;border:1px solid #e6eaf0">
       <div style="display:flex;justify-content:space-between;margin-bottom:12px">
         <div><div style="font-weight:700;font-size:13px">${c.nombre}</div>
-        <div style="font-size:11px;color:#52667c;margin-top:2px">${c.plataforma} · <span style="color:${c.estado==='activa'?'#0d9488':'#52667c'}">${c.estado.toUpperCase()}</span></div></div>
+        <div style="font-size:11px;color:#52667c;margin-top:2px">${c.plataforma} · <span style="color:${c.estado==='activa'?'#16A34A':'#52667c'}">${c.estado.toUpperCase()}</span></div></div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-xs" onclick="saludOpenCampanaModal(${c.id})">✏️</button>
           <button class="btn btn-danger btn-xs" onclick="saludEliminarCampana(${c.id})">✕</button>
@@ -16786,13 +16802,13 @@ function saludRenderCampanas() {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:#eef1fb;border-radius:8px;padding:10px"><div style="font-size:10px;color:#52667c">Gasto</div><div style="font-weight:700;color:#ef4444">${fmt(c.gasto)}</div></div>
-        <div style="background:#eef1fb;border-radius:8px;padding:10px"><div style="font-size:10px;color:#52667c">Leads</div><div style="font-weight:700;color:#0891b2">${c.leads}</div></div>
+        <div style="background:#eef1fb;border-radius:8px;padding:10px"><div style="font-size:10px;color:#52667c">Leads</div><div style="font-weight:700;color:#06B6D4">${c.leads}</div></div>
         <div style="background:#eef1fb;border-radius:8px;padding:10px"><div style="font-size:10px;color:#52667c">Costo/Lead</div><div style="font-weight:700;color:#f97316">${fmt(cpl)}</div></div>
-        <div style="background:#eef1fb;border-radius:8px;padding:10px"><div style="font-size:10px;color:#52667c">Ventas</div><div style="font-weight:700;color:#0d9488">${ventas.length}</div></div>
+        <div style="background:#eef1fb;border-radius:8px;padding:10px"><div style="font-size:10px;color:#52667c">Ventas</div><div style="font-weight:700;color:#6D28D9">${ventas.length}</div></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#eef1fb;border-radius:8px">
         <div style="font-size:11px;color:#52667c">ROI de la campaña</div>
-        <div style="font-weight:800;font-size:18px;color:${roi>=0?'#0d9488':'#ef4444'}">${roi>=0?'+':''}${roi.toFixed(1)}%</div>
+        <div style="font-weight:800;font-size:18px;color:${roi>=0?'#16A34A':'#ef4444'}">${roi>=0?'+':''}${roi.toFixed(1)}%</div>
       </div>
     </div>`;
   }).join('') || '<div style="color:#52667c;padding:20px">Sin campañas. Agrega una para trackear ROI.</div>';
@@ -16806,16 +16822,16 @@ function saludRenderCampanas() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
       <div style="background:#f7f8fb;border-radius:10px;padding:16px">
         <div style="font-size:11px;color:#52667c;margin-bottom:8px">📢 VENTAS POR CAMPAÑAS</div>
-        <div style="font-size:24px;font-weight:800;color:#0891b2">${totalVentasCamp}</div>
+        <div style="font-size:24px;font-weight:800;color:#06B6D4">${totalVentasCamp}</div>
         <div style="font-size:11px;color:#52667c">Ingresos (adelanto): ${fmt(ingCamp)}</div>
         <div style="font-size:11px;color:#52667c">Gasto invertido: ${fmt(totalGasto)}</div>
-        <div style="font-size:11px;color:#0d9488;margin-top:4px">Ganancia neta: ${fmt(ingCamp-totalGasto)}</div>
+        <div style="font-size:11px;color:#6D28D9;margin-top:4px">Ganancia neta: ${fmt(ingCamp-totalGasto)}</div>
       </div>
       <div style="background:#f7f8fb;border-radius:10px;padding:16px">
         <div style="font-size:11px;color:#52667c;margin-bottom:8px">🤝 VENTAS ORGÁNICAS / REFERIDOS</div>
-        <div style="font-size:24px;font-weight:800;color:#0d9488">${totalVentasOrg}</div>
+        <div style="font-size:24px;font-weight:800;color:#6D28D9">${totalVentasOrg}</div>
         <div style="font-size:11px;color:#52667c">Ingresos (adelanto): ${fmt(ingOrg)}</div>
-        <div style="font-size:11px;color:#0d9488;margin-top:4px">Ganancia neta: ${fmt(ingOrg)}</div>
+        <div style="font-size:11px;color:#6D28D9;margin-top:4px">Ganancia neta: ${fmt(ingOrg)}</div>
       </div>
     </div>`;
   document.getElementById('salud-roi-general').innerHTML = '<div style="color:#52667c;padding:12px">Análisis de ROI por mes disponible en Resumen Mensual</div>';
@@ -16903,12 +16919,12 @@ function saludRenderResumen() {
     <thead><tr><th>#</th><th>Cliente</th><th>Cuenta</th><th>Agente</th><th>Tipo</th><th>Prima/Mes</th><th>Com.Total</th><th>Adelanto (9m)</th><th>✓ Adelanto</th><th>Final (3m)</th><th>Estado</th></tr></thead>
     <tbody>${clientes.map((c,i)=>{
       const cc = saludClienteCom(c); const isSalud = c.tipo==='salud';
-      return `<tr ${isSalud?'style="background:#ecfdf7"':''}>
+      return `<tr ${isSalud?'style="background:#f3eeff"':''}>
         <td>${i+1}</td><td><b>${c.nombre}</b></td><td>${c.cuenta||'—'}</td><td>${c.agente}</td>
         <td><span class="badge badge-${c.tipo}">${isSalud?'💚 Salud':c.tipo}</span></td>
-        <td>${isSalud?`<span style="color:#0f766e">${fmt(cc.mensual)}/mes</span>`:fmt(c.prima)}</td>
-        <td style="color:#0891b2">${fmt(cc.total)}</td>
-        <td style="color:#0d9488">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
+        <td>${isSalud?`<span style="color:#4C1D95">${fmt(cc.mensual)}/mes</span>`:fmt(c.prima)}</td>
+        <td style="color:#06B6D4">${fmt(cc.total)}</td>
+        <td style="color:#6D28D9">${isSalud?`${fmt(cc.adelanto)} cobrado`:fmt(cc.adelanto)}</td>
         <td>${isSalud?`<span class="badge badge-salud">${cc.meses}m cobrados</span>`:(c.adelantoPagado?'<span class="badge badge-paid">COBRADO</span>':'<span class="badge badge-pending">PENDIENTE</span>')}</td>
         <td style="color:#f97316">${isSalud?'<span style="color:#52667c">residual</span>':fmt(cc.final)}</td>
         <td><span class="badge badge-${c.estado}">${SALUD_ESTADO_LABELS[c.estado]||c.estado}</span></td>
@@ -17010,10 +17026,10 @@ function saludRenderPagos() {
   const cards = datosPorAgente.map(d=>{
     const rol = d.a.rol||'agente';
     const badge = d.quincenasTotales===0 ? { txt:'—', bg:'#f7f8fb', color:'#52667c' }
-      : d.quincenasPagadas===d.quincenasTotales ? { txt:'✅ Pagado', bg:'#d1fae5', color:'#0f766e' }
+      : d.quincenasPagadas===d.quincenasTotales ? { txt:'✅ Pagado', bg:'#d1fae5', color:'#1A1025' }
       : d.quincenasPagadas===0 ? { txt:'⏳ Pendiente', bg:'#fff1e6', color:'#f97316' }
       : { txt:`🔶 ${d.quincenasPagadas}/${d.quincenasTotales}`, bg:'#fffbeb', color:'#b45309' };
-    return `<div style="background:#fff;border-radius:10px;padding:14px 16px;border:2px solid ${d.quincenasTotales>0 && d.quincenasPagadas===d.quincenasTotales?'#0d9488':'#e6eaf0'};min-width:190px;flex:1">
+    return `<div style="background:#fff;border-radius:10px;padding:14px 16px;border:2px solid ${d.quincenasTotales>0 && d.quincenasPagadas===d.quincenasTotales?'#16A34A':'#e6eaf0'};min-width:190px;flex:1">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
           <div style="font-size:12px;font-weight:700;color:#1f2a37">${d.a.nombre}</div>
@@ -17023,11 +17039,11 @@ function saludRenderPagos() {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;font-size:11px">
         <div style="color:#52667c">Sueldo</div><div style="text-align:right;font-weight:600;color:#1f2a37">${fmt(d.sueldoPeriodo)}</div>
-        <div style="color:#52667c">Comisiones</div><div style="text-align:right;font-weight:600;color:#3b82f6">${fmt(d.comPeriodo)}</div>
+        <div style="color:#52667c">Comisiones</div><div style="text-align:right;font-weight:600;color:#2541D6">${fmt(d.comPeriodo)}</div>
       </div>
       <div style="border-top:1px solid #f1f3f7;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:11px;color:#52667c">Total</span>
-        <span style="font-size:16px;font-weight:800;color:#0d9488">${fmt(d.total)}</span>
+        <span style="font-size:16px;font-weight:800;color:#6D28D9">${fmt(d.total)}</span>
       </div>
     </div>`;
   }).join('');
@@ -17047,9 +17063,9 @@ function saludRenderPagos() {
           <tr>
             <td style="font-weight:700">${f.mes}</td>
             <td style="text-align:center">Q${f.q}</td>
-            <td style="color:#0891b2;font-weight:700;text-align:right">${f.sueldoQ>0?fmt(f.sueldoQ):'—'}</td>
-            <td style="color:#8b5cf6;font-weight:700;text-align:right">${f.comQ>0?fmt(f.comQ):'—'}</td>
-            <td style="font-weight:800;text-align:right;background:#ecfdf5;border-radius:6px;color:#0f766e">${fmt(f.total)}</td>
+            <td style="color:#06B6D4;font-weight:700;text-align:right">${f.sueldoQ>0?fmt(f.sueldoQ):'—'}</td>
+            <td style="color:#8B5CF6;font-weight:700;text-align:right">${f.comQ>0?fmt(f.comQ):'—'}</td>
+            <td style="font-weight:800;text-align:right;background:#ecfdf5;border-radius:6px;color:#1A1025">${fmt(f.total)}</td>
             <td style="text-align:center"><button class="toggle-btn ${f.pagado?'toggle-paid':'toggle-pending'}" onclick="saludToggleQuincena('${d.a.nombre}','${f.mes}',${f.q},${f.sueldoQ})">${f.pagado?'✅ PAGADO':'⏳ PEND.'}</button></td>
             <td style="text-align:center"><input type="date" style="background:#f7f8fb;border:1px solid #e6eaf0;color:#1f2a37;padding:3px 6px;border-radius:5px;font-size:10px;width:110px" value="${f.pagado?.fecha||''}" ${!f.pagado?'disabled':''} onchange="saludSetQuincenaFecha('${d.a.nombre}','${f.mes}',${f.q},this.value)"></td>
             <td style="text-align:center"><button onclick="generarReporteWhatsAppSalud('${d.a.nombre}','${f.mes}',${f.q})" title="Reporte de esta quincena para WhatsApp" style="background:#25D366;color:#fff;border:none;padding:5px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">📲</button></td>
@@ -17058,7 +17074,7 @@ function saludRenderPagos() {
     </div>`).join('');
 
   document.getElementById('salud-pagos-content').innerHTML = `
-    <div style="background:linear-gradient(135deg,#0d9488,#0f766e);border-radius:14px;padding:28px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,189,165,0.2)">
+    <div style="background:linear-gradient(135deg,#6D28D9,#1A1025);border-radius:14px;padding:28px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,189,165,0.2)">
       <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;margin-bottom:12px;letter-spacing:1px">💰 Total a Pagar — ${etiquetaPeriodo}</div>
       <div style="font-size:48px;font-weight:900;color:#fff">${fmt(totalPeriodo)}</div>
     </div>
@@ -17143,7 +17159,7 @@ function saludOpenChargebackModal(id) {
   document.getElementById('scb-cliente-info').innerHTML = `
     <div style="font-weight:700;color:#1f2a37;margin-bottom:4px">👤 ${c.nombre}</div>
     <div style="color:#52667c;font-size:12px">Cuenta: ${c.cuenta||'—'} · Agente: ${c.agente} · Prima: ${fmt(c.prima)}/mes</div>
-    <div style="color:#52667c;font-size:12px;margin-top:2px">Adelanto (9m): <b style="color:#0d9488">${fmt(com.adelanto)}</b></div>`;
+    <div style="color:#52667c;font-size:12px;margin-top:2px">Adelanto (9m): <b style="color:#6D28D9">${fmt(com.adelanto)}</b></div>`;
   document.getElementById('scb-meses-pagados').value = c.mesesPagados!==undefined?c.mesesPagados:'';
   document.getElementById('scb-mes-cancel').value = c.mesCancelacion||'';
   document.getElementById('scb-notas').value = c.notasChargeback||'';
@@ -17207,11 +17223,11 @@ function saludRenderChargebacks() {
       <td>${c.cuenta||'—'}</td><td>${c.agente}</td>
       <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
       <td>${fmt(c.prima)}</td>
-      <td style="color:#0d9488;font-weight:700">${fmt(com.adelanto)}</td>
+      <td style="color:#6D28D9;font-weight:700">${fmt(com.adelanto)}</td>
       <td><input type="number" min="0" max="9" style="background:#f7f8fb;border:1px solid #e6eaf0;color:#1f2a37;padding:3px 8px;border-radius:5px;font-size:12px;width:60px;text-align:center" value="${c.mesesPagados||0}" onchange="saludActualizarMesesPagados(${c.id},parseInt(this.value))"><span style="font-size:10px;color:#52667c"> / 9m</span></td>
       <td style="color:#f97316">${c.mesCancelacion?c.mesCancelacion.replace('-','/'):'—'}</td>
       <td style="font-weight:800;font-size:14px;color:#ef4444">${fmt(cb.devolver)}</td>
-      <td style="color:${c.comAgentePagada?'#ef4444':'#0d9488'};font-weight:700">${c.comAgentePagada?fmt(c.comAgente||8)+' ⚠️':'✅ No pagada'}</td>
+      <td style="color:${c.comAgentePagada?'#ef4444':'#16A34A'};font-weight:700">${c.comAgentePagada?fmt(c.comAgente||8)+' ⚠️':'✅ No pagada'}</td>
       <td>${c.mes}</td><td><span class="badge badge-cancelado">CHARGEBACK</span></td>
       <td><button class="btn btn-ghost btn-xs" onclick="saludOpenChargebackModal(${c.id})">✏️ Editar</button></td>
     </tr>`;
