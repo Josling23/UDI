@@ -12249,40 +12249,42 @@ function construirReporteHQTexto(a, msFiltro, qFiltro) {
 
   const secciones = [];
 
-  // Por cada agente supervisado: qué vendió y cuánto ganó Jose de ahí.
+  // Por cada agente supervisado: una línea por venta (cliente + producto),
+  // para poder ver a quién corresponde cada comisión, y cuánto ganó Jose en total de ahí.
   supervisa.forEach(agNombre=>{
     const vv = appData.ventas.filter(v=>!v.esGrabacion && !v._esGrabacion && normNombre(v.agente)===normNombre(agNombre) && enPeriodo(v));
     if(!vv.length) return;
-    const conteo = {}; const orden = [];
     let subAg = 0;
-    vv.forEach(v=>{
+    const lineas = vv.map(v=>{
       const qty = parseFloat(v.cantidad)||1;
-      const nombre = getProdNombre(v.productoId);
-      if(conteo[nombre]===undefined) orden.push(nombre);
-      conteo[nombre] = (conteo[nombre]||0) + qty;
-      subAg += getComisionSupervisionPorAgente(a.nombre, agNombre, v.productoId) * qty;
+      const com = getComisionSupervisionPorAgente(a.nombre, agNombre, v.productoId) * qty;
+      subAg += com;
+      const nombreProd = getProdNombre(v.productoId);
+      const cliente = v.cliente || 'Sin cliente';
+      const qtyTxt = qty>1 ? ` (${qty})` : '';
+      return `• ${cliente} — ${nombreProd}${qtyTxt}: ${fmt(com)}`;
     });
-    const items = orden.map(n=>`${conteo[n]} ${n}`).join(', ');
-    secciones.push(`👤 *${agNombre}*\n${items}\n💰 Comisión ganada: ${fmt(subAg)}`);
+    secciones.push(`👤 *${agNombre}*\n${lineas.join('\n')}\n💰 Comisión ganada: ${fmt(subAg)}`);
   });
 
-  // Ventas directas propias — usa la comisión CONGELADA de cada venta
-  // (misma lógica que getComisionesQuincena, para que sume igual que el total oficial).
+  // Ventas directas propias — una línea por venta (cliente + producto), usa
+  // la comisión CONGELADA de cada venta (misma lógica que getComisionesQuincena,
+  // para que sume igual que el total oficial).
   const propias = appData.ventas.filter(v=>!v.esGrabacion && !v._esGrabacion && normNombre(v.agente)===nombreLow && enPeriodo(v));
   if(propias.length) {
-    const conteo = {}; const orden = [];
     let subProp = 0;
-    propias.forEach(v=>{
+    const lineas = propias.map(v=>{
       const qty = parseFloat(v.cantidad)||1;
-      const nombre = getProdNombre(v.productoId);
-      if(conteo[nombre]===undefined) orden.push(nombre);
-      conteo[nombre] = (conteo[nombre]||0) + qty;
       const stored = parseFloat(v.comision);
       const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
-      subProp += Math.max(rate,0) * qty;
+      const com = Math.max(rate,0) * qty;
+      subProp += com;
+      const nombreProd = getProdNombre(v.productoId);
+      const cliente = v.cliente || 'Sin cliente';
+      const qtyTxt = qty>1 ? ` (${qty})` : '';
+      return `• ${cliente} — ${nombreProd}${qtyTxt}: ${fmt(com)}`;
     });
-    const items = orden.map(n=>`${conteo[n]} ${n}`).join(', ');
-    secciones.push(`⭐ *Ventas directas — ${a.nombre}*\n${items}\n💰 Comisión ganada: ${fmt(subProp)}`);
+    secciones.push(`⭐ *Ventas directas — ${a.nombre}*\n${lineas.join('\n')}\n💰 Comisión ganada: ${fmt(subProp)}`);
   }
 
   if(!secciones.length) return null;
