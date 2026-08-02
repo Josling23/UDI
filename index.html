@@ -14112,7 +14112,7 @@ function renderTopBravo() {
       <div class="cards" style="margin-bottom:20px">
         <div class="card teal">
           <label>${esTodos?'📥 Ingresos Brutos (todos los meses)':'📥 Ingresos Brutos'}</label>
-          <div class="val">${fmt(d.ingresosBrutosMes)}</div>
+          <div class="val">${fmt(d.ingresosBrutosMes + otrosIngresosTotal)}</div>
           <div class="sub">${d.reportesMes.length} días registrados</div>
         </div>
         <div class="card red">
@@ -14122,7 +14122,7 @@ function renderTopBravo() {
         </div>
         <div class="card green">
           <label>${esTodos?'💰 Ganancia Ventas (todos los meses)':'💰 Ganancia Ventas del Mes'}</label>
-          <div class="val">${fmt(d.gananciaMes)}</div>
+          <div class="val">${fmt(gananciaTotalConOtros)}</div>
           <div class="sub">Ingresos − Costo de Mercancía</div>
         </div>
         <div class="card teal">
@@ -14130,15 +14130,15 @@ function renderTopBravo() {
           <div class="val">${fmt(otrosIngresosTotal)}</div>
           <div class="sub">${esTodos?'Suma de todos los meses':'Editable en la tabla de abajo'}</div>
         </div>
-        <div class="card blue">
-          <label>${esTodos?'💵 Ganancia Total Bravo (todos los meses)':'💵 Ganancia Total Bravo del Mes'}</label>
-          <div class="val" style="color:${gananciaTotalConOtros>=0?'#00BDA5':'#E04048'}">${fmt(gananciaTotalConOtros)}</div>
-          <div class="sub">Ventas + Otros Ingresos</div>
-        </div>
         <div class="card orange">
           <label>${esTodos?'💸 Gastos (todos los meses)':'💸 Gastos del Mes'}</label>
           <div class="val">${fmt(d.costosBravoMes)}</div>
           <div class="sub">Informativo — mismo dato de Bravo → ROI de Bravo</div>
+        </div>
+        <div class="card blue">
+          <label>${esTodos?'💵 Ganancia Neta Real (todos los meses)':'💵 Ganancia Neta Real'}</label>
+          <div class="val" style="color:${gananciaNetaConOtros>=0?'#00BDA5':'#E04048'}">${fmt(gananciaNetaConOtros)}</div>
+          <div class="sub">${gananciaNetaConOtros>=0?'✅ Rentable':'❌ En pérdida'}</div>
         </div>
         <div class="card purple">
           <label>📈 ROI% (informativo)</label>
@@ -19873,6 +19873,19 @@ function bravoROI() {
   const mesesConDatos = getBravoMesesConDatos();
   const d = esTodos ? sumarBravoMeses(mesesConDatos) : calcBravoMes(mesSel, anioSel);
 
+  // "Otros Ingresos" (internet, celulares, etc.) — mismo dato manual que ya
+  // se ingresa en TOP -> ROI Bravo (appData.bravo.otrosIngresos), reflejado
+  // también aquí para que ambas pantallas de ROI Bravo coincidan. Editable
+  // solo desde TOP -> ROI Bravo; aquí es de solo lectura. No se toca
+  // calcBravoMes() para no afectar Admin -> Gastos & Nómina ni la Utilidad
+  // Global de TOP -> Comparativo, que siguen sin incluir Otros Ingresos.
+  const otroIngresoDeMes = (mes, anio) => (appData.bravo.otrosIngresos||{})[MESES_ES[mes-1]+' '+anio] || 0;
+  const otrosIngresosMes = esTodos
+    ? mesesConDatos.reduce((s,{mes,anio})=>s+otroIngresoDeMes(mes,anio), 0)
+    : otroIngresoDeMes(mesSel, anioSel);
+  const ingresosBrutosConOtros = d.ingresosBrutosMes + otrosIngresosMes;
+  const gananciaVentasConOtros = d.gananciaVentasMes + otrosIngresosMes;
+
   const gastosMes = (appData.bravo.gastos||[]).filter(g => {
     if(esTodos) return true;
     const gd = mesAnioDeFecha(g.fecha);
@@ -19882,7 +19895,7 @@ function bravoROI() {
   // — se reutiliza en vez de recalcularla, para que no haya dos fuentes que
   // puedan desincronizarse. d.gananciaNeta ya viene neta de este costo.
   const totalGastosMes = d.costosBravoMes;
-  const roiIndependiente = d.gananciaNeta;
+  const roiIndependiente = d.gananciaNeta + otrosIngresosMes;
   // ROI clásico: cuánto se ganó neto por cada $ gastado ese mes (costo de
   // mercancía + gastos operativos: renta, sueldos, compras, etc.) — no un
   // margen sobre lo vendido. A pedido explícito de la usuaria.
@@ -19915,7 +19928,7 @@ function bravoROI() {
       <div class="cards">
         <div class="card teal">
           <label>📥 Ingresos Brutos</label>
-          <div class="val">${fmt(d.ingresosBrutosMes)}</div>
+          <div class="val">${fmt(ingresosBrutosConOtros)}</div>
           <div class="sub">${d.reportesMes.length} días registrados</div>
         </div>
         <div class="card red">
@@ -19925,8 +19938,13 @@ function bravoROI() {
         </div>
         <div class="card green">
           <label>${esTodos?'💰 Ganancia Ventas (todos los meses)':'💰 Ganancia Ventas del Mes'}</label>
-          <div class="val">${fmt(d.gananciaVentasMes)}</div>
+          <div class="val">${fmt(gananciaVentasConOtros)}</div>
           <div class="sub">Ingresos − Costo de Mercancía</div>
+        </div>
+        <div class="card teal">
+          <label>🌐 Otros Ingresos (Internet/Celulares)</label>
+          <div class="val">${fmt(otrosIngresosMes)}</div>
+          <div class="sub">Editable en TOP → ROI Bravo</div>
         </div>
         <div class="card orange">
           <label>${esTodos?'💸 Gastos Operativos (todos los meses)':'💸 Gastos Operativos del Mes'}</label>
