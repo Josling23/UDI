@@ -14064,17 +14064,10 @@ function renderTopBravo() {
   // del usuario.
   const otroIngresoDeMes = (mes, anio) => (appData.bravo.otrosIngresos||{})[MESES_ES[mes-1]+' '+anio] || 0;
 
-  const historial = esTodos
-    ? mesesConDatos.map(({ mes, anio }) => ({ mes: MESES_ES[mes-1], anio, ...calcBravoMes(mes, anio), otrosIngresos: otroIngresoDeMes(mes, anio) }))
-    : (() => {
-        const h = [];
-        for(let i=5;i>=0;i--) {
-          const dt = new Date(anioSel, mesSel-1-i, 1);
-          const hm = dt.getMonth()+1, ha = dt.getFullYear();
-          h.push({ mes: MESES_ES[hm-1], anio: ha, ...calcBravoMes(hm, ha), otrosIngresos: otroIngresoDeMes(hm, ha) });
-        }
-        return h;
-      })();
+  // El historial siempre muestra TODOS los meses con datos, sin importar el
+  // mes elegido en el filtro de arriba (ese filtro solo controla los cards
+  // de resumen) — a pedido explícito de la usuaria.
+  const historial = mesesConDatos.map(({ mes, anio }) => ({ mes: MESES_ES[mes-1], anio, ...calcBravoMes(mes, anio), otrosIngresos: otroIngresoDeMes(mes, anio) }));
 
   // Para el card de resumen: si es "Todos los Meses", suma Otros Ingresos de
   // TODOS los meses con datos (no solo los 6 del historial); si es un mes
@@ -14159,7 +14152,7 @@ function renderTopBravo() {
         </div>
       </div>
 
-      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 ${esTodos?'Historial (todos los meses)':'Historial (últimos 6 meses)'}</div>
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📊 Historial (todos los meses)</div>
       <div style="overflow-x:auto">
       <table>
         <thead><tr>
