@@ -470,6 +470,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
   <nav class="sidebar-nav" id="sidebar-nav-top" style="display:none">
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
+    <div class="nav-item" onclick="showPage('top-rendimiento',this)"><span class="icon">📊</span><span>Rendimiento & Ganancias</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-item" onclick="showPage('enlaces-top',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
@@ -878,6 +879,11 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <!-- ===== TOP ===== -->
     <div class="page" id="page-top">
       <div id="top-content"></div>
+    </div>
+
+    <!-- ===== TOP — RENDIMIENTO & GANANCIAS ===== -->
+    <div class="page" id="page-top-rendimiento">
+      <div id="top-rendimiento-content"></div>
     </div>
 
     <!-- ===== ENLACES (TOP) ===== -->
@@ -1764,6 +1770,24 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
       <button class="btn btn-ghost" onclick="closeModal('modal-salud-chargeback')">Cancelar</button>
       <button class="btn btn-danger" onclick="saludGuardarChargeback()">⚠️ Registrar Chargeback</button>
       <button class="btn btn-ghost" id="scb-quitar-btn" style="display:none" onclick="saludQuitarChargeback()">✕ Quitar Chargeback</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL TARIFAS AT&T -> EMPRESA (TOP -> Rendimiento & Ganancias) ===== -->
+<div class="modal-overlay" id="modal-tarifas-att">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h3>⚙️ Tarifas AT&T → Empresa</h3>
+      <button class="modal-close" onclick="closeModal('modal-tarifas-att')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:#99ACC2;margin-bottom:14px">Lo que AT&T le paga a la <b>empresa</b> por cada producto — no lo que la empresa le paga al agente (eso ya está en Productos & Com.). Se usa para calcular la ganancia real de la empresa por agente en esta pantalla.</div>
+      <div id="tarifas-att-lista" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:50vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tarifas-att')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarTarifasATT()">💾 Guardar Tarifas</button>
     </div>
   </div>
 </div>
@@ -3710,6 +3734,10 @@ function normalizarAppData() {
   if(!appData.otrosInternet) appData.otrosInternet = [];
   if(!appData.nextOIId)    appData.nextOIId = 1;
   if(!appData.comisiones) appData.comisiones = {};
+  // Lo que AT&T le paga a la EMPRESA por cada producto (no lo que la
+  // empresa le paga al agente) -- usado solo en TOP -> Rendimiento &
+  // Ganancias, para calcular la ganancia real de la empresa por agente.
+  if(!appData.comisionesATT) appData.comisionesATT = {};
   if(!appData.productosCustom) appData.productosCustom = [];
   if(!appData.campanas)    appData.campanas = [];
   if(!appData.nextCampId)  appData.nextCampId = 1;
@@ -4166,6 +4194,7 @@ function activarListenerAppData() {
           'productos':  renderProductos,
           'admin':      renderAdmin,
           'top':        renderTop,
+          'top-rendimiento': renderTopRendimiento,
           'hq':         renderHQ,
           'usuarios':   renderUsuarios,
           'campanas':   attRenderCampanas,
@@ -4983,7 +5012,8 @@ const PAGE_TITLES = {
   'enlaces-admin':'🔗 Enlaces',
   'enlaces-top':'🔗 Enlaces',
   'enlaces-salud':'🔗 Enlaces',
-  'enlaces-bravo':'🔗 Enlaces'
+  'enlaces-bravo':'🔗 Enlaces',
+  'top-rendimiento':'📊 Rendimiento & Ganancias'
 };
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -5012,6 +5042,7 @@ function renderPage(name) {
   if(name==='pagos') renderPagos();
   if(name==='productos') renderProductos();
   if(name==='top')   renderTop();
+  if(name==='top-rendimiento') renderTopRendimiento();
   if(name==='hq')    renderHQ();
   if(name==='hq-gerente') renderHQGerente();
   if(name==='admin') renderAdmin();
@@ -12999,6 +13030,172 @@ function renderHQGerente() {
 // ============================================================
 // TOP — RENDER
 // ============================================================
+// ============================================================
+// TOP — RENDIMIENTO & GANANCIAS (versión inicial)
+// Ganancia real de la empresa por agente = lo que AT&T le paga a la
+// empresa por cada venta − lo que la empresa le paga al agente por esa
+// misma venta. Se separan las ventas canceladas (chargeback) como
+// información aparte, sin restarlas solas de la ganancia bruta, para
+// que quede a criterio de quien lo lea (el agente pudo haber hecho bien
+// su trabajo aunque el cliente se haya dado de baja después).
+// ============================================================
+function getComisionATT(productoId) {
+  return parseFloat((appData.comisionesATT||{})[productoId]) || 0;
+}
+
+function abrirModalTarifasATT() {
+  const cat = getCatalogoCompleto();
+  document.getElementById('tarifas-att-lista').innerHTML = cat.map(p=>`
+    <div style="background:#F5F8FA;border-radius:7px;padding:8px 10px;border:1px solid #CBD6E2">
+      <div style="font-size:11px;font-weight:600;color:#33475B;margin-bottom:6px">${p.nombre}</div>
+      <input type="number" min="0" step="0.01" value="${appData.comisionesATT[p.id]!==undefined?appData.comisionesATT[p.id]:''}" placeholder="0.00"
+        data-prod-id="${p.id}" class="att-tarifa-input"
+        style="width:100%;background:#fff;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:12px;font-weight:700;color:#33475B;outline:none;text-align:right">
+    </div>`).join('');
+  document.getElementById('modal-tarifas-att').classList.add('open');
+}
+
+function guardarTarifasATT() {
+  if(!appData.comisionesATT) appData.comisionesATT = {};
+  document.querySelectorAll('.att-tarifa-input').forEach(inp=>{
+    const val = parseFloat(inp.value);
+    if(!isNaN(val) && val>0) appData.comisionesATT[inp.dataset.prodId] = val;
+    else delete appData.comisionesATT[inp.dataset.prodId];
+  });
+  guardar();
+  closeModal('modal-tarifas-att');
+  renderTopRendimiento();
+  showNotif('✅ Tarifas AT&T guardadas');
+}
+
+function renderTopRendimiento() {
+  const meses = getMeses();
+  const todos = [
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(a.rol==='subdealer'||a.rol==='subdealер')),
+  ];
+
+  const selMes = document.getElementById('tr-mes-sel')?.value ?? '';
+  const selAg  = document.getElementById('tr-agente-sel')?.value ?? '';
+
+  const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
+
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">📊 Rendimiento & Ganancias</h2>
+        <div style="font-size:11px;color:#99ACC2">Ganancia real de la empresa por agente — versión inicial, se va a ir ajustando</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalTarifasATT()">⚙️ Tarifas AT&T → Empresa</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+      <select id="tr-agente-sel" onchange="renderTopRendimiento()" style="${sFiltro};min-width:180px">
+        <option value="">👥 Todos los agentes</option>
+        ${todos.map(a=>`<option value="${a.id}" ${String(a.id)===selAg?'selected':''}>${a.nombre}</option>`).join('')}
+      </select>
+      <select id="tr-mes-sel" onchange="renderTopRendimiento()" style="${sFiltro};min-width:150px">
+        <option value="">📅 Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>
+  `;
+
+  const agentesFiltrados = selAg ? todos.filter(a=>String(a.id)===selAg) : todos;
+  const mesesFiltro = selMes ? [selMes] : meses;
+
+  let granVentas=0, granComAgente=0, granComATT=0, granCanceladas=0, granComAgenteCancel=0, granComATTCancel=0;
+
+  const filas = agentesFiltrados.map(a=>{
+    const nombreLow = normNombre(a.nombre);
+    const ventasAgente = appData.ventas.filter(v=>{
+      if(v.esGrabacion||v._esGrabacion) return false;
+      if(normNombre(v.agente)!==nombreLow) return false;
+      return mesesFiltro.includes(v.mes);
+    });
+    if(!ventasAgente.length) return null;
+
+    let ventasCount=0, comAgente=0, comATT=0;
+    let canceladas=0, comAgenteCancel=0, comATTCancel=0;
+    ventasAgente.forEach(v=>{
+      const qty = parseFloat(v.cantidad)||1;
+      const stored = parseFloat(v.comision);
+      const rateAgente = stored>0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
+      const montoAgente = Math.max(rateAgente,0)*qty;
+      const montoATT = getComisionATT(v.productoId)*qty;
+      ventasCount += qty;
+      comAgente += montoAgente;
+      comATT += montoATT;
+      if(v.esChargeback) {
+        canceladas += qty;
+        comAgenteCancel += montoAgente;
+        comATTCancel += montoATT;
+      }
+    });
+
+    const gananciaTotal  = comATT - comAgente;
+    const gananciaCancel = comATTCancel - comAgenteCancel;
+    const gananciaActiva = gananciaTotal - gananciaCancel;
+
+    granVentas += ventasCount; granComAgente += comAgente; granComATT += comATT;
+    granCanceladas += canceladas; granComAgenteCancel += comAgenteCancel; granComATTCancel += comATTCancel;
+
+    return `<tr>
+      <td style="font-weight:700;color:#33475B">${a.nombre}</td>
+      <td style="text-align:right;color:#009FDB">${ventasCount}</td>
+      <td style="text-align:right;color:#7C98B6">${fmt(comAgente)}</td>
+      <td style="text-align:right;color:#33475B">${fmt(comATT)}</td>
+      <td style="text-align:right;font-weight:800;color:${gananciaTotal>=0?'#00BDA5':'#F2545B'}">${fmt(gananciaTotal)}</td>
+      <td style="text-align:right;color:#D4A017">${canceladas>0 ? canceladas+' ('+fmt(gananciaCancel)+')' : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:#33475B">${fmt(gananciaActiva)}</td>
+    </tr>`;
+  }).filter(Boolean);
+
+  const gananciaTotalGeneral  = granComATT - granComAgente;
+  const gananciaCancelGeneral = granComATTCancel - granComAgenteCancel;
+  const gananciaActivaGeneral = gananciaTotalGeneral - gananciaCancelGeneral;
+
+  html += `
+    <div class="section">
+      ${!Object.keys(appData.comisionesATT||{}).length ? `
+      <div style="background:#FFF3EE;border:1px solid #FF7A59;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:#B45309">
+        ⚠️ Todavía no configuraste ninguna tarifa de "AT&T → Empresa" — la ganancia real va a dar $0 hasta que la configures con el botón de arriba.
+      </div>` : ''}
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Agente</th>
+            <th style="text-align:right">Ventas</th>
+            <th style="text-align:right">Pagado al Agente</th>
+            <th style="text-align:right">Recibido de AT&T</th>
+            <th style="text-align:right">Ganancia Real (bruta)</th>
+            <th style="text-align:right">Canceladas (Chargeback)</th>
+            <th style="text-align:right">Ganancia Real (activas)</th>
+          </tr></thead>
+          <tbody>
+            ${filas.length ? filas.join('') : '<tr><td colspan="7" class="tbl-empty">Sin ventas en este período</td></tr>'}
+            <tr style="background:#F5F8FA;border-top:2px solid #CBD6E2">
+              <td style="font-weight:800;color:#33475B">TOTAL</td>
+              <td style="text-align:right;font-weight:800;color:#009FDB">${granVentas}</td>
+              <td style="text-align:right;font-weight:800;color:#7C98B6">${fmt(granComAgente)}</td>
+              <td style="text-align:right;font-weight:800;color:#33475B">${fmt(granComATT)}</td>
+              <td style="text-align:right;font-weight:900;color:${gananciaTotalGeneral>=0?'#00BDA5':'#F2545B'}">${fmt(gananciaTotalGeneral)}</td>
+              <td style="text-align:right;font-weight:800;color:#D4A017">${granCanceladas>0 ? granCanceladas+' ('+fmt(gananciaCancelGeneral)+')' : '—'}</td>
+              <td style="text-align:right;font-weight:900;color:#33475B">${fmt(gananciaActivaGeneral)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin-top:14px;line-height:1.6">
+        <b>Cómo se calcula:</b> Ganancia Real = lo que AT&T le paga a la empresa por cada venta − lo que la empresa le paga al agente por esa misma venta. Las ventas canceladas (chargeback) se muestran aparte para que veas el contexto — no se descuentan solas de la ganancia bruta, para que decidas tú si el agente puso el esfuerzo aunque la venta se haya caído después.
+      </div>
+    </div>
+  `;
+
+  document.getElementById('top-rendimiento-content').innerHTML = html;
+}
+
 function renderTop() {
   document.getElementById('top-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
