@@ -9517,25 +9517,30 @@ function renderPagos() {
   let totalNominaQuincena = 0;
 
   // ── Calcular Inversión-Activa (José Piña) ──
+  // Suma sobre qVis (ambas quincenas si el filtro está en blanco, o solo la
+  // elegida) — antes usaba un único qAct y por eso "Q1+Q2" no sumaba nada.
   const josePinaTotal = (() => {
     const jp = appData.agentes.find(a => a.soloHQ && esJosePina(a.nombre));
     if(!jp) return 0;
-    const comQ   = getComisionesQuincena(jp, mesAct, qAct);
     const nombreLow = (jp.nombre||'').trim().toLowerCase();
-    const grabRows = appData.ventas.filter(v=>{
-      if(!v.esGrabacion && !v._esGrabacion) return false;
-      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
-      const pp = getPeríodoPago(v);
-      return pp.mes===mesAct && pp.q===qAct;
+    let total = 0;
+    qVis.forEach(q=>{
+      const comQ = getComisionesQuincena(jp, mesAct, q);
+      const grabRows = appData.ventas.filter(v=>{
+        if(!v.esGrabacion && !v._esGrabacion) return false;
+        if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+        const pp = getPeríodoPago(v);
+        return pp.mes===mesAct && pp.q===q;
+      });
+      const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+      const basico = jp.sueldoQuincenal||0;
+      const bonos  = getExtra('bono',  jp.nombre, mesAct+'Q'+q);
+      const prest  = getExtra('prest', jp.nombre, mesAct+'Q'+q);
+      const desc   = getExtra('desc',  jp.nombre, mesAct+'Q'+q);
+      const prev   = getPrevQuincena(meses, mesAct, q);
+      const deAnt  = prev ? getPend(jp.nombre, prev.mes, prev.q) : 0;
+      total += comQ + comGrab + basico + bonos + prest + deAnt - desc;
     });
-    const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-    const basico = jp.sueldoQuincenal||0;
-    const bonos  = getExtra('bono',  jp.nombre, mesAct+'Q'+qAct);
-    const prest  = getExtra('prest', jp.nombre, mesAct+'Q'+qAct);
-    const desc   = getExtra('desc',  jp.nombre, mesAct+'Q'+qAct);
-    const prev   = getPrevQuincena(meses, mesAct, qAct);
-    const deAnt  = prev ? getPend(jp.nombre, prev.mes, prev.q) : 0;
-    const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
     return total;
   })();
   // José Piña (Inversión-Activa) NO se suma al total de esta pantalla — su
@@ -9546,25 +9551,32 @@ function renderPagos() {
   // abajo, pero solo a modo informativo.
   const resumenCards = ordenados.map(a=>{
     const rol = a.rol||'agente';
-    const comQ   = getComisionesQuincena(a, mesAct, qAct);
-    // Grabaciones
     const nombreLow = (a.nombre||'').trim().toLowerCase();
-    const grabRows = appData.ventas.filter(v=>{
-      if(!v.esGrabacion && !v._esGrabacion) return false;
-      if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
-      const pp = getPeríodoPago(v);
-      return pp.mes===mesAct && pp.q===qAct;
+    // Suma sobre qVis (ambas quincenas si el filtro está en blanco, o solo la
+    // elegida) — antes usaba un único qAct y por eso "Q1+Q2" no sumaba nada.
+    let comQ=0, comGrab=0, basico=0, bonos=0, prest=0, desc=0, deAnt=0;
+    qVis.forEach(q=>{
+      comQ += getComisionesQuincena(a, mesAct, q);
+      const grabRows = appData.ventas.filter(v=>{
+        if(!v.esGrabacion && !v._esGrabacion) return false;
+        if((v.agente||'').trim().toLowerCase() !== nombreLow) return false;
+        const pp = getPeríodoPago(v);
+        return pp.mes===mesAct && pp.q===q;
+      });
+      comGrab += grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
+      basico  += a.sueldoQuincenal||0;
+      bonos   += getExtra('bono',  a.nombre, mesAct+'Q'+q);
+      prest   += getExtra('prest', a.nombre, mesAct+'Q'+q);
+      desc    += getExtra('desc',  a.nombre, mesAct+'Q'+q);
+      const prev = getPrevQuincena(meses, mesAct, q);
+      deAnt   += prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
     });
-    const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-
-    const basico = a.sueldoQuincenal||0;
-    const bonos  = getExtra('bono',  a.nombre, mesAct+'Q'+qAct);
-    const prest  = getExtra('prest', a.nombre, mesAct+'Q'+qAct);
-    const desc   = getExtra('desc',  a.nombre, mesAct+'Q'+qAct);
-    const prev   = getPrevQuincena(meses, mesAct, qAct);
-    const deAnt  = prev ? getPend(a.nombre, prev.mes, prev.q) : 0;
     const total  = comQ + comGrab + basico + bonos + prest + deAnt - desc;
-    const pagado = appData.quincenas[getQuincenaKey(a.nombre, mesAct, qAct)];
+    // Pagado: si se ve una sola quincena, su estado tal cual. Si se ven las
+    // dos combinadas, solo se marca "Pagado" cuando AMBAS ya están pagadas.
+    const pagado = qVis.length===1
+      ? appData.quincenas[getQuincenaKey(a.nombre, mesAct, qVis[0])]
+      : qVis.every(q=>appData.quincenas[getQuincenaKey(a.nombre, mesAct, q)]);
     // Sumar TODOS los totales de la quincena
     totalNominaQuincena += total;
     return `<div style="background:#fff;border-radius:10px;padding:14px 16px;border:2px solid ${pagado?'#86EFAC':ROL_COLORS[rol]||'#CBD6E2'};min-width:190px;flex:1">
@@ -9594,7 +9606,7 @@ function renderPagos() {
           if(!v || v.esGrabacion || v._esGrabacion) return false;
           if(!agSups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
-          return pp.mes===mesAct && pp.q===qAct;
+          return pp.mes===mesAct && qVis.includes(pp.q);
         });
 
         if(ventasSup.length===0) return '';
@@ -9628,7 +9640,7 @@ function renderPagos() {
         return desglose;
       })()}
       <div style="border-top:1px solid #F0F2F5;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:11px;color:#7C98B6">TOTAL Q${qAct}</span>
+        <span style="font-size:11px;color:#7C98B6">TOTAL ${qVis.length===2?'Q1+Q2':'Q'+qVis[0]}</span>
         <span style="font-size:18px;font-weight:800;color:${pagado?'#059669':'#00BDA5'}">${fmt(total)}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
@@ -9650,9 +9662,9 @@ function renderPagos() {
     `<div style="margin-bottom:24px">
       <!-- RESUMEN TOTAL NÓMINA DE LA QUINCENA -->
       <div style="background:linear-gradient(135deg,#00BDA5,#059669);border-radius:14px;padding:28px;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,189,165,0.2)">
-        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;margin-bottom:12px;letter-spacing:1px">💰 Total a Pagar — ${mesAct} Q${qAct}</div>
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.8);text-transform:uppercase;margin-bottom:12px;letter-spacing:1px">💰 Total a Pagar — ${mesAct} ${filtroQ?'Q'+filtroQ:'Q1 + Q2'}</div>
         <div style="font-size:48px;font-weight:900;color:#fff;margin-bottom:8px">${fmt(totalNominaQuincena)}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.8)">${qAct===1?'Incluye: últim. día mes anterior + días 1–14':'Incluye: días 15–penúltimo'}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.8)">${filtroQ ? (qAct===1?'Incluye: últim. día mes anterior + días 1–14':'Incluye: días 15–penúltimo') : 'Incluye ambas quincenas: últim. día mes anterior + días 1–14, y días 15–penúltimo'}</div>
       </div>
 
       <div style="display:flex;flex-wrap:wrap;gap:12px">${resumenCards}</div>
@@ -9660,7 +9672,7 @@ function renderPagos() {
       <div style="margin-top:16px;padding:14px 16px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);border:2px solid #D97706;color:#fff">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:12px;font-weight:700;text-transform:uppercase;opacity:0.9;letter-spacing:0.5px">💼 Inversión-Activa — Q${qAct}</div>
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;opacity:0.9;letter-spacing:0.5px">💼 Inversión-Activa — ${filtroQ?'Q'+filtroQ:'Q1+Q2'}</div>
           </div>
           <div style="font-size:28px;font-weight:900">${fmt(josePinaTotal)}</div>
         </div>
@@ -13105,7 +13117,7 @@ function renderTopRendimiento() {
   const agentesFiltrados = selAg ? todos.filter(a=>String(a.id)===selAg) : todos;
   const mesesFiltro = selMes ? [selMes] : meses;
 
-  let granVentas=0, granComAgente=0, granComATT=0, granCanceladas=0, granComAgenteCancel=0, granComATTCancel=0;
+  let granVentas=0, granComAgente=0, granComATT=0, granCanceladas=0, granComAgenteCancel=0, granComATTCancel=0, granSueldo=0;
 
   const filas = agentesFiltrados.map(a=>{
     const nombreLow = normNombre(a.nombre);
@@ -13134,16 +13146,23 @@ function renderTopRendimiento() {
       }
     });
 
-    const gananciaTotal  = comATT - comAgente;
+    // Sueldo: se cuenta un mes completo (quincenal×2, mismo cálculo que ya
+    // usa "Comisiones por Agente" en Admin/Pagos) por cada mes en el que el
+    // agente aparece con al menos una venta dentro del filtro activo.
+    const mesesConVenta = [...new Set(ventasAgente.map(v=>v.mes))];
+    const sueldoAgente = mesesConVenta.length * (a.sueldoQuincenal||0) * 2;
+
+    const gananciaTotal  = comATT - comAgente - sueldoAgente;
     const gananciaCancel = comATTCancel - comAgenteCancel;
     const gananciaActiva = gananciaTotal - gananciaCancel;
 
-    granVentas += ventasCount; granComAgente += comAgente; granComATT += comATT;
+    granVentas += ventasCount; granComAgente += comAgente; granComATT += comATT; granSueldo += sueldoAgente;
     granCanceladas += canceladas; granComAgenteCancel += comAgenteCancel; granComATTCancel += comATTCancel;
 
     return `<tr>
       <td style="font-weight:700;color:#33475B">${a.nombre}</td>
       <td style="text-align:right;color:#009FDB">${ventasCount}</td>
+      <td style="text-align:right;color:#33475B">${fmt(sueldoAgente)}</td>
       <td style="text-align:right;color:#7C98B6">${fmt(comAgente)}</td>
       <td style="text-align:right;color:#33475B">${fmt(comATT)}</td>
       <td style="text-align:right;font-weight:800;color:${gananciaTotal>=0?'#00BDA5':'#F2545B'}">${fmt(gananciaTotal)}</td>
@@ -13152,7 +13171,7 @@ function renderTopRendimiento() {
     </tr>`;
   }).filter(Boolean);
 
-  const gananciaTotalGeneral  = granComATT - granComAgente;
+  const gananciaTotalGeneral  = granComATT - granComAgente - granSueldo;
   const gananciaCancelGeneral = granComATTCancel - granComAgenteCancel;
   const gananciaActivaGeneral = gananciaTotalGeneral - gananciaCancelGeneral;
 
@@ -13167,17 +13186,19 @@ function renderTopRendimiento() {
           <thead><tr>
             <th>Agente</th>
             <th style="text-align:right">Ventas</th>
-            <th style="text-align:right">Pagado al Agente</th>
+            <th style="text-align:right">Sueldo</th>
+            <th style="text-align:right">Comisiones</th>
             <th style="text-align:right">Recibido de AT&T</th>
             <th style="text-align:right">Ganancia Real (bruta)</th>
             <th style="text-align:right">Canceladas (Chargeback)</th>
             <th style="text-align:right">Ganancia Real (activas)</th>
           </tr></thead>
           <tbody>
-            ${filas.length ? filas.join('') : '<tr><td colspan="7" class="tbl-empty">Sin ventas en este período</td></tr>'}
+            ${filas.length ? filas.join('') : '<tr><td colspan="8" class="tbl-empty">Sin ventas en este período</td></tr>'}
             <tr style="background:#F5F8FA;border-top:2px solid #CBD6E2">
               <td style="font-weight:800;color:#33475B">TOTAL</td>
               <td style="text-align:right;font-weight:800;color:#009FDB">${granVentas}</td>
+              <td style="text-align:right;font-weight:800;color:#33475B">${fmt(granSueldo)}</td>
               <td style="text-align:right;font-weight:800;color:#7C98B6">${fmt(granComAgente)}</td>
               <td style="text-align:right;font-weight:800;color:#33475B">${fmt(granComATT)}</td>
               <td style="text-align:right;font-weight:900;color:${gananciaTotalGeneral>=0?'#00BDA5':'#F2545B'}">${fmt(gananciaTotalGeneral)}</td>
@@ -13188,7 +13209,7 @@ function renderTopRendimiento() {
         </table>
       </div>
       <div style="font-size:11px;color:#99ACC2;margin-top:14px;line-height:1.6">
-        <b>Cómo se calcula:</b> Ganancia Real = lo que AT&T le paga a la empresa por cada venta − lo que la empresa le paga al agente por esa misma venta. Las ventas canceladas (chargeback) se muestran aparte para que veas el contexto — no se descuentan solas de la ganancia bruta, para que decidas tú si el agente puso el esfuerzo aunque la venta se haya caído después.
+        <b>Cómo se calcula:</b> Ganancia Real = lo que AT&T le paga a la empresa por cada venta − las comisiones pagadas al agente − su sueldo (quincenal×2 por cada mes con ventas en este filtro). Las ventas canceladas (chargeback) se muestran aparte para que veas el contexto — no se descuentan solas de la ganancia bruta, para que decidas tú si el agente puso el esfuerzo aunque la venta se haya caído después.
       </div>
     </div>
   `;
