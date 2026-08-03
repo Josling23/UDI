@@ -449,6 +449,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-section">Reportes</div>
     <div class="nav-item" onclick="showPage('resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
     <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
+    <div class="nav-item" onclick="showPage('rendimiento-agentes',this)"><span class="icon">📊</span><span>Rendimiento de Agentes</span></div>
     <div class="nav-item" onclick="showPage('campanas',this)"><span class="icon">📢</span><span>Campañas & ROI</span></div>
     <div class="nav-section">Config</div>
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
@@ -516,6 +517,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-section">📝 MIS VENTAS</div>
     <div class="nav-item active" onclick="showPage('agente-dashboard',this)"><span class="icon">🏠</span><span>Inicio</span></div>
     <div class="nav-item" onclick="_agvEditGrupoId=null;showPage('agente-reportar',this)"><span class="icon">📝</span><span>Reportar Venta</span></div>
+    <div class="nav-item" onclick="showPage('agente-actividad',this)"><span class="icon">📊</span><span>Reporte Diario</span></div>
     <div class="nav-item" onclick="showPage('agente-mis-reportes',this)"><span class="icon">📋</span><span>Mis Reportes</span><span id="nav-agente-rechazados-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-item" onclick="showPage('agente-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span><span id="nav-agente-chargebacks-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-item" id="nav-agente-comisiones" style="display:none" onclick="showPage('agente-comisiones',this)"><span class="icon">💰</span><span>Mis Comisiones</span></div>
@@ -826,6 +828,11 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
       </div>
     </div>
 
+    <!-- ===== RENDIMIENTO DE AGENTES ===== -->
+    <div class="page" id="page-rendimiento-agentes">
+      <div id="rendimiento-agentes-content"></div>
+    </div>
+
     <!-- ===== PRODUCTOS ===== -->
     <div class="page" id="page-productos">
       <div class="section">
@@ -937,6 +944,11 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <!-- ====================================================== -->
     <div class="page" id="page-agente-dashboard">
       <div id="agente-dashboard-content"></div>
+    </div>
+
+    <!-- ===== AGENTE — REPORTE DIARIO (actividad: llamadas, aprobados, etc.) ===== -->
+    <div class="page" id="page-agente-actividad">
+      <div id="agente-actividad-content"></div>
     </div>
 
     <div class="page" id="page-agente-reportar">
@@ -3738,6 +3750,10 @@ function normalizarAppData() {
   // empresa le paga al agente) -- usado solo en TOP -> Rendimiento &
   // Ganancias, para calcular la ganancia real de la empresa por agente.
   if(!appData.comisionesATT) appData.comisionesATT = {};
+  // Reporte diario de actividad de cada agente (llamadas, aprobados,
+  // verificaciones, etc.) -- lo llena el propio agente desde su perfil.
+  // Usado en Admin -> Rendimiento de Agentes.
+  if(!appData.actividadDiaria) appData.actividadDiaria = [];
   if(!appData.productosCustom) appData.productosCustom = [];
   if(!appData.campanas)    appData.campanas = [];
   if(!appData.nextCampId)  appData.nextCampId = 1;
@@ -4191,6 +4207,7 @@ function activarListenerAppData() {
           'ventas-pendientes': renderVentasPendientes,
           'resumen':    renderResumen,
           'pagos':      renderPagos,
+          'rendimiento-agentes': renderRendimientoAgentes,
           'productos':  renderProductos,
           'admin':      renderAdmin,
           'top':        renderTop,
@@ -4206,6 +4223,7 @@ function activarListenerAppData() {
           'bravo-caja':         bravoCaja,
           'bravo-compras':      bravoCompras,
           'agente-dashboard':   renderAgenteDashboard,
+          'agente-actividad':   renderAgenteActividad,
           // 'agente-reportar' NO se re-renderiza aquí a propósito: es un
           // formulario con datos SIN GUARDAR (cliente, líneas de venta,
           // notas...). Volver a llamar a renderAgenteReportar() en cada
@@ -4974,7 +4992,7 @@ const PAGE_TITLES = {
   'ventas-pendientes':'🕓 Ventas Pendientes',
   'ventas-rechazadas':'❌ Ventas Rechazadas',
   'chargebacks-admin':'⚠️ Chargebacks',
-  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', campanas:'📢 Campañas & ROI',
+  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', 'rendimiento-agentes':'📊 Rendimiento de Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
   'hq-gerente':'🏢 Gerente General',
@@ -4986,6 +5004,7 @@ const PAGE_TITLES = {
   'bravo-caja':'💵 Caja Chica — Bravo',
   'bravo-compras':'🛒 Bravo — Compras y Gastos',
   'agente-dashboard':'📝 Mis Ventas',
+  'agente-actividad':'📊 Reporte Diario',
   'agente-reportar':'📝 Reportar Venta',
   'agente-mis-reportes':'📋 Mis Reportes',
   'agente-chargebacks':'⚠️ Chargebacks',
@@ -5040,6 +5059,7 @@ function renderPage(name) {
   if(name==='chargebacks-admin') renderChargebacksAdmin();
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
+  if(name==='rendimiento-agentes') renderRendimientoAgentes();
   if(name==='productos') renderProductos();
   if(name==='top')   renderTop();
   if(name==='top-rendimiento') renderTopRendimiento();
@@ -5056,6 +5076,7 @@ function renderPage(name) {
   if(name==='bravo-caja') bravoCaja();
   if(name==='bravo-compras') bravoCompras();
   if(name==='agente-dashboard') renderAgenteDashboard();
+  if(name==='agente-actividad') renderAgenteActividad();
   if(name==='agente-reportar') renderAgenteReportar();
   if(name==='agente-mis-reportes') renderAgenteMisReportes();
   if(name==='agente-chargebacks') renderAgenteChargebacks();
@@ -5925,6 +5946,109 @@ function resumenChargebacksAgente(agenteId) {
 // Resumen de Admin: % de Chargeback de CADA agente que tenga al menos una
 // venta propia (reportadoPor) — mismo cálculo que ve el vendedor en su
 // propia pantalla, solo que aquí se listan todos a la vez.
+// ============================================================
+// ADMIN — RENDIMIENTO DE AGENTES
+// Cruza appData.actividadDiaria[] (lo que cada agente reporta desde su
+// perfil: llamadas, aprobados, verificaciones, etc.) con las ventas REALES
+// ya logradas (appData.ventas), por agente y por mes. Sin sistema de
+// calificación automática -- eso queda para una fase futura, a pedido
+// explícito de la usuaria.
+// ============================================================
+function renderRendimientoAgentes() {
+  const meses = getMeses();
+  const todos = [
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(a.rol==='subdealer'||a.rol==='subdealер')),
+  ];
+
+  const selMes = document.getElementById('ra-mes-sel')?.value ?? '';
+  const selAg  = document.getElementById('ra-agente-sel')?.value ?? '';
+
+  const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
+
+  let html = `
+    <div style="margin-bottom:14px">
+      <h2 style="font-size:20px;font-weight:900;color:#33475B;letter-spacing:-0.5px">📊 Rendimiento de Agentes</h2>
+      <div style="font-size:11px;color:#99ACC2">Actividad diaria que reportan los agentes desde su perfil, cruzada con las ventas reales logradas</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:10px 14px">
+      <select id="ra-agente-sel" onchange="renderRendimientoAgentes()" style="${sFiltro};min-width:180px">
+        <option value="">👥 Todos los agentes</option>
+        ${todos.map(a=>`<option value="${a.id}" ${String(a.id)===selAg?'selected':''}>${a.nombre}</option>`).join('')}
+      </select>
+      <select id="ra-mes-sel" onchange="renderRendimientoAgentes()" style="${sFiltro};min-width:150px">
+        <option value="">📅 Todos los meses</option>
+        ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>
+  `;
+
+  const agentesFiltrados = selAg ? todos.filter(a=>String(a.id)===selAg) : todos;
+  const mesesFiltro = selMes ? [selMes] : meses;
+
+  const filas = agentesFiltrados.map(a=>{
+    const nombreLow = normNombre(a.nombre);
+
+    const actividadAgente = (appData.actividadDiaria||[]).filter(r=>{
+      if(r.agenteId!==a.id) return false;
+      const {mes,anio} = mesAnioDeFecha(r.fecha);
+      if(!mes||!anio) return false;
+      return mesesFiltro.includes(MESES_ES[mes-1]+' '+anio);
+    });
+
+    const ventasAgente = appData.ventas.filter(v=>{
+      if(v.esGrabacion||v._esGrabacion) return false;
+      if(normNombre(v.agente)!==nombreLow) return false;
+      return mesesFiltro.includes(v.mes);
+    });
+
+    if(!actividadAgente.length && !ventasAgente.length) return null;
+
+    const totales = {};
+    ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{ totales[c.id] = actividadAgente.reduce((s,r)=>s+(r[c.id]||0),0); });
+    const diasReportados = actividadAgente.length;
+    const ventasCount = ventasAgente.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
+    const conversionPct = totales.llamadasDia>0 ? (ventasCount/totales.llamadasDia*100) : null;
+    const promVentasDia = diasReportados>0 ? (ventasCount/diasReportados) : null;
+
+    return { a, totales, diasReportados, ventasCount, conversionPct, promVentasDia };
+  }).filter(Boolean);
+
+  html += `
+    <div class="section">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Agente</th>
+            <th style="text-align:right">Días Reportados</th>
+            ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<th style="text-align:right">${c.label}</th>`).join('')}
+            <th style="text-align:right;background:#F0FFFB">Ventas Reales</th>
+            <th style="text-align:right;background:#F0FFFB">% Conversión</th>
+            <th style="text-align:right;background:#F0FFFB">Prom. Ventas/Día</th>
+          </tr></thead>
+          <tbody>
+            ${filas.length ? filas.map(f=>`<tr>
+              <td style="font-weight:700;color:#33475B">${f.a.nombre}</td>
+              <td style="text-align:right;color:#7C98B6">${f.diasReportados}</td>
+              ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<td style="text-align:right;color:#33475B">${f.totales[c.id]}</td>`).join('')}
+              <td style="text-align:right;font-weight:800;color:#009FDB;background:#F0FFFB">${f.ventasCount}</td>
+              <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.conversionPct!==null?f.conversionPct.toFixed(1)+'%':'—'}</td>
+              <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.promVentasDia!==null?f.promVentasDia.toFixed(2):'—'}</td>
+            </tr>`).join('') : `<tr><td colspan="${3+ACTIVIDAD_DIARIA_CAMPOS.length}" class="tbl-empty">Sin datos en este período</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin-top:14px;line-height:1.6">
+        <b>Cómo se calcula:</b> las columnas de actividad son las que cada agente reporta desde "Reporte Diario" en su perfil. "Ventas Reales" son las ventas ya aprobadas en el sistema (Registro Diario), no lo que el agente reporta como "APR" — para comparar esfuerzo reportado vs. resultado real. % Conversión = Ventas Reales ÷ Llamadas del Día. Promedio de Ventas/Día = Ventas Reales ÷ Días Reportados. Todavía no hay ningún sistema de calificación automática — esta es una herramienta de apoyo para que tú tomes la decisión.
+      </div>
+    </div>
+  `;
+
+  document.getElementById('rendimiento-agentes-content').innerHTML = html;
+}
+
 function renderChargebacksAdmin() {
   const agentesConVentas = (appData.agentes||[]).filter(a =>
     (appData.ventas||[]).some(v=>v.reportadoPor===a.id)
@@ -10540,6 +10664,73 @@ function renderAgenteDashboard() {
       </div>
     </div>
   `;
+}
+
+// ============================================================
+// AGENTE — REPORTE DIARIO (actividad: llamadas, aprobados, etc.)
+// Un registro por agente por fecha, en appData.actividadDiaria[]. Se
+// guarda directo (sin aprobación de Admin, no mueve dinero) y solo se
+// puede editar el reporte de HOY -- mismo criterio que Bravo -> Registro
+// Diario. Usado en Admin -> Rendimiento de Agentes.
+// ============================================================
+const ACTIVIDAD_DIARIA_CAMPOS = [
+  { id:'apr', label:'APR (Aprobados)' },
+  { id:'preApr', label:'PRE-APR' },
+  { id:'can', label:'CAN (Canceladas)' },
+  { id:'fraud', label:'Fraud' },
+  { id:'noDoc', label:'NO DOC' },
+  { id:'des', label:'DES (Desconectados)' },
+  { id:'pif', label:'PIF' },
+  { id:'nmi', label:'NMI' },
+  { id:'ncc', label:'NCC' },
+  { id:'upgrade', label:'UPGRADE' },
+  { id:'interesados', label:'Interesados' },
+  { id:'correos', label:'Correos' },
+  { id:'llamadasDia', label:'Llamadas del Día' },
+  { id:'verifNoCulminadas', label:'Verif. No Culminadas' },
+  { id:'verifClientesNoCulminadas', label:'Verif. Clientes Existentes No Culminadas' },
+  { id:'publicidad', label:'Publicidad' },
+];
+
+function renderAgenteActividad() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms?.agenteId;
+  const hoy = fechaLocalHoy();
+  const existente = (appData.actividadDiaria||[]).find(a=>a.agenteId===agenteId && a.fecha===hoy);
+
+  document.getElementById('agente-actividad-content').innerHTML = `
+    <div class="section">
+      <div class="section-header"><h2>📊 Reporte Diario — ${hoy}</h2></div>
+      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">Solo puedes llenar/editar el reporte de HOY — se guarda directo, no necesita aprobación de Admin.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px">
+        ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6;display:block;margin-bottom:4px">${c.label}</label>
+            <input type="number" min="0" step="1" id="aa-${c.id}" value="${existente ? (existente[c.id]||0) : 0}" style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:700;color:#33475B;outline:none">
+          </div>`).join('')}
+      </div>
+      <button class="btn btn-primary" onclick="guardarActividadDiaria()">💾 Guardar Reporte de Hoy</button>
+    </div>
+  `;
+}
+
+function guardarActividadDiaria() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteId = perms?.agenteId;
+  if(!agenteId) return;
+  const hoy = fechaLocalHoy();
+  if(!appData.actividadDiaria) appData.actividadDiaria = [];
+  let registro = appData.actividadDiaria.find(a=>a.agenteId===agenteId && a.fecha===hoy);
+  if(!registro) {
+    const maxId = appData.actividadDiaria.reduce((m,a)=>Math.max(m,a.id||0),0);
+    registro = { id: maxId+1, agenteId, fecha: hoy };
+    appData.actividadDiaria.push(registro);
+  }
+  ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{
+    registro[c.id] = parseFloat(document.getElementById('aa-'+c.id).value) || 0;
+  });
+  guardar();
+  showNotif('✅ Reporte diario guardado');
 }
 
 // ============================================================
