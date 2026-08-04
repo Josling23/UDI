@@ -522,6 +522,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-item" onclick="showPage('agente-chargebacks',this)"><span class="icon">⚠️</span><span>Chargebacks</span><span id="nav-agente-chargebacks-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-item" id="nav-agente-comisiones" style="display:none" onclick="showPage('agente-comisiones',this)"><span class="icon">💰</span><span>Mis Comisiones</span></div>
     <div class="nav-item" onclick="showPage('agente-perfil',this)"><span class="icon">👤</span><span>Mi Perfil</span></div>
+    <div class="nav-item" onclick="showPage('agente-rendimiento',this)"><span class="icon">📊</span><span>Mi Rendimiento</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="volverAreas()"><span class="icon">🏠</span><span>Cambiar Área</span></div>
     <div class="nav-item" style="color:rgba(255,100,100,0.7)" onclick="cerrarSesion()"><span class="icon">🔒</span><span>Cerrar Sesión</span></div>
@@ -1072,6 +1073,11 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 
     <div class="page" id="page-agente-perfil">
       <div id="agente-perfil-content"></div>
+    </div>
+
+    <!-- ===== AGENTE — MI RENDIMIENTO (sin comisiones) ===== -->
+    <div class="page" id="page-agente-rendimiento">
+      <div id="agente-rendimiento-content"></div>
     </div>
 
     <div class="page" id="page-agente-salud-dashboard">
@@ -4224,6 +4230,7 @@ function activarListenerAppData() {
           'bravo-compras':      bravoCompras,
           'agente-dashboard':   renderAgenteDashboard,
           'agente-actividad':   renderAgenteActividad,
+          'agente-rendimiento': renderAgenteRendimiento,
           // 'agente-reportar' NO se re-renderiza aquí a propósito: es un
           // formulario con datos SIN GUARDAR (cliente, líneas de venta,
           // notas...). Volver a llamar a renderAgenteReportar() en cada
@@ -4766,6 +4773,14 @@ function siguienteMes(mesStr) {
   if(idx === 11) return `Enero ${año+1}`;
   return `${MESES_ES[idx+1]} ${año}`;
 }
+function mesAnteriorA(mesStr) {
+  const parts = (mesStr||'').split(' ');
+  const idx = MESES_ES.indexOf(parts[0]);
+  const año = parseInt(parts[1])||new Date().getFullYear();
+  if(idx === -1) return mesStr;
+  if(idx === 0) return `Diciembre ${año-1}`;
+  return `${MESES_ES[idx-1]} ${año}`;
+}
 // Convierte "2026-06" o año+mm numérico en "Junio 2026"
 function mesStrDesdeNum(yyyy, mm) {
   return `${MESES_ES[mm-1]} ${yyyy}`;
@@ -5010,6 +5025,7 @@ const PAGE_TITLES = {
   'agente-chargebacks':'⚠️ Chargebacks',
   'agente-comisiones':'💰 Mis Comisiones',
   'agente-perfil':'👤 Mi Perfil',
+  'agente-rendimiento':'📊 Mi Rendimiento',
   'agente-salud-dashboard':'💚 Mis Ventas Salud',
   'agente-salud-reportar':'📝 Reportar Cliente',
   'agente-salud-mis-reportes':'📋 Mis Reportes — Salud',
@@ -5082,6 +5098,7 @@ function renderPage(name) {
   if(name==='agente-chargebacks') renderAgenteChargebacks();
   if(name==='agente-comisiones') renderAgenteComisiones();
   if(name==='agente-perfil') renderAgentePerfil();
+  if(name==='agente-rendimiento') renderAgenteRendimiento();
   if(name==='agente-salud-dashboard') renderAgenteSaludDashboard();
   if(name==='agente-salud-reportar') renderAgenteSaludReportar();
   if(name==='agente-salud-mis-reportes') renderAgenteSaludMisReportes();
@@ -5954,6 +5971,39 @@ function resumenChargebacksAgente(agenteId) {
 // calificación automática -- eso queda para una fase futura, a pedido
 // explícito de la usuaria.
 // ============================================================
+// Calcula el rendimiento de UN agente (totales de actividad diaria +
+// ventas reales + % conversión + promedio de ventas/día) para el arreglo
+// de meses dado. Reutilizada por Admin -> Rendimiento de Agentes y por
+// Mi Rendimiento (perfil del agente) -- un solo cálculo, sin duplicar.
+// Devuelve null si el agente no tiene ni actividad ni ventas en el período.
+function calcRendimientoAgente(agente, mesesFiltro) {
+  const nombreLow = normNombre(agente.nombre);
+
+  const actividadAgente = (appData.actividadDiaria||[]).filter(r=>{
+    if(r.agenteId!==agente.id) return false;
+    const {mes,anio} = mesAnioDeFecha(r.fecha);
+    if(!mes||!anio) return false;
+    return mesesFiltro.includes(MESES_ES[mes-1]+' '+anio);
+  });
+
+  const ventasAgente = appData.ventas.filter(v=>{
+    if(v.esGrabacion||v._esGrabacion) return false;
+    if(normNombre(v.agente)!==nombreLow) return false;
+    return mesesFiltro.includes(v.mes);
+  });
+
+  if(!actividadAgente.length && !ventasAgente.length) return null;
+
+  const totales = {};
+  ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{ totales[c.id] = actividadAgente.reduce((s,r)=>s+(r[c.id]||0),0); });
+  const diasReportados = actividadAgente.length;
+  const ventasCount = ventasAgente.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
+  const conversionPct = totales.llamadasDia>0 ? (ventasCount/totales.llamadasDia*100) : null;
+  const promVentasDia = diasReportados>0 ? (ventasCount/diasReportados) : null;
+
+  return { a: agente, totales, diasReportados, ventasCount, conversionPct, promVentasDia };
+}
+
 function renderRendimientoAgentes() {
   const meses = getMeses();
   const todos = [
@@ -5988,33 +6038,7 @@ function renderRendimientoAgentes() {
   const agentesFiltrados = selAg ? todos.filter(a=>String(a.id)===selAg) : todos;
   const mesesFiltro = selMes ? [selMes] : meses;
 
-  const filas = agentesFiltrados.map(a=>{
-    const nombreLow = normNombre(a.nombre);
-
-    const actividadAgente = (appData.actividadDiaria||[]).filter(r=>{
-      if(r.agenteId!==a.id) return false;
-      const {mes,anio} = mesAnioDeFecha(r.fecha);
-      if(!mes||!anio) return false;
-      return mesesFiltro.includes(MESES_ES[mes-1]+' '+anio);
-    });
-
-    const ventasAgente = appData.ventas.filter(v=>{
-      if(v.esGrabacion||v._esGrabacion) return false;
-      if(normNombre(v.agente)!==nombreLow) return false;
-      return mesesFiltro.includes(v.mes);
-    });
-
-    if(!actividadAgente.length && !ventasAgente.length) return null;
-
-    const totales = {};
-    ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{ totales[c.id] = actividadAgente.reduce((s,r)=>s+(r[c.id]||0),0); });
-    const diasReportados = actividadAgente.length;
-    const ventasCount = ventasAgente.reduce((s,v)=>s+(parseFloat(v.cantidad)||1),0);
-    const conversionPct = totales.llamadasDia>0 ? (ventasCount/totales.llamadasDia*100) : null;
-    const promVentasDia = diasReportados>0 ? (ventasCount/diasReportados) : null;
-
-    return { a, totales, diasReportados, ventasCount, conversionPct, promVentasDia };
-  }).filter(Boolean);
+  const filas = agentesFiltrados.map(a=>calcRendimientoAgente(a, mesesFiltro)).filter(Boolean);
 
   html += `
     <div class="section">
@@ -10731,6 +10755,84 @@ function guardarActividadDiaria() {
   });
   guardar();
   showNotif('✅ Reporte diario guardado');
+}
+
+// ============================================================
+// AGENTE — MI RENDIMIENTO (sin comisiones)
+// Reutiliza calcRendimientoAgente() (la misma función que usa Admin ->
+// Rendimiento de Agentes) para mostrarle al propio agente cómo va, con
+// notas de mejora en texto simple -- sin dinero, sin puntaje/calificación.
+// ============================================================
+const AR_UMBRAL_NCC_PCT = 40;
+const AR_UMBRAL_DES_PCT = 15;
+
+function renderAgenteRendimiento() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agente = perms?.agenteId ? (appData.agentes||[]).find(x=>x.id===perms.agenteId) : null;
+  if(!agente) { document.getElementById('agente-rendimiento-content').innerHTML = ''; return; }
+
+  const meses = getMeses();
+  const mesActualDef = mesPorDefecto() || meses[meses.length-1] || '';
+  const selMes = document.getElementById('ar-mes-sel')?.value || mesActualDef;
+  const mesAnt = mesAnteriorA(selMes);
+
+  const actual   = calcRendimientoAgente(agente, [selMes]) || { totales:{}, diasReportados:0, ventasCount:0, conversionPct:null, promVentasDia:null };
+  const anterior = calcRendimientoAgente(agente, [mesAnt]);
+
+  const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
+
+  const flecha = (actualVal, antVal) => {
+    if(antVal===null || antVal===undefined || actualVal===null || actualVal===undefined) return '';
+    if(actualVal>antVal) return ' <span style="color:#00BDA5">▲</span>';
+    if(actualVal<antVal) return ' <span style="color:#F2545B">▼</span>';
+    return ' <span style="color:#99ACC2">—</span>';
+  };
+
+  const totales = actual.totales;
+  const ncc = totales.ncc||0, des = totales.des||0, llamadas = totales.llamadasDia||0;
+  const verifPend = (totales.verifNoCulminadas||0) + (totales.verifClientesNoCulminadas||0);
+  const nccPct = llamadas>0 ? (ncc/llamadas*100) : 0;
+  const desPct = llamadas>0 ? (des/llamadas*100) : 0;
+
+  const notas = [];
+  if(llamadas>0 && nccPct>AR_UMBRAL_NCC_PCT) notas.push(`📵 Tu % de clientes que no contestan (NCC) es ${nccPct.toFixed(0)}% de tus llamadas este mes — quizás ayude variar el horario en que contactas.`);
+  if(llamadas>0 && desPct>AR_UMBRAL_DES_PCT) notas.push(`📴 Tienes ${desPct.toFixed(0)}% de números desconectados sobre tus llamadas — revisa la vigencia del número antes de llamar.`);
+  if(verifPend>0) notas.push(`📋 Tienes ${verifPend} verificación${verifPend>1?'es':''} sin terminar este mes — complétalas para no perder esas ventas.`);
+  if(!notas.length) notas.push('✅ Todo en orden este mes — sigue así.');
+
+  document.getElementById('agente-rendimiento-content').innerHTML = `
+    <div class="section">
+      <div class="section-header"><h2>📊 Mi Rendimiento</h2></div>
+      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">Resumen de tu actividad y ventas — no incluye comisiones ni pagos.</div>
+      <div style="margin-bottom:16px">
+        <select id="ar-mes-sel" onchange="renderAgenteRendimiento()" style="${sFiltro};min-width:150px">
+          ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="cards" style="margin-bottom:20px">
+        <div class="card teal"><label>Ventas Reales</label><div class="val">${actual.ventasCount}${flecha(actual.ventasCount, anterior?.ventasCount)}</div><div class="sub">vs. mes anterior</div></div>
+        <div class="card blue"><label>Días Reportados</label><div class="val">${actual.diasReportados}</div></div>
+        <div class="card green"><label>% de Conversión</label><div class="val">${actual.conversionPct!==null?actual.conversionPct.toFixed(1)+'%':'—'}${flecha(actual.conversionPct, anterior?.conversionPct)}</div><div class="sub">vs. mes anterior</div></div>
+        <div class="card purple"><label>Promedio Ventas/Día</label><div class="val">${actual.promVentasDia!==null?actual.promVentasDia.toFixed(2):'—'}</div></div>
+      </div>
+
+      <div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">🧭 Notas de este mes</div>
+        <ul style="margin:0;padding-left:18px;font-size:12px;color:#33475B;line-height:1.8">
+          ${notas.map(n=>`<li>${n}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📋 Tu actividad de ${selMes}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
+        ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`
+          <div style="background:#fff;border:1px solid #CBD6E2;border-radius:8px;padding:10px 12px">
+            <div style="font-size:10px;color:#7C98B6;font-weight:600">${c.label}</div>
+            <div style="font-size:16px;font-weight:800;color:#33475B">${totales[c.id]||0}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
 }
 
 // ============================================================
