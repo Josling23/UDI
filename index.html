@@ -6035,42 +6035,61 @@ function renderRendimientoAgentes() {
     </div>
   `;
 
-  const agentesFiltrados = selAg ? todos.filter(a=>String(a.id)===selAg) : todos;
-  const mesesFiltro = selMes ? [selMes] : meses;
+  if(selAg) {
+    // Un agente específico seleccionado: mostrar exactamente la misma vista
+    // de tarjetas + notas + actividad que el agente ve en "Mi Rendimiento"
+    // — a pedido de la usuaria, para que ambas pantallas se vean igual.
+    const agenteSel = todos.find(a=>String(a.id)===selAg);
+    const meses2 = getMeses();
+    const selMesDetalle = selMes || mesPorDefecto() || meses2[meses2.length-1] || '';
+    const mesAntDetalle = mesAnteriorA(selMesDetalle);
+    const actualDetalle = agenteSel ? (calcRendimientoAgente(agenteSel, [selMesDetalle]) || { totales:{}, diasReportados:0, ventasCount:0, conversionPct:null, promVentasDia:null }) : null;
+    const anteriorDetalle = agenteSel ? calcRendimientoAgente(agenteSel, [mesAntDetalle]) : null;
 
-  const filas = agentesFiltrados.map(a=>calcRendimientoAgente(a, mesesFiltro)).filter(Boolean);
+    html += `
+      <div class="section">
+        ${agenteSel ? `
+          <div style="font-size:14px;font-weight:800;color:#33475B;margin-bottom:14px">👤 ${agenteSel.nombre} — ${selMesDetalle}</div>
+          ${htmlRendimientoDetalle(actualDetalle, anteriorDetalle, 'Actividad de '+selMesDetalle)}
+        ` : `<div class="tbl-empty">Agente no encontrado</div>`}
+      </div>
+    `;
+  } else {
+    const mesesFiltro = selMes ? [selMes] : meses;
+    const filas = todos.map(a=>calcRendimientoAgente(a, mesesFiltro)).filter(Boolean);
 
-  html += `
-    <div class="section">
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>
-            <th>Agente</th>
-            <th style="text-align:right">Días Reportados</th>
-            ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<th style="text-align:right">${c.label}</th>`).join('')}
-            <th style="text-align:right;background:#F0FFFB">Ventas Reales</th>
-            <th style="text-align:right;background:#F0FFFB">% Conversión</th>
-            <th style="text-align:right;background:#F0FFFB">Prom. Ventas/Día</th>
-            <th style="background:#F5F4FF;min-width:260px">🧭 Notas</th>
-          </tr></thead>
-          <tbody>
-            ${filas.length ? filas.map(f=>`<tr>
-              <td style="font-weight:700;color:#33475B">${f.a.nombre}</td>
-              <td style="text-align:right;color:#7C98B6">${f.diasReportados}</td>
-              ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<td style="text-align:right;color:#33475B">${f.totales[c.id]}</td>`).join('')}
-              <td style="text-align:right;font-weight:800;color:#009FDB;background:#F0FFFB">${f.ventasCount}</td>
-              <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.conversionPct!==null?f.conversionPct.toFixed(1)+'%':'—'}</td>
-              <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.promVentasDia!==null?f.promVentasDia.toFixed(2):'—'}</td>
-              <td style="background:#F5F4FF;font-size:11px;color:#33475B;line-height:1.6">${calcNotasRendimiento(f.totales).join('<br>')}</td>
-            </tr>`).join('') : `<tr><td colspan="${4+ACTIVIDAD_DIARIA_CAMPOS.length}" class="tbl-empty">Sin datos en este período</td></tr>`}
-          </tbody>
-        </table>
+    html += `
+      <div class="section">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Agente</th>
+              <th style="text-align:right">Días Reportados</th>
+              ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<th style="text-align:right">${c.label}</th>`).join('')}
+              <th style="text-align:right;background:#F0FFFB">Ventas Reales</th>
+              <th style="text-align:right;background:#F0FFFB">% Conversión</th>
+              <th style="text-align:right;background:#F0FFFB">Prom. Ventas/Día</th>
+              <th style="background:#F5F4FF;min-width:260px">🧭 Notas</th>
+            </tr></thead>
+            <tbody>
+              ${filas.length ? filas.map(f=>`<tr>
+                <td style="font-weight:700;color:#33475B">${f.a.nombre}</td>
+                <td style="text-align:right;color:#7C98B6">${f.diasReportados}</td>
+                ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<td style="text-align:right;color:#33475B">${f.totales[c.id]}</td>`).join('')}
+                <td style="text-align:right;font-weight:800;color:#009FDB;background:#F0FFFB">${f.ventasCount}</td>
+                <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.conversionPct!==null?f.conversionPct.toFixed(1)+'%':'—'}</td>
+                <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.promVentasDia!==null?f.promVentasDia.toFixed(2):'—'}</td>
+                <td style="background:#F5F4FF;font-size:11px;color:#33475B;line-height:1.6">${calcNotasRendimiento(f).join('<br>')}</td>
+              </tr>`).join('') : `<tr><td colspan="${4+ACTIVIDAD_DIARIA_CAMPOS.length}" class="tbl-empty">Sin datos en este período</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        <div style="font-size:11px;color:#99ACC2;margin-top:14px;line-height:1.6">
+          <b>Cómo se calcula:</b> las columnas de actividad son las que cada agente reporta desde "Reporte Diario" en su perfil. "Ventas Reales" son las ventas ya aprobadas en el sistema (Registro Diario), no lo que el agente reporta como "APR" — para comparar esfuerzo reportado vs. resultado real. % Conversión = Ventas Reales ÷ Llamadas del Día. Promedio de Ventas/Día = Ventas Reales ÷ Días Reportados. Todavía no hay ningún sistema de calificación automática — esta es una herramienta de apoyo para que tú tomes la decisión.
+        </div>
       </div>
-      <div style="font-size:11px;color:#99ACC2;margin-top:14px;line-height:1.6">
-        <b>Cómo se calcula:</b> las columnas de actividad son las que cada agente reporta desde "Reporte Diario" en su perfil. "Ventas Reales" son las ventas ya aprobadas en el sistema (Registro Diario), no lo que el agente reporta como "APR" — para comparar esfuerzo reportado vs. resultado real. % Conversión = Ventas Reales ÷ Llamadas del Día. Promedio de Ventas/Día = Ventas Reales ÷ Días Reportados. Todavía no hay ningún sistema de calificación automática — esta es una herramienta de apoyo para que tú tomes la decisión.
-      </div>
-    </div>
-  `;
+    `;
+  }
 
   document.getElementById('rendimiento-agentes-content').innerHTML = html;
 }
@@ -10718,23 +10737,30 @@ const ACTIVIDAD_DIARIA_CAMPOS = [
   { id:'publicidad', label:'Publicidad' },
 ];
 
-// Notas de mejora en texto simple (sin puntaje/calificación), a partir de
-// los totales de actividad de un agente -- reutilizada por Admin ->
+// Notas de mejora en texto simple (sin puntaje/calificación), a partir del
+// resultado de calcRendimientoAgente() -- reutilizada por Admin ->
 // Rendimiento de Agentes y por Mi Rendimiento (perfil del agente), mismo
-// texto en los dos lados.
+// texto en los dos lados. Pensadas como sugerencias de estrategia de
+// contacto (llamadas, WhatsApp, mensajes, imágenes de ofertas), no solo
+// como una lectura fría de los números -- a pedido de la usuaria.
 const AR_UMBRAL_NCC_PCT = 40;
 const AR_UMBRAL_DES_PCT = 15;
-function calcNotasRendimiento(totales) {
+function calcNotasRendimiento(f) {
+  const totales = f.totales||{};
   const ncc = totales.ncc||0, des = totales.des||0, llamadas = totales.llamadasDia||0;
+  const interesados = totales.interesados||0, publicidad = totales.publicidad||0, pif = totales.pif||0;
   const verifPend = (totales.verifNoCulminadas||0) + (totales.verifClientesNoCulminadas||0);
   const nccPct = llamadas>0 ? (ncc/llamadas*100) : 0;
   const desPct = llamadas>0 ? (des/llamadas*100) : 0;
 
   const notas = [];
-  if(llamadas>0 && nccPct>AR_UMBRAL_NCC_PCT) notas.push(`📵 % de clientes que no contestan (NCC) alto: ${nccPct.toFixed(0)}% de las llamadas — quizás ayude variar el horario de contacto.`);
-  if(llamadas>0 && desPct>AR_UMBRAL_DES_PCT) notas.push(`📴 % de números desconectados alto: ${desPct.toFixed(0)}% de las llamadas — conviene revisar la vigencia del número antes de llamar.`);
-  if(verifPend>0) notas.push(`📋 ${verifPend} ${verifPend>1?'verificaciones':'verificación'} sin terminar este mes — hay que completarlas para no perder esas ventas.`);
-  if(!notas.length) notas.push('✅ Todo en orden este mes.');
+  if(llamadas>0 && nccPct>AR_UMBRAL_NCC_PCT) notas.push(`📵 El ${nccPct.toFixed(0)}% de tus llamadas no contestan — antes de insistir por teléfono, mándales un mensaje de WhatsApp con una imagen de la oferta. Muchos clientes responden mejor a algo que pueden ver con calma que a una llamada en frío.`);
+  if(llamadas>0 && desPct>AR_UMBRAL_DES_PCT) notas.push(`📴 Tienes ${desPct.toFixed(0)}% de números desconectados — confirma el número por WhatsApp o mensaje de texto antes de invertir tiempo llamando.`);
+  if(interesados>0 && f.ventasCount<interesados) notas.push(`💬 Tienes ${interesados} cliente${interesados>1?'s':''} interesado${interesados>1?'s':''} este mes que todavía no se ${interesados>1?'convirtieron':'convirtió'} en venta — mándales un mensaje de seguimiento con una imagen de la promoción vigente, muchas veces solo falta ese empujón para que decidan.`);
+  if(llamadas>0 && publicidad===0) notas.push(`📸 No registraste haber enviado publicidad este mes — compartir imágenes de las promociones por WhatsApp, antes o después de la llamada, ayuda a que el cliente vea la oferta y no solo la escuche.`);
+  if(pif>0) notas.push(`💳 Tienes ${pif} cliente${pif>1?'s':''} que pidió pagar todo de una vez — prueba explicarles el plan de pago con un mensaje o una imagen que lo desglose, para que vean que el pago mensual es más accesible.`);
+  if(verifPend>0) notas.push(`📋 Tienes ${verifPend} ${verifPend>1?'verificaciones':'verificación'} sin terminar este mes — cada una es una venta que se puede perder si no la cierras pronto.`);
+  if(!notas.length) notas.push('✅ Buen mes — sigue con el mismo ritmo de contacto y seguimiento.');
   return notas;
 }
 
@@ -10785,6 +10811,46 @@ function guardarActividadDiaria() {
 // Rendimiento de Agentes) para mostrarle al propio agente cómo va, con
 // notas de mejora en texto simple -- sin dinero, sin puntaje/calificación.
 // ============================================================
+// Bloque de tarjetas + notas + actividad -- el mismo "cómo va" que ve el
+// agente en Mi Rendimiento, reutilizado tal cual en Admin -> Rendimiento de
+// Agentes cuando se filtra a un agente específico (a pedido de la usuaria,
+// para que ambas pantallas se vean igual).
+function htmlRendimientoDetalle(actual, anterior, tituloActividad) {
+  const flecha = (actualVal, antVal) => {
+    if(antVal===null || antVal===undefined || actualVal===null || actualVal===undefined) return '';
+    if(actualVal>antVal) return ' <span style="color:#00BDA5">▲</span>';
+    if(actualVal<antVal) return ' <span style="color:#F2545B">▼</span>';
+    return ' <span style="color:#99ACC2">—</span>';
+  };
+  const totales = actual.totales;
+  const notas = calcNotasRendimiento(actual);
+
+  return `
+    <div class="cards" style="margin-bottom:20px">
+      <div class="card teal"><label>Ventas Reales</label><div class="val">${actual.ventasCount}${flecha(actual.ventasCount, anterior?.ventasCount)}</div><div class="sub">vs. mes anterior</div></div>
+      <div class="card blue"><label>Días Reportados</label><div class="val">${actual.diasReportados}</div></div>
+      <div class="card green"><label>% de Conversión</label><div class="val">${actual.conversionPct!==null?actual.conversionPct.toFixed(1)+'%':'—'}${flecha(actual.conversionPct, anterior?.conversionPct)}</div><div class="sub">vs. mes anterior</div></div>
+      <div class="card purple"><label>Promedio Ventas/Día</label><div class="val">${actual.promVentasDia!==null?actual.promVentasDia.toFixed(2):'—'}</div></div>
+    </div>
+
+    <div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">🧭 Notas de este mes</div>
+      <ul style="margin:0;padding-left:18px;font-size:12px;color:#33475B;line-height:1.8">
+        ${notas.map(n=>`<li>${n}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📋 ${tituloActividad}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
+      ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`
+        <div style="background:#fff;border:1px solid #CBD6E2;border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;color:#7C98B6;font-weight:600">${c.label}</div>
+          <div style="font-size:16px;font-weight:800;color:#33475B">${totales[c.id]||0}</div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
 function renderAgenteRendimiento() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agente = perms?.agenteId ? (appData.agentes||[]).find(x=>x.id===perms.agenteId) : null;
@@ -10800,16 +10866,6 @@ function renderAgenteRendimiento() {
 
   const sFiltro = 'background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-weight:600';
 
-  const flecha = (actualVal, antVal) => {
-    if(antVal===null || antVal===undefined || actualVal===null || actualVal===undefined) return '';
-    if(actualVal>antVal) return ' <span style="color:#00BDA5">▲</span>';
-    if(actualVal<antVal) return ' <span style="color:#F2545B">▼</span>';
-    return ' <span style="color:#99ACC2">—</span>';
-  };
-
-  const totales = actual.totales;
-  const notas = calcNotasRendimiento(totales);
-
   document.getElementById('agente-rendimiento-content').innerHTML = `
     <div class="section">
       <div class="section-header"><h2>📊 Mi Rendimiento</h2></div>
@@ -10819,28 +10875,7 @@ function renderAgenteRendimiento() {
           ${meses.map(m=>`<option value="${m}" ${m===selMes?'selected':''}>${m}</option>`).join('')}
         </select>
       </div>
-      <div class="cards" style="margin-bottom:20px">
-        <div class="card teal"><label>Ventas Reales</label><div class="val">${actual.ventasCount}${flecha(actual.ventasCount, anterior?.ventasCount)}</div><div class="sub">vs. mes anterior</div></div>
-        <div class="card blue"><label>Días Reportados</label><div class="val">${actual.diasReportados}</div></div>
-        <div class="card green"><label>% de Conversión</label><div class="val">${actual.conversionPct!==null?actual.conversionPct.toFixed(1)+'%':'—'}${flecha(actual.conversionPct, anterior?.conversionPct)}</div><div class="sub">vs. mes anterior</div></div>
-        <div class="card purple"><label>Promedio Ventas/Día</label><div class="val">${actual.promVentasDia!==null?actual.promVentasDia.toFixed(2):'—'}</div></div>
-      </div>
-
-      <div style="background:#F5F8FA;border-radius:8px;padding:12px 14px;margin-bottom:20px">
-        <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">🧭 Notas de este mes</div>
-        <ul style="margin:0;padding-left:18px;font-size:12px;color:#33475B;line-height:1.8">
-          ${notas.map(n=>`<li>${n}</li>`).join('')}
-        </ul>
-      </div>
-
-      <div style="font-size:12px;font-weight:700;color:#0057A8;margin-bottom:8px">📋 Tu actividad de ${selMes}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
-        ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`
-          <div style="background:#fff;border:1px solid #CBD6E2;border-radius:8px;padding:10px 12px">
-            <div style="font-size:10px;color:#7C98B6;font-weight:600">${c.label}</div>
-            <div style="font-size:16px;font-weight:800;color:#33475B">${totales[c.id]||0}</div>
-          </div>`).join('')}
-      </div>
+      ${htmlRendimientoDetalle(actual, anterior, 'Tu actividad de '+selMes)}
     </div>
   `;
 }
