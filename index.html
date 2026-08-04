@@ -6051,6 +6051,7 @@ function renderRendimientoAgentes() {
             <th style="text-align:right;background:#F0FFFB">Ventas Reales</th>
             <th style="text-align:right;background:#F0FFFB">% Conversión</th>
             <th style="text-align:right;background:#F0FFFB">Prom. Ventas/Día</th>
+            <th style="background:#F5F4FF;min-width:260px">🧭 Notas</th>
           </tr></thead>
           <tbody>
             ${filas.length ? filas.map(f=>`<tr>
@@ -6060,7 +6061,8 @@ function renderRendimientoAgentes() {
               <td style="text-align:right;font-weight:800;color:#009FDB;background:#F0FFFB">${f.ventasCount}</td>
               <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.conversionPct!==null?f.conversionPct.toFixed(1)+'%':'—'}</td>
               <td style="text-align:right;font-weight:700;background:#F0FFFB">${f.promVentasDia!==null?f.promVentasDia.toFixed(2):'—'}</td>
-            </tr>`).join('') : `<tr><td colspan="${3+ACTIVIDAD_DIARIA_CAMPOS.length}" class="tbl-empty">Sin datos en este período</td></tr>`}
+              <td style="background:#F5F4FF;font-size:11px;color:#33475B;line-height:1.6">${calcNotasRendimiento(f.totales).join('<br>')}</td>
+            </tr>`).join('') : `<tr><td colspan="${4+ACTIVIDAD_DIARIA_CAMPOS.length}" class="tbl-empty">Sin datos en este período</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -10716,6 +10718,26 @@ const ACTIVIDAD_DIARIA_CAMPOS = [
   { id:'publicidad', label:'Publicidad' },
 ];
 
+// Notas de mejora en texto simple (sin puntaje/calificación), a partir de
+// los totales de actividad de un agente -- reutilizada por Admin ->
+// Rendimiento de Agentes y por Mi Rendimiento (perfil del agente), mismo
+// texto en los dos lados.
+const AR_UMBRAL_NCC_PCT = 40;
+const AR_UMBRAL_DES_PCT = 15;
+function calcNotasRendimiento(totales) {
+  const ncc = totales.ncc||0, des = totales.des||0, llamadas = totales.llamadasDia||0;
+  const verifPend = (totales.verifNoCulminadas||0) + (totales.verifClientesNoCulminadas||0);
+  const nccPct = llamadas>0 ? (ncc/llamadas*100) : 0;
+  const desPct = llamadas>0 ? (des/llamadas*100) : 0;
+
+  const notas = [];
+  if(llamadas>0 && nccPct>AR_UMBRAL_NCC_PCT) notas.push(`📵 % de clientes que no contestan (NCC) alto: ${nccPct.toFixed(0)}% de las llamadas — quizás ayude variar el horario de contacto.`);
+  if(llamadas>0 && desPct>AR_UMBRAL_DES_PCT) notas.push(`📴 % de números desconectados alto: ${desPct.toFixed(0)}% de las llamadas — conviene revisar la vigencia del número antes de llamar.`);
+  if(verifPend>0) notas.push(`📋 ${verifPend} ${verifPend>1?'verificaciones':'verificación'} sin terminar este mes — hay que completarlas para no perder esas ventas.`);
+  if(!notas.length) notas.push('✅ Todo en orden este mes.');
+  return notas;
+}
+
 function renderAgenteActividad() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agenteId = perms?.agenteId;
@@ -10763,9 +10785,6 @@ function guardarActividadDiaria() {
 // Rendimiento de Agentes) para mostrarle al propio agente cómo va, con
 // notas de mejora en texto simple -- sin dinero, sin puntaje/calificación.
 // ============================================================
-const AR_UMBRAL_NCC_PCT = 40;
-const AR_UMBRAL_DES_PCT = 15;
-
 function renderAgenteRendimiento() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agente = perms?.agenteId ? (appData.agentes||[]).find(x=>x.id===perms.agenteId) : null;
@@ -10789,16 +10808,7 @@ function renderAgenteRendimiento() {
   };
 
   const totales = actual.totales;
-  const ncc = totales.ncc||0, des = totales.des||0, llamadas = totales.llamadasDia||0;
-  const verifPend = (totales.verifNoCulminadas||0) + (totales.verifClientesNoCulminadas||0);
-  const nccPct = llamadas>0 ? (ncc/llamadas*100) : 0;
-  const desPct = llamadas>0 ? (des/llamadas*100) : 0;
-
-  const notas = [];
-  if(llamadas>0 && nccPct>AR_UMBRAL_NCC_PCT) notas.push(`📵 Tu % de clientes que no contestan (NCC) es ${nccPct.toFixed(0)}% de tus llamadas este mes — quizás ayude variar el horario en que contactas.`);
-  if(llamadas>0 && desPct>AR_UMBRAL_DES_PCT) notas.push(`📴 Tienes ${desPct.toFixed(0)}% de números desconectados sobre tus llamadas — revisa la vigencia del número antes de llamar.`);
-  if(verifPend>0) notas.push(`📋 Tienes ${verifPend} verificación${verifPend>1?'es':''} sin terminar este mes — complétalas para no perder esas ventas.`);
-  if(!notas.length) notas.push('✅ Todo en orden este mes — sigue así.');
+  const notas = calcNotasRendimiento(totales);
 
   document.getElementById('agente-rendimiento-content').innerHTML = `
     <div class="section">
