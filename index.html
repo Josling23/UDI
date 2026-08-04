@@ -10758,7 +10758,7 @@ function calcNotasRendimiento(f) {
   if(llamadas>0 && desPct>AR_UMBRAL_DES_PCT) notas.push(`📴 Tienes ${desPct.toFixed(0)}% de números desconectados — confirma el número por WhatsApp o mensaje de texto antes de invertir tiempo llamando.`);
   if(interesados>0 && f.ventasCount<interesados) notas.push(`💬 Tienes ${interesados} cliente${interesados>1?'s':''} interesado${interesados>1?'s':''} este mes que todavía no se ${interesados>1?'convirtieron':'convirtió'} en venta — mándales un mensaje de seguimiento con una imagen de la promoción vigente, muchas veces solo falta ese empujón para que decidan.`);
   if(llamadas>0 && publicidad===0) notas.push(`📸 No registraste haber enviado publicidad este mes — compartir imágenes de las promociones por WhatsApp, antes o después de la llamada, ayuda a que el cliente vea la oferta y no solo la escuche.`);
-  if(pif>0) notas.push(`💳 Tienes ${pif} cliente${pif>1?'s':''} que pidió pagar todo de una vez — prueba explicarles el plan de pago con un mensaje o una imagen que lo desglose, para que vean que el pago mensual es más accesible.`);
+  if(pif>0) notas.push(`💳 Tienes ${pif} caso${pif>1?'s':''} este mes donde AT&T pidió el pago completo del equipo (no aprobó financiamiento, probablemente por crédito) — ofrece la opción de poner la orden a nombre de un familiar o amigo con mejor crédito, así el cliente puede acceder al plan mensual.`);
   if(verifPend>0) notas.push(`📋 Tienes ${verifPend} ${verifPend>1?'verificaciones':'verificación'} sin terminar este mes — cada una es una venta que se puede perder si no la cierras pronto.`);
   if(!notas.length) notas.push('✅ Buen mes — sigue con el mismo ritmo de contacto y seguimiento.');
   return notas;
