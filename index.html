@@ -10794,8 +10794,17 @@ function guardarActividadDiaria() {
   if(!appData.actividadDiaria) appData.actividadDiaria = [];
   let registro = appData.actividadDiaria.find(a=>a.agenteId===agenteId && a.fecha===hoy);
   if(!registro) {
-    const maxId = appData.actividadDiaria.reduce((m,a)=>Math.max(m,a.id||0),0);
-    registro = { id: maxId+1, agenteId, fecha: hoy };
+    // id determinístico (agenteId+fecha), NO un contador maxId+1 -- ese
+    // patrón calculaba el id a partir de la copia local de cada sesión, así
+    // que dos agentes guardando su primer reporte del día casi al mismo
+    // tiempo podían calcular el MISMO id de forma independiente. Con ids
+    // iguales, fusionarConServidor() (protección anti-sobrescritura del
+    // guardado) los trataba como "el mismo registro" y uno de los dos
+    // desaparecía silenciosamente -- causa real confirmada de reportes
+    // diarios que no se guardaban. Como cada agente solo puede tener un
+    // registro por fecha (ya se busca así arriba), agenteId+fecha ya es una
+    // clave única por sí sola, sin colisión posible entre agentes distintos.
+    registro = { id: agenteId+'_'+hoy, agenteId, fecha: hoy };
     appData.actividadDiaria.push(registro);
   }
   ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{
