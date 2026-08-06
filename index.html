@@ -18843,8 +18843,6 @@ function importarDatosJunio() {
     return;
   }
 
-  let nextId = (appData.bravo?.nextDiarioId || 1);
-
   datosJunio.forEach(reporte => {
     // Calcular ganancia total
     let gananciaTotal = 0;
@@ -18893,7 +18891,7 @@ function importarDatosJunio() {
     if (reporte.telefonos?.length) categoriasPrincipal.push('Teléfonos');
 
     const nuevoReporte = {
-      id: nextId++,
+      id: bravoNuevoIdDiario(),
       fecha: reporte.fecha,
       categoria: categoriasPrincipal.join(' + '),
       accesorios: reporte.accesorios || [],
@@ -18909,8 +18907,6 @@ function importarDatosJunio() {
 
     appData.bravo.reportesDiarios.push(nuevoReporte);
   });
-
-  appData.bravo.nextDiarioId = nextId;
 
   // guardarEnFirebase() nunca existió como función real en esta app — esta
   // línea SIEMPRE lanzaba un error aquí, así que este botón nunca terminaba
@@ -21035,6 +21031,22 @@ function bravoActualizarResumen() {
   }
 }
 
+// Id único para un nuevo reporte de Bravo -> Registro Diario, SIN depender
+// de un contador compartido (appData.bravo.nextDiarioId) -- varias personas
+// entran registros ahí, y dos sesiones podían leer el mismo "próximo id" de
+// su propia copia local casi al mismo tiempo y generar el mismo id. Con ids
+// iguales, la protección anti-sobrescritura del guardado (fusionarConServidor,
+// que empareja registros por id) trataba ambos como "el mismo registro" y
+// uno de los dos desaparecía en silencio al guardar -- causa real confirmada
+// de registros diarios de Bravo que se borraban (mismo patrón que el bug ya
+// corregido en el Reporte Diario de agentes de AT&T). Igual que _syncSesionId
+// más arriba en este archivo, combinar hora exacta + algo random hace que la
+// probabilidad de colisión entre dos sesiones sea prácticamente cero, sin
+// necesitar ningún contador sincronizado.
+function bravoNuevoIdDiario() {
+  return Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
 // Guardar registro completo
 function bravoGuardarRegistro() {
   const fecha = document.getElementById('bravo-fecha').value;
@@ -21112,7 +21124,7 @@ function bravoGuardarRegistro() {
   } else {
     // CREAR NUEVO REGISTRO
     const registro = {
-      id: appData.bravo.nextDiarioId,
+      id: bravoNuevoIdDiario(),
       fecha,
       accesorios: bravoRegistroTemp.accesorios,
       lycas: bravoRegistroTemp.lycas,
@@ -21128,7 +21140,6 @@ function bravoGuardarRegistro() {
     };
 
     appData.bravo.reportesDiarios.push(registro);
-    appData.bravo.nextDiarioId++;
 
     bravoSincronizarGastosDeReporte(registro);
 
@@ -21431,7 +21442,6 @@ function bravoGuardarReportesImportados() {
   const seleccionados = bravoReportesParseados.filter(r => r.incluir && r.fecha);
   if(seleccionados.length === 0) { showNotif('⚠️ No hay reportes marcados con fecha válida para guardar','error'); return; }
 
-  if(!appData.bravo.nextDiarioId) appData.bravo.nextDiarioId = 1;
   if(!appData.bravo.caja) appData.bravo.caja = [];
   if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
 
@@ -21439,7 +21449,7 @@ function bravoGuardarReportesImportados() {
   seleccionados.forEach(r => {
     if(r.productosCount > 0 || r.actividades.length > 0) {
       const registro = {
-        id: appData.bravo.nextDiarioId++,
+        id: bravoNuevoIdDiario(),
         fecha: r.fecha,
         accesorios: r.accesorios,
         lycas: r.lycas,
