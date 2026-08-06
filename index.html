@@ -3760,6 +3760,20 @@ function normalizarAppData() {
   // verificaciones, etc.) -- lo llena el propio agente desde su perfil.
   // Usado en Admin -> Rendimiento de Agentes.
   if(!appData.actividadDiaria) appData.actividadDiaria = [];
+  // Reparar ids inválidos (NaN/null) en actividadDiaria -- confirmado en
+  // producción: un solo valor NaN en CUALQUIER registro (venía de una
+  // versión anterior de guardarActividadDiaria() que calculaba el id como
+  // maxId+1) hace que Firebase rechace el guardado de TODO appData, no
+  // solo esta colección -- bloqueando el guardado para todos los usuarios
+  // hasta reparar el dato. Se descartan registros sin agenteId/fecha
+  // (imposibles de identificar) y se reasigna el id determinístico
+  // (agenteId+fecha, mismo esquema que ya usa guardarActividadDiaria())
+  // a los que tengan un id inválido.
+  appData.actividadDiaria = appData.actividadDiaria.filter(r => r && r.agenteId!=null && r.fecha);
+  appData.actividadDiaria.forEach(r => {
+    const idValido = (typeof r.id === 'string' && r.id) || (typeof r.id === 'number' && Number.isFinite(r.id));
+    if(!idValido) r.id = r.agenteId+'_'+r.fecha;
+  });
   if(!appData.productosCustom) appData.productosCustom = [];
   if(!appData.campanas)    appData.campanas = [];
   if(!appData.nextCampId)  appData.nextCampId = 1;
@@ -3808,7 +3822,7 @@ function normalizarAppData() {
     const idsVistosCaja = new Set();
     let maxIdCaja = appData.bravo.nextCajaId || 1;
     appData.bravo.caja.forEach(c => {
-      if(c.id == null || idsVistosCaja.has(c.id)) c.id = maxIdCaja++;
+      if(c.id == null || (typeof c.id==='number' && Number.isNaN(c.id)) || idsVistosCaja.has(c.id)) c.id = maxIdCaja++;
       idsVistosCaja.add(c.id);
       if(c.id >= maxIdCaja) maxIdCaja = c.id + 1;
     });
@@ -3822,7 +3836,7 @@ function normalizarAppData() {
     const idsVistos = new Set();
     let maxId = appData.bravo.nextDiarioId || 1;
     appData.bravo.reportesDiarios.forEach(r => {
-      if(r.id == null || idsVistos.has(r.id)) r.id = maxId++;
+      if(r.id == null || (typeof r.id==='number' && Number.isNaN(r.id)) || idsVistos.has(r.id)) r.id = maxId++;
       idsVistos.add(r.id);
       if(r.id >= maxId) maxId = r.id + 1;
     });
@@ -3839,7 +3853,7 @@ function normalizarAppData() {
     const idsVistosRep = new Set();
     let maxIdRep = appData.bravo.nextReparacionId || 1;
     appData.bravo.reparaciones.forEach(r => {
-      if(r.id == null || idsVistosRep.has(r.id)) r.id = maxIdRep++;
+      if(r.id == null || (typeof r.id==='number' && Number.isNaN(r.id)) || idsVistosRep.has(r.id)) r.id = maxIdRep++;
       idsVistosRep.add(r.id);
       if(r.id >= maxIdRep) maxIdRep = r.id + 1;
     });
@@ -3849,7 +3863,7 @@ function normalizarAppData() {
     const idsVistosLyca = new Set();
     let maxIdLyca = appData.bravo.nextLineaLycaId || 1;
     appData.bravo.lineasLyca.forEach(l => {
-      if(l.id == null || idsVistosLyca.has(l.id)) l.id = maxIdLyca++;
+      if(l.id == null || (typeof l.id==='number' && Number.isNaN(l.id)) || idsVistosLyca.has(l.id)) l.id = maxIdLyca++;
       idsVistosLyca.add(l.id);
       if(l.id >= maxIdLyca) maxIdLyca = l.id + 1;
     });
@@ -3859,7 +3873,7 @@ function normalizarAppData() {
     const idsVistosGastoBravo = new Set();
     let maxIdGastoBravo = appData.bravo.nextGastoId || 1;
     appData.bravo.gastos.forEach(g => {
-      if(g.id == null || idsVistosGastoBravo.has(g.id)) g.id = maxIdGastoBravo++;
+      if(g.id == null || (typeof g.id==='number' && Number.isNaN(g.id)) || idsVistosGastoBravo.has(g.id)) g.id = maxIdGastoBravo++;
       idsVistosGastoBravo.add(g.id);
       if(g.id >= maxIdGastoBravo) maxIdGastoBravo = g.id + 1;
     });
@@ -3869,7 +3883,7 @@ function normalizarAppData() {
     const idsVistosCompra = new Set();
     let maxIdCompra = appData.bravo.nextCompraId || 1;
     appData.bravo.compras.forEach(c => {
-      if(c.id == null || idsVistosCompra.has(c.id)) c.id = maxIdCompra++;
+      if(c.id == null || (typeof c.id==='number' && Number.isNaN(c.id)) || idsVistosCompra.has(c.id)) c.id = maxIdCompra++;
       idsVistosCompra.add(c.id);
       if(c.id >= maxIdCompra) maxIdCompra = c.id + 1;
     });
