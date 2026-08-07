@@ -19090,8 +19090,8 @@ function bravoDashboard() {
                   <td>${r.productosCount || 0} productos</td>
                   <td style="font-weight:700;color:#00BDA5">${fmt(r.gananciaTotal || 0)}</td>
                   <td>
-                    <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.id})">✏️</button>
-                    <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario(${r.id})">✕</button>
+                    <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario('${r.id}')">✏️</button>
+                    <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario('${r.id}')">✕</button>
                   </td>
                 </tr>
               `).join('')}
@@ -19215,9 +19215,9 @@ function bravoRenderRegistrosTabla() {
       <td>${r.telefonos ? r.telefonos.length : 0}</td>
       <td style="font-weight:700;color:#00BDA5">${fmt(r.gananciaTotal || 0)}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick="bravoVerReporteRegistro(${r.id})" title="Ver el resumen sin editar">👁️ Reporte</button>
-        <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.id})">✏️</button>
-        <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario(${r.id})">✕</button>
+        <button class="btn btn-ghost btn-xs" onclick="bravoVerReporteRegistro('${r.id}')" title="Ver el resumen sin editar">👁️ Reporte</button>
+        <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario('${r.id}')">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario('${r.id}')">✕</button>
       </td>
     </tr>
   `).join('') : '<tr><td colspan="9" class="tbl-empty">Sin registros</td></tr>';
@@ -19279,9 +19279,9 @@ function bravoDetectarDuplicados() {
                 <td style="text-align:right">${(r.combos||[]).length}</td>
                 <td style="text-align:right">${(r.telefonos||[]).length}</td>
                 <td style="white-space:nowrap;text-align:right">
-                  <button class="btn btn-ghost btn-xs" onclick="bravoVerReporteRegistro(${r.id})" title="Ver el resumen sin editar">👁️</button>
-                  <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario(${r.id})">✏️</button>
-                  <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario(${r.id});bravoDetectarDuplicados()">🗑️</button>
+                  <button class="btn btn-ghost btn-xs" onclick="bravoVerReporteRegistro('${r.id}')" title="Ver el resumen sin editar">👁️</button>
+                  <button class="btn btn-ghost btn-xs" onclick="editarRegistroDiario('${r.id}')">✏️</button>
+                  <button class="btn btn-danger btn-xs" onclick="eliminarRegistroDiario('${r.id}');bravoDetectarDuplicados()">🗑️</button>
                 </td>
               </tr>`).join('')}
             </tbody>
@@ -19423,7 +19423,7 @@ function bravoConstruirSeccionesReporte(r) {
 }
 
 function bravoVerReporteRegistro(id) {
-  const r = (appData.bravo.reportesDiarios||[]).find(x=>x.id===id);
+  const r = (appData.bravo.reportesDiarios||[]).find(x=>String(x.id)===String(id));
   if(!r) return;
   _bravoReporteVerId = id;
   const secciones = bravoConstruirSeccionesReporte(r);
@@ -19445,7 +19445,8 @@ function bravoVerReporteRegistro(id) {
 }
 
 function bravoCompartirReporteWhatsApp(id) {
-  const r = (appData.bravo.reportesDiarios||[]).find(x=>x.id===(id||_bravoReporteVerId));
+  const idBuscado = id||_bravoReporteVerId;
+  const r = (appData.bravo.reportesDiarios||[]).find(x=>String(x.id)===String(idBuscado));
   if(!r) return;
   const secciones = bravoConstruirSeccionesReporte(r);
   let texto = `📋 *Registro de Bravo — ${r.fecha}*\n\n`;
@@ -21913,8 +21914,8 @@ function editarRegistroDiario(id) {
 // Eliminar registro
 function eliminarRegistroDiario(id) {
   if(!confirm('¿Eliminar este registro diario?')) return;
-  appData.bravo.reportesDiarios = (appData.bravo.reportesDiarios||[]).filter(r => r.id !== id);
-  appData.bravo.gastos = (appData.bravo.gastos||[]).filter(g => g.origenReporteId !== id);
+  appData.bravo.reportesDiarios = (appData.bravo.reportesDiarios||[]).filter(r => String(r.id) !== String(id));
+  appData.bravo.gastos = (appData.bravo.gastos||[]).filter(g => String(g.origenReporteId) !== String(id));
   guardar();
   bravoRefrescarVistaActual();
   showNotif('🗑️ Registro eliminado');
