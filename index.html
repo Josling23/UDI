@@ -19383,6 +19383,20 @@ const BRAVO_TEL_TIPO_LABELS_FULL = { desbloqueado:'Desbloqueado', activacion:'Co
 // ============================================================
 let _bravoReporteVerId = null;
 
+// Ganancia real del día = ganancia por producto menos el costo de cada
+// producto (el mismo costo que se sincroniza como Gasto en ROI Bravo al
+// guardar, ver bravoSincronizarGastosDeReporte) -- puramente informativa
+// para Ver Reporte/WhatsApp, no se guarda en ningún lado ni afecta Gastos.
+function bravoGananciaRealReporte(r) {
+  let real = 0;
+  (r.accesorios||[]).forEach(a => real += ((a.precio||0)-(a.costo||0)) * (a.cantidad||1));
+  (r.lycas||[]).forEach(l => real += (l.precio||0)-(l.costo||0));
+  (r.reparaciones||[]).forEach(rp => real += (rp.precio||0)-(rp.costo||0));
+  (r.combos||[]).forEach(c => real += (c.precio||0)-(c.costo||0)-(c.comision||0));
+  (r.telefonos||[]).forEach(t => real += (t.precio||0)-(t.costo||0));
+  return real;
+}
+
 function bravoConstruirSeccionesReporte(r) {
   const secciones = [];
   if((r.accesorios||[]).length) {
@@ -19440,6 +19454,10 @@ function bravoVerReporteRegistro(id) {
     <div style="border-top:2px solid #F5F8FA;padding-top:12px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:13px;font-weight:700;color:#33475B">💰 GANANCIA TOTAL</span>
       <span style="font-size:20px;font-weight:900;color:#00BDA5">${fmt(r.gananciaTotal||0)}</span>
+    </div>
+    <div style="padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;font-weight:700;color:#7C98B6">💵 Ganancia Total Real (después de costos)</span>
+      <span style="font-size:15px;font-weight:800;color:#33475B">${fmt(bravoGananciaRealReporte(r))}</span>
     </div>`;
   document.getElementById('modal-bravo-reporte-resumen').classList.add('open');
 }
@@ -19455,7 +19473,8 @@ function bravoCompartirReporteWhatsApp(id) {
   } else {
     texto += 'Sin productos registrados\n\n';
   }
-  texto += `💰 GANANCIA TOTAL: ${fmt(r.gananciaTotal||0)}`;
+  texto += `💰 GANANCIA TOTAL: ${fmt(r.gananciaTotal||0)}\n`;
+  texto += `💵 Ganancia Total Real (después de costos): ${fmt(bravoGananciaRealReporte(r))}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
