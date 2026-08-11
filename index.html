@@ -3744,6 +3744,20 @@ function normalizarAppData() {
   if(!appData.agentes)  appData.agentes = [];
   if(!appData.ventas)   appData.ventas = [];
   if(!appData.quincenas) appData.quincenas = {};
+  // Backfill: quincenas ya marcadas como pagadas ANTES de que existiera el
+  // congelado de sueldo (sueldoSnapshot) no lo tienen guardado -- se les
+  // asigna el sueldo ACTUAL del agente como punto de partida, para que de
+  // aquí en adelante dejen de cambiar si se vuelve a tocar el sueldo. No es
+  // el valor histórico exacto (nunca se guardó), pero detiene el problema
+  // desde ahora. Puramente aditivo: solo agrega el campo que falta, no
+  // toca fecha/agenteNombre/mes/q ni ningún otro dato ya guardado.
+  Object.keys(appData.quincenas).forEach(qKey => {
+    const registro = appData.quincenas[qKey];
+    if(registro && typeof registro === 'object' && registro.agenteNombre && registro.sueldoSnapshot == null) {
+      const agenteReg = appData.agentes.find(a => (a.nombre||'').trim().toLowerCase() === (registro.agenteNombre||'').trim().toLowerCase());
+      registro.sueldoSnapshot = agenteReg ? (agenteReg.sueldoQuincenal||0) : 0;
+    }
+  });
   if(!appData.meses)    appData.meses = [];
   if(!appData.gastos)   appData.gastos = [];
   if(!appData.nextId)      appData.nextId = 1;
@@ -4963,7 +4977,7 @@ function calcNominaQuincena(mes, q) {
 
   appData.agentes.forEach(a => {
     const key = getQuincenaKey(a.nombre, mes, q);
-    const basico = (a.sueldoQuincenal || 0);
+    const basico = getBasicoQuincena(a, mes, q);
     const comisiones = getComisionesQuincena(a, mes, q);
     const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
     const prest = getExtra('prest', a.nombre, mes+'Q'+q);
@@ -4979,6 +4993,17 @@ function calcNominaQuincena(mes, q) {
 }
 
 function getQuincenaKey(agente, mes, q) { return `${agente.trim().toLowerCase()}||${mes}||Q${q}`; }
+// Sueldo "básico" de un agente para una quincena específica -- si esa
+// quincena ya fue marcada como pagada, usa el sueldo CONGELADO en ese
+// momento (sueldoSnapshot, ver toggleQuincena()), no el sueldo actual del
+// agente. Así, si luego se le cambia el sueldo, los meses ya pagados no
+// cambian retroactivamente. Para quincenas aún no pagadas, sigue usando el
+// sueldo actual (se puede ajustar libremente hasta que se pague de verdad).
+function getBasicoQuincena(a, mes, q) {
+  const registro = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
+  if(registro && typeof registro === 'object' && registro.sueldoSnapshot != null) return registro.sueldoSnapshot;
+  return a.sueldoQuincenal || 0;
+}
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
 // Fecha de HOY en horario LOCAL, formato YYYY-MM-DD (mismo formato que
 // <input type="date">). new Date().toISOString() usa UTC, así que en
@@ -7127,7 +7152,7 @@ function renderVentas() {
       if(quinc) {
         const q = parseInt(quinc);
         const comQ = getComisionesQuincena(agente, fMes, q);
-        const basico = agente.sueldoQuincenal||0;
+        const basico = getBasicoQuincena(agente, fMes, q);
         const bonos = getExtra('bono', agente.nombre, fMes+'Q'+q);
         const prest = getExtra('prest', agente.nombre, fMes+'Q'+q);
         const desc = getExtra('desc', agente.nombre, fMes+'Q'+q);
@@ -7155,7 +7180,7 @@ function renderVentas() {
 
         [1, 2].forEach(q => {
           const comQ = getComisionesQuincena(agente, fMes, q);
-          const basico = agente.sueldoQuincenal||0;
+          const basico = getBasicoQuincena(agente, fMes, q);
           const bonos = getExtra('bono', agente.nombre, fMes+'Q'+q);
           const prest = getExtra('prest', agente.nombre, fMes+'Q'+q);
           const desc = getExtra('desc', agente.nombre, fMes+'Q'+q);
@@ -7188,7 +7213,7 @@ function renderVentas() {
 
       [1, 2].forEach(q => {
         const comQ = getComisionesQuincena(agente, fMes, q);
-        const basico = agente.sueldoQuincenal||0;
+        const basico = getBasicoQuincena(agente, fMes, q);
         const bonos = getExtra('bono', agente.nombre, fMes+'Q'+q);
         const prest = getExtra('prest', agente.nombre, fMes+'Q'+q);
         const desc = getExtra('desc', agente.nombre, fMes+'Q'+q);
@@ -9348,7 +9373,7 @@ function renderResumen() {
     const units = vv.reduce((s,v)=>s+v.cantidad,0);
     // Quincenas pagadas
     let sueldoPagado = 0;
-    [1,2].forEach(q=>{ if(appData.quincenas[getQuincenaKey(a.nombre,mes,q)]) sueldoPagado+=a.sueldoQuincenal||0; });
+    [1,2].forEach(q=>{ if(appData.quincenas[getQuincenaKey(a.nombre,mes,q)]) sueldoPagado+=getBasicoQuincena(a,mes,q); });
     const sueldoMensual = (a.sueldoQuincenal||0)*2;
     return { ...a, com, units, ventas:vv.length, sueldoPagado, sueldoMensual };
   });
@@ -9391,7 +9416,11 @@ function toggleQuincena(agenteNombre, mes, q) {
   if(appData.quincenas[key]) {
     delete appData.quincenas[key];
   } else {
-    appData.quincenas[key] = { agenteNombre, mes, q, fecha: new Date().toISOString().split('T')[0] };
+    // Congelar el sueldo actual del agente en este momento (sueldoSnapshot)
+    // -- así, si más adelante se le cambia el sueldo, esta quincena ya
+    // pagada no cambia retroactivamente (ver getBasicoQuincena()).
+    const agenteDePago = appData.agentes.find(a=>(a.nombre||'').trim().toLowerCase()===(agenteNombre||'').trim().toLowerCase());
+    appData.quincenas[key] = { agenteNombre, mes, q, fecha: new Date().toISOString().split('T')[0], sueldoSnapshot: agenteDePago ? (agenteDePago.sueldoQuincenal||0) : 0 };
   }
   guardar();
   renderPagos();
@@ -9716,7 +9745,7 @@ function renderPagos() {
         return pp.mes===mesAct && pp.q===q;
       });
       const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-      const basico = jp.sueldoQuincenal||0;
+      const basico = getBasicoQuincena(jp, mesAct, q);
       const bonos  = getExtra('bono',  jp.nombre, mesAct+'Q'+q);
       const prest  = getExtra('prest', jp.nombre, mesAct+'Q'+q);
       const desc   = getExtra('desc',  jp.nombre, mesAct+'Q'+q);
@@ -9747,7 +9776,7 @@ function renderPagos() {
         return pp.mes===mesAct && pp.q===q;
       });
       comGrab += grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-      basico  += a.sueldoQuincenal||0;
+      basico  += getBasicoQuincena(a, mesAct, q);
       bonos   += getExtra('bono',  a.nombre, mesAct+'Q'+q);
       prest   += getExtra('prest', a.nombre, mesAct+'Q'+q);
       desc    += getExtra('desc',  a.nombre, mesAct+'Q'+q);
@@ -9877,7 +9906,7 @@ function renderPagos() {
       return qVis.map(q=>{
         const pagado  = appData.quincenas[getQuincenaKey(a.nombre, mes, q)];
         const comQ    = getComisionesQuincena(a, mes, q);  // Solo ventas (sin grabaciones)
-        const basico  = a.sueldoQuincenal||0;
+        const basico  = getBasicoQuincena(a, mes, q);
         const bonos   = getExtra('bono',  a.nombre, mes+'Q'+q);
         const prestamo= getExtra('prest', a.nombre, mes+'Q'+q);
         const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
@@ -10225,7 +10254,7 @@ function construirBloqueSueldoComisionAgente(a, mes, q) {
     return pp.mes===mes && pp.q===q;
   });
   const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-  const basico  = a.sueldoQuincenal||0;
+  const basico  = getBasicoQuincena(a, mes, q);
   const bonos   = getExtra('bono',  a.nombre, mes+'Q'+q);
   const prest   = getExtra('prest', a.nombre, mes+'Q'+q);
   const desc    = getExtra('desc',  a.nombre, mes+'Q'+q);
@@ -12260,7 +12289,7 @@ function getTotalNominaAgentesQuincena(mes, q) {
       return pp.mes===mes && pp.q===q;
     });
     const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
-    const basico = a.sueldoQuincenal||0;
+    const basico = getBasicoQuincena(a, mes, q);
     const bonos  = getExtra('bono',  a.nombre, mes+'Q'+q);
     const prest  = getExtra('prest', a.nombre, mes+'Q'+q);
     const desc   = getExtra('desc',  a.nombre, mes+'Q'+q);
@@ -12351,7 +12380,7 @@ function renderHQ() {
       s + qFiltro.reduce((sq,q)=>{
         const key = getQuincenaKey(a.nombre,m,q);
         const sueldoUSD = getExtra('sueldousd', a.nombre, m+'Q'+q);
-        return sq + (a.sueldoQuincenal||0) + sueldoUSD;
+        return sq + getBasicoQuincena(a, m, q) + sueldoUSD;
       },0), 0);
 
     // Bonos/prest/desc: por quincena específica o suma del mes
@@ -12555,7 +12584,7 @@ function renderHQ() {
       return [1,2].map(q=>{
         const pagado = appData.quincenas[getQuincenaKey(a.nombre,mes,q)];
         const comQ   = getComisionesQuincena(a, mes, q);
-        const bas    = a.sueldoQuincenal||0;
+        const bas    = getBasicoQuincena(a, mes, q);
         const sueldoUSD = getExtra('sueldousd', a.nombre, mes+'Q'+q);
         const tasa = getExtra('tasa', a.nombre, mes+'Q'+q);
         const sueldoCOP = sueldoUSD * (tasa || 1);
@@ -12699,7 +12728,7 @@ function construirReporteHQTexto(a, msFiltro, qFiltro) {
   const comTotal = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getComisionesQuincena(a,m,q),0),0);
   const basicoTot = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>{
     const sueldoUSD = getExtra('sueldousd', a.nombre, m+'Q'+q);
-    return sq + (a.sueldoQuincenal||0) + sueldoUSD;
+    return sq + getBasicoQuincena(a, m, q) + sueldoUSD;
   },0),0);
   const bonosTot = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getExtra('bono',a.nombre,m+'Q'+q),0),0);
   const prestTot = msFiltro.reduce((s,m)=>s+qFiltro.reduce((sq,q)=>sq+getExtra('prest',a.nombre,m+'Q'+q),0),0);
@@ -13037,7 +13066,7 @@ function descargarComisiones(mes, quincena) {
 
       quinc.forEach(q => {
         const com = getComisionesQuincena(a, mesFiltro, q);
-        const basico = (a.sueldoQuincenal||0);
+        const basico = getBasicoQuincena(a, mesFiltro, q);
         const bonos = getExtra('bono', a.nombre, mesFiltro+'Q'+q);
         const prest = getExtra('prest', a.nombre, mesFiltro+'Q'+q);
         const desc = getExtra('desc', a.nombre, mesFiltro+'Q'+q);
@@ -13196,7 +13225,7 @@ function descargarResumenQuincena(mes, quincena) {
   const comRows = [];
   appData.agentes.forEach(a => {
     if (a.soloHQ) return;
-    const basico = (a.sueldoQuincenal||0);
+    const basico = getBasicoQuincena(a, mes, q);
     const comisiones = getComisionesQuincena(a, mes, q);
     const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
     const prest = getExtra('prest', a.nombre, mes+'Q'+q);
@@ -13282,7 +13311,7 @@ function renderHQGerente() {
   const basicoTot = msFiltro.reduce((s,m)=>
     s + qFiltro.reduce((sq,q)=>{
       const sueldoUSD = getExtra('sueldousd', josePina.nombre, m+'Q'+q);
-      return sq + (josePina.sueldoQuincenal||0) + sueldoUSD;
+      return sq + getBasicoQuincena(josePina, m, q) + sueldoUSD;
     },0), 0);
 
   const bonosTot = msFiltro.reduce((s,m)=>
@@ -13511,7 +13540,7 @@ function renderTopRendimiento() {
     // usa "Comisiones por Agente" en Admin/Pagos) por cada mes en el que el
     // agente aparece con al menos una venta dentro del filtro activo.
     const mesesConVenta = [...new Set(ventasAgente.map(v=>v.mes))];
-    const sueldoAgente = mesesConVenta.length * (a.sueldoQuincenal||0) * 2;
+    const sueldoAgente = mesesConVenta.reduce((s,mes)=>s + getBasicoQuincena(a,mes,1) + getBasicoQuincena(a,mes,2), 0);
 
     const gananciaTotal  = comATT - comAgente - sueldoAgente;
     const gananciaCancel = comATTCancel - comAgenteCancel;
@@ -13742,9 +13771,8 @@ function calcROI(mes, quincena) {
     let nomina = 0;
     appData.agentes.filter(a=>!a.soloHQ).forEach(a=>{
       msLista.forEach(m=>{
-        const basico = a.sueldoQuincenal||0;
-        if(appData.quincenas[getQuincenaKey(a.nombre,m,1)]) nomina+=basico;
-        if(appData.quincenas[getQuincenaKey(a.nombre,m,2)]) nomina+=basico;
+        if(appData.quincenas[getQuincenaKey(a.nombre,m,1)]) nomina+=getBasicoQuincena(a,m,1);
+        if(appData.quincenas[getQuincenaKey(a.nombre,m,2)]) nomina+=getBasicoQuincena(a,m,2);
         nomina+=getExtra('bono',a.nombre,m)+getExtra('prest',a.nombre,m)-getExtra('desc',a.nombre,m);
       });
     });
@@ -15468,7 +15496,7 @@ function descargarVentasFiltradas() {
         });
         const comGrab = grabRows.reduce((s,v)=>s+(parseFloat(v.comision)||0),0);
         const sueldoUSD = getExtra('sueldousd', a.nombre, mes+'Q'+q);
-        const basico = (a.sueldoQuincenal||0) + sueldoUSD;
+        const basico = getBasicoQuincena(a, mes, q) + sueldoUSD;
         const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
         const prest = getExtra('prest', a.nombre, mes+'Q'+q);
         const desc = getExtra('desc', a.nombre, mes+'Q'+q);
