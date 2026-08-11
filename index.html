@@ -6914,12 +6914,33 @@ function abrirReciboVenta(grupoId) {
   document.getElementById('modal-recibo-venta').classList.add('open');
 }
 
+// Cuenta cuántas unidades de producto lleva vendidas un agente en cada
+// quincena de un mes de pago dado -- solo ventas activas (sin llamadas
+// grabadas ni canceladas), para que refleje rendimiento real. Usado en el
+// reporte de activación por WhatsApp, a propósito SIN mencionar dinero ni
+// comisión (mismo criterio que el resto de reportes "sin montos" del área
+// del agente).
+function contarProductosQuincenaAgente(agenteNombre, mesPago) {
+  const totales = { 1: 0, 2: 0 };
+  const nombreLow = (agenteNombre||'').trim().toLowerCase();
+  (appData.ventas||[]).forEach(v => {
+    if(v.esGrabacion || v._esGrabacion) return;
+    if(v.esChargeback) return;
+    if((v.agente||'').trim().toLowerCase() !== nombreLow) return;
+    const pp = getPeríodoPago(v);
+    if(pp.mes !== mesPago) return;
+    totales[pp.q] = (totales[pp.q]||0) + (parseFloat(v.cantidad)||1);
+  });
+  return totales;
+}
+
 function compartirReciboWhatsApp(grupoId) {
   const lineas = (appData.ventas||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
   const g = lineas[0];
   const productosTxt = lineas.map(l=>`• ${getProdNombre(l.productoId)} x${l.cantidad}`).join('\n');
   const fechaAprob = g.aprobadoEn ? fmtHoraMensaje(g.aprobadoEn) : '';
+  const rendimiento = contarProductosQuincenaAgente(g.agente, g.mes);
   const texto = `✅ *ACTIVACIÓN* — USA Distributor Inc.\n\n` +
     `👤 Cliente: ${g.cliente||'—'}\n` +
     `📅 Fecha de activación: ${g.fecha}\n` +
@@ -6928,6 +6949,9 @@ function compartirReciboWhatsApp(grupoId) {
     `👔 Vendedor: ${g.agente||'—'}\n` +
     (g.grabadoPor ? `🎙️ Grabó la llamada: ${g.grabadoPor}\n` : '') +
     `\n📦 Producto${lineas.length>1?'s':''}:\n${productosTxt}\n\n` +
+    `📊 Activaciones del mes (${g.mes||'—'}):\n` +
+    `Q1: ${rendimiento[1]} productos\n` +
+    `Q2: ${rendimiento[2]} productos\n\n` +
     `Activada el ${fechaAprob}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
