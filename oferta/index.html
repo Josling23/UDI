@@ -39,126 +39,199 @@ fbq('track', 'PageView');
   :root{
     --maroon-dark:#2a0008;
     --maroon:#7a1428;
-    --maroon-light:#a3325198;
+    --ink:#1f1a1b;
+    --gray:#5b6470;
+    --gray-light:#8a919b;
+    --border:#e6e1e1;
+    --bg:#faf9f8;
     --whatsapp:#25D366;
-    --whatsapp-dark:#1ebe5a;
-    --text-dark:#1c1c1c;
-    --text-muted:#6b6b6b;
-    --card-bg:#ffffff;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-    background:linear-gradient(160deg,var(--maroon-dark),var(--maroon) 70%);
+    background:var(--bg);
     min-height:100vh;
     display:flex;
     flex-direction:column;
     align-items:center;
-    color:var(--text-dark);
+    color:var(--ink);
     -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    width:100%;
+    height:4px;
+    background:linear-gradient(90deg, var(--maroon-dark), var(--maroon));
   }
   header{
     width:100%;
-    max-width:480px;
-    padding:24px 20px 8px;
+    max-width:520px;
+    padding:26px 20px 20px;
     display:flex;
     align-items:center;
-    gap:10px;
+    gap:12px;
+    border-bottom:1px solid var(--border);
   }
   header img{
-    width:40px;height:40px;border-radius:8px;
+    width:42px;height:42px;border-radius:9px;
   }
-  header span{
-    color:#fff;
-    font-weight:700;
+  header .name{
+    font-weight:800;
     font-size:15px;
+    color:var(--ink);
     letter-spacing:.2px;
   }
+  header .tagline{
+    font-size:11.5px;
+    color:var(--gray-light);
+    margin-top:1px;
+  }
+
   main{
     width:100%;
-    max-width:480px;
+    max-width:520px;
     flex:1;
-    display:flex;
-    align-items:center;
-    padding:12px 16px 24px;
+    padding:34px 20px 30px;
   }
-  .card{
-    background:var(--card-bg);
-    border-radius:18px;
-    padding:28px 22px 26px;
-    width:100%;
-    box-shadow:0 18px 40px rgba(0,0,0,.25);
+
+  .hero-text{
     text-align:center;
+    margin-bottom:30px;
+  }
+  .eyebrow{
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:var(--maroon);
+    margin-bottom:12px;
   }
   h1{
-    font-size:26px;
-    line-height:1.25;
-    color:var(--maroon-dark);
-    margin-bottom:10px;
+    font-size:27px;
+    line-height:1.28;
+    color:var(--ink);
+    font-weight:800;
+    letter-spacing:-.3px;
+    margin-bottom:12px;
   }
   .subtitle{
-    font-size:16px;
-    color:var(--text-muted);
-    margin-bottom:22px;
-    line-height:1.4;
+    font-size:15px;
+    color:var(--gray);
+    line-height:1.55;
+    max-width:400px;
+    margin:0 auto;
   }
-  ul.bullets{
-    list-style:none;
-    text-align:left;
-    margin-bottom:26px;
+
+  .divider{
+    width:44px;
+    height:3px;
+    background:var(--maroon);
+    margin:22px auto;
+    border-radius:2px;
+  }
+
+  .props{
     display:flex;
     flex-direction:column;
-    gap:12px;
+    gap:14px;
+    margin-bottom:28px;
   }
-  ul.bullets li{
+  .prop{
     display:flex;
-    align-items:flex-start;
-    gap:10px;
-    font-size:15px;
-    color:var(--text-dark);
+    align-items:center;
+    gap:14px;
+    padding:14px 16px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:10px;
   }
-  ul.bullets li::before{
-    content:"✅";
+  .prop-icon{
+    width:38px;height:38px;
     flex-shrink:0;
-    font-size:15px;
-  }
-  .cta{
+    border-radius:8px;
+    background:var(--maroon-dark);
     display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .prop-icon svg{ width:19px;height:19px; }
+  .prop-text{
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+    text-align:left;
+  }
+
+  .cta-wrap{ text-align:center; }
+  .cta{
+    display:inline-flex;
     align-items:center;
     justify-content:center;
     gap:10px;
     background:var(--whatsapp);
     color:#fff;
     font-weight:700;
-    font-size:18px;
+    font-size:16.5px;
     text-decoration:none;
-    padding:16px 20px;
-    border-radius:14px;
-    box-shadow:0 10px 24px rgba(37,211,102,.4);
-    transition:background .15s ease, transform .1s ease;
+    padding:16px 30px;
+    border-radius:8px;
+    width:100%;
+    box-shadow:0 6px 18px rgba(37,211,102,.28);
+    transition:filter .12s ease, transform .1s ease;
     -webkit-tap-highlight-color:transparent;
   }
-  .cta:active{
-    background:var(--whatsapp-dark);
-    transform:scale(.98);
-  }
-  .cta svg{width:24px;height:24px;flex-shrink:0}
+  .cta:active{ transform:scale(.98); filter:brightness(.95); }
+  .cta svg{width:21px;height:21px;flex-shrink:0}
+
   .trust{
-    margin-top:14px;
+    margin-top:12px;
     font-size:12px;
-    color:var(--text-muted);
+    color:var(--gray-light);
   }
-  footer{
-    width:100%;
-    max-width:480px;
-    padding:10px 20px 28px;
+
+  .trust-strip{
+    margin-top:32px;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding-top:24px;
+    border-top:1px solid var(--border);
+  }
+  .trust-item{
+    flex:1;
     text-align:center;
   }
-  footer p{
-    color:rgba(255,255,255,.75);
+  .trust-item svg{
+    width:20px;height:20px;
+    color:var(--maroon);
+    margin-bottom:7px;
+  }
+  .trust-item span{
+    display:block;
     font-size:11px;
-    line-height:1.6;
+    font-weight:600;
+    color:var(--gray);
+    line-height:1.3;
+  }
+
+  footer{
+    width:100%;
+    background:var(--maroon-dark);
+    padding:24px 20px;
+    text-align:center;
+  }
+  footer .fname{
+    color:#fff;
+    font-weight:700;
+    font-size:13px;
+    margin-bottom:6px;
+  }
+  footer p{
+    color:rgba(255,255,255,.65);
+    font-size:11px;
+    line-height:1.7;
+    max-width:420px;
+    margin:0 auto;
   }
   footer a{
     color:rgba(255,255,255,.9);
@@ -168,39 +241,79 @@ fbq('track', 'PageView');
 </head>
 <body>
 
+<div class="topbar"></div>
+
 <header>
-  <img src="../icons/icon-192.png" alt="USA Distributor Inc." width="40" height="40">
-  <span>USA Distributor Inc.</span>
+  <img src="../icons/icon-192.png" alt="USA Distributor Inc.">
+  <div>
+    <div class="name">USA DISTRIBUTOR INC.</div>
+    <div class="tagline">Equipos móviles y planes</div>
+  </div>
 </header>
 
 <main>
-  <div class="card">
-    <h1>Consigue tu celular hoy mismo — fácil, rápido y sin complicaciones</h1>
-    <p class="subtitle">Aprobación rápida, sin necesidad de historial de crédito</p>
+  <div class="hero-text">
+    <div class="eyebrow">Atención personalizada</div>
+    <h1>Tu celular nuevo, gestionado con respaldo profesional</h1>
+    <p class="subtitle">Aprobación rápida, sin necesidad de historial de crédito. Un asesor te atiende directamente por WhatsApp, sin filas ni papeleo.</p>
+  </div>
 
-    <ul class="bullets">
-      <li>Respuesta inmediata por WhatsApp</li>
-      <li>Proceso 100% en español</li>
-      <li>Sin compromiso, solo pregunta</li>
-    </ul>
+  <div class="divider"></div>
 
+  <div class="props">
+    <div class="prop">
+      <div class="prop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="prop-text">Respuesta inmediata por WhatsApp</div>
+    </div>
+    <div class="prop">
+      <div class="prop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.7 8 10 4.5-1.3 8-5 8-10V6z"/></svg>
+      </div>
+      <div class="prop-text">Proceso claro, transparente y en español</div>
+    </div>
+    <div class="prop">
+      <div class="prop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M2.5 9h19M2.5 15h19M11.3 3a15 15 0 0 0 0 18M12.7 3a15 15 0 0 1 0 18"/></svg>
+      </div>
+      <div class="prop-text">Sin compromiso — solo pregunta</div>
+    </div>
+  </div>
+
+  <div class="cta-wrap">
     <a id="ctaWhatsapp" class="cta"
        href="https://wa.me/18007572821?text=Hola%2C%20vi%20su%20anuncio%20y%20quiero%20m%C3%A1s%20informaci%C3%B3n"
        target="_blank" rel="noopener">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12.01 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.35 5.06L2 22l5.1-1.33A9.94 9.94 0 0 0 12.01 22C17.53 22 22 17.52 22 12S17.53 2 12.01 2zm5.8 14.24c-.24.68-1.4 1.3-1.93 1.36-.5.06-1.02.27-3.42-.72-2.9-1.2-4.77-4.14-4.92-4.34-.14-.2-1.17-1.56-1.17-2.98s.73-2.11 1-2.4c.24-.27.53-.34.7-.34h.5c.16 0 .38-.02.58.45.24.57.8 1.98.87 2.12.07.14.11.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.7 1.16 1.51 1.88 1.04.94 1.92 1.24 2.2 1.38.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.27.36-.22.6-.13.24.09 1.55.73 1.82.86.27.14.45.2.51.32.07.11.07.68-.17 1.36z"/>
       </svg>
-      Chatea ahora por WhatsApp
+      Contactar a un asesor por WhatsApp
     </a>
-
     <p class="trust">Te respondemos al instante — sin formularios, sin espera</p>
+  </div>
+
+  <div class="trust-strip">
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.7 8 10 4.5-1.3 8-5 8-10V6z"/></svg>
+      <span>Compra segura</span>
+    </div>
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span>Empresa en EE.UU.</span>
+    </div>
+    <div class="trust-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Atención personalizada</span>
+    </div>
   </div>
 </main>
 
 <footer>
+  <div class="fname">USA Distributor Inc.</div>
   <p>
-    USA Distributor Inc. — Aviso: al continuar aceptas ser contactado(a) por WhatsApp
-    en relación a tu consulta. No compartimos tu información con terceros.
+    Aviso: al continuar aceptas ser contactado(a) por WhatsApp en relación a tu consulta.
+    No compartimos tu información con terceros.
     <br>
     <a href="tel:+18007572821">+1 (800) 757-2821</a>
   </p>
