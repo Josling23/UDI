@@ -456,12 +456,11 @@ fbq('track', 'PageView');
     utmKeys.forEach(function(k){ var v = params.get(k); if(v) utms[k] = v; });
 
     // ============================================================
-    // RESPALDO EN GOOGLE SHEETS — pega aquí la URL de tu Apps Script
-    // (Implementación → Nueva implementación → Aplicación web) una vez
-    // que la tengas configurada. Mientras diga el placeholder, el envío
-    // a la hoja simplemente se omite (WhatsApp sigue funcionando igual).
+    // RESPALDO EN GOOGLE SHEETS — Apps Script del cliente ("Leads
+    // Landing WhatsApp"), guarda cada envío del formulario como fila
+    // nueva antes de abrir WhatsApp.
     // ============================================================
-    var GOOGLE_SHEET_ENDPOINT = 'PEGA_AQUI_LA_URL_DE_TU_APPS_SCRIPT';
+    var GOOGLE_SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz5BjExOTin6gEKXZUVauu7dh-Wh0qntoJhmJ768catbTPMB3pVI4SIT8HqzergWdgsgw/exec';
 
     function guardarLeadEnSheet(nombre, correo, telefono){
       if(!GOOGLE_SHEET_ENDPOINT || GOOGLE_SHEET_ENDPOINT.indexOf('PEGA_AQUI') === 0) return;
