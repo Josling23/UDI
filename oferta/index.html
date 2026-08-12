@@ -39,7 +39,8 @@ fbq('track', 'PageView');
   :root{
     --maroon-dark:#2a0008;
     --maroon:#7a1428;
-    --maroon-light:#a3325198;
+    --maroon-bright:#a8203f;
+    --gold:#e8b74b;
     --whatsapp:#25D366;
     --whatsapp-dark:#1ebe5a;
     --text-dark:#1c1c1c;
@@ -50,113 +51,212 @@ fbq('track', 'PageView');
   html,body{height:100%}
   body{
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-    background:linear-gradient(160deg,var(--maroon-dark),var(--maroon) 70%);
+    background:
+      radial-gradient(circle at 15% 8%, rgba(232,183,75,.20), transparent 40%),
+      radial-gradient(circle at 85% 15%, rgba(168,32,63,.55), transparent 45%),
+      radial-gradient(circle at 50% 100%, rgba(168,32,63,.35), transparent 55%),
+      linear-gradient(165deg, var(--maroon-dark), var(--maroon) 65%);
     min-height:100vh;
     display:flex;
     flex-direction:column;
     align-items:center;
     color:var(--text-dark);
     -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
   }
   header{
     width:100%;
-    max-width:480px;
-    padding:24px 20px 8px;
+    max-width:520px;
+    padding:22px 20px 6px;
     display:flex;
     align-items:center;
     gap:10px;
   }
   header img{
-    width:40px;height:40px;border-radius:8px;
+    width:38px;height:38px;border-radius:9px;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
   }
   header span{
     color:#fff;
     font-weight:700;
-    font-size:15px;
-    letter-spacing:.2px;
+    font-size:14px;
+    letter-spacing:.3px;
   }
   main{
     width:100%;
-    max-width:480px;
+    max-width:520px;
     flex:1;
     display:flex;
+    flex-direction:column;
     align-items:center;
-    padding:12px 16px 24px;
+    padding:6px 16px 24px;
   }
-  .card{
-    background:var(--card-bg);
-    border-radius:18px;
-    padding:28px 22px 26px;
-    width:100%;
-    box-shadow:0 18px 40px rgba(0,0,0,.25);
+
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:rgba(232,183,75,.16);
+    border:1px solid rgba(232,183,75,.55);
+    color:var(--gold);
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.3px;
+    padding:6px 14px;
+    border-radius:999px;
+    margin:14px 0 16px;
+  }
+
+  .hero-text{
     text-align:center;
+    padding:0 6px;
+    margin-bottom:18px;
   }
   h1{
-    font-size:26px;
-    line-height:1.25;
-    color:var(--maroon-dark);
+    font-size:28px;
+    line-height:1.22;
+    color:#fff;
+    font-weight:800;
+    letter-spacing:-.3px;
     margin-bottom:10px;
+    text-shadow:0 2px 18px rgba(0,0,0,.25);
   }
+  h1 .accent{ color:var(--gold); }
   .subtitle{
-    font-size:16px;
-    color:var(--text-muted);
-    margin-bottom:22px;
-    line-height:1.4;
+    font-size:15.5px;
+    color:rgba(255,255,255,.82);
+    line-height:1.5;
+    max-width:380px;
+    margin:0 auto;
   }
-  ul.bullets{
-    list-style:none;
-    text-align:left;
-    margin-bottom:26px;
+
+  .card{
+    background:var(--card-bg);
+    border-radius:20px;
+    padding:24px 22px 26px;
+    width:100%;
+    box-shadow:0 24px 55px rgba(0,0,0,.32);
+    text-align:center;
+    position:relative;
+  }
+
+  .props{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:22px;
+  }
+  .prop{
     display:flex;
     flex-direction:column;
-    gap:12px;
+    align-items:center;
+    gap:8px;
   }
-  ul.bullets li{
+  .prop-icon{
+    width:46px;height:46px;
+    border-radius:13px;
     display:flex;
-    align-items:flex-start;
-    gap:10px;
-    font-size:15px;
+    align-items:center;
+    justify-content:center;
+    font-size:21px;
+    background:linear-gradient(145deg, #fdf3e0, #f6e2b8);
+    box-shadow:inset 0 0 0 1px rgba(168,32,63,.08);
+  }
+  .prop-label{
+    font-size:11.5px;
+    font-weight:600;
     color:var(--text-dark);
+    line-height:1.3;
   }
-  ul.bullets li::before{
-    content:"✅";
-    flex-shrink:0;
-    font-size:15px;
-  }
+
   .cta{
     display:flex;
     align-items:center;
     justify-content:center;
     gap:10px;
-    background:var(--whatsapp);
+    background:linear-gradient(135deg, var(--whatsapp), var(--whatsapp-dark));
     color:#fff;
     font-weight:700;
     font-size:18px;
     text-decoration:none;
-    padding:16px 20px;
+    padding:17px 20px;
     border-radius:14px;
-    box-shadow:0 10px 24px rgba(37,211,102,.4);
-    transition:background .15s ease, transform .1s ease;
+    box-shadow:0 12px 28px rgba(37,211,102,.45);
+    transition:transform .12s ease;
     -webkit-tap-highlight-color:transparent;
+    animation:pulse 2.4s ease-in-out infinite;
   }
-  .cta:active{
-    background:var(--whatsapp-dark);
-    transform:scale(.98);
-  }
+  .cta:active{ transform:scale(.97); }
   .cta svg{width:24px;height:24px;flex-shrink:0}
+  @keyframes pulse{
+    0%,100%{ box-shadow:0 12px 28px rgba(37,211,102,.45); }
+    50%{ box-shadow:0 12px 34px rgba(37,211,102,.7); }
+  }
+
   .trust{
     margin-top:14px;
     font-size:12px;
     color:var(--text-muted);
+    font-weight:600;
   }
+
+  .trust-row{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-top:16px;
+    padding-top:16px;
+    border-top:1px solid #EEE1E1;
+  }
+  .trust-row span{
+    font-size:11px;
+    color:var(--text-muted);
+    display:flex;
+    align-items:center;
+    gap:5px;
+    font-weight:600;
+  }
+
+  .steps{
+    width:100%;
+    margin-top:24px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .step{
+    flex:1;
+    text-align:center;
+    color:rgba(255,255,255,.88);
+  }
+  .step-num{
+    width:30px;height:30px;
+    margin:0 auto 8px;
+    border-radius:50%;
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(232,183,75,.6);
+    color:var(--gold);
+    font-weight:800;
+    font-size:13px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .step-label{
+    font-size:11.5px;
+    line-height:1.35;
+    font-weight:600;
+  }
+
   footer{
     width:100%;
-    max-width:480px;
-    padding:10px 20px 28px;
+    max-width:520px;
+    padding:22px 20px 28px;
     text-align:center;
   }
   footer p{
-    color:rgba(255,255,255,.75);
+    color:rgba(255,255,255,.7);
     font-size:11px;
     line-height:1.6;
   }
@@ -169,20 +269,33 @@ fbq('track', 'PageView');
 <body>
 
 <header>
-  <img src="../icons/icon-192.png" alt="USA Distributor Inc." width="40" height="40">
-  <span>USA Distributor Inc.</span>
+  <img src="../icons/icon-192.png" alt="USA Distributor Inc." width="38" height="38">
+  <span>USA DISTRIBUTOR INC.</span>
 </header>
 
 <main>
-  <div class="card">
-    <h1>Consigue tu celular hoy mismo — fácil, rápido y sin complicaciones</h1>
-    <p class="subtitle">Aprobación rápida, sin necesidad de historial de crédito</p>
+  <div class="badge">⚡ Respuesta en minutos por WhatsApp</div>
 
-    <ul class="bullets">
-      <li>Respuesta inmediata por WhatsApp</li>
-      <li>Proceso 100% en español</li>
-      <li>Sin compromiso, solo pregunta</li>
-    </ul>
+  <div class="hero-text">
+    <h1>Tu celular nuevo, <span class="accent">hoy mismo</span></h1>
+    <p class="subtitle">Aprobación rápida, sin necesidad de historial de crédito. Te asesoramos en español, sin filas ni papeleo.</p>
+  </div>
+
+  <div class="card">
+    <div class="props">
+      <div class="prop">
+        <div class="prop-icon">💬</div>
+        <div class="prop-label">Respuesta<br>inmediata</div>
+      </div>
+      <div class="prop">
+        <div class="prop-icon">🇪🇸</div>
+        <div class="prop-label">Atención<br>100% en español</div>
+      </div>
+      <div class="prop">
+        <div class="prop-icon">🤝</div>
+        <div class="prop-label">Sin compromiso,<br>solo pregunta</div>
+      </div>
+    </div>
 
     <a id="ctaWhatsapp" class="cta"
        href="https://wa.me/18007572821?text=Hola%2C%20vi%20su%20anuncio%20y%20quiero%20m%C3%A1s%20informaci%C3%B3n"
@@ -194,6 +307,27 @@ fbq('track', 'PageView');
     </a>
 
     <p class="trust">Te respondemos al instante — sin formularios, sin espera</p>
+
+    <div class="trust-row">
+      <span>🔒 Compra segura</span>
+      <span>🇺🇸 Empresa en EE.UU.</span>
+      <span>⭐ Atención personalizada</span>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-label">Escríbenos<br>por WhatsApp</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-label">Te asesoramos<br>al instante</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-label">Recibes tu<br>equipo</div>
+    </div>
   </div>
 </main>
 
