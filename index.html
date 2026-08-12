@@ -6914,47 +6914,32 @@ function abrirReciboVenta(grupoId) {
   document.getElementById('modal-recibo-venta').classList.add('open');
 }
 
-// Cuenta cuántas unidades de producto lleva vendidas un agente en cada
-// quincena de un mes de pago dado, desglosado por categoría (línea,
-// internet, Lyca, etc.) -- solo ventas activas (sin llamadas grabadas ni
-// canceladas), para que refleje rendimiento real. Usado en el reporte de
-// activación por WhatsApp, a propósito SIN mencionar dinero ni comisión
-// (mismo criterio que el resto de reportes "sin montos" del área del
-// agente).
+// Cuenta cuántas unidades de cada producto lleva vendidas un agente en
+// cada quincena de un mes de pago dado, con el nombre REAL del producto
+// (ej. "Línea >15", "AT&T Internet 1 Gig+", "Lyca Mobile") -- solo ventas
+// activas (sin llamadas grabadas ni canceladas), para que refleje
+// rendimiento real. Usado en el reporte de activación por WhatsApp, a
+// propósito SIN mencionar dinero ni comisión (mismo criterio que el resto
+// de reportes "sin montos" del área del agente).
 function contarProductosQuincenaAgente(agenteNombre, mesPago) {
   const totales = { 1: {}, 2: {} };
   const nombreLow = (agenteNombre||'').trim().toLowerCase();
-  const catalogo = getCatalogoCompleto();
   (appData.ventas||[]).forEach(v => {
     if(v.esGrabacion || v._esGrabacion) return;
     if(v.esChargeback) return;
     if((v.agente||'').trim().toLowerCase() !== nombreLow) return;
     const pp = getPeríodoPago(v);
     if(pp.mes !== mesPago) return;
-    const prod = catalogo.find(p=>p.id===v.productoId);
-    const cat = prod ? prod.cat : 'otro';
-    totales[pp.q][cat] = (totales[pp.q][cat]||0) + (parseFloat(v.cantidad)||1);
+    const nombre = getProdNombre(v.productoId);
+    totales[pp.q][nombre] = (totales[pp.q][nombre]||0) + (parseFloat(v.cantidad)||1);
   });
   return totales;
 }
 
-// Nombres cortos para el desglose de productos por quincena en el reporte
-// de WhatsApp (singular/plural), sin mencionar dinero ni comisión.
-const CAT_LABEL_REPORTE = {
-  mobility: { s:'línea',    p:'líneas'   },
-  internet: { s:'internet', p:'internet' },
-  prepago:  { s:'Lyca',     p:'Lyca'     },
-  otro:     { s:'producto', p:'productos'},
-};
+// Arma el texto "N Nombre del producto, N Otro producto" a partir del
+// conteo por nombre real devuelto por contarProductosQuincenaAgente().
 function formatearProductosQuincena(conteo) {
-  const partes = [];
-  Object.keys(CAT_LABEL_REPORTE).forEach(cat => {
-    const n = conteo[cat] || 0;
-    if(n > 0) {
-      const lbl = CAT_LABEL_REPORTE[cat];
-      partes.push(`${n} ${n === 1 ? lbl.s : lbl.p}`);
-    }
-  });
+  const partes = Object.keys(conteo).map(nombre => `${conteo[nombre]} ${nombre}`);
   return partes.length ? partes.join(', ') : '0 productos';
 }
 
