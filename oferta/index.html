@@ -237,6 +237,97 @@ fbq('track', 'PageView');
     color:rgba(255,255,255,.9);
     text-decoration:underline;
   }
+
+  /* ---------- Modal: datos de contacto antes de ir a WhatsApp ---------- */
+  .modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(20,10,10,.55);
+    z-index:50;
+    align-items:flex-end;
+    justify-content:center;
+    padding:0;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-card{
+    background:#fff;
+    width:100%;
+    max-width:480px;
+    border-radius:20px 20px 0 0;
+    padding:24px 22px 28px;
+    box-shadow:0 -12px 40px rgba(0,0,0,.3);
+    max-height:90vh;
+    overflow-y:auto;
+  }
+  @media (min-width:540px){
+    .modal-overlay{ align-items:center; }
+    .modal-card{ border-radius:18px; }
+  }
+  .modal-title{
+    font-size:18px;
+    font-weight:800;
+    color:var(--ink);
+    margin-bottom:4px;
+  }
+  .modal-sub{
+    font-size:13px;
+    color:var(--gray);
+    margin-bottom:18px;
+    line-height:1.4;
+  }
+  .field{ margin-bottom:14px; }
+  .field label{
+    display:block;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:5px;
+  }
+  .field input{
+    width:100%;
+    padding:12px 13px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    font-size:15px;
+    font-family:inherit;
+    color:var(--ink);
+  }
+  .field input:focus{
+    outline:none;
+    border-color:var(--maroon);
+  }
+  .field .err{
+    display:none;
+    font-size:11.5px;
+    color:#c0392b;
+    margin-top:4px;
+    font-weight:600;
+  }
+  .field.invalid input{ border-color:#c0392b; }
+  .field.invalid .err{ display:block; }
+
+  .modal-actions{ margin-top:18px; }
+  .modal-cancel{
+    display:block;
+    width:100%;
+    text-align:center;
+    background:none;
+    border:none;
+    color:var(--gray);
+    font-size:13px;
+    font-weight:600;
+    padding:12px;
+    margin-top:6px;
+    cursor:pointer;
+  }
+  .modal-privacy{
+    font-size:10.5px;
+    color:var(--gray-light);
+    text-align:center;
+    margin-top:12px;
+    line-height:1.5;
+  }
 </style>
 </head>
 <body>
@@ -282,7 +373,7 @@ fbq('track', 'PageView');
   </div>
 
   <div class="cta-wrap">
-    <a id="ctaWhatsapp" class="cta"
+    <a id="ctaWhatsapp" class="cta wa-link"
        href="https://wa.me/18007572821?text=Hola%2C%20vi%20su%20anuncio%20y%20quiero%20m%C3%A1s%20informaci%C3%B3n"
        target="_blank" rel="noopener">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -319,28 +410,110 @@ fbq('track', 'PageView');
   </p>
 </footer>
 
+<div class="modal-overlay" id="leadModal">
+  <div class="modal-card">
+    <div class="modal-title">Antes de escribirnos...</div>
+    <div class="modal-sub">Déjanos tus datos para que un asesor te atienda más rápido por WhatsApp.</div>
+
+    <form id="leadForm" novalidate>
+      <div class="field" id="f-nombre">
+        <label for="in-nombre">Nombre y apellido</label>
+        <input type="text" id="in-nombre" autocomplete="name" placeholder="Ej. Juan Pérez">
+        <div class="err">Escribe tu nombre y apellido.</div>
+      </div>
+      <div class="field" id="f-correo">
+        <label for="in-correo">Correo electrónico</label>
+        <input type="email" id="in-correo" autocomplete="email" placeholder="Ej. juan@correo.com">
+        <div class="err">Escribe un correo válido.</div>
+      </div>
+      <div class="field" id="f-telefono">
+        <label for="in-telefono">Número de teléfono</label>
+        <input type="tel" id="in-telefono" autocomplete="tel" placeholder="Ej. 305 555 1234">
+        <div class="err">Escribe un número de teléfono válido.</div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="submit" class="cta" style="border:none;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12.01 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.35 5.06L2 22l5.1-1.33A9.94 9.94 0 0 0 12.01 22C17.53 22 22 17.52 22 12S17.53 2 12.01 2zm5.8 14.24c-.24.68-1.4 1.3-1.93 1.36-.5.06-1.02.27-3.42-.72-2.9-1.2-4.77-4.14-4.92-4.34-.14-.2-1.17-1.56-1.17-2.98s.73-2.11 1-2.4c.24-.27.53-.34.7-.34h.5c.16 0 .38-.02.58.45.24.57.8 1.98.87 2.12.07.14.11.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.7 1.16 1.51 1.88 1.04.94 1.92 1.24 2.2 1.38.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.27.36-.22.6-.13.24.09 1.55.73 1.82.86.27.14.45.2.51.32.07.11.07.68-.17 1.36z"/>
+          </svg>
+          Continuar a WhatsApp
+        </button>
+        <button type="button" class="modal-cancel" id="leadCancel">Cancelar</button>
+      </div>
+      <div class="modal-privacy">Tus datos solo se usan para contactarte sobre tu consulta. No los compartimos con terceros.</div>
+    </form>
+  </div>
+</div>
+
 <script>
   (function(){
-    var link = document.getElementById('ctaWhatsapp');
-
-    // Captura UTMs del anuncio y los agrega al mensaje de WhatsApp
-    // (para que quede registrado en la conversación de qué campaña viene)
-    // y como parámetros del evento de Pixel para poder segmentar después.
+    // Captura UTMs del anuncio (para registrar de qué campaña viene y
+    // como parámetros del evento de Pixel, para poder segmentar después).
     var params = new URLSearchParams(window.location.search);
     var utmKeys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
     var utms = {};
     utmKeys.forEach(function(k){ var v = params.get(k); if(v) utms[k] = v; });
 
-    if(utms.utm_campaign){
-      var baseText = 'Hola, vi su anuncio y quiero más información';
-      var text = baseText + ' (Campaña: ' + utms.utm_campaign + ')';
-      link.href = 'https://wa.me/18007572821?text=' + encodeURIComponent(text);
+    var modal    = document.getElementById('leadModal');
+    var form     = document.getElementById('leadForm');
+    var cancelBtn = document.getElementById('leadCancel');
+    var waLinks  = document.querySelectorAll('.wa-link');
+
+    function abrirModal(e){
+      e.preventDefault();
+      modal.classList.add('open');
+      document.getElementById('in-nombre').focus();
+    }
+    function cerrarModal(){
+      modal.classList.remove('open');
     }
 
-    link.addEventListener('click', function(){
+    waLinks.forEach(function(link){
+      link.addEventListener('click', abrirModal);
+    });
+    cancelBtn.addEventListener('click', cerrarModal);
+    modal.addEventListener('click', function(e){
+      if(e.target === modal) cerrarModal();
+    });
+
+    function marcarError(fieldId, esInvalido){
+      document.getElementById(fieldId).classList.toggle('invalid', esInvalido);
+    }
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+
+      var nombre   = document.getElementById('in-nombre').value.trim();
+      var correo   = document.getElementById('in-correo').value.trim();
+      var telefono = document.getElementById('in-telefono').value.trim();
+
+      var nombreOk = nombre.length > 2;
+      var correoOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
+      var telSoloDigitos = telefono.replace(/\D/g,'');
+      var telefonoOk = telSoloDigitos.length >= 7;
+
+      marcarError('f-nombre', !nombreOk);
+      marcarError('f-correo', !correoOk);
+      marcarError('f-telefono', !telefonoOk);
+
+      if(!nombreOk || !correoOk || !telefonoOk) return;
+
+      var texto = 'Hola, vi su anuncio y quiero más información.\n\n' +
+        'Nombre: ' + nombre + '\n' +
+        'Correo: ' + correo + '\n' +
+        'Teléfono: ' + telefono;
+      if(utms.utm_campaign){
+        texto += '\n\n(Campaña: ' + utms.utm_campaign + ')';
+      }
+
       if(typeof fbq === 'function'){
         fbq('trackCustom', 'ClicWhatsApp', utms);
       }
+
+      window.open('https://wa.me/18007572821?text=' + encodeURIComponent(texto), '_blank');
+      cerrarModal();
+      form.reset();
     });
   })();
 </script>
