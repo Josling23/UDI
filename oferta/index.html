@@ -494,12 +494,29 @@ fbq('track', 'PageView');
       modal.classList.remove('open');
     }
 
+    // Si cancelan o cierran el formulario habiendo escrito algo, ese dato
+    // parcial igual se guarda como respaldo (sin abrir WhatsApp, ya que
+    // decidieron no continuar) -- para no perder un lead real solo porque
+    // se arrepintieron de dar el último paso. Si el formulario está
+    // completamente vacío, no se guarda nada.
+    function cancelarConRespaldo(){
+      var nombre   = document.getElementById('in-nombre').value.trim();
+      var correo   = document.getElementById('in-correo').value.trim();
+      var telefono = document.getElementById('in-telefono').value.trim();
+
+      if(nombre || correo || telefono){
+        guardarLeadEnSheet(nombre, correo, telefono);
+      }
+      cerrarModal();
+      form.reset();
+    }
+
     waLinks.forEach(function(link){
       link.addEventListener('click', abrirModal);
     });
-    cancelBtn.addEventListener('click', cerrarModal);
+    cancelBtn.addEventListener('click', cancelarConRespaldo);
     modal.addEventListener('click', function(e){
-      if(e.target === modal) cerrarModal();
+      if(e.target === modal) cancelarConRespaldo();
     });
 
     function marcarError(fieldId, esInvalido){
