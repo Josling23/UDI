@@ -1026,7 +1026,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         <div id="mr-seleccion-bar" style="margin-bottom:10px"></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Corresponde</th><th>Acciones</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="mr-check-todos" onchange="agenteToggleSeleccionarTodosReportes(this)"></th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Estado</th><th>Corresponde</th><th>Registrado</th><th>Acciones</th></tr></thead>
             <tbody id="agente-mis-reportes-body"></tbody>
           </table>
         </div>
@@ -5682,7 +5682,7 @@ function aprobarVentaPendiente(grupoId) {
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision,
-      reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn,
+      reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
@@ -5891,7 +5891,7 @@ function adminAprobarRechazada(grupoId) {
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision,
-      reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn,
+      reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
   appData.ventasRechazadas = appData.ventasRechazadas.filter(v=>v.grupoId!==grupoId);
@@ -11219,7 +11219,7 @@ function renderAgenteMisReportes() {
     const grupos = {};
     lista.forEach(v=>{
       const gid = v.grupoId || v.id;
-      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, cuenta: v.cuenta, motivo: v.motivoRechazo||'', grabadoPor: v.grabadoPor||'', lineas: [] };
+      if(!grupos[gid]) grupos[gid] = { grupoId: gid, fecha: v.fecha, cliente: v.cliente, cuenta: v.cuenta, motivo: v.motivoRechazo||'', grabadoPor: v.grabadoPor||'', creadoEn: v.creadoEn||'', lineas: [] };
       grupos[gid].lineas.push(v);
     });
     return Object.values(grupos).map(g => ({ ...g, estado }));
@@ -11294,6 +11294,7 @@ function renderAgenteMisReportes() {
       <td style="font-size:11px;color:#7C98B6">${enEdicion ? '' : productos}</td>
       <td>${g.estado==='aprobado' && g.lineas.some(l=>l.esChargeback) ? badgeChargeback : badges[g.estado]}${g.estado==='rechazado' && g.motivo ? `<div style="font-size:10px;color:#99ACC2;margin-top:3px">Motivo: ${g.motivo}</div>` : ''}</td>
       <td style="font-size:11px;color:#33475B;white-space:nowrap">${quincenaTxt}</td>
+      <td style="font-size:11px;color:#99ACC2;white-space:nowrap">${g.creadoEn ? fmtHoraMensaje(g.creadoEn) : '—'}</td>
       <td style="white-space:nowrap">${acciones}</td>
     </tr>`;
 
@@ -11316,7 +11317,7 @@ function renderAgenteMisReportes() {
           </td>
         </tr>`).join('');
 
-      filaEdicion = `<tr><td colspan="7" style="padding:0 8px 8px">
+      filaEdicion = `<tr><td colspan="8" style="padding:0 8px 8px">
         <div style="margin:4px 0 6px;display:flex;gap:14px;flex-wrap:wrap;align-items:end">
           <div>
             <label style="font-size:10px;font-weight:600;color:#7C98B6"># Cuenta / Order</label><br>
@@ -11339,11 +11340,11 @@ function renderAgenteMisReportes() {
     // El chat interno se puede abrir en CUALQUIER estado (pendiente, rechazado
     // o ya aprobado) — independiente de si se está editando o no.
     const filaChat = chatAbierto
-      ? `<tr><td colspan="7" style="padding:0 8px 8px">${chatVentaHtml(g.grupoId, 'mr-chat-input-'+g.grupoId, 'agenteEnviarMensajeVenta')}</td></tr>`
+      ? `<tr><td colspan="8" style="padding:0 8px 8px">${chatVentaHtml(g.grupoId, 'mr-chat-input-'+g.grupoId, 'agenteEnviarMensajeVenta')}</td></tr>`
       : '';
 
     return filaPrincipal + filaEdicion + filaChat;
-  }).join('') : '<tr><td colspan="7" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="tbl-empty">Aún no has reportado ninguna venta</td></tr>';
 
   agenteActualizarBarraSeleccionReportes();
 }
