@@ -820,6 +820,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           <option value="2">Q2 (días 15–penúlt.)</option>
         </select>
         <button onclick="document.getElementById('fp-agente').value='';document.getElementById('fp-mes').value='';document.getElementById('fp-quincena').value='';renderPagos()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
+        <button onclick="abrirCongelarPagosEnLote()" style="background:#7a1428;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">❄️ Congelar Pagos</button>
         <button onclick="abrirDetalleAgenteModal()" style="background:#009FDB;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">👤 Ver Detalle Completo</button>
         <button id="btn-reporte-todos-agentes" onclick="generarReporteTodosAgentes()" style="display:none;background:#25D366;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">📲 Reporte de Todos</button>
         <button id="btn-reporte-sueldos-comisiones" onclick="generarReporteSueldosComisiones()" style="display:none;background:#00BDA5;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">💰 Reporte de Sueldos y Comisiones</button>
@@ -9459,6 +9460,84 @@ function toggleQuincena(agenteNombre, mes, q) {
   guardar();
   renderPagos();
   showNotif(`💳 Q${q} ${mes} — ${appData.quincenas[key] ? 'marcada pagada' : 'desmarcada'}`);
+}
+
+// Congela en lote las quincenas que coincidan con los filtros activos de
+// Pagos (agente/todos, mes/todos, Q1/Q2/ambas) -- mismo mecanismo exacto
+// que toggleQuincena() (snapshot del sueldo actual en ese momento), pero
+// para varias de una sola vez. Es puramente ADITIVO: nunca toca ni borra
+// una quincena que ya estaba marcada como pagada (se salta), y respeta el
+// mismo candado de "quincena cerrada" que ya usa toggleQuincena().
+//
+// Para evitar el riesgo real de choque entre dos sesiones de Admin
+// guardando casi al mismo tiempo (guardar() relee y reescribe TODO
+// appData de una sola vez -- ver comentario en _guardarInterno()), este
+// guardado usa un update() de Firebase aislado que SOLO toca las llaves
+// nuevas dentro de appData/quincenas. No pasa por guardar() ni relee/
+// reescribe el resto del árbol, así que es inmune a pisar cualquier otro
+// cambio que otra persona esté guardando en paralelo en cualquier otra
+// parte del sistema.
+function abrirCongelarPagosEnLote() {
+  const filtroAgId = parseInt(document.getElementById('fp-agente')?.value)||0;
+  const filtroMes  = document.getElementById('fp-mes')?.value||'';
+  const filtroQ    = document.getElementById('fp-quincena')?.value||'';
+  const meses = filtroMes ? [filtroMes] : getMeses();
+  const qs = filtroQ ? [parseInt(filtroQ)] : [1,2];
+
+  const agentesTodos = [
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
+    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
+  ];
+  const agentes = filtroAgId ? agentesTodos.filter(a=>a.id===filtroAgId) : agentesTodos;
+
+  if(!agentes.length) { showNotif('⚠️ No hay agentes que coincidan con el filtro', 'error'); return; }
+  if(!meses.length) { showNotif('⚠️ No hay meses que coincidan con el filtro', 'error'); return; }
+
+  const nuevosRegistros = {};
+  let cuentaNuevas = 0, cuentaCerradas = 0;
+  agentes.forEach(a=>{
+    meses.forEach(mes=>{
+      qs.forEach(q=>{
+        if(estaQuincenaCerrada(mes, q)) { cuentaCerradas++; return; }
+        const key = getQuincenaKey(a.nombre, mes, q);
+        if(appData.quincenas[key]) return; // ya pagada -- se respeta tal cual, nunca se sobrescribe
+        nuevosRegistros[key] = { agenteNombre: a.nombre, mes, q, fecha: new Date().toISOString().split('T')[0], sueldoSnapshot: a.sueldoQuincenal||0 };
+        cuentaNuevas++;
+      });
+    });
+  });
+
+  if(cuentaNuevas === 0) {
+    showNotif(cuentaCerradas ? '🔒 Todas las quincenas de este filtro están cerradas o ya pagadas' : '✅ No hay quincenas nuevas que marcar — todas ya estaban pagadas', 'error');
+    return;
+  }
+
+  const msg = `❄️ Esto va a marcar como PAGADAS ${cuentaNuevas} quincena${cuentaNuevas>1?'s':''} nueva${cuentaNuevas>1?'s':''} de ${agentes.length} agente${agentes.length>1?'s':''}, congelando el sueldo actual de cada una.\n\n` +
+    `Las quincenas que ya estaban marcadas como pagadas NO se tocan.` +
+    (cuentaCerradas ? `\n${cuentaCerradas} quincena${cuentaCerradas>1?'s':''} cerrada${cuentaCerradas>1?'s':''} se excluye${cuentaCerradas>1?'n':''} automáticamente.` : '') +
+    `\n\n¿Confirmas?`;
+  if(!confirm(msg)) return;
+
+  congelarQuincenasEnLote(nuevosRegistros, cuentaNuevas);
+}
+
+async function congelarQuincenasEnLote(nuevosRegistros, cuenta) {
+  try {
+    await fbDB.ref('appData/quincenas').update(nuevosRegistros);
+  } catch(e) {
+    showNotif('⚠️ No se pudo guardar en el servidor (' + e.message + '). Intenta de nuevo.', 'error');
+    return;
+  }
+  // Update aislado ya confirmado en el servidor -- se refleja en la copia
+  // local directamente, sin pasar por guardar() (que reescribiría todo el
+  // árbol de appData; ver comentario arriba de abrirCongelarPagosEnLote()).
+  Object.assign(appData.quincenas, nuevosRegistros);
+  localStorage.setItem('attVND_v1', JSON.stringify(appData));
+  _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
+  _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
+  renderPagos();
+  showNotif(`❄️ ${cuenta} quincena${cuenta>1?'s':''} congelada${cuenta>1?'s':''} como pagada${cuenta>1?'s':''}`);
 }
 
 // Formato pesos colombianos
