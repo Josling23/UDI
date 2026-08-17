@@ -19543,23 +19543,23 @@ function bravoConstruirSeccionesReporte(r) {
   const secciones = [];
   if((r.accesorios||[]).length) {
     secciones.push({ titulo: `🏷️ Accesorios (${bravoSumarCantidad(r.accesorios)})`,
-      lineas: r.accesorios.map(a => `${BRAVO_ACC_TIPO_LABELS_FULL[a.tipo]||a.tipo||'—'} x${a.cantidad||1} — ${fmt(a.precio||0)} (${BRAVO_METODO_PAGO_LABELS_FULL[a.metodo]||a.metodo||'—'}) — Ganancia: ${fmt(a.ganancia||0)}${a.notas?` — ${a.notas}`:''}`) });
+      lineas: r.accesorios.map(a => { const m = bravoMargenLinea(a,'accesorio'); return `${BRAVO_ACC_TIPO_LABELS_FULL[a.tipo]||a.tipo||'—'} x${a.cantidad||1} — Venta: ${fmt(m.venta)} (${BRAVO_METODO_PAGO_LABELS_FULL[a.metodo]||a.metodo||'—'}) — Costo: ${fmt(m.costo)} — Margen: ${fmt(m.margen)} (${m.margenPct.toFixed(0)}%)${a.notas?` — ${a.notas}`:''}`; }) });
   }
   if((r.lycas||[]).length) {
     secciones.push({ titulo: `📱 Lycas (${r.lycas.length})`,
-      lineas: r.lycas.map(l => `${BRAVO_LYCA_TIPO_LABELS_FULL[l.tipo]||l.tipo||'—'} — Cliente/Agente: ${l.cliente||'—'} — ${fmt(l.precio||0)} — Ganancia: ${fmt(l.ganancia||0)}${l.notas?` — ${l.notas}`:''}`) });
+      lineas: r.lycas.map(l => { const m = bravoMargenLinea(l,'lyca'); return `${BRAVO_LYCA_TIPO_LABELS_FULL[l.tipo]||l.tipo||'—'} — Cliente/Agente: ${l.cliente||'—'} — Venta: ${fmt(m.venta)} — Costo: ${fmt(m.costo)} — Margen: ${fmt(m.margen)} (${m.margenPct.toFixed(0)}%)${l.notas?` — ${l.notas}`:''}`; }) });
   }
   if((r.reparaciones||[]).length) {
     secciones.push({ titulo: `🔧 Reparaciones (${r.reparaciones.length})`,
-      lineas: r.reparaciones.map(rp => `${BRAVO_REP_EQUIPO_LABELS_FULL[rp.equipo]||rp.equipo||'—'} - ${BRAVO_REP_TIPO_LABELS_FULL[rp.tipo]||rp.tipo||'—'} — ${fmt(rp.precio||0)} (Abono ${fmt(rp.abono||0)}, Resta ${fmt(rp.resta||0)}) — ${BRAVO_REP_ESTADO_LABELS_FULL[rp.estado]||rp.estado||'—'} — Ganancia: ${fmt(rp.ganancia||0)}${rp.notas?` — ${rp.notas}`:''}`) });
+      lineas: r.reparaciones.map(rp => { const m = bravoMargenLinea(rp,'reparacion'); return `${BRAVO_REP_EQUIPO_LABELS_FULL[rp.equipo]||rp.equipo||'—'} - ${BRAVO_REP_TIPO_LABELS_FULL[rp.tipo]||rp.tipo||'—'} — Venta: ${fmt(m.venta)} (Abono ${fmt(rp.abono||0)}, Resta ${fmt(rp.resta||0)}) — ${BRAVO_REP_ESTADO_LABELS_FULL[rp.estado]||rp.estado||'—'} — Costo: ${fmt(m.costo)} — Margen: ${fmt(m.margen)} (${m.margenPct.toFixed(0)}%)${rp.notas?` — ${rp.notas}`:''}`; }) });
   }
   if((r.combos||[]).length) {
     secciones.push({ titulo: `📦 Combos (${r.combos.length})`,
-      lineas: r.combos.map(c => `${c.desc||'—'} — ${fmt(c.precio||0)}${c.comision?` (Comisión ${fmt(c.comision)})`:''} — Ganancia: ${fmt(c.ganancia||0)}${c.notas?` — ${c.notas}`:''}`) });
+      lineas: r.combos.map(c => { const m = bravoMargenLinea(c,'combo'); return `${c.desc||'—'} — Venta: ${fmt(m.venta)}${c.comision?` (Comisión ${fmt(c.comision)})`:''} — Costo: ${fmt(m.costo)} — Margen: ${fmt(m.margen)} (${m.margenPct.toFixed(0)}%)${c.notas?` — ${c.notas}`:''}`; }) });
   }
   if((r.telefonos||[]).length) {
     secciones.push({ titulo: `📞 Teléfonos (${r.telefonos.length})`,
-      lineas: r.telefonos.map(t => `${t.modelo||'—'} (${BRAVO_TEL_TIPO_LABELS_FULL[t.tipo]||t.tipo||'—'}) — ${fmt(t.precio||0)} — Ganancia: ${fmt(t.ganancia||0)}${t.notas?` — ${t.notas}`:''}`) });
+      lineas: r.telefonos.map(t => { const m = bravoMargenLinea(t,'telefono'); return `${t.modelo||'—'} (${BRAVO_TEL_TIPO_LABELS_FULL[t.tipo]||t.tipo||'—'}) — Venta: ${fmt(m.venta)} — Costo: ${fmt(m.costo)} — Margen: ${fmt(m.margen)} (${m.margenPct.toFixed(0)}%)${t.notas?` — ${t.notas}`:''}`; }) });
   }
   if((r.actividades||[]).length) {
     secciones.push({ titulo: `📝 Actividades`,
@@ -19594,12 +19594,8 @@ function bravoVerReporteRegistro(id) {
         ${s.lineas.map(l => `<div style="font-size:12px;color:#33475B;padding:6px 10px;background:#F5F8FA;border-radius:6px;margin-bottom:4px">${l}</div>`).join('')}
       </div>`).join('') : '<div style="color:#99ACC2;text-align:center;padding:20px">Sin productos registrados</div>'}
     <div style="border-top:2px solid #F5F8FA;padding-top:12px;margin-top:12px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:13px;font-weight:700;color:#33475B">💰 GANANCIA TOTAL</span>
-      <span style="font-size:20px;font-weight:900;color:#00BDA5">${fmt(r.gananciaTotal||0)}</span>
-    </div>
-    <div style="padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;font-weight:700;color:#7C98B6">💵 Ganancia Total Real (después de costos)</span>
-      <span style="font-size:15px;font-weight:800;color:#33475B">${fmt(bravoGananciaRealReporte(r))}</span>
+      <span style="font-size:13px;font-weight:700;color:#33475B">💰 MARGEN TOTAL</span>
+      <span style="font-size:20px;font-weight:900;color:#00BDA5">${fmt(bravoGananciaRealReporte(r))}</span>
     </div>`;
   document.getElementById('modal-bravo-reporte-resumen').classList.add('open');
 }
@@ -19615,8 +19611,7 @@ function bravoCompartirReporteWhatsApp(id) {
   } else {
     texto += 'Sin productos registrados\n\n';
   }
-  texto += `💰 GANANCIA TOTAL: ${fmt(r.gananciaTotal||0)}\n`;
-  texto += `💵 Ganancia Total Real (después de costos): ${fmt(bravoGananciaRealReporte(r))}`;
+  texto += `💰 MARGEN TOTAL: ${fmt(bravoGananciaRealReporte(r))}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
@@ -20741,6 +20736,38 @@ function bravoCambiarTab(tab) {
   document.querySelector(`[data-tab="${tab}"]`).style.marginBottom = '-2px';
 }
 
+// ============================================================
+// FUENTE ÚNICA DE "MARGEN" (Venta - Costo) para cada línea del Registro
+// Diario de Bravo -- reemplaza la costumbre de mostrar el precio de venta
+// como si fuera "Ganancia" (el campo .ganancia guardado en cada línea NO
+// resta el costo -- ese costo se refleja aparte como Gasto en ROI Bravo,
+// ver bravoSincronizarGastosDeReporte -- así que mostrarlo tal cual infla
+// la ganancia mostrada entre 2x y 5x). Esta función SIEMPRE calcula
+// Venta/Costo/Margen directo de los campos crudos (precio, costo,
+// cantidad, comisión), nunca lee .ganancia -- así todo lo que se muestre
+// (listas del formulario, Ver Reporte, WhatsApp) usa exactamente la misma
+// fórmula, sin importar cuándo se guardó el registro. NO cambia lo que se
+// guarda en appData (.ganancia se sigue calculando y guardando igual que
+// antes, porque calcBravoMes()/ROI Bravo dependen de esa convención para
+// el total mensual) -- esto es puramente para lo que el usuario VE.
+function bravoMargenLinea(item, categoria) {
+  let venta = 0, costo = 0;
+  if(categoria === 'accesorio') {
+    venta = (item.precio||0) * (item.cantidad||1);
+    costo = (item.costo||0) * (item.cantidad||1);
+  } else if(categoria === 'combo') {
+    venta = item.precio||0;
+    costo = (item.costo||0) + (item.comision||0);
+  } else {
+    // lyca, reparacion, telefono
+    venta = item.precio||0;
+    costo = item.costo||0;
+  }
+  const margen = venta - costo;
+  const margenPct = venta > 0 ? (margen / venta * 100) : 0;
+  return { venta, costo, margen, margenPct };
+}
+
 // Agregar accesorio
 function bravoAgregarAccesorio() {
   const tipo = document.getElementById('bravo-acc-tipo').value;
@@ -20797,7 +20824,7 @@ function bravoAgregarLyca() {
   const metodo = document.getElementById('bravo-lyca-metodo').value;
   const notas = document.getElementById('bravo-lyca-notas').value.trim();
 
-  if(!cliente || !precio) { showNotif('⚠️ Completa Cliente/Agente y Precio Vendido','error'); return; }
+  if(!cliente || !precio || !costo) { showNotif('⚠️ Completa Cliente/Agente, Precio Vendido y Costo','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte).
@@ -20852,7 +20879,7 @@ function bravoAgregarReparacion() {
   const metodo = document.getElementById('bravo-rep-metodo').value;
   const notas = document.getElementById('bravo-rep-notas').value.trim();
 
-  if(!equipo || !tipo || !precio) { showNotif('⚠️ Completa todos los campos','error'); return; }
+  if(!equipo || !tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos (incluyendo Costo del repuesto)','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte).
@@ -21003,8 +21030,8 @@ function bravoRenderListaAccesorios() {
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
         <div style="font-weight:600;color:#33475B">${acc.tipo || acc.nombre || '—'}</div>
-        <div style="font-size:10px;color:#7C98B6">Cantidad: ${acc.cantidad||0} | Precio: $${(acc.precio||0).toFixed(2)} | Costo: $${(acc.costo||0).toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(acc.ganancia!=null ? acc.ganancia : ((acc.precio||0)-(acc.costo||0))*(acc.cantidad||1)).toFixed(2)}</div>
+        <div style="font-size:10px;color:#7C98B6">Cantidad: ${acc.cantidad||0} | Venta: $${(acc.precio||0).toFixed(2)} | Costo: $${(acc.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Margen: $${bravoMargenLinea(acc,'accesorio').margen.toFixed(2)} (${bravoMargenLinea(acc,'accesorio').margenPct.toFixed(0)}%)</div>
         ${acc.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${acc.notas}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px">
@@ -21025,8 +21052,8 @@ function bravoRenderListaLycas() {
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
         <div style="font-weight:600;color:#33475B">${lyca.tipo||'Lyca'} - ${lyca.cliente||'—'}</div>
-        <div style="font-size:10px;color:#7C98B6">Precio: $${(lyca.precio||0).toFixed(2)} | Costo: $${(lyca.costo||0).toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(lyca.ganancia!=null ? lyca.ganancia : (lyca.precio||0)-(lyca.costo||0)).toFixed(2)}</div>
+        <div style="font-size:10px;color:#7C98B6">Venta: $${(lyca.precio||0).toFixed(2)} | Costo: $${(lyca.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Margen: $${bravoMargenLinea(lyca,'lyca').margen.toFixed(2)} (${bravoMargenLinea(lyca,'lyca').margenPct.toFixed(0)}%)</div>
         ${lyca.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${lyca.notas}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px">
@@ -21047,9 +21074,9 @@ function bravoRenderListaReparaciones() {
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
         <div style="font-weight:600;color:#33475B">${rep.equipo||'—'} - ${rep.tipo||'—'}</div>
-        <div style="font-size:10px;color:#7C98B6">Estado: ${rep.estado||'—'} | Precio: $${(rep.precio||0).toFixed(2)} | Costo: $${(rep.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#7C98B6">Estado: ${rep.estado||'—'} | Venta: $${(rep.precio||0).toFixed(2)} | Costo: $${(rep.costo||0).toFixed(2)}</div>
         <div style="font-size:10px;color:#7C98B6">Abono: $${(rep.abono||0).toFixed(2)}${(rep.resta||0)>0 ? ` | <span style="color:#D4A017;font-weight:600">Resta por cobrar: $${(rep.resta||0).toFixed(2)}</span>` : ' | <span style="color:#00BDA5;font-weight:600">Pagado completo</span>'}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(rep.ganancia!=null ? rep.ganancia : (rep.precio||0)-(rep.costo||0)).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Margen: $${bravoMargenLinea(rep,'reparacion').margen.toFixed(2)} (${bravoMargenLinea(rep,'reparacion').margenPct.toFixed(0)}%)</div>
         ${rep.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${rep.notas}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px">
@@ -21070,8 +21097,8 @@ function bravoRenderListaCombos() {
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
         <div style="font-weight:600;color:#33475B">${combo.desc||'—'}</div>
-        <div style="font-size:10px;color:#7C98B6">Precio: $${(combo.precio||0).toFixed(2)} | Costo: $${(combo.costo||0).toFixed(2)} | Comisión: $${(combo.comision||0).toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia Neta: $${(combo.ganancia!=null ? combo.ganancia : (combo.precio||0)-(combo.costo||0)-(combo.comision||0)).toFixed(2)}</div>
+        <div style="font-size:10px;color:#7C98B6">Venta: $${(combo.precio||0).toFixed(2)} | Costo: $${(combo.costo||0).toFixed(2)} | Comisión: $${(combo.comision||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Margen: $${bravoMargenLinea(combo,'combo').margen.toFixed(2)} (${bravoMargenLinea(combo,'combo').margenPct.toFixed(0)}%)</div>
         ${combo.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${combo.notas}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px">
@@ -21092,8 +21119,8 @@ function bravoRenderListaTelefonos() {
     <div style="background:#fff;border:1px solid #CBD6E2;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
       <div style="font-size:12px;flex:1">
         <div style="font-weight:600;color:#33475B">${tel.modelo||'—'}</div>
-        <div style="font-size:10px;color:#7C98B6">Tipo: ${tel.tipo||'—'} | Precio: $${(tel.precio||0).toFixed(2)} | Costo: $${(tel.costo||0).toFixed(2)}</div>
-        <div style="font-size:10px;color:#00BDA5;font-weight:600">Ganancia: $${(tel.ganancia!=null ? tel.ganancia : (tel.precio||0)-(tel.costo||0)).toFixed(2)}</div>
+        <div style="font-size:10px;color:#7C98B6">Tipo: ${tel.tipo||'—'} | Venta: $${(tel.precio||0).toFixed(2)} | Costo: $${(tel.costo||0).toFixed(2)}</div>
+        <div style="font-size:10px;color:#00BDA5;font-weight:600">Margen: $${bravoMargenLinea(tel,'telefono').margen.toFixed(2)} (${bravoMargenLinea(tel,'telefono').margenPct.toFixed(0)}%)</div>
         ${tel.notas ? `<div style="font-size:10px;color:#99ACC2;font-style:italic">📝 ${tel.notas}</div>` : ''}
       </div>
       <div style="display:flex;gap:4px">
