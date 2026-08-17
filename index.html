@@ -2560,13 +2560,30 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         </div>
         <div class="form-group">
           <label>Estado</label>
-          <select id="rep-estado">
-            <option value="recibido">📥 Recibido</option>
-            <option value="pendiente">⏳ Pendiente</option>
-            <option value="entregado">✅ Entregado</option>
+          <select id="rep-estado" onchange="repToggleMotivoPerdida()">
+            <option value="presupuesto">📋 Presupuesto</option>
+            <option value="aceptado">✅ Aceptado</option>
+            <option value="repuesto_pedido">📦 Repuesto Pedido</option>
+            <option value="en_reparacion">🔧 En Reparación</option>
+            <option value="entregado">📤 Entregado</option>
+            <option value="cobrado">💰 Cobrado</option>
+            <option value="perdido">❌ Perdido</option>
+          </select>
+        </div>
+        <div class="form-group" id="rep-motivo-perdida-wrap" style="display:none">
+          <label>Motivo de Pérdida *</label>
+          <select id="rep-motivo-perdida">
+            <option value="">— Selecciona —</option>
+            <option value="precio-alto">Precio alto</option>
+            <option value="tiempo-espera">Tiempo de espera</option>
+            <option value="cliente-no-volvio">Cliente no volvió</option>
+            <option value="sin-repuesto">Sin repuesto disponible</option>
+            <option value="competencia">Fue a la competencia</option>
+            <option value="otro">Otro</option>
           </select>
         </div>
         <div class="form-group"><label>Fecha *</label><input type="date" id="rep-fecha"></div>
+        <div class="form-group"><label>Fecha Promesa de Entrega *</label><input type="date" id="rep-fecha-promesa"></div>
         <div class="form-group">
           <label>Pago</label>
           <select id="rep-pago">
@@ -3050,11 +3067,14 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div>
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Estado</label>
-            <select id="bravo-rep-estado" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
-              <option value="entregada">Entregada</option>
-              <option value="pendiente">Pendiente de Repuesto</option>
-              <option value="en-reparacion">En Reparación</option>
-              <option value="cancelada">Cancelada</option>
+            <select id="bravo-rep-estado" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px" onchange="bravoRepToggleMotivoPerdida()">
+              <option value="presupuesto">📋 Presupuesto</option>
+              <option value="aceptado">✅ Aceptado</option>
+              <option value="repuesto_pedido">📦 Repuesto Pedido</option>
+              <option value="en_reparacion">🔧 En Reparación</option>
+              <option value="entregado">📤 Entregado</option>
+              <option value="cobrado">💰 Cobrado</option>
+              <option value="perdido">❌ Perdido</option>
             </select>
           </div>
           <div>
@@ -3064,6 +3084,24 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
               <option value="zelle">Zelle</option>
               <option value="paypal">PayPal</option>
               <option value="punto">Punto</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Fecha Promesa de Entrega *</label>
+            <input type="date" id="bravo-rep-fecha-promesa" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+          </div>
+          <div id="bravo-rep-motivo-perdida-wrap" style="display:none">
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Motivo de Pérdida *</label>
+            <select id="bravo-rep-motivo-perdida" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+              <option value="">— Selecciona —</option>
+              <option value="precio-alto">Precio alto</option>
+              <option value="tiempo-espera">Tiempo de espera</option>
+              <option value="cliente-no-volvio">Cliente no volvió</option>
+              <option value="sin-repuesto">Sin repuesto disponible</option>
+              <option value="competencia">Fue a la competencia</option>
               <option value="otro">Otro</option>
             </select>
           </div>
@@ -3830,6 +3868,7 @@ function normalizarAppData() {
   if(!appData.bravo.nextReparacionId) appData.bravo.nextReparacionId = 1;
   if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
   if(!appData.bravo.nextLineaLycaId) appData.bravo.nextLineaLycaId = 1;
+  migrarEstadosReparacionAntiguos();
 
   // Reparar ids duplicados o faltantes en caja chica (mismo motivo que
   // reportesDiarios más abajo).
@@ -19849,8 +19888,64 @@ function bravoDescargarReportesExcel() {
 // resta y ganancia — independiente del registro rápido dentro
 // del modal de Registro Diario)
 // ============================================================
-const REP_ESTADO_LABELS = { recibido:'📥 Recibido', pendiente:'⏳ Pendiente', entregado:'✅ Entregado' };
-const REP_ESTADO_COLORS = { recibido:'#009FDB', pendiente:'#D4A017', entregado:'#00BDA5' };
+// ============================================================
+// MÁQUINA DE ESTADOS UNIFICADA DE REPARACIONES (Fase 2 de la revisión
+// contable de Bravo) -- antes convivían 2 vocabularios distintos: el
+// formulario standalone "+ Nueva Reparación" (recibido/pendiente/
+// entregado) y la pestaña "Reparaciones" del Registro Diario (entregada/
+// pendiente-de-repuesto/en-reparacion/cancelada). De aquí en adelante
+// ambos formularios usan esta misma máquina de 7 etapas. Los registros ya
+// guardados se migran una sola vez en normalizarAppData() (ver
+// migrarEstadosReparacionAntiguos() más abajo) -- ningún registro se
+// borra, solo se actualiza el campo estado al equivalente más cercano.
+const REP_ESTADO_LABELS = {
+  presupuesto:     '📋 Presupuesto',
+  aceptado:        '✅ Aceptado',
+  repuesto_pedido: '📦 Repuesto Pedido',
+  en_reparacion:   '🔧 En Reparación',
+  entregado:       '📤 Entregado',
+  cobrado:         '💰 Cobrado',
+  perdido:         '❌ Perdido',
+};
+const REP_ESTADO_COLORS = {
+  presupuesto:     '#7C98B6',
+  aceptado:        '#009FDB',
+  repuesto_pedido: '#D4A017',
+  en_reparacion:   '#FF7A59',
+  entregado:       '#00BDA5',
+  cobrado:         '#059669',
+  perdido:         '#DC2626',
+};
+// Motivos de pérdida (obligatorio cuando estado === 'perdido').
+const REP_MOTIVO_PERDIDA_LABELS = {
+  'precio-alto':       'Precio alto',
+  'tiempo-espera':     'Tiempo de espera',
+  'cliente-no-volvio': 'Cliente no volvió',
+  'sin-repuesto':      'Sin repuesto disponible',
+  'competencia':       'Fue a la competencia',
+  'otro':              'Otro',
+};
+
+// Migración de un solo golpe (idempotente -- correr varias veces no hace
+// nada distinto) de los 2 vocabularios viejos de estado al vocabulario
+// nuevo de 7 etapas. Es aditiva: NUNCA borra ni reemplaza el registro, solo
+// actualiza el valor del campo .estado al equivalente más cercano. Como
+// "recibido"/"pendiente" (standalone) y "pendiente"/"en-reparacion"
+// (Registro Diario) eran conceptos algo ambiguos en el sistema viejo, este
+// mapeo es la mejor interpretación razonable, no una reconstrucción exacta
+// del estado histórico real de cada reparación.
+const REP_MIGRACION_STANDALONE = { recibido:'aceptado', pendiente:'en_reparacion' }; // 'entregado' ya coincide, no necesita mapeo
+const REP_MIGRACION_REGISTRO   = { entregada:'entregado', pendiente:'repuesto_pedido', 'en-reparacion':'en_reparacion', cancelada:'perdido' };
+function migrarEstadosReparacionAntiguos() {
+  (appData.bravo.reparaciones||[]).forEach(r => {
+    if(REP_MIGRACION_STANDALONE[r.estado]) r.estado = REP_MIGRACION_STANDALONE[r.estado];
+  });
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    (reg.reparaciones||[]).forEach(item => {
+      if(REP_MIGRACION_REGISTRO[item.estado]) item.estado = REP_MIGRACION_REGISTRO[item.estado];
+    });
+  });
+}
 // cash/zelle/punto: opciones del formulario standalone "+ Nueva Reparación".
 // efectivo/paypal/otro: las reparaciones agregadas desde el Registro Diario
 // usan el mismo vocabulario de Tipo de Pago que Accesorios/Lycas/Combos/
@@ -19890,6 +19985,17 @@ function calcularReparacionAuto() {
   document.getElementById('rep-resta').value = resta.toFixed(2);
 }
 
+// Muestra/oculta el selector de Motivo de Pérdida según el estado elegido
+// -- en ambos formularios (standalone y el de Registro Diario).
+function repToggleMotivoPerdida() {
+  const esPerdido = document.getElementById('rep-estado').value === 'perdido';
+  document.getElementById('rep-motivo-perdida-wrap').style.display = esPerdido ? 'block' : 'none';
+}
+function bravoRepToggleMotivoPerdida() {
+  const esPerdido = document.getElementById('bravo-rep-estado').value === 'perdido';
+  document.getElementById('bravo-rep-motivo-perdida-wrap').style.display = esPerdido ? 'block' : 'none';
+}
+
 function abrirModalReparacion(id=null) {
   if(!validarAccesoBravo()) return;
   const r = id ? (appData.bravo.reparaciones||[]).find(x=>x.id===id) : null;
@@ -19903,18 +20009,26 @@ function abrirModalReparacion(id=null) {
   document.getElementById('rep-costo').value = r?.costoRepuesto!=null ? r.costoRepuesto : '';
   document.getElementById('rep-totalcosto').value = totalCosto!=null ? totalCosto : '';
   document.getElementById('rep-abono').value = r?.abono!=null ? r.abono : '';
-  document.getElementById('rep-estado').value = r?.estado||'recibido';
+  document.getElementById('rep-estado').value = r?.estado||'presupuesto';
+  document.getElementById('rep-motivo-perdida').value = r?.motivoPerdida||'';
   document.getElementById('rep-fecha').value = r?.fecha || fechaLocalHoy();
+  document.getElementById('rep-fecha-promesa').value = r?.fechaPromesaEntrega || '';
   document.getElementById('rep-pago').value = r?.pago||'cash';
   calcularReparacionAuto();
+  repToggleMotivoPerdida();
   document.getElementById('modal-bravo-reparacion').classList.add('open');
 }
 
 function guardarReparacion() {
   const cliente = document.getElementById('rep-cliente').value.trim();
   const fecha = document.getElementById('rep-fecha').value;
+  const fechaPromesaEntrega = document.getElementById('rep-fecha-promesa').value;
+  const estado = document.getElementById('rep-estado').value;
+  const motivoPerdida = document.getElementById('rep-motivo-perdida').value;
   if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
   if(!fecha) { showNotif('⚠️ Selecciona una fecha','error'); return; }
+  if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
+  if(estado === 'perdido' && !motivoPerdida) { showNotif('⚠️ Selecciona el Motivo de Pérdida','error'); return; }
 
   const [yyyy, mm] = fecha.split('-');
   const mes = (yyyy && mm) ? mesStrDesdeNum(parseInt(yyyy), parseInt(mm)) : mesActual();
@@ -19922,6 +20036,17 @@ function guardarReparacion() {
   const costoRepuesto = parseFloat(document.getElementById('rep-costo').value) || 0;
   const totalCosto    = parseFloat(document.getElementById('rep-totalcosto').value) || 0;
   const abono         = parseFloat(document.getElementById('rep-abono').value) || 0;
+
+  if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
+  const editId = parseInt(document.getElementById('modal-bravo-reparacion').dataset.editId)||null;
+  const rExistente = editId ? appData.bravo.reparaciones.find(x=>x.id===editId) : null;
+  // fechaEntregaReal se fija sola la primera vez que el estado llega a
+  // Entregado/Cobrado; si ya estaba fijada de antes (al editar), se respeta
+  // tal cual -- nunca se sobrescribe con la fecha de hoy por error.
+  let fechaEntregaReal = rExistente?.fechaEntregaReal || '';
+  if((estado === 'entregado' || estado === 'cobrado') && !fechaEntregaReal) {
+    fechaEntregaReal = fechaLocalHoy();
+  }
 
   const datos = {
     cliente,
@@ -19931,16 +20056,16 @@ function guardarReparacion() {
     abono,
     resta: Math.max(0, totalCosto - abono),
     ganancia: totalCosto - costoRepuesto,
-    estado: document.getElementById('rep-estado').value,
+    estado,
+    motivoPerdida: estado === 'perdido' ? motivoPerdida : '',
+    fechaPromesaEntrega,
+    fechaEntregaReal,
     fecha, mes,
     pago: document.getElementById('rep-pago').value
   };
 
-  if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
-  const editId = parseInt(document.getElementById('modal-bravo-reparacion').dataset.editId)||null;
   if(editId) {
-    const r = appData.bravo.reparaciones.find(x=>x.id===editId);
-    if(r) Object.assign(r, datos);
+    if(rExistente) Object.assign(rExistente, datos);
     showNotif('✅ Reparación actualizada');
   } else {
     const id = appData.bravo.nextReparacionId || 1;
@@ -20018,8 +20143,102 @@ function bravoReparaciones() {
         <tfoot id="bravo-rep-tfoot"></tfoot>
       </table>
     </div>
+
+    <div class="section" style="margin-top:26px">
+      <div class="section-header" style="margin-bottom:12px">
+        <h2>📊 Funnel de Reparaciones</h2>
+        <select id="funnel-rep-mes" onchange="bravoRenderFunnelReparaciones()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:7px 12px;border-radius:8px;font-size:12px">
+          ${mesesDisponibles.map(m=>`<option value="${m}" ${m===mesActual()?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:14px">
+        <table>
+          <thead><tr><th>Métrica</th><th style="text-align:right">Últimos 7 días</th><th style="text-align:right">Mes seleccionado</th></tr></thead>
+          <tbody id="bravo-funnel-tbody"></tbody>
+        </table>
+      </div>
+      <div id="bravo-funnel-motivos" style="background:#F5F8FA;border-radius:8px;padding:12px"></div>
+    </div>
   `;
   bravoRenderReparacionesTabla();
+  bravoRenderFunnelReparaciones();
+}
+
+// Junta ambas fuentes de reparaciones (standalone + Registro Diario) en una
+// sola lista, igual que ya hace bravoRenderReparacionesTabla() -- reutilizado
+// aquí para que el Funnel siempre cuente exactamente las mismas reparaciones
+// que ya se ven en la tabla de arriba, sin un tercer criterio distinto.
+function bravoTodasLasReparaciones() {
+  return [...(appData.bravo.reparaciones||[]), ...bravoReparacionesDesdeRegistros()];
+}
+
+// Calcula las métricas del Funnel para un rango de fechas [desde, hasta]
+// (strings "YYYY-MM-DD", ambos inclusive). Definiciones (documentadas
+// porque el sistema no guarda un historial de cambios de estado, solo el
+// estado actual + fecha de creación + fecha de entrega real):
+//  - Emitidos: reparaciones creadas en el rango (por su fecha de creación).
+//  - Aceptados: de esos, cuántas ya avanzaron más allá de "Presupuesto".
+//  - Ticket/Margen promedio: solo de las que llegaron a Entregado/Cobrado.
+//  - Días promedio: (fechaEntregaReal - fecha) para las que tienen ambas.
+//  - Motivos de pérdida: agrupados por el campo motivoPerdida.
+function bravoCalcularFunnelReparaciones(lista, desde, hasta) {
+  const enRango = lista.filter(r => r.fecha && r.fecha >= desde && r.fecha <= hasta);
+  const emitidos = enRango.length;
+  const aceptados = enRango.filter(r => r.estado !== 'presupuesto').length;
+  const tasaCierre = emitidos > 0 ? (aceptados / emitidos * 100) : 0;
+
+  const cerrados = enRango.filter(r => r.estado === 'entregado' || r.estado === 'cobrado');
+  const ticketProm = cerrados.length ? cerrados.reduce((s,r)=>s+(r.totalCosto||0),0) / cerrados.length : 0;
+  const margenProm = cerrados.length ? cerrados.reduce((s,r)=>s+((r.totalCosto||0)-(r.costoRepuesto||0)),0) / cerrados.length : 0;
+
+  const conAmbasFechas = cerrados.filter(r => r.fechaEntregaReal);
+  const diasProm = conAmbasFechas.length
+    ? conAmbasFechas.reduce((s,r)=> s + (new Date(r.fechaEntregaReal) - new Date(r.fecha)) / 86400000, 0) / conAmbasFechas.length
+    : null;
+
+  const perdidos = enRango.filter(r => r.estado === 'perdido');
+  const motivos = {};
+  perdidos.forEach(r => { const m = r.motivoPerdida || 'sin-especificar'; motivos[m] = (motivos[m]||0) + 1; });
+
+  return { emitidos, aceptados, tasaCierre, ticketProm, margenProm, diasProm, perdidosCount: perdidos.length, motivos };
+}
+
+function bravoRenderFunnelReparaciones() {
+  const tbody = document.getElementById('bravo-funnel-tbody');
+  if(!tbody) return;
+  const lista = bravoTodasLasReparaciones();
+
+  const hoy = new Date();
+  const hastaSemana = fechaLocalHoy();
+  const desdeSemanaDate = new Date(hoy); desdeSemanaDate.setDate(hoy.getDate() - 6);
+  const desdeSemana = desdeSemanaDate.toISOString().split('T')[0];
+  const funnelSemana = bravoCalcularFunnelReparaciones(lista, desdeSemana, hastaSemana);
+
+  const mesSel = document.getElementById('funnel-rep-mes')?.value || mesActual();
+  const [nombreMes, anioMes] = mesSel.split(' ');
+  const numMes = MESES_ES.indexOf(nombreMes) + 1;
+  const desdeMes = `${anioMes}-${String(numMes).padStart(2,'0')}-01`;
+  const ultimoDia = new Date(parseInt(anioMes), numMes, 0).getDate();
+  const hastaMes = `${anioMes}-${String(numMes).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+  const funnelMes = bravoCalcularFunnelReparaciones(lista, desdeMes, hastaMes);
+
+  const fila = (label, valSemana, valMes) => `<tr><td>${label}</td><td style="text-align:right">${valSemana}</td><td style="text-align:right">${valMes}</td></tr>`;
+  tbody.innerHTML =
+    fila('📋 Presupuestos Emitidos', funnelSemana.emitidos, funnelMes.emitidos) +
+    fila('✅ Presupuestos Aceptados', funnelSemana.aceptados, funnelMes.aceptados) +
+    fila('📈 Tasa de Cierre', funnelSemana.tasaCierre.toFixed(0)+'%', funnelMes.tasaCierre.toFixed(0)+'%') +
+    fila('🎫 Ticket Promedio', fmt(funnelSemana.ticketProm), fmt(funnelMes.ticketProm)) +
+    fila('💵 Margen Promedio', fmt(funnelSemana.margenProm), fmt(funnelMes.margenProm)) +
+    fila('⏱️ Días Promedio (Presupuesto → Entregado)', funnelSemana.diasProm!=null?funnelSemana.diasProm.toFixed(1):'—', funnelMes.diasProm!=null?funnelMes.diasProm.toFixed(1):'—');
+
+  const motivosDiv = document.getElementById('bravo-funnel-motivos');
+  const entradasMotivos = Object.entries(funnelMes.motivos);
+  motivosDiv.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">❌ Motivos de Pérdida — ${mesSel} (${funnelMes.perdidosCount} total)</div>
+    ${entradasMotivos.length
+      ? entradasMotivos.map(([k,v]) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #E5E7EB"><span>${REP_MOTIVO_PERDIDA_LABELS[k]||k}</span><strong>${v}</strong></div>`).join('')
+      : '<div style="color:#99ACC2;font-size:12px">Sin reparaciones perdidas este mes</div>'}
+  `;
 }
 
 // Reparaciones agregadas rápidamente desde el Registro Diario (pestaña
@@ -20642,9 +20861,15 @@ let bravoRegistroTemp = {
   telefonos: [],
   actividades: []
 };
+// fechaEntregaReal de la reparación que se está editando ahora mismo (ver
+// bravoEditarReparacion/bravoAgregarReparacion) -- el formulario no tiene un
+// campo visible para esto, así que se guarda aquí mientras dura la edición,
+// para no perder la fecha real de entrega ya registrada al volver a guardar.
+let bravoRepEditandoFechaEntregaReal = '';
 
 // Abrir formulario de registro diario (nuevo o editar)
 function abrirFormularioRegistroDiario(id=null) {
+  bravoRepEditandoFechaEntregaReal = '';
   if(id != null) {
     // Comparación tolerante: por si el id llegó como string o número
     // distinto tras una sincronización (evita fallar en silencio).
@@ -20878,16 +21103,31 @@ function bravoAgregarReparacion() {
   const estado = document.getElementById('bravo-rep-estado').value;
   const metodo = document.getElementById('bravo-rep-metodo').value;
   const notas = document.getElementById('bravo-rep-notas').value.trim();
+  const fechaPromesaEntrega = document.getElementById('bravo-rep-fecha-promesa').value;
+  const motivoPerdida = document.getElementById('bravo-rep-motivo-perdida').value;
 
   if(!equipo || !tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos (incluyendo Costo del repuesto)','error'); return; }
+  if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
+  if(estado === 'perdido' && !motivoPerdida) { showNotif('⚠️ Selecciona el Motivo de Pérdida','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte).
   const ganancia = precio;
   const resta = Math.max(0, precio - abono);
+  // fechaEntregaReal se fija sola la primera vez que llega a
+  // Entregado/Cobrado; si ya estaba fijada de antes (al editar), se respeta
+  // tal cual -- nunca se sobrescribe con la fecha de hoy por error (ver
+  // misma lógica en guardarReparacion(), y bravoRepEditandoFechaEntregaReal).
+  let fechaEntregaReal = bravoRepEditandoFechaEntregaReal || '';
+  if((estado === 'entregado' || estado === 'cobrado') && !fechaEntregaReal) {
+    fechaEntregaReal = fechaLocalHoy();
+  }
+  bravoRepEditandoFechaEntregaReal = '';
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, abono, resta, estado, metodo, ganancia, notas
+    equipo, tipo, precio, costo, abono, resta, estado, metodo, ganancia, notas,
+    fechaPromesaEntrega, fechaEntregaReal,
+    motivoPerdida: estado === 'perdido' ? motivoPerdida : ''
   });
 
   // Limpiar formulario
@@ -20898,6 +21138,9 @@ function bravoAgregarReparacion() {
   document.getElementById('bravo-rep-abono').value = '';
   document.getElementById('bravo-rep-resta').value = '';
   document.getElementById('bravo-rep-notas').value = '';
+  document.getElementById('bravo-rep-fecha-promesa').value = '';
+  document.getElementById('bravo-rep-motivo-perdida').value = '';
+  bravoRepToggleMotivoPerdida();
 
   bravoActualizarResumen();
   bravoRenderListaReparaciones();
@@ -20913,9 +21156,13 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-precio').value = item.precio != null ? item.precio : '';
   document.getElementById('bravo-rep-costo').value = item.costo != null ? item.costo : '';
   document.getElementById('bravo-rep-abono').value = item.abono != null ? item.abono : '';
-  document.getElementById('bravo-rep-estado').value = item.estado || 'entregada';
+  document.getElementById('bravo-rep-estado').value = item.estado || 'presupuesto';
   document.getElementById('bravo-rep-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-rep-notas').value = item.notas || '';
+  document.getElementById('bravo-rep-fecha-promesa').value = item.fechaPromesaEntrega || '';
+  document.getElementById('bravo-rep-motivo-perdida').value = item.motivoPerdida || '';
+  bravoRepEditandoFechaEntregaReal = item.fechaEntregaReal || '';
+  bravoRepToggleMotivoPerdida();
   bravoCalcularRestaRep();
   bravoRegistroTemp.reparaciones.splice(i,1);
   bravoRenderListaReparaciones();
