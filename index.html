@@ -2608,6 +2608,28 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
   </div>
 </div>
 
+<!-- ===== MODAL BRAVO - COSTOS FIJOS (Fase 4, prorrateo del Panel Diario) ===== -->
+<div class="modal-overlay" id="modal-bravo-costos-fijos">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h3>⚙️ Costos Fijos Mensuales</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-costos-fijos')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:#7C98B6;margin-bottom:14px">Se usan solo para calcular la meta diaria del Panel Diario (prorrateados entre los días hábiles del mes, lunes a viernes). No son gastos registrados — esos siguen en Bravo → Gastos.</p>
+      <div class="form-grid">
+        <div class="form-group"><label>Renta Mensual ($)</label><input type="number" id="cf-renta" step="0.01" min="0"></div>
+        <div class="form-group"><label>Douglas León — por Viernes ($)</label><input type="number" id="cf-douglas" step="0.01" min="0"></div>
+        <div class="form-group"><label>Servicios/Otros Mensual ($)</label><input type="number" id="cf-otros" step="0.01" min="0"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-costos-fijos')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarCostosFijosBravo()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODAL BRAVO - CAJA CHICA ===== -->
 <div class="modal-overlay" id="modal-bravo-caja">
   <div class="modal" style="max-width:480px">
@@ -3873,6 +3895,11 @@ function normalizarAppData() {
   if(!appData.bravo.nextCajaId) appData.bravo.nextCajaId = 1;
   if(!appData.bravo.gastos) appData.bravo.gastos = [];
   if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
+  // Costos fijos mensuales para prorratear en el Panel Diario (Fase 4) --
+  // NO son gastos transaccionales (esos siguen en appData.bravo.gastos, con
+  // su propia fecha), son la meta/referencia diaria. Editables desde el
+  // Dashboard de Bravo; estos son solo los valores por defecto iniciales.
+  if(!appData.bravo.costosFijos) appData.bravo.costosFijos = { rentaMensual: 1300, douglasPorViernes: 585, otrosMensual: 0 };
   if(!appData.bravo.compras) appData.bravo.compras = [];
   if(!appData.bravo.nextCompraId) appData.bravo.nextCompraId = 1;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
@@ -19195,6 +19222,9 @@ function bravoDashboard() {
   const cobradoHoy = bravoCalcularCobradoHoy(hoy);
   const gananciaDevengadaHoy = bravoCalcularGananciaDevengadaHoy(hoy);
   const cuentasPorCobrar = bravoCalcularCuentasPorCobrar();
+  // Panel Diario (Fase 4): venta/costo/margen de hoy contra la meta de
+  // costo fijo prorrateado del día -- ver bravoCalcularPanelDiario().
+  const panelDiario = bravoCalcularPanelDiario(hoy);
   const gananciaMes = gananciaDelMes(mesActual, añoActual);
   const gananciaMesAnterior = gananciaDelMes(mesAnteriorNum, añoAnteriorNum);
 
@@ -19254,11 +19284,33 @@ function bravoDashboard() {
           <button class="btn btn-primary btn-sm" onclick="abrirFormularioRegistroDiario()">➕ Nuevo Registro</button>
           <button class="btn btn-success btn-sm" onclick="showPage('bravo-registros',document.querySelector('[onclick=\\'showPage(\\'bravo-registros\\')\\']'))" >📋 Ver Registros</button>
           <button class="btn btn-info btn-sm" onclick="showPage('bravo-roi',document.querySelector('[onclick=\\'showPage(\\'bravo-roi\\')\\']'))">📊 Ver ROI</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirModalCostosFijosBravo()">⚙️ Costos Fijos</button>
           <button class="btn btn-orange btn-sm" onclick="importarDatosJunio()">📥 Importar Junio</button>
         </div>
       </div>
 
       ${resumenEjecutivoBravoHTML}
+
+      <div class="section">
+        <div class="section-header">
+          <h2>📅 Panel Diario — ${new Date().toLocaleDateString('es-US', {weekday:'long', month:'long', day:'numeric'})}</h2>
+        </div>
+        <div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:12px;padding:18px;max-width:420px">
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#7C98B6">Venta del Día</span><strong>${fmt(panelDiario.venta)}</strong></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#7C98B6">Costo de lo Vendido</span><strong>${fmt(panelDiario.costo)}</strong></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#7C98B6">Margen Bruto</span><strong>${fmt(panelDiario.margen)} (${panelDiario.margenPct.toFixed(0)}%)</strong></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#7C98B6">Costo Fijo del Día</span><strong>${fmt(panelDiario.costoFijo)}</strong></div>
+          <div style="border-top:1.5px dashed #CBD6E2;margin:8px 0"></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:15px"><span style="font-weight:700;color:#33475B">Resultado del Día</span><strong style="color:${panelDiario.resultado>=0?'#00BDA5':'#DC2626'}">${fmt(panelDiario.resultado)}</strong></div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1.5px solid #CBD6E2;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:11px;color:#7C98B6">Meta Diaria: ${fmt(panelDiario.costoFijo)} de margen</div>
+              <div style="font-size:11px;color:#7C98B6">Cumplimiento: ${panelDiario.cumplimientoPct.toFixed(0)}%</div>
+            </div>
+            <div style="font-size:28px" title="${panelDiario.semaforo==='verde'?'Meta cumplida':'Meta no cumplida'}">${panelDiario.semaforo==='verde'?'🟢':'🔴'}</div>
+          </div>
+        </div>
+      </div>
 
       <div class="cards">
         <div class="card green">
@@ -20331,20 +20383,28 @@ function bravoCalcularCobradoHoy(fecha) {
 // que llegaron a Entregado/Cobrado (fechaEntregaReal), nunca el día en que
 // se crearon -- esto corrige el "PROBLEMA ACTUAL" original: no reconocer
 // ingreso de reparaciones aún no entregadas.
-function bravoCalcularGananciaDevengadaHoy(fecha) {
-  let total = 0;
+// Venta y costo devengados (lo entregado/completado) en la fecha dada --
+// base compartida de Ganancia Devengada Hoy (Fase 3) y el Panel Diario
+// (Fase 4, VENTA DEL DÍA / COSTO DE LO VENDIDO / MARGEN BRUTO).
+function bravoCalcularVentaCostoDevengadoHoy(fecha) {
+  let venta = 0, costo = 0;
   (appData.bravo.reportesDiarios||[]).forEach(reg => {
-    if(reg.fecha === fecha) total += bravoSumarCategoriasInstantaneas(reg, 'margen');
+    if(reg.fecha === fecha) {
+      venta += bravoSumarCategoriasInstantaneas(reg, 'venta');
+      costo += bravoSumarCategoriasInstantaneas(reg, 'costo');
+    }
   });
   bravoTodasLasReparaciones().forEach(r => {
     // bravoTodasLasReparaciones() da la forma uniforme (.totalCosto/
-    // .costoRepuesto, ver bravoReparacionesDesdeRegistros()) -- NO la
-    // forma de ítem suelto (.precio/.costo) que espera bravoMargenLinea(),
-    // así que el margen se calcula directo, igual que en
-    // bravoCalcularFunnelReparaciones() (margenProm).
-    if(r.fechaEntregaReal === fecha) total += (r.totalCosto||0) - (r.costoRepuesto||0);
+    // .costoRepuesto, ver bravoReparacionesDesdeRegistros()), no la forma
+    // de ítem suelto (.precio/.costo) que espera bravoMargenLinea().
+    if(r.fechaEntregaReal === fecha) { venta += (r.totalCosto||0); costo += (r.costoRepuesto||0); }
   });
-  return total;
+  return { venta, costo, margen: venta - costo };
+}
+
+function bravoCalcularGananciaDevengadaHoy(fecha) {
+  return bravoCalcularVentaCostoDevengadoHoy(fecha).margen;
 }
 
 // CUENTAS POR COBRAR: saldo pendiente (resta) de reparaciones ya entregadas
@@ -20354,6 +20414,71 @@ function bravoCalcularCuentasPorCobrar() {
   return bravoTodasLasReparaciones()
     .filter(r => r.estado === 'entregado')
     .reduce((s,r) => s + (r.resta||0), 0);
+}
+
+// ===== FASE 4 — Costos Fijos Prorrateados + Panel Diario =====
+// Bravo opera lunes a viernes únicamente -- sábado y domingo NUNCA cuentan
+// como día hábil, sin importar si por excepción se registró algo ese día.
+function bravoDiasHabilesDelMes(mes, anio) {
+  const ultimoDia = new Date(anio, mes, 0).getDate();
+  let habiles = 0;
+  for(let d=1; d<=ultimoDia; d++) {
+    const dow = new Date(anio, mes-1, d).getDay(); // 0=domingo … 6=sábado
+    if(dow !== 0 && dow !== 6) habiles++;
+  }
+  return habiles;
+}
+function bravoViernesDelMes(mes, anio) {
+  const ultimoDia = new Date(anio, mes, 0).getDate();
+  let viernes = 0;
+  for(let d=1; d<=ultimoDia; d++) {
+    if(new Date(anio, mes-1, d).getDay() === 5) viernes++;
+  }
+  return viernes;
+}
+// costo_fijo_diario = (renta_mensual + (douglasPorViernes * viernes_del_mes) + otrosMensual) / días_hábiles_del_mes
+function bravoCostoFijoDiario(mes, anio) {
+  const cf = appData.bravo.costosFijos || { rentaMensual:0, douglasPorViernes:0, otrosMensual:0 };
+  const habiles = bravoDiasHabilesDelMes(mes, anio);
+  if(habiles === 0) return 0;
+  const viernes = bravoViernesDelMes(mes, anio);
+  return ((cf.rentaMensual||0) + (cf.douglasPorViernes||0)*viernes + (cf.otrosMensual||0)) / habiles;
+}
+
+// Panel Diario (sección 6 de la especificación): venta/costo/margen de lo
+// devengado ese día, contra la meta de costo fijo prorrateado del día.
+function bravoCalcularPanelDiario(fecha) {
+  const { venta, costo, margen } = bravoCalcularVentaCostoDevengadoHoy(fecha);
+  const margenPct = venta > 0 ? (margen / venta * 100) : 0;
+  const [anio, mes] = fecha.split('-').map(Number);
+  const costoFijo = bravoCostoFijoDiario(mes, anio);
+  const resultado = margen - costoFijo;
+  // Sin costo fijo configurado no hay meta que cumplir -- se considera
+  // cumplida (100%), consistente con el semáforo verde de ese mismo caso.
+  const cumplimientoPct = costoFijo > 0 ? (margen / costoFijo * 100) : 100;
+  const semaforo = margen >= costoFijo ? 'verde' : 'rojo';
+  return { venta, costo, margen, margenPct, costoFijo, resultado, cumplimientoPct, semaforo };
+}
+
+function abrirModalCostosFijosBravo() {
+  if(!validarAccesoBravo()) return;
+  const cf = appData.bravo.costosFijos || { rentaMensual:0, douglasPorViernes:0, otrosMensual:0 };
+  document.getElementById('cf-renta').value = cf.rentaMensual||0;
+  document.getElementById('cf-douglas').value = cf.douglasPorViernes||0;
+  document.getElementById('cf-otros').value = cf.otrosMensual||0;
+  document.getElementById('modal-bravo-costos-fijos').classList.add('open');
+}
+
+function guardarCostosFijosBravo() {
+  appData.bravo.costosFijos = {
+    rentaMensual: parseFloat(document.getElementById('cf-renta').value) || 0,
+    douglasPorViernes: parseFloat(document.getElementById('cf-douglas').value) || 0,
+    otrosMensual: parseFloat(document.getElementById('cf-otros').value) || 0,
+  };
+  guardar();
+  closeModal('modal-bravo-costos-fijos');
+  showNotif('✅ Costos fijos actualizados');
+  bravoDashboard();
 }
 
 function bravoRenderFunnelReparaciones() {
