@@ -2549,7 +2549,14 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         <div class="form-group"><label>Teléfono</label><input type="text" id="rep-telefono" placeholder="(407) 000-0000"></div>
         <div class="form-group"><label>Costo del Repuesto ($)</label><input type="number" id="rep-costo" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()"></div>
         <div class="form-group"><label>Total Cobrado por la Reparación ($)</label><input type="number" id="rep-totalcosto" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()"></div>
-        <div class="form-group"><label>Abono ($)</label><input type="number" id="rep-abono" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()"></div>
+        <div class="form-group" id="rep-abono-wrap">
+          <label id="rep-abono-label">Abono ($)</label>
+          <input type="number" id="rep-abono" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()">
+        </div>
+        <div class="form-group" id="rep-pago-nuevo-wrap" style="display:none">
+          <label>Agregar Pago Nuevo ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">se registra con la fecha de hoy</span></label>
+          <input type="number" id="rep-pago-nuevo" step="0.01" min="0" placeholder="0.00" oninput="calcularReparacionAuto()">
+        </div>
         <div class="form-group">
           <label>Resta por Pagar ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
           <input type="number" id="rep-resta" step="0.01" min="0" placeholder="0.00" readonly style="background:#F5F8FA;color:#7C98B6">
@@ -3055,14 +3062,18 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <div>
-            <label style="font-size:11px;font-weight:600;color:#7C98B6">Abono ($) <span style="font-weight:400;color:#99ACC2">— si el cliente paga parte ahora</span></label>
+          <div id="bravo-rep-abono-wrap">
+            <label style="font-size:11px;font-weight:600;color:#7C98B6" id="bravo-rep-abono-label">Abono ($) <span style="font-weight:400;color:#99ACC2">— si el cliente paga parte ahora</span></label>
             <input type="number" id="bravo-rep-abono" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px" oninput="bravoCalcularRestaRep()">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Resta por Cobrar ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">auto</span></label>
             <input type="number" id="bravo-rep-resta" step="0.01" readonly style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;background:#F5F8FA;color:#7C98B6">
           </div>
+        </div>
+        <div id="bravo-rep-pago-nuevo-wrap" style="display:none;margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Agregar Pago Nuevo ($) <span style="font-size:9px;font-weight:600;color:#99ACC2">se registra con la fecha de hoy</span></label>
+          <input type="number" id="bravo-rep-pago-nuevo" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px" oninput="bravoCalcularRestaRep()">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div>
@@ -3869,6 +3880,7 @@ function normalizarAppData() {
   if(!appData.bravo.lineasLyca) appData.bravo.lineasLyca = [];
   if(!appData.bravo.nextLineaLycaId) appData.bravo.nextLineaLycaId = 1;
   migrarEstadosReparacionAntiguos();
+  migrarPagosReparacionAntiguos();
 
   // Reparar ids duplicados o faltantes en caja chica (mismo motivo que
   // reportesDiarios más abajo).
@@ -19153,7 +19165,6 @@ function bravoDashboard() {
   if(!appData.bravo) appData.bravo = { reportesDiarios: [], nextDiarioId: 1 };
 
   const hoy = fechaLocalHoy();
-  const reportesHoy = appData.bravo.reportesDiarios.filter(r => r.fecha === hoy);
 
   const mesActual = new Date().getMonth() + 1;
   const añoActual = new Date().getFullYear();
@@ -19175,11 +19186,15 @@ function bravoDashboard() {
     const d = mesAnioDeFecha(r.fecha);
     return d.mes === mesActual && d.anio === añoActual;
   });
-  const repTicketsHoy = (appData.bravo.reparaciones||[]).filter(r => r.fecha === hoy);
   const lycaMes = (appData.bravo.lineasLyca||[]).filter(l => l.mes === mesActualStr);
-  // Suma TODOS los registros diarios de hoy, no solo el primero — puede
-  // haber más de uno si se agregó más de un "Nuevo Registro" el mismo día.
-  const gananciaHoy = reportesHoy.reduce((s,r)=>s+bravoGananciaNetaRegistro(r),0) + repTicketsHoy.reduce((s,r)=>s+(r.ganancia||0),0);
+  // Cobrado Hoy (caja) y Ganancia Devengada Hoy (margen de lo entregado) se
+  // muestran SIEMPRE separados, nunca mezclados (Fase 3 — ver
+  // bravoCalcularCobradoHoy/bravoCalcularGananciaDevengadaHoy). La ganancia
+  // del mes sigue calculándose igual que siempre (gananciaDelMes), sin
+  // tocar -- este cambio es solo sobre los números "de hoy".
+  const cobradoHoy = bravoCalcularCobradoHoy(hoy);
+  const gananciaDevengadaHoy = bravoCalcularGananciaDevengadaHoy(hoy);
+  const cuentasPorCobrar = bravoCalcularCuentasPorCobrar();
   const gananciaMes = gananciaDelMes(mesActual, añoActual);
   const gananciaMesAnterior = gananciaDelMes(mesAnteriorNum, añoAnteriorNum);
 
@@ -19187,11 +19202,10 @@ function bravoDashboard() {
     ? ((gananciaMes - gananciaMesAnterior) / Math.abs(gananciaMesAnterior) * 100) : null;
 
   const lineasDisponibles = (appData.bravo.lineasLyca||[]).filter(l=>l.estado==='disponible').length;
-  const restaPendienteTotal = (appData.bravo.reparaciones||[]).filter(r=>(r.resta||0)>0);
 
   const alertasBravo = [];
   if(lineasDisponibles<=5) alertasBravo.push(`📱 Solo quedan ${lineasDisponibles} línea${lineasDisponibles!==1?'s':''} Lyca disponibles — considera pedir más stock`);
-  if(restaPendienteTotal.length) alertasBravo.push(`🔧 ${restaPendienteTotal.length} reparación${restaPendienteTotal.length!==1?'es':''} con saldo pendiente de cobrar (${fmt(restaPendienteTotal.reduce((s,r)=>s+(r.resta||0),0))})`);
+  if(cuentasPorCobrar > 0) alertasBravo.push(`🔧 Cuentas por Cobrar: ${fmt(cuentasPorCobrar)} en reparaciones ya entregadas con saldo pendiente`);
   if(cambioMes !== null && cambioMes < -15) alertasBravo.push(`📉 La ganancia bajó ${Math.abs(cambioMes).toFixed(0)}% vs el mes anterior`);
 
   const resumenEjecutivoBravoHTML = `
@@ -19205,8 +19219,19 @@ function bravoDashboard() {
       <div style="font-size:10px;opacity:0.5;margin-bottom:10px">Renta y sueldo de Bravo se contabilizan en Admin → Gastos & Nómina (ver ROI Real en TOP)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">
         <div>
-          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💰 Ganancia Hoy</div>
-          <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(gananciaHoy)}</div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💵 Cobrado Hoy</div>
+          <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(cobradoHoy)}</div>
+          <span style="font-size:9px;color:#99ACC2">Caja — dinero que entró hoy</span>
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">💰 Ganancia Devengada Hoy</div>
+          <div style="font-size:24px;font-weight:900;color:#7FE8D4">${fmt(gananciaDevengadaHoy)}</div>
+          <span style="font-size:9px;color:#99ACC2">Margen de lo entregado/completado hoy</span>
+        </div>
+        <div>
+          <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📋 Cuentas por Cobrar</div>
+          <div style="font-size:24px;font-weight:900;color:${cuentasPorCobrar>0?'#FCA5A5':'#7FE8D4'}">${fmt(cuentasPorCobrar)}</div>
+          <span style="font-size:9px;color:#99ACC2">Reparaciones entregadas sin cobrar del todo</span>
         </div>
         <div>
           <div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700">📈 Ganancia del Mes</div>
@@ -19237,9 +19262,19 @@ function bravoDashboard() {
 
       <div class="cards">
         <div class="card green">
-          <label>💰 Ganancia Hoy</label>
-          <div class="val">${fmt(gananciaHoy)}</div>
+          <label>💵 Cobrado Hoy</label>
+          <div class="val">${fmt(cobradoHoy)}</div>
           <div class="sub">${new Date().toLocaleDateString('es-US', {month: 'short', day: 'numeric'})}</div>
+        </div>
+        <div class="card teal">
+          <label>💰 Ganancia Devengada Hoy</label>
+          <div class="val">${fmt(gananciaDevengadaHoy)}</div>
+          <div class="sub">Solo lo entregado/completado hoy</div>
+        </div>
+        <div class="card orange">
+          <label>📋 Cuentas por Cobrar</label>
+          <div class="val">${fmt(cuentasPorCobrar)}</div>
+          <div class="sub">Reparaciones entregadas sin cobrar del todo</div>
         </div>
         <div class="card blue">
           <label>📈 Ganancia Este Mes</label>
@@ -19946,6 +19981,26 @@ function migrarEstadosReparacionAntiguos() {
     });
   });
 }
+
+// Migración de un solo golpe (idempotente) de "abono" (un solo monto,
+// editable, sin fecha) a "pagos" (lista de {fecha,monto} -- cuándo entró
+// cada pago). Aditiva: solo agrega el campo `pagos` si no existe todavía;
+// nunca toca `abono`/`resta`/`totalCosto` ni ningún otro campo. Para
+// reparaciones ya con abono>0 de antes de este cambio, no hay forma de saber
+// en qué fecha exacta se cobró -- se asume, como mejor estimado razonable,
+// que se cobró el mismo día en que se creó el registro (reparaciones
+// sueltas: r.fecha; reparaciones dentro de un Registro Diario: reg.fecha,
+// ya que el ítem no guarda su propia fecha).
+function migrarPagosReparacionAntiguos() {
+  (appData.bravo.reparaciones||[]).forEach(r => {
+    if(!r.pagos) r.pagos = (r.abono||0) > 0 ? [{ fecha: r.fecha||fechaLocalHoy(), monto: r.abono }] : [];
+  });
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    (reg.reparaciones||[]).forEach(item => {
+      if(!item.pagos) item.pagos = (item.abono||0) > 0 ? [{ fecha: reg.fecha||fechaLocalHoy(), monto: item.abono }] : [];
+    });
+  });
+}
 // cash/zelle/punto: opciones del formulario standalone "+ Nueva Reparación".
 // efectivo/paypal/otro: las reparaciones agregadas desde el Registro Diario
 // usan el mismo vocabulario de Tipo de Pago que Accesorios/Lycas/Combos/
@@ -19979,8 +20034,9 @@ function calcularReparacionAuto() {
   const costo = parseFloat(document.getElementById('rep-costo')?.value) || 0;
   const totalCosto = parseFloat(document.getElementById('rep-totalcosto')?.value) || 0;
   const abono = parseFloat(document.getElementById('rep-abono')?.value) || 0;
+  const pagoNuevo = parseFloat(document.getElementById('rep-pago-nuevo')?.value) || 0;
   const ganancia = totalCosto - costo;
-  const resta = Math.max(0, totalCosto - abono);
+  const resta = Math.max(0, totalCosto - abono - pagoNuevo);
   document.getElementById('rep-ganancia').value = ganancia.toFixed(2);
   document.getElementById('rep-resta').value = resta.toFixed(2);
 }
@@ -20009,6 +20065,15 @@ function abrirModalReparacion(id=null) {
   document.getElementById('rep-costo').value = r?.costoRepuesto!=null ? r.costoRepuesto : '';
   document.getElementById('rep-totalcosto').value = totalCosto!=null ? totalCosto : '';
   document.getElementById('rep-abono').value = r?.abono!=null ? r.abono : '';
+  // Al editar, el abono ya cobrado queda de solo lectura (viene de la suma
+  // de r.pagos) -- para agregar un pago nuevo se usa el campo de al lado,
+  // que siempre se registra con la fecha de hoy (ver guardarReparacion()).
+  document.getElementById('rep-abono-label').textContent = id ? 'Abono Cobrado ($)' : 'Abono ($)';
+  document.getElementById('rep-abono').readOnly = !!id;
+  document.getElementById('rep-abono').style.background = id ? '#F5F8FA' : '';
+  document.getElementById('rep-abono').style.color = id ? '#7C98B6' : '';
+  document.getElementById('rep-pago-nuevo-wrap').style.display = id ? 'block' : 'none';
+  document.getElementById('rep-pago-nuevo').value = '';
   document.getElementById('rep-estado').value = r?.estado||'presupuesto';
   document.getElementById('rep-motivo-perdida').value = r?.motivoPerdida||'';
   document.getElementById('rep-fecha').value = r?.fecha || fechaLocalHoy();
@@ -20035,7 +20100,7 @@ function guardarReparacion() {
 
   const costoRepuesto = parseFloat(document.getElementById('rep-costo').value) || 0;
   const totalCosto    = parseFloat(document.getElementById('rep-totalcosto').value) || 0;
-  const abono         = parseFloat(document.getElementById('rep-abono').value) || 0;
+  const pagoNuevo      = parseFloat(document.getElementById('rep-pago-nuevo').value) || 0;
 
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
   const editId = parseInt(document.getElementById('modal-bravo-reparacion').dataset.editId)||null;
@@ -20048,12 +20113,29 @@ function guardarReparacion() {
     fechaEntregaReal = fechaLocalHoy();
   }
 
+  // pagos: lista de {fecha,monto} -- de dónde sale "Cobrado Hoy" (Fase 3).
+  // Al crear: el abono inicial es el primer pago, con la fecha de la
+  // reparación. Al editar: se conservan los pagos ya registrados tal cual
+  // (nunca se reescriben), y el pago nuevo (si lo hay) se agrega con la
+  // fecha de HOY -- así "Cobrado Hoy" queda exacto sin importar cuándo se
+  // creó la reparación originalmente.
+  let pagos;
+  if(editId) {
+    pagos = [...(rExistente?.pagos || [])];
+    if(pagoNuevo > 0) pagos.push({ fecha: fechaLocalHoy(), monto: pagoNuevo });
+  } else {
+    const abonoInicial = parseFloat(document.getElementById('rep-abono').value) || 0;
+    pagos = abonoInicial > 0 ? [{ fecha, monto: abonoInicial }] : [];
+  }
+  const abono = pagos.reduce((s,p) => s + (p.monto||0), 0);
+
   const datos = {
     cliente,
     telefono: document.getElementById('rep-telefono').value.trim(),
     costoRepuesto,
     totalCosto,
     abono,
+    pagos,
     resta: Math.max(0, totalCosto - abono),
     ganancia: totalCosto - costoRepuesto,
     estado,
@@ -20203,6 +20285,77 @@ function bravoCalcularFunnelReparaciones(lista, desde, hasta) {
   return { emitidos, aceptados, tasaCierre, ticketProm, margenProm, diasProm, perdidosCount: perdidos.length, motivos };
 }
 
+// ===== FASE 3 — Separar Caja de Ganancia (Cobrado Hoy / Ganancia Devengada
+// Hoy / Cuentas por Cobrar) =====
+// Alcance deliberado: solo cubre reparaciones (sueltas + dentro de Registro
+// Diario) y las 4 categorías de venta instantánea de un Registro Diario
+// (accesorios/lycas/combos/teléfonos) -- el mismo universo de datos que ya
+// usaba el card "Ganancia Hoy" del Dashboard de Bravo. Las "Líneas Lyca"
+// (appData.bravo.lineasLyca, inventario de SIMs por mes) quedan fuera a
+// propósito: no tienen fecha diaria, solo `mes`, así que no hay forma de
+// saber si corresponden a "hoy".
+
+// Suma venta o margen (`campo`: 'venta'|'margen') de las 4 categorías de
+// venta instantánea de un Registro Diario -- sin reparaciones, que se
+// tratan aparte (se cobran a veces en abonos, y su margen se reconoce
+// cuando se entregan, no el día en que se crea el registro).
+function bravoSumarCategoriasInstantaneas(registro, campo) {
+  let total = 0;
+  (registro.accesorios||[]).forEach(a => { total += bravoMargenLinea(a,'accesorio')[campo]; });
+  (registro.lycas||[]).forEach(l => { total += bravoMargenLinea(l,'lyca')[campo]; });
+  (registro.combos||[]).forEach(c => { total += bravoMargenLinea(c,'combo')[campo]; });
+  (registro.telefonos||[]).forEach(t => { total += bravoMargenLinea(t,'telefono')[campo]; });
+  return total;
+}
+
+// COBRADO HOY (flujo de caja): dinero que entró en la fecha dada, sin
+// importar cuándo se creó el registro. Accesorios/lycas/combos/teléfonos
+// siempre se cobran de una sola vez el mismo día de la venta. Las
+// reparaciones se cobran aparte, a veces en varios pagos en días distintos
+// -- se suman los pagos (.pagos) fechados ese día, sin importar cuándo se
+// creó la reparación.
+function bravoCalcularCobradoHoy(fecha) {
+  let total = 0;
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    if(reg.fecha === fecha) total += bravoSumarCategoriasInstantaneas(reg, 'venta');
+  });
+  bravoTodasLasReparaciones().forEach(r => {
+    (r.pagos||[]).forEach(p => { if(p.fecha === fecha) total += (p.monto||0); });
+  });
+  return total;
+}
+
+// GANANCIA DEVENGADA HOY: margen de lo entregado/completado en la fecha
+// dada. Accesorios/lycas/combos/teléfonos se consideran "completados" el
+// mismo día de la venta. Las reparaciones solo cuentan su margen el día en
+// que llegaron a Entregado/Cobrado (fechaEntregaReal), nunca el día en que
+// se crearon -- esto corrige el "PROBLEMA ACTUAL" original: no reconocer
+// ingreso de reparaciones aún no entregadas.
+function bravoCalcularGananciaDevengadaHoy(fecha) {
+  let total = 0;
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    if(reg.fecha === fecha) total += bravoSumarCategoriasInstantaneas(reg, 'margen');
+  });
+  bravoTodasLasReparaciones().forEach(r => {
+    // bravoTodasLasReparaciones() da la forma uniforme (.totalCosto/
+    // .costoRepuesto, ver bravoReparacionesDesdeRegistros()) -- NO la
+    // forma de ítem suelto (.precio/.costo) que espera bravoMargenLinea(),
+    // así que el margen se calcula directo, igual que en
+    // bravoCalcularFunnelReparaciones() (margenProm).
+    if(r.fechaEntregaReal === fecha) total += (r.totalCosto||0) - (r.costoRepuesto||0);
+  });
+  return total;
+}
+
+// CUENTAS POR COBRAR: saldo pendiente (resta) de reparaciones ya entregadas
+// (estado 'entregado') cuyo saldo aún no se terminó de cobrar (no han
+// llegado a 'cobrado').
+function bravoCalcularCuentasPorCobrar() {
+  return bravoTodasLasReparaciones()
+    .filter(r => r.estado === 'entregado')
+    .reduce((s,r) => s + (r.resta||0), 0);
+}
+
 function bravoRenderFunnelReparaciones() {
   const tbody = document.getElementById('bravo-funnel-tbody');
   if(!tbody) return;
@@ -20265,9 +20418,13 @@ function bravoReparacionesDesdeRegistros() {
         costoRepuesto: item.costo||0,
         totalCosto: item.precio||0,
         abono: item.abono||0,
+        pagos: item.pagos||[],
         resta: item.resta||0,
         ganancia: item.ganancia!=null ? item.ganancia : (item.precio||0)-(item.costo||0),
         estado: item.estado,
+        motivoPerdida: item.motivoPerdida||'',
+        fechaPromesaEntrega: item.fechaPromesaEntrega||'',
+        fechaEntregaReal: item.fechaEntregaReal||'',
         fecha: reg.fecha,
         pago: item.metodo || '',
         mes: mesStr,
@@ -20866,10 +21023,18 @@ let bravoRegistroTemp = {
 // campo visible para esto, así que se guarda aquí mientras dura la edición,
 // para no perder la fecha real de entrega ya registrada al volver a guardar.
 let bravoRepEditandoFechaEntregaReal = '';
+// Lista de pagos ({fecha,monto}) ya registrados de la reparación que se
+// está editando ahora mismo -- null si es una reparación nueva (aún no
+// tiene pagos previos). Mismo patrón que bravoRepEditandoFechaEntregaReal:
+// se guarda aquí mientras dura la edición para no perder pagos ya
+// registrados; el campo "Agregar Pago Nuevo" del formulario solo añade un
+// pago más, con la fecha de hoy, sin tocar los anteriores.
+let bravoRepEditandoPagos = null;
 
 // Abrir formulario de registro diario (nuevo o editar)
 function abrirFormularioRegistroDiario(id=null) {
   bravoRepEditandoFechaEntregaReal = '';
+  bravoRepEditandoPagos = null;
   if(id != null) {
     // Comparación tolerante: por si el id llegó como string o número
     // distinto tras una sincronización (evita fallar en silencio).
@@ -21090,7 +21255,8 @@ function bravoEditarLyca(i) {
 function bravoCalcularRestaRep() {
   const precio = parseFloat(document.getElementById('bravo-rep-precio')?.value) || 0;
   const abono = parseFloat(document.getElementById('bravo-rep-abono')?.value) || 0;
-  document.getElementById('bravo-rep-resta').value = Math.max(0, precio - abono).toFixed(2);
+  const pagoNuevo = parseFloat(document.getElementById('bravo-rep-pago-nuevo')?.value) || 0;
+  document.getElementById('bravo-rep-resta').value = Math.max(0, precio - abono - pagoNuevo).toFixed(2);
 }
 
 // Agregar Reparación
@@ -21099,7 +21265,7 @@ function bravoAgregarReparacion() {
   const tipo = document.getElementById('bravo-rep-tipo').value;
   const precio = parseFloat(document.getElementById('bravo-rep-precio').value) || 0;
   const costo = parseFloat(document.getElementById('bravo-rep-costo').value) || 0;
-  const abono = parseFloat(document.getElementById('bravo-rep-abono').value) || 0;
+  const pagoNuevo = parseFloat(document.getElementById('bravo-rep-pago-nuevo').value) || 0;
   const estado = document.getElementById('bravo-rep-estado').value;
   const metodo = document.getElementById('bravo-rep-metodo').value;
   const notas = document.getElementById('bravo-rep-notas').value.trim();
@@ -21110,10 +21276,6 @@ function bravoAgregarReparacion() {
   if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
   if(estado === 'perdido' && !motivoPerdida) { showNotif('⚠️ Selecciona el Motivo de Pérdida','error'); return; }
 
-  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
-  // guardar el reporte (ver bravoSincronizarGastosDeReporte).
-  const ganancia = precio;
-  const resta = Math.max(0, precio - abono);
   // fechaEntregaReal se fija sola la primera vez que llega a
   // Entregado/Cobrado; si ya estaba fijada de antes (al editar), se respeta
   // tal cual -- nunca se sobrescribe con la fecha de hoy por error (ver
@@ -21124,8 +21286,28 @@ function bravoAgregarReparacion() {
   }
   bravoRepEditandoFechaEntregaReal = '';
 
+  // pagos: mismo patrón que guardarReparacion() -- al agregar por primera
+  // vez, el abono inicial es el primer pago (fecha del registro diario);
+  // al re-agregar tras editar, se conservan los pagos previos y el pago
+  // nuevo (si lo hay) se suma con la fecha de HOY.
+  let pagos;
+  if(bravoRepEditandoPagos) {
+    pagos = [...bravoRepEditandoPagos];
+    if(pagoNuevo > 0) pagos.push({ fecha: fechaLocalHoy(), monto: pagoNuevo });
+  } else {
+    const abonoInicial = parseFloat(document.getElementById('bravo-rep-abono').value) || 0;
+    pagos = abonoInicial > 0 ? [{ fecha: bravoRegistroTemp.fecha, monto: abonoInicial }] : [];
+  }
+  bravoRepEditandoPagos = null;
+  const abono = pagos.reduce((s,p) => s + (p.monto||0), 0);
+
+  // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
+  // guardar el reporte (ver bravoSincronizarGastosDeReporte).
+  const ganancia = precio;
+  const resta = Math.max(0, precio - abono);
+
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, abono, resta, estado, metodo, ganancia, notas,
+    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas,
     fechaPromesaEntrega, fechaEntregaReal,
     motivoPerdida: estado === 'perdido' ? motivoPerdida : ''
   });
@@ -21136,10 +21318,16 @@ function bravoAgregarReparacion() {
   document.getElementById('bravo-rep-precio').value = '';
   document.getElementById('bravo-rep-costo').value = '';
   document.getElementById('bravo-rep-abono').value = '';
+  document.getElementById('bravo-rep-pago-nuevo').value = '';
   document.getElementById('bravo-rep-resta').value = '';
   document.getElementById('bravo-rep-notas').value = '';
   document.getElementById('bravo-rep-fecha-promesa').value = '';
   document.getElementById('bravo-rep-motivo-perdida').value = '';
+  document.getElementById('bravo-rep-abono-label').innerHTML = 'Abono ($) <span style="font-weight:400;color:#99ACC2">— si el cliente paga parte ahora</span>';
+  document.getElementById('bravo-rep-abono').readOnly = false;
+  document.getElementById('bravo-rep-abono').style.background = '';
+  document.getElementById('bravo-rep-abono').style.color = '';
+  document.getElementById('bravo-rep-pago-nuevo-wrap').style.display = 'none';
   bravoRepToggleMotivoPerdida();
 
   bravoActualizarResumen();
@@ -21156,12 +21344,19 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-precio').value = item.precio != null ? item.precio : '';
   document.getElementById('bravo-rep-costo').value = item.costo != null ? item.costo : '';
   document.getElementById('bravo-rep-abono').value = item.abono != null ? item.abono : '';
+  document.getElementById('bravo-rep-abono-label').innerHTML = 'Abono Cobrado ($) <span style="font-weight:400;color:#99ACC2">solo lectura</span>';
+  document.getElementById('bravo-rep-abono').readOnly = true;
+  document.getElementById('bravo-rep-abono').style.background = '#F5F8FA';
+  document.getElementById('bravo-rep-abono').style.color = '#7C98B6';
+  document.getElementById('bravo-rep-pago-nuevo-wrap').style.display = 'block';
+  document.getElementById('bravo-rep-pago-nuevo').value = '';
   document.getElementById('bravo-rep-estado').value = item.estado || 'presupuesto';
   document.getElementById('bravo-rep-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-rep-notas').value = item.notas || '';
   document.getElementById('bravo-rep-fecha-promesa').value = item.fechaPromesaEntrega || '';
   document.getElementById('bravo-rep-motivo-perdida').value = item.motivoPerdida || '';
   bravoRepEditandoFechaEntregaReal = item.fechaEntregaReal || '';
+  bravoRepEditandoPagos = item.pagos || [];
   bravoRepToggleMotivoPerdida();
   bravoCalcularRestaRep();
   bravoRegistroTemp.reparaciones.splice(i,1);
