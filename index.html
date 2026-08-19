@@ -11004,18 +11004,34 @@ function renderAgenteActividad() {
   const hoy = fechaLocalHoy();
   const existente = (appData.actividadDiaria||[]).find(a=>a.agenteId===agenteId && a.fecha===hoy);
 
+  // Modelo ADITIVO (no de reemplazo): cada casilla es "cuánto pasó desde tu
+  // último guardado de hoy", nunca el total del día -- guardarActividadDiaria()
+  // lo SUMA al total ya guardado. Antes, la casilla mostraba el total del día
+  // y lo que se escribía ahí REEMPLAZABA ese total; si un agente entraba
+  // varias veces al día y escribía solo su actividad nueva (pensando que se
+  // iba a sumar), esa lectura equivocada borraba silenciosamente lo ya
+  // guardado -- causa real confirmada del reporte que "se borra". El
+  // resumen de "Ya llevas guardado hoy" de abajo existe para que el agente
+  // vea en todo momento que sí se está guardando, sin tener que recordar ni
+  // sumar nada a mano.
   document.getElementById('agente-actividad-content').innerHTML = `
     <div class="section">
       <div class="section-header"><h2>📊 Reporte Diario — ${hoy}</h2></div>
-      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">Solo puedes llenar/editar el reporte de HOY — se guarda directo, no necesita aprobación de Admin.</div>
+      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">Escribe solo lo que pasó DESDE TU ÚLTIMO GUARDADO de hoy (no el total del día) — se suma automáticamente a lo que ya llevas. Puedes guardar las veces que quieras durante el día.</div>
+      <div style="background:#F5F8FA;border:1.5px solid #CBD6E2;border-radius:10px;padding:12px 14px;margin-bottom:18px">
+        <div style="font-size:11px;font-weight:700;color:#7C98B6;text-transform:uppercase;margin-bottom:8px">✅ Ya llevas guardado hoy</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px 12px">
+          ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`<div style="font-size:12px"><span style="color:#7C98B6">${c.label}:</span> <strong style="color:#33475B">${existente ? (existente[c.id]||0) : 0}</strong></div>`).join('')}
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px">
         ${ACTIVIDAD_DIARIA_CAMPOS.map(c=>`
           <div>
-            <label style="font-size:11px;font-weight:600;color:#7C98B6;display:block;margin-bottom:4px">${c.label}</label>
-            <input type="number" min="0" step="1" id="aa-${c.id}" value="${existente ? (existente[c.id]||0) : 0}" style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:700;color:#33475B;outline:none">
+            <label style="font-size:11px;font-weight:600;color:#7C98B6;display:block;margin-bottom:4px">${c.label} <span style="font-weight:400;color:#99ACC2">— nuevo desde tu último guardado</span></label>
+            <input type="number" min="0" step="1" id="aa-${c.id}" value="0" style="width:100%;border:1.5px solid #CBD6E2;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:700;color:#33475B;outline:none">
           </div>`).join('')}
       </div>
-      <button class="btn btn-primary" onclick="guardarActividadDiaria()">💾 Guardar Reporte de Hoy</button>
+      <button class="btn btn-primary" onclick="guardarActividadDiaria()">➕ Sumar a Hoy</button>
     </div>
   `;
 }
@@ -11041,11 +11057,16 @@ function guardarActividadDiaria() {
     registro = { id: agenteId+'_'+hoy, agenteId, fecha: hoy };
     appData.actividadDiaria.push(registro);
   }
+  let huboAlgoNuevo = false;
   ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{
-    registro[c.id] = parseFloat(document.getElementById('aa-'+c.id).value) || 0;
+    const nuevo = parseFloat(document.getElementById('aa-'+c.id).value) || 0;
+    if(nuevo !== 0) huboAlgoNuevo = true;
+    registro[c.id] = (registro[c.id]||0) + nuevo;
   });
+  if(!huboAlgoNuevo) { showNotif('⚠️ No escribiste ningún dato nuevo para sumar', 'error'); return; }
   guardar();
-  showNotif('✅ Reporte diario guardado');
+  showNotif('✅ Reporte diario actualizado');
+  renderAgenteActividad(); // refresca el resumen y limpia las casillas a 0
 }
 
 // ============================================================
