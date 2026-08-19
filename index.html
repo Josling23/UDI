@@ -3682,7 +3682,14 @@ function conLimiteDeTiempo(promesa, ms, mensaje) {
 }
 async function subirFotoPerfil(file, carpeta, id) {
   if(!fbStorage) throw new Error('El almacenamiento de fotos no está disponible ahora mismo');
-  const blob = await redimensionarImagenArchivo(file);
+  // Fotos tomadas directo con la cámara del celular (lo más común para los
+  // agentes) pueden pesar varios MB a resolución completa -- sin un límite
+  // de tiempo aquí, el redimensionado (FileReader + decodificar la imagen +
+  // canvas) podía quedarse colgado para siempre en celulares más lentos, sin
+  // mostrar ningún error ("Subiendo..." de por vida). Mismo patrón de
+  // seguridad que ya se usaba para put()/getDownloadURL() más abajo.
+  const blob = await conLimiteDeTiempo(redimensionarImagenArchivo(file), 15000,
+    'Se agotó el tiempo procesando la imagen — prueba con una foto más liviana o desde otro dispositivo');
   const ref = fbStorage.ref().child(`fotosPerfil/${carpeta}/${id}.jpg`);
   await conLimiteDeTiempo(ref.put(blob, { contentType: 'image/jpeg' }), 20000,
     'Se agotó el tiempo subiendo la foto — revisa tu conexión o que Firebase Storage esté habilitado en el proyecto');
@@ -3709,6 +3716,7 @@ async function subirYGuardarFotoAgente(inputEl, esSalud, agenteId, previewId) {
   const file = inputEl.files && inputEl.files[0];
   if(!file) return;
   if(!file.type.startsWith('image/')) { showNotif('⚠️ Selecciona un archivo de imagen', 'error'); inputEl.value=''; return; }
+  if(file.size > 20*1024*1024) { showNotif('⚠️ Esa foto es muy pesada (máximo 20MB) — prueba con otra o baja la calidad de la cámara', 'error'); inputEl.value=''; return; }
   const preview = previewId ? document.getElementById(previewId) : null;
   const previoHTML = preview ? preview.innerHTML : '';
   if(preview) preview.innerHTML = '<div style="font-size:11px;color:#99ACC2">Subiendo...</div>';
@@ -3735,6 +3743,7 @@ async function subirYGuardarFotoAdmin(inputEl, previewId) {
   const file = inputEl.files && inputEl.files[0];
   if(!file) return;
   if(!file.type.startsWith('image/')) { showNotif('⚠️ Selecciona un archivo de imagen', 'error'); inputEl.value=''; return; }
+  if(file.size > 20*1024*1024) { showNotif('⚠️ Esa foto es muy pesada (máximo 20MB) — prueba con otra o baja la calidad de la cámara', 'error'); inputEl.value=''; return; }
   const email = (currentUser ? currentUser.email : '').toLowerCase();
   if(!email) { showNotif('⚠️ No se pudo identificar tu cuenta', 'error'); inputEl.value=''; return; }
   const preview = previewId ? document.getElementById(previewId) : null;
