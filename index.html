@@ -28,7 +28,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <!-- XLSX Library for Excel file processing -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -39,7 +38,9 @@ body{font-family:'Segoe UI',sans-serif;background:#F5F8FA;color:#33475B;min-heig
 .sidebar{width:240px;background:#1a0008;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;box-shadow:2px 0 8px rgba(0,0,0,0.25)}
 .sidebar-logo{padding:0;border-bottom:1px solid rgba(255,255,255,0.1);background:linear-gradient(135deg,#2a0008,#3a0a14,#4a0a18);text-align:center}
 .sidebar-logo-inner{padding:18px 16px 14px}
+.sidebar-logo-svg-wrap{position:relative;width:62px;margin:0 auto 6px}
 .sidebar-logo svg{width:56px;height:56px;margin:0 auto 8px;display:block}
+.sidebar-logo-badge{position:absolute;bottom:2px;right:-4px;font-size:20px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5))}
 .sidebar-logo h1{font-size:12px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase;line-height:1.3}
 .sidebar-logo p{font-size:10px;color:rgba(255,255,255,0.65);margin-top:3px}
 .sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
@@ -426,14 +427,17 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="sidebar-logo-inner">
-      <svg viewBox="0 0 100 100" width="62" height="62" style="margin:0 auto 6px;display:block;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.5))">
-        <defs><clipPath id="udi-c3"><circle cx="50" cy="50" r="44"/></clipPath></defs>
-        <circle cx="50" cy="50" r="48" fill="#7a1428"/>
-        <circle cx="50" cy="50" r="44" fill="#F0E8D8"/>
-        <polygon points="8,68 100,28 100,100 0,100" fill="#5a0a18" clip-path="url(#udi-c3)"/>
-        <circle cx="50" cy="50" r="44" fill="none" stroke="#6a0f22" stroke-width="0.6"/>
-        <text x="50" y="57" text-anchor="middle" fill="#7a1428" font-size="37" font-weight="900" font-family="Georgia,'Times New Roman',serif" letter-spacing="2">UDI</text>
-      </svg>
+      <div class="sidebar-logo-svg-wrap">
+        <svg viewBox="0 0 100 100" width="62" height="62" style="margin:0 auto 6px;display:block;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.5))">
+          <defs><clipPath id="udi-c3"><circle cx="50" cy="50" r="44"/></clipPath></defs>
+          <circle cx="50" cy="50" r="48" fill="#7a1428"/>
+          <circle cx="50" cy="50" r="44" fill="#F0E8D8"/>
+          <polygon points="8,68 100,28 100,100 0,100" fill="#5a0a18" clip-path="url(#udi-c3)"/>
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#6a0f22" stroke-width="0.6"/>
+          <text x="50" y="57" text-anchor="middle" fill="#7a1428" font-size="37" font-weight="900" font-family="Georgia,'Times New Roman',serif" letter-spacing="2">UDI</text>
+        </svg>
+        <span class="sidebar-logo-badge" id="sidebar-logo-badge"></span>
+      </div>
       <h1>USA Distributor</h1>
       <p>AT&T VND</p>
     </div>
@@ -578,7 +582,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         </button>
         <div id="solicitudes-panel" style="display:none;position:absolute;top:34px;right:0;width:300px;max-width:90vw;background:#fff;border:1px solid #CBD6E2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:1000"></div>
       </div>
-      <div id="topbar-avatar" title="" style="cursor:pointer" onclick="abrirMiPerfilAdmin()"></div>
+      <div id="topbar-avatar" title=""></div>
       <span class="badge-dealer">AT&T VND</span>
     </div>
   </div>
@@ -1585,17 +1589,6 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         <div class="form-group"><label>Email</label><input type="email" id="sa-email" placeholder="agente@email.com"></div>
       </div>
 
-      <!-- Foto de perfil — solo disponible editando un agente ya guardado. -->
-      <div id="sa-foto-wrap" style="display:none;align-items:center;gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid #e6eaf0">
-        <div id="sa-foto-preview"></div>
-        <div>
-          <label class="btn btn-ghost btn-xs" style="cursor:pointer;display:inline-block">📸 Cambiar Foto
-            <input type="file" accept="image/*" id="sa-foto-input" style="display:none" onchange="subirYGuardarFotoAgente(this,true,saludEditAgenteId,'sa-foto-preview')">
-          </label>
-          <div style="font-size:9px;color:#7c8ba0;margin-top:4px">JPG/PNG — se ajusta automáticamente.</div>
-        </div>
-      </div>
-
       <div id="sa-supervisa-section" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #e6eaf0">
         <div style="font-size:10px;font-weight:700;color:#8B5CF6;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
           👥 Gana comisión de ventas de estos agentes:
@@ -2110,18 +2103,6 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         <div class="form-group" style="grid-column:1/-1"><label>Email</label><input type="email" id="a-email" placeholder="correo@email.com"></div>
       </div>
 
-      <!-- Foto de perfil — solo disponible editando un agente ya guardado
-           (necesita un id fijo como ruta en Storage). -->
-      <div id="a-foto-wrap" style="display:none;align-items:center;gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid #CBD6E2">
-        <div id="a-foto-preview"></div>
-        <div>
-          <label class="btn btn-ghost btn-xs" style="cursor:pointer;display:inline-block">📸 Cambiar Foto
-            <input type="file" accept="image/*" id="a-foto-input" style="display:none" onchange="subirYGuardarFotoAgente(this,false,editAgenteId,'a-foto-preview')">
-          </label>
-          <div style="font-size:9px;color:#99ACC2;margin-top:4px">JPG/PNG — se ajusta automáticamente.</div>
-        </div>
-      </div>
-
       <!-- Agentes supervisados (gerente/supervisor) -->
       <div id="a-supervisa-section" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid #CBD6E2">
         <div style="font-size:10px;font-weight:700;color:#6A78D1;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px">
@@ -2214,28 +2195,6 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-login-agente-salud')">Cancelar</button>
       <button class="btn btn-primary" onclick="habilitarLoginAgenteSalud()">💾 Crear Acceso</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-mi-perfil-admin">
-  <div class="modal" style="max-width:340px">
-    <div class="modal-header">
-      <h3>👤 Mi Perfil</h3>
-      <button class="modal-close" onclick="closeModal('modal-mi-perfil-admin')">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0 12px">
-        <div id="mpa-foto-preview"></div>
-        <div id="mpa-nombre" style="font-size:15px;font-weight:700;color:#33475B"></div>
-        <label class="btn btn-primary btn-sm" style="cursor:pointer">📸 Cambiar Foto
-          <input type="file" accept="image/*" style="display:none" onchange="subirYGuardarFotoAdmin(this,'mpa-foto-preview')">
-        </label>
-        <div style="font-size:10px;color:#99ACC2;text-align:center">JPG/PNG — se ajusta automáticamente.</div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('modal-mi-perfil-admin')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -3511,9 +3470,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const fbAuth = firebase.auth();
 const fbDB   = firebase.database();
-// Defensivo: si el SDK de Storage no cargó (ej. gstatic bloqueado), que solo
-// falle la subida de fotos — no toda la app (Dashboard, ventas, etc.).
-const fbStorage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
 
 let currentUser = null;   // Firebase user object
 let currentRole = null;   // 'admin' | 'hq' | 'top' | 'salud' (now based on email)
@@ -3645,136 +3601,6 @@ function fotoUrlDeUsuarioActual(perms) {
   if(email && appData.fotosAdmin && appData.fotosAdmin[email]) return appData.fotosAdmin[email];
   return null;
 }
-// ============================================================
-// FOTO DE PERFIL — sube a Firebase Storage (no a la base de datos, para no
-// hacer más pesada la lectura que fusionarConServidor() hace antes de CADA
-// guardado en toda la app); solo la URL resultante se guarda en el agente.
-// ============================================================
-function redimensionarImagenArchivo(file, maxDim=400, calidad=0.82) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if(width > height && width > maxDim) { height = Math.round(height*maxDim/width); width = maxDim; }
-        else if(height > maxDim) { width = Math.round(width*maxDim/height); height = maxDim; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen')), 'image/jpeg', calidad);
-      };
-      img.onerror = () => reject(new Error('Archivo de imagen inválido'));
-      img.src = e.target.result;
-    };
-    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
-    reader.readAsDataURL(file);
-  });
-}
-// Si Storage no responde (bucket no habilitado, red bloqueada, etc.) put()
-// y getDownloadURL() pueden quedarse colgados para siempre — sin esto, el
-// botón se queda en "Subiendo..." indefinidamente, sin éxito ni error.
-function conLimiteDeTiempo(promesa, ms, mensaje) {
-  return Promise.race([
-    promesa,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(mensaje)), ms)),
-  ]);
-}
-async function subirFotoPerfil(file, carpeta, id) {
-  if(!fbStorage) throw new Error('El almacenamiento de fotos no está disponible ahora mismo');
-  // Fotos tomadas directo con la cámara del celular (lo más común para los
-  // agentes) pueden pesar varios MB a resolución completa -- sin un límite
-  // de tiempo aquí, el redimensionado (FileReader + decodificar la imagen +
-  // canvas) podía quedarse colgado para siempre en celulares más lentos, sin
-  // mostrar ningún error ("Subiendo..." de por vida). Mismo patrón de
-  // seguridad que ya se usaba para put()/getDownloadURL() más abajo.
-  const blob = await conLimiteDeTiempo(redimensionarImagenArchivo(file), 15000,
-    'Se agotó el tiempo procesando la imagen — prueba con una foto más liviana o desde otro dispositivo');
-  const ref = fbStorage.ref().child(`fotosPerfil/${carpeta}/${id}.jpg`);
-  await conLimiteDeTiempo(ref.put(blob, { contentType: 'image/jpeg' }), 20000,
-    'Se agotó el tiempo subiendo la foto — revisa tu conexión o que Firebase Storage esté habilitado en el proyecto');
-  return await conLimiteDeTiempo(ref.getDownloadURL(), 15000,
-    'Se agotó el tiempo obteniendo la foto subida — revisa tu conexión');
-}
-// La subida a Storage puede "tener éxito" (getDownloadURL() devuelve una
-// URL) y aun así el navegador no logre CARGAR esa URL como imagen (bucket
-// no habilitado, reglas de Storage no publicadas, etc.) — avatarHTML() ya
-// cae de vuelta a las iniciales en ese caso, pero en silencio. Esto avisa
-// con la URL exacta para poder diagnosticar la causa real.
-function avisarSiImagenFalla(preview, url) {
-  const img = preview && preview.querySelector('img');
-  if(!img) return;
-  img.addEventListener('error', () => {
-    showNotif('⚠️ La foto se subió pero el navegador no pudo cargarla. URL: ' + url, 'error');
-  }, { once: true });
-}
-// Wiring genérico para cualquier <input type=file> de foto de perfil: sube,
-// guarda la URL en el agente correspondiente (AT&T o Salud) y refresca el
-// preview. Usado tanto por los modales de Admin como por "Mi Perfil" de
-// cada agente — misma función, misma validación, un solo lugar que mantener.
-async function subirYGuardarFotoAgente(inputEl, esSalud, agenteId, previewId) {
-  const file = inputEl.files && inputEl.files[0];
-  if(!file) return;
-  if(!file.type.startsWith('image/')) { showNotif('⚠️ Selecciona un archivo de imagen', 'error'); inputEl.value=''; return; }
-  if(file.size > 20*1024*1024) { showNotif('⚠️ Esa foto es muy pesada (máximo 20MB) — prueba con otra o baja la calidad de la cámara', 'error'); inputEl.value=''; return; }
-  const preview = previewId ? document.getElementById(previewId) : null;
-  const previoHTML = preview ? preview.innerHTML : '';
-  if(preview) preview.innerHTML = '<div style="font-size:11px;color:#99ACC2">Subiendo...</div>';
-  try {
-    const url = await subirFotoPerfil(file, esSalud?'agentes-salud':'agentes', agenteId);
-    const lista = esSalud ? saludData.agentes : appData.agentes;
-    const agente = (lista||[]).find(a=>a.id===agenteId);
-    if(agente) agente.fotoUrl = url;
-    if(esSalud) guardarSalud(); else guardar();
-    if(preview) { preview.innerHTML = avatarHTML(agente?agente.nombre:'', 56, url); avisarSiImagenFalla(preview, url); }
-    actualizarAvatarTopbar();
-    showNotif('📸 Foto de perfil actualizada');
-  } catch(err) {
-    if(preview) preview.innerHTML = previoHTML;
-    showNotif('❌ No se pudo subir la foto: ' + err.message, 'error');
-  } finally {
-    inputEl.value = '';
-  }
-}
-// Misma idea que subirYGuardarFotoAgente(), pero para cuentas de back-office
-// (Admin/HQ/TOP/Bravo/Salud) que viven en USERS_CONFIG por correo fijo, no
-// en appData.agentes — se guarda en appData.fotosAdmin, por correo.
-async function subirYGuardarFotoAdmin(inputEl, previewId) {
-  const file = inputEl.files && inputEl.files[0];
-  if(!file) return;
-  if(!file.type.startsWith('image/')) { showNotif('⚠️ Selecciona un archivo de imagen', 'error'); inputEl.value=''; return; }
-  if(file.size > 20*1024*1024) { showNotif('⚠️ Esa foto es muy pesada (máximo 20MB) — prueba con otra o baja la calidad de la cámara', 'error'); inputEl.value=''; return; }
-  const email = (currentUser ? currentUser.email : '').toLowerCase();
-  if(!email) { showNotif('⚠️ No se pudo identificar tu cuenta', 'error'); inputEl.value=''; return; }
-  const preview = previewId ? document.getElementById(previewId) : null;
-  const previoHTML = preview ? preview.innerHTML : '';
-  if(preview) preview.innerHTML = '<div style="font-size:11px;color:#99ACC2">Subiendo...</div>';
-  try {
-    const url = await subirFotoPerfil(file, 'admin', email);
-    if(!appData.fotosAdmin) appData.fotosAdmin = {};
-    appData.fotosAdmin[email] = url;
-    guardar();
-    const perms = getUserPermissions(email);
-    if(preview) { preview.innerHTML = avatarHTML(perms?perms.nombre:'', 56, url); avisarSiImagenFalla(preview, url); }
-    actualizarAvatarTopbar();
-    showNotif('📸 Foto de perfil actualizada');
-  } catch(err) {
-    if(preview) preview.innerHTML = previoHTML;
-    showNotif('❌ No se pudo subir la foto: ' + err.message, 'error');
-  } finally {
-    inputEl.value = '';
-  }
-}
-function abrirMiPerfilAdmin() {
-  const perms = getUserPermissions(currentUser ? currentUser.email : '');
-  if(!perms) return;
-  const email = (currentUser ? currentUser.email : '').toLowerCase();
-  const fotoActual = (appData.fotosAdmin && appData.fotosAdmin[email]) || null;
-  document.getElementById('mpa-nombre').textContent = perms.nombre || '';
-  document.getElementById('mpa-foto-preview').innerHTML = avatarHTML(perms.nombre||'', 84, fotoActual);
-  document.getElementById('modal-mi-perfil-admin').classList.add('open');
-}
-
 // ============================================================
 // DATA
 // ============================================================
@@ -5104,6 +4930,25 @@ function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.g
 function fechaLocalHoy() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+// Distintivo de temporada junto al logo (como los Doodles de Google) --
+// puramente decorativo, con emoji (sin depender de imágenes nuevas), nunca
+// reemplaza el logo real. `mes` es 1-12. Fuera de estas ventanas de fecha no
+// se muestra nada (el logo se queda como siempre).
+function emojiDeTemporada(mes, dia) {
+  if(mes===10 && dia>=15) return '🎃'; // Halloween
+  if(mes===11 && dia>=20 && dia<=28) return '🦃'; // Thanksgiving
+  if(mes===12 && dia<=25) return '🎄'; // Navidad
+  if((mes===12 && dia>=26) || (mes===1 && dia<=2)) return '🎆'; // Año Nuevo
+  if(mes===2 && dia>=10 && dia<=14) return '💝'; // San Valentín
+  if(mes===7 && dia<=4) return '🎆'; // 4 de Julio
+  return '';
+}
+function pintarBadgeTemporada() {
+  const el = document.getElementById('sidebar-logo-badge');
+  if(!el) return;
+  const hoy = new Date();
+  el.textContent = emojiDeTemporada(hoy.getMonth()+1, hoy.getDate());
 }
 // Extrae {mes (1-12), anio} de una fecha guardada como texto "YYYY-MM-DD" sin
 // pasar por new Date(texto) — new Date('2026-07-01') se interpreta como
@@ -7693,6 +7538,7 @@ function openImportarExcelModal() {
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  pintarBadgeTemporada();
   const fileInput = document.getElementById('excel-file-input');
   if(fileInput) {
     fileInput.addEventListener('change', (e)=>{
@@ -8844,10 +8690,6 @@ function openAgenteModal(id=null) {
   document.getElementById('a-tel').value     = a?.tel||'';
   document.getElementById('a-email').value   = a?.email||'';
 
-  const fotoWrap = document.getElementById('a-foto-wrap');
-  fotoWrap.style.display = id ? 'flex' : 'none';
-  if(id) document.getElementById('a-foto-preview').innerHTML = avatarHTML(a?.nombre||'', 56, a?.fotoUrl||null);
-
   // Tabla de comisiones — se renderiza en onRolChange()
 
   // Dropdown copiar comisiones
@@ -9295,12 +9137,6 @@ function renderAgenteSaludPerfil() {
       <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:10px 0 20px">
         <div id="agsp-foto-preview">${avatarHTML(a?.nombre||perms?.nombre||'', 84, a?.fotoUrl||null)}</div>
         <div style="font-size:16px;font-weight:700;color:#33475B">${a?.nombre||perms?.nombre||''}</div>
-        ${a ? `
-          <label class="btn btn-primary btn-sm" style="cursor:pointer">📸 Cambiar Foto
-            <input type="file" accept="image/*" style="display:none" onchange="subirYGuardarFotoAgente(this,true,${a.id},'agsp-foto-preview')">
-          </label>
-          <div style="font-size:10px;color:#99ACC2;text-align:center">JPG/PNG — se ajusta automáticamente.</div>
-        ` : ''}
       </div>
     </div>`;
 }
@@ -11800,12 +11636,6 @@ function renderAgentePerfil() {
       <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:10px 0 20px">
         <div id="agp-foto-preview">${avatarHTML(a?.nombre||perms?.nombre||'', 84, a?.fotoUrl||null)}</div>
         <div style="font-size:16px;font-weight:700;color:#33475B">${a?.nombre||perms?.nombre||''}</div>
-        ${a ? `
-          <label class="btn btn-primary btn-sm" style="cursor:pointer">📸 Cambiar Foto
-            <input type="file" accept="image/*" style="display:none" onchange="subirYGuardarFotoAgente(this,false,${a.id},'agp-foto-preview')">
-          </label>
-          <div style="font-size:10px;color:#99ACC2;text-align:center">JPG/PNG — se ajusta automáticamente.</div>
-        ` : ''}
       </div>
     </div>`;
 }
@@ -17107,10 +16937,6 @@ function saludOpenAgenteModal(id=null) {
   document.getElementById('sa-tel').value = a?.tel||'';
   document.getElementById('sa-email').value = a?.email||'';
   document.getElementById('sa-rol').value = a?.rol||'agente';
-
-  const saFotoWrap = document.getElementById('sa-foto-wrap');
-  saFotoWrap.style.display = id ? 'flex' : 'none';
-  if(id) document.getElementById('sa-foto-preview').innerHTML = avatarHTML(a?.nombre||'', 56, a?.fotoUrl||null);
 
   const supervisados = a?.agentesSupervisa||[];
   const otros = saludData.agentes.filter(x=>x.id!==id);
