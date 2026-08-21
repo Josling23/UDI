@@ -453,6 +453,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-section">Reportes</div>
     <div class="nav-item" onclick="showPage('resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
     <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
+    <div class="nav-item" onclick="showPage('subdealers',this)"><span class="icon">🤝</span><span>Pagos Sub-Dealers</span></div>
     <div class="nav-item" onclick="showPage('rendimiento-agentes',this)"><span class="icon">📊</span><span>Rendimiento de Agentes</span></div>
     <div class="nav-item" onclick="showPage('campanas',this)"><span class="icon">📢</span><span>Campañas & ROI</span></div>
     <div class="nav-section">Config</div>
@@ -834,6 +835,11 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
       <div class="section">
         <div id="pagos-content"></div>
       </div>
+    </div>
+
+    <!-- ===== PAGOS SUB-DEALERS ===== -->
+    <div class="page" id="page-subdealers">
+      <div id="subdealers-content"></div>
     </div>
 
     <!-- ===== RENDIMIENTO DE AGENTES ===== -->
@@ -3775,6 +3781,7 @@ function normalizarAppData() {
   if(!appData.nextFinanzasId) appData.nextFinanzasId = 1;
   if(!appData.gastosNomina) appData.gastosNomina = {};
   if(!appData.quincenasCerradas) appData.quincenasCerradas = {};
+  if(!appData.subdealerPagos) appData.subdealerPagos = {};
   if(!appData.auditLog) appData.auditLog = [];
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
@@ -4230,6 +4237,7 @@ function activarListenerAppData() {
           'ventas-pendientes': renderVentasPendientes,
           'resumen':    renderResumen,
           'pagos':      renderPagos,
+          'subdealers': renderSubdealers,
           'rendimiento-agentes': renderRendimientoAgentes,
           'productos':  renderProductos,
           'admin':      renderAdmin,
@@ -4865,6 +4873,106 @@ function getPeríodoPagoAuto(v) {
   }
 }
 
+// ============================================================
+// SUB-DEALERS — ciclo de pago semanal (viernes a jueves), separado por
+// completo del ciclo quincenal Q1/Q2 que usa el resto de los agentes.
+// Puramente aditivo: agrupa lo que YA existe (venta.fecha, venta.agente,
+// venta.esChargeback) por semana -- no cambia ni un solo campo de
+// appData.ventas. El estado de "pagado" se guarda en una colección nueva y
+// separada (appData.subdealerPagos), sin tocar appData.quincenas.
+// ============================================================
+function fechaLocalAISO(fecha) {
+  return fecha.getFullYear() + '-' + String(fecha.getMonth()+1).padStart(2,'0') + '-' + String(fecha.getDate()).padStart(2,'0');
+}
+// Dada una fecha "YYYY-MM-DD", devuelve el jueves de cierre de su semana
+// (semana = viernes a jueves). Si la fecha ya es jueves, es su propio cierre.
+function subdealerCierreDeFecha(fechaStr) {
+  const [y,m,d] = fechaStr.split('-').map(Number);
+  const fecha = new Date(y, m-1, d);
+  const dow = fecha.getDay(); // 0=domingo … 4=jueves … 6=sábado
+  const diasHastaJueves = (4 - dow + 7) % 7;
+  fecha.setDate(fecha.getDate() + diasHastaJueves);
+  return fechaLocalAISO(fecha);
+}
+// Fecha de pago = el lunes 11 días después del jueves de cierre (confirmado
+// con la dueña: cierre jueves 20-ago-2026 → se paga el lunes 31-ago-2026).
+function subdealerFechaPago(cierreStr) {
+  const [y,m,d] = cierreStr.split('-').map(Number);
+  const fecha = new Date(y, m-1, d);
+  fecha.setDate(fecha.getDate() + 11);
+  return fechaLocalAISO(fecha);
+}
+function subdealerAgentes() {
+  return (appData.agentes||[]).filter(a => !a.soloHQ && (a.rol==='subdealer' || a.rol==='subdealер'));
+}
+// Agrupa las ventas de un subdealer por semana de cierre. El chargeback se
+// resta de la MISMA semana que su venta original (mismo criterio que ya usa
+// "Mis Comisiones" del subdealer -- se agrupa por la fecha de la venta, no
+// por una fecha de chargeback aparte).
+function subdealerAgruparPorSemana(agente) {
+  const nombreLow = (agente.nombre||'').trim().toLowerCase();
+  const ventas = (appData.ventas||[]).filter(v => !v.esGrabacion && !v._esGrabacion && (v.agente||'').trim().toLowerCase()===nombreLow && v.fecha);
+  const montoVenta = v => (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
+  const grupos = {};
+  ventas.forEach(v => {
+    const cierre = subdealerCierreDeFecha(v.fecha);
+    if(!grupos[cierre]) grupos[cierre] = { cierre, pago: subdealerFechaPago(cierre), ventas: [], chargebacks: [] };
+    if(v.esChargeback) grupos[cierre].chargebacks.push(v);
+    else grupos[cierre].ventas.push(v);
+  });
+  return Object.values(grupos).map(g => {
+    const bruto = g.ventas.reduce((s,v)=>s+montoVenta(v),0);
+    const descuentoCB = g.chargebacks.reduce((s,v)=>s+montoVenta(v),0);
+    const pagado = !!(appData.subdealerPagos && appData.subdealerPagos[agente.id+'_'+g.cierre]);
+    return { ...g, bruto, descuentoCB, neto: bruto-descuentoCB, pagado };
+  }).sort((a,b) => b.cierre.localeCompare(a.cierre));
+}
+function toggleSubdealerPago(agenteId, cierre) {
+  if(!appData.subdealerPagos) appData.subdealerPagos = {};
+  const key = agenteId+'_'+cierre;
+  if(appData.subdealerPagos[key]) {
+    delete appData.subdealerPagos[key];
+  } else {
+    appData.subdealerPagos[key] = { agenteId, cierre, fecha: fechaLocalHoy() };
+  }
+  guardar();
+  renderSubdealers();
+}
+function renderSubdealers() {
+  const agentes = subdealerAgentes();
+  const content = document.getElementById('subdealers-content');
+  if(!content) return;
+  if(!agentes.length) {
+    content.innerHTML = '<div class="section"><div style="color:#7C98B6;padding:20px;font-size:13px">No hay Sub-Dealers registrados todavía. Crea un agente con rol "🤝 Sub-Dealer" en Admin → Agentes.</div></div>';
+    return;
+  }
+  content.innerHTML = `<div class="section-header"><h2>🤝 Pagos Sub-Dealers</h2></div>
+    <div style="font-size:11px;color:#99ACC2;margin:-6px 0 16px">Ciclo semanal (viernes a jueves) — el cierre de cada semana se paga el lunes 11 días después. Los chargebacks de una semana se descuentan de esa misma semana.</div>` +
+    agentes.map(a => {
+      const semanas = subdealerAgruparPorSemana(a);
+      return `<div class="section">
+        <div class="section-header"><h2 style="font-size:14px">${a.nombre}</h2></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Semana (cierre jueves)</th><th>Ventas</th><th>Chargebacks</th><th>Neto</th><th>Fecha de Pago</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              ${semanas.length ? semanas.map(s => `
+                <tr>
+                  <td>${s.cierre}</td>
+                  <td>${s.ventas.length} · ${fmt(s.bruto)}</td>
+                  <td style="color:#F2545B">${s.chargebacks.length} · −${fmt(s.descuentoCB)}</td>
+                  <td style="font-weight:700">${fmt(s.neto)}</td>
+                  <td>${s.pago}</td>
+                  <td>${s.pagado ? '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">✅ Pagado</span>' : '<span style="background:#FEF3C7;color:#D4A017;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">⏳ Pendiente</span>'}</td>
+                  <td><button class="btn btn-ghost btn-xs" onclick="toggleSubdealerPago(${a.id},'${s.cierre}')">${s.pagado?'↩️ Desmarcar':'✅ Marcar Pagado'}</button></td>
+                </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty">Sin ventas registradas</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+}
+
 function getComisionesQuincena(a, mes, q) {
   const nombreLow = (a.nombre||'').trim().toLowerCase();
 
@@ -5056,7 +5164,7 @@ const PAGE_TITLES = {
   'ventas-pendientes':'🕓 Ventas Pendientes',
   'ventas-rechazadas':'❌ Ventas Rechazadas',
   'chargebacks-admin':'⚠️ Chargebacks',
-  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', 'rendimiento-agentes':'📊 Rendimiento de Agentes', campanas:'📢 Campañas & ROI',
+  resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', subdealers:'🤝 Pagos Sub-Dealers', 'rendimiento-agentes':'📊 Rendimiento de Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
   'hq-gerente':'🏢 Gerente General',
@@ -5125,6 +5233,7 @@ function renderPage(name) {
   if(name==='chargebacks-admin') renderChargebacksAdmin();
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
+  if(name==='subdealers') renderSubdealers();
   if(name==='rendimiento-agentes') renderRendimientoAgentes();
   if(name==='productos') renderProductos();
   if(name==='top')   renderTop();
