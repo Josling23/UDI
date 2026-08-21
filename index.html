@@ -38,7 +38,9 @@ body{font-family:'Segoe UI',sans-serif;background:#F5F8FA;color:#33475B;min-heig
 .sidebar{width:240px;background:#1a0008;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;box-shadow:2px 0 8px rgba(0,0,0,0.25)}
 .sidebar-logo{padding:0;border-bottom:1px solid rgba(255,255,255,0.1);background:linear-gradient(135deg,#2a0008,#3a0a14,#4a0a18);text-align:center}
 .sidebar-logo-inner{padding:18px 16px 14px}
+.sidebar-logo-svg-wrap{position:relative;width:62px;margin:0 auto 6px}
 .sidebar-logo svg{width:56px;height:56px;margin:0 auto 8px;display:block}
+.sidebar-logo-badge{position:absolute;bottom:2px;right:-4px;font-size:20px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5))}
 .sidebar-logo h1{font-size:12px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase;line-height:1.3}
 .sidebar-logo p{font-size:10px;color:rgba(255,255,255,0.65);margin-top:3px}
 .sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
@@ -425,14 +427,17 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="sidebar-logo-inner">
-      <svg viewBox="0 0 100 100" width="62" height="62" style="margin:0 auto 6px;display:block;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.5))">
-        <defs><clipPath id="udi-c3"><circle cx="50" cy="50" r="44"/></clipPath></defs>
-        <circle cx="50" cy="50" r="48" fill="#7a1428"/>
-        <circle cx="50" cy="50" r="44" fill="#F0E8D8"/>
-        <polygon points="8,68 100,28 100,100 0,100" fill="#5a0a18" clip-path="url(#udi-c3)"/>
-        <circle cx="50" cy="50" r="44" fill="none" stroke="#6a0f22" stroke-width="0.6"/>
-        <text x="50" y="57" text-anchor="middle" fill="#7a1428" font-size="37" font-weight="900" font-family="Georgia,'Times New Roman',serif" letter-spacing="2">UDI</text>
-      </svg>
+      <div class="sidebar-logo-svg-wrap">
+        <svg viewBox="0 0 100 100" width="62" height="62" style="margin:0 auto 6px;display:block;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.5))">
+          <defs><clipPath id="udi-c3"><circle cx="50" cy="50" r="44"/></clipPath></defs>
+          <circle cx="50" cy="50" r="48" fill="#7a1428"/>
+          <circle cx="50" cy="50" r="44" fill="#F0E8D8"/>
+          <polygon points="8,68 100,28 100,100 0,100" fill="#5a0a18" clip-path="url(#udi-c3)"/>
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#6a0f22" stroke-width="0.6"/>
+          <text x="50" y="57" text-anchor="middle" fill="#7a1428" font-size="37" font-weight="900" font-family="Georgia,'Times New Roman',serif" letter-spacing="2">UDI</text>
+        </svg>
+        <span class="sidebar-logo-badge" id="sidebar-logo-badge"></span>
+      </div>
       <h1>USA Distributor</h1>
       <p>AT&T VND</p>
     </div>
@@ -4926,6 +4931,25 @@ function fechaLocalHoy() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
+// Distintivo de temporada junto al logo (como los Doodles de Google) --
+// puramente decorativo, con emoji (sin depender de imágenes nuevas), nunca
+// reemplaza el logo real. `mes` es 1-12. Fuera de estas ventanas de fecha no
+// se muestra nada (el logo se queda como siempre).
+function emojiDeTemporada(mes, dia) {
+  if(mes===10 && dia>=15) return '🎃'; // Halloween
+  if(mes===11 && dia>=20 && dia<=28) return '🦃'; // Thanksgiving
+  if(mes===12 && dia<=25) return '🎄'; // Navidad
+  if((mes===12 && dia>=26) || (mes===1 && dia<=2)) return '🎆'; // Año Nuevo
+  if(mes===2 && dia>=10 && dia<=14) return '💝'; // San Valentín
+  if(mes===7 && dia<=4) return '🎆'; // 4 de Julio
+  return '';
+}
+function pintarBadgeTemporada() {
+  const el = document.getElementById('sidebar-logo-badge');
+  if(!el) return;
+  const hoy = new Date();
+  el.textContent = emojiDeTemporada(hoy.getMonth()+1, hoy.getDate());
+}
 // Extrae {mes (1-12), anio} de una fecha guardada como texto "YYYY-MM-DD" sin
 // pasar por new Date(texto) — new Date('2026-07-01') se interpreta como
 // medianoche UTC, y en cualquier zona horaria de EE.UU. (detrás de UTC) el
@@ -7514,6 +7538,7 @@ function openImportarExcelModal() {
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  pintarBadgeTemporada();
   const fileInput = document.getElementById('excel-file-input');
   if(fileInput) {
     fileInput.addEventListener('change', (e)=>{

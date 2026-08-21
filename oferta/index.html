@@ -75,6 +75,8 @@ fbq('track', 'PageView');
   header img{
     width:42px;height:42px;border-radius:9px;
   }
+  .header-logo-wrap{position:relative;width:42px;height:42px;flex-shrink:0}
+  .header-logo-badge{position:absolute;bottom:-4px;right:-6px;font-size:16px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35))}
   header .name{
     font-weight:800;
     font-size:15px;
@@ -335,7 +337,10 @@ fbq('track', 'PageView');
 <div class="topbar"></div>
 
 <header>
-  <img src="../icons/icon-192.png" alt="USA Distributor Inc.">
+  <div class="header-logo-wrap">
+    <img src="../icons/icon-192.png" alt="USA Distributor Inc.">
+    <span class="header-logo-badge" id="header-logo-badge"></span>
+  </div>
   <div>
     <div class="name">USA DISTRIBUTOR INC.</div>
     <div class="tagline">Equipos móviles y planes</div>
@@ -448,6 +453,25 @@ fbq('track', 'PageView');
 
 <script>
   (function(){
+    // Distintivo de temporada junto al logo (como los Doodles de Google) --
+    // puramente decorativo, con emoji, nunca reemplaza el logo real. Mismo
+    // calendario que el CRM (index.html / emojiDeTemporada), duplicado aquí
+    // porque esta landing page es un archivo aparte, sin JS compartido.
+    function emojiDeTemporada(mes, dia){
+      if(mes===10 && dia>=15) return '🎃'; // Halloween
+      if(mes===11 && dia>=20 && dia<=28) return '🦃'; // Thanksgiving
+      if(mes===12 && dia<=25) return '🎄'; // Navidad
+      if((mes===12 && dia>=26) || (mes===1 && dia<=2)) return '🎆'; // Año Nuevo
+      if(mes===2 && dia>=10 && dia<=14) return '💝'; // San Valentín
+      if(mes===7 && dia<=4) return '🎆'; // 4 de Julio
+      return '';
+    }
+    var badgeEl = document.getElementById('header-logo-badge');
+    if(badgeEl){
+      var hoy = new Date();
+      badgeEl.textContent = emojiDeTemporada(hoy.getMonth()+1, hoy.getDate());
+    }
+
     // Captura UTMs del anuncio (para registrar de qué campaña viene y
     // como parámetros del evento de Pixel, para poder segmentar después).
     var params = new URLSearchParams(window.location.search);
