@@ -4905,17 +4905,21 @@ function subdealerFechaPago(cierreStr) {
 function subdealerAgentes() {
   return (appData.agentes||[]).filter(a => !a.soloHQ && (a.rol==='subdealer' || a.rol==='subdealер'));
 }
-// Agrupa las ventas de un subdealer por semana de cierre. El chargeback se
-// resta de la MISMA semana que su venta original (mismo criterio que ya usa
-// "Mis Comisiones" del subdealer -- se agrupa por la fecha de la venta, no
-// por una fecha de chargeback aparte).
+// Agrupa las ventas de un subdealer por semana de cierre. Las ventas normales
+// se agrupan por su fecha de venta. Los chargebacks se agrupan por la fecha en
+// que se marcaron como chargeback (v.chargebackFecha), NO por la fecha de la
+// venta original -- así el descuento cae en el periodo de pago vigente cuando
+// se detecta el chargeback (el "siguiente pago"), en vez de alterar una semana
+// que ya se cerró/pagó. Si una venta vieja no tiene chargebackFecha (marcada
+// como chargeback antes de que existiera este campo), se usa v.fecha como respaldo.
 function subdealerAgruparPorSemana(agente) {
   const nombreLow = (agente.nombre||'').trim().toLowerCase();
   const ventas = (appData.ventas||[]).filter(v => !v.esGrabacion && !v._esGrabacion && (v.agente||'').trim().toLowerCase()===nombreLow && v.fecha);
   const montoVenta = v => (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
   const grupos = {};
   ventas.forEach(v => {
-    const cierre = subdealerCierreDeFecha(v.fecha);
+    const fechaClave = v.esChargeback ? ((v.chargebackFecha||v.fecha).slice(0,10)) : v.fecha;
+    const cierre = subdealerCierreDeFecha(fechaClave);
     if(!grupos[cierre]) grupos[cierre] = { cierre, pago: subdealerFechaPago(cierre), ventas: [], chargebacks: [] };
     if(v.esChargeback) grupos[cierre].chargebacks.push(v);
     else grupos[cierre].ventas.push(v);
@@ -4985,16 +4989,16 @@ function renderSubdealers() {
               <tbody>
                 ${semanas.length ? semanas.map(s => `
                   <tr>
-                    <td>${s.cierre}</td>
+                    <td>${mdaFecha(s.cierre)}</td>
                     <td>${s.ventas.length} · ${fmt(s.bruto)}</td>
                     <td style="color:#F2545B">${s.chargebacks.length} · −${fmt(s.descuentoCB)}</td>
                     <td style="font-weight:700">${fmt(s.neto)}</td>
-                    <td>${s.pago}</td>
+                    <td>${mdaFecha(s.pago)}</td>
                     <td>${s.pagado ? '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">✅ Pagado</span>' : '<span style="background:#FEF3C7;color:#D4A017;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">⏳ Pendiente</span>'}</td>
                     <td style="white-space:nowrap">
-                      <button class="btn btn-ghost btn-xs" onclick="abrirDetalleSubdealerSemana(${a.id},'${s.cierre}')" title="Ver qué clientes/ventas componen este monto">👁️ Detalle</button>
-                      <button class="btn btn-ghost btn-xs" onclick="generarReporteSubdealerSemanaWhatsApp(${a.id},'${s.cierre}')" title="Generar reporte para enviar por WhatsApp">📲</button>
-                      <button class="btn btn-ghost btn-xs" onclick="toggleSubdealerPago(${a.id},'${s.cierre}')">${s.pagado?'↩️':'✅'}</button>
+                      <button class="btn btn-ghost btn-xs" onclick="abrirDetalleSubdealerSemana(${a.id},'${mdaFecha(s.cierre)}')" title="Ver qué clientes/ventas componen este monto">👁️ Detalle</button>
+                      <button class="btn btn-ghost btn-xs" onclick="generarReporteSubdealerSemanaWhatsApp(${a.id},'${mdaFecha(s.cierre)}')" title="Generar reporte para enviar por WhatsApp">📲</button>
+                      <button class="btn btn-ghost btn-xs" onclick="toggleSubdealerPago(${a.id},'${mdaFecha(s.cierre)}')">${s.pagado?'↩️':'✅'}</button>
                     </td>
                   </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty">Sin ventas registradas en este rango</td></tr>'}
               </tbody>
@@ -5013,12 +5017,12 @@ function abrirDetalleSubdealerSemana(agenteId, cierre) {
   const semana = subdealerAgruparPorSemana(agente).find(s=>s.cierre===cierre);
   if(!semana) { showNotif('⚠️ No se encontró esa semana','error'); return; }
 
-  const filaVenta = v => { const l = subdealerLineaTexto(v); return `<tr><td>${l.fecha}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#00A492">${fmt(l.monto)}</td></tr>`; };
-  const filaCB = v => { const l = subdealerLineaTexto(v); return `<tr><td>${l.fecha}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#F2545B">−${fmt(l.monto)}</td></tr>`; };
+  const filaVenta = v => { const l = subdealerLineaTexto(v); return `<tr><td>${mdaFecha(l.fecha)}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#00A492">${fmt(l.monto)}</td></tr>`; };
+  const filaCB = v => { const l = subdealerLineaTexto(v); return `<tr><td>${mdaFecha(l.fecha)}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#F2545B">−${fmt(l.monto)}</td></tr>`; };
 
   const html = `
-    <h4 style="color:#0057A8;margin-bottom:4px">${agente.nombre} — Semana con cierre ${semana.cierre}</h4>
-    <div style="font-size:11px;color:#7C98B6;margin-bottom:16px">💳 Fecha de Pago: ${semana.pago} · Estado: ${semana.pagado?'✅ Pagado':'⏳ Pendiente'}</div>
+    <h4 style="color:#0057A8;margin-bottom:4px">${agente.nombre} — Semana con cierre ${mdaFecha(semana.cierre)}</h4>
+    <div style="font-size:11px;color:#7C98B6;margin-bottom:16px">💳 Fecha de Pago: ${mdaFecha(semana.pago)} · Estado: ${semana.pagado?'✅ Pagado':'⏳ Pendiente'}</div>
     <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:6px">✅ Ventas Pagadas (${semana.ventas.length})</div>
     <div class="tbl-wrap" style="margin-bottom:16px">
       <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th></tr></thead>
@@ -5037,7 +5041,7 @@ function abrirDetalleSubdealerSemana(agenteId, cierre) {
       <div style="font-size:24px;font-weight:900;color:#00BDA5">${fmt(semana.neto)}</div>
     </div>`;
 
-  document.getElementById('modal-detalle-titulo').textContent = `📊 Detalle — ${agente.nombre} — ${semana.cierre}`;
+  document.getElementById('modal-detalle-titulo').textContent = `📊 Detalle — ${agente.nombre} — ${mdaFecha(semana.cierre)}`;
   document.getElementById('modal-detalle-body').innerHTML = html;
   document.getElementById('modal-detalle-agente').classList.add('open');
 }
@@ -5045,12 +5049,12 @@ function abrirDetalleSubdealerSemana(agenteId, cierre) {
 // que el resto de reportes de la app (líneas con *negrita* de WhatsApp,
 // total resaltado al final).
 function construirTextoReporteSubdealerSemana(agente, semana) {
-  const lineasVenta = semana.ventas.map(v => { const l = subdealerLineaTexto(v); return `• ${l.fecha} - ${l.cliente} - ${l.producto}: ${fmt(l.monto)}`; });
-  const lineasCB = semana.chargebacks.map(v => { const l = subdealerLineaTexto(v); return `• ${l.fecha} - ${l.cliente} - ${l.producto}: -${fmt(l.monto)}`; });
+  const lineasVenta = semana.ventas.map(v => { const l = subdealerLineaTexto(v); return `• ${mdaFecha(l.fecha)} - ${l.cliente} - ${l.producto}: ${fmt(l.monto)}`; });
+  const lineasCB = semana.chargebacks.map(v => { const l = subdealerLineaTexto(v); return `• ${mdaFecha(l.fecha)} - ${l.cliente} - ${l.producto}: -${fmt(l.monto)}`; });
   return `🤝 *PAGO SUB-DEALER* — USA Distributor Inc.\n\n` +
     `👤 ${agente.nombre}\n` +
-    `📅 Semana con cierre: ${semana.cierre}\n` +
-    `💳 Fecha de Pago: ${semana.pago}\n\n` +
+    `📅 Semana con cierre: ${mdaFecha(semana.cierre)}\n` +
+    `💳 Fecha de Pago: ${mdaFecha(semana.pago)}\n\n` +
     `✅ *Ventas Pagadas (${semana.ventas.length})*\n${lineasVenta.length ? lineasVenta.join('\n') : 'Ninguna'}\n` +
     (lineasCB.length ? `\n❌ *Chargebacks Descontados (${semana.chargebacks.length})*\n${lineasCB.join('\n')}\n` : '') +
     `\n💰 *NETO A PAGAR: ${fmt(semana.neto)}*`;
@@ -5204,6 +5208,18 @@ function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.g
 function fechaLocalHoy() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+// Convierte una fecha guardada en formato ISO ("YYYY-MM-DD", o un datetime ISO
+// completo como chargebackFecha) al formato de VISUALIZACIÓN mes/día/año que
+// usa toda la app. Solo cambia cómo se ve en pantalla/reportes/Excel -- nunca
+// se usa para guardar datos ni para los campos de fecha del formulario (type=date), que siguen en ISO.
+// Si el valor no calza con el patrón ISO (vacío, undefined, ya en otro formato),
+// se devuelve tal cual, sin romper nada.
+function mdaFecha(fechaStr) {
+  if(!fechaStr) return fechaStr;
+  const m = String(fechaStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return fechaStr;
+  return m[2] + '/' + m[3] + '/' + m[1];
 }
 // Distintivo de temporada junto al logo (como los Doodles de Google) --
 // puramente decorativo, con emoji (sin depender de imágenes nuevas), nunca
@@ -5652,7 +5668,7 @@ function renderDashboard() {
   // Recent sales
   const recent = [...appData.ventas].sort((a,b)=>b.id-a.id).slice(0,10);
   document.getElementById('dash-recent').innerHTML = recent.length ? recent.map(v=>`<tr>
-    <td>${v.fecha}</td>
+    <td>${mdaFecha(v.fecha)}</td>
     <td>${v.agente}</td>
     <td style="font-weight:600">${getProdNombre(v.productoId)}</td>
     <td><span class="badge badge-${v.categoria}">${CAT_LABELS[v.categoria]||v.categoria}</span></td>
@@ -6017,7 +6033,7 @@ function renderVentasRechazadasTabla() {
     const g = lineas[0];
     const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
     return `<tr>
-        <td style="font-weight:600">${g.fecha}</td>
+        <td style="font-weight:600">${mdaFecha(g.fecha)}</td>
         <td style="font-weight:600">${g.agente}</td>
         <td>${g.cliente||'⚠️ Sin cliente'}</td>
         <td>${g.cuenta||'—'}</td>
@@ -6409,7 +6425,7 @@ function renderChargebacksDetalle() {
   const body = document.getElementById('chargebacks-detalle-body');
   body.innerHTML = lista.length ? lista.map(v=>`
     <tr>
-      <td>${v.fecha}</td>
+      <td>${mdaFecha(v.fecha)}</td>
       <td style="font-weight:600">${v.agente}</td>
       <td>${v.cliente||'—'}</td>
       <td style="color:#7C98B6">${v.cuenta||'—'}</td>
@@ -7095,7 +7111,7 @@ function abrirReciboVenta(grupoId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div>
           <div style="font-size:10px;color:#99ACC2;font-weight:700;text-transform:uppercase">Fecha activación</div>
-          <div style="font-size:13px;color:#33475B;font-weight:600">${g.fecha}</div>
+          <div style="font-size:13px;color:#33475B;font-weight:600">${mdaFecha(g.fecha)}</div>
         </div>
         <div>
           <div style="font-size:10px;color:#99ACC2;font-weight:700;text-transform:uppercase"># Cuenta</div>
@@ -7164,7 +7180,7 @@ function compartirReciboWhatsApp(grupoId) {
   const rendimiento = contarProductosQuincenaAgente(g.agente, g.mes);
   const texto = `✅ *ACTIVACIÓN* — USA Distributor Inc.\n\n` +
     `👤 Cliente: ${g.cliente||'—'}\n` +
-    `📅 Fecha de activación: ${g.fecha}\n` +
+    `📅 Fecha de activación: ${mdaFecha(g.fecha)}\n` +
     `🧾 Cuenta: ${g.cuenta||'—'}\n` +
     `🗓️ Mes: ${g.mes||'—'}\n` +
     `👔 Vendedor: ${g.agente||'—'}\n` +
@@ -7509,7 +7525,7 @@ function renderVentas() {
     const prodOpts = catProds.map(p=>`<option value="${p.id}" ${p.id===v.productoId?'selected':''}>${p.nombre}</option>`).join('');
     return `<tr>
     <td style="color:#99ACC2">${i+1}</td>
-    <td>${v.fecha}</td>
+    <td>${mdaFecha(v.fecha)}</td>
     <td>${v.agente}</td>
     <td style="min-width:160px">
       <select style="${iSty};width:100%" onchange="ventaInlineEdit(${v.id},'productoId',this.value);ventaInlineEdit(${v.id},'comision',null,this)">${prodOpts}</select>
@@ -7596,12 +7612,12 @@ function renderPendientesPagoAtt(listaVentas) {
   const filasHTML = pendientes.map(g => {
     const productos = [...new Set(g.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
     const totalComision = g.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
-    const key = `${g.cliente||''}||${g.fecha||''}`;
+    const key = `${g.cliente||''}||${mdaFecha(g.fecha)||''}`;
     const nMensajes = mensajesDeGrupo(key).length;
     return `<tr>
       <td style="font-weight:600;color:#E04048">${g.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
-      <td style="font-size:11px">${g.fecha||'—'}</td>
+      <td style="font-size:11px">${mdaFecha(g.fecha)||'—'}</td>
       <td style="font-size:11px">${g.vendedor||'—'}</td>
       <td style="text-align:right;font-weight:700;color:#E04048">$${totalComision.toFixed(2)}</td>
       <td style="text-align:center">
@@ -7905,7 +7921,7 @@ function mostrarPreviewImportacion() {
 
   previewBody.innerHTML = _importData.map(r=>`
     <tr style="background:${r.valido?'#fff':'#FFF5F5'};border-bottom:1px solid #F5F8FA">
-      <td style="padding:8px;color:#7C98B6">${r.fecha}</td>
+      <td style="padding:8px;color:#7C98B6">${mdaFecha(r.fecha)}</td>
       <td style="padding:8px;color:#7C98B6">${r.agente}</td>
       <td style="padding:8px;color:#7C98B6">${r.cliente}</td>
       <td style="padding:8px;color:#7C98B6">${r.producto}</td>
@@ -8087,7 +8103,7 @@ function renderPreviewVentasPegadas() {
   const gruposVistos = new Set();
   ventasPegadasParseadas.forEach(r => {
     if(!r.valido || !r.incluir || !r.agenteGrabacion) { r._grabacionCobrada = false; return; }
-    const key = `${r.fecha}|${r.agente}|${r.cliente}|${r.agenteGrabacion}`;
+    const key = `${mdaFecha(r.fecha)}|${r.agente}|${r.cliente}|${r.agenteGrabacion}`;
     r._grabacionCobrada = !gruposVistos.has(key);
     gruposVistos.add(key);
   });
@@ -8149,7 +8165,7 @@ function guardarVentasPegadas() {
     const [yyyy, mm] = r.fecha.split('-');
     const mesCalc = mesStrDesdeNum(parseInt(yyyy), parseInt(mm));
     const tieneGrabacion = !!r.agenteGrabacion;
-    const grupoKey = tieneGrabacion ? `${r.fecha}|${r.agente}|${r.cliente}|${r.agenteGrabacion}` : null;
+    const grupoKey = tieneGrabacion ? `${mdaFecha(r.fecha)}|${r.agente}|${r.cliente}|${r.agenteGrabacion}` : null;
     const esPrimeraDelGrupo = tieneGrabacion && !gruposGrabacionYaFacturados.has(grupoKey);
 
     appData.ventas.push({
@@ -8835,7 +8851,7 @@ function abrirVistaPreviaAgente(agenteId) {
         <tbody>
           ${reportes.length ? reportes.map(g=>`
             <tr>
-              <td style="font-weight:600">${g.fecha||'—'}</td>
+              <td style="font-weight:600">${mdaFecha(g.fecha)||'—'}</td>
               <td>${g.cliente||'—'}</td>
               <td style="font-size:11px;color:#7C98B6">${g.lineas.map(l=>getProdNombre(l.productoId)).join(', ')}</td>
               <td>${badges[g.estado]}</td>
@@ -8852,7 +8868,7 @@ function abrirVistaPreviaAgente(agenteId) {
         <tbody>
           ${cbs.length ? cbs.map(v=>`
             <tr>
-              <td style="font-weight:600">${v.fecha}</td>
+              <td style="font-weight:600">${mdaFecha(v.fecha)}</td>
               <td>${v.cliente||'—'}</td>
               <td style="font-size:11px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
               <td style="font-size:11px;color:#33475B">${v.chargebackMotivo||'—'}</td>
@@ -8881,7 +8897,7 @@ function renderAgenteVentas() {
 
     return `<tr style="opacity:${estaCerrada ? '0.7' : '1'}">
     <td style="color:#99ACC2">${i+1}</td>
-    <td>${v.fecha}</td>
+    <td>${mdaFecha(v.fecha)}</td>
     <td style="font-weight:600">${getProdNombre(v.productoId)}</td>
     <td><span class="badge badge-${v.categoria}">${CAT_LABELS[v.categoria]||v.categoria}</span></td>
     <td style="font-weight:700;color:#009FDB">${v.cantidad}</td>
@@ -9399,7 +9415,7 @@ function renderAgenteSaludMisReportes() {
       <td>${badges[estado]}</td>
       <td><b>${c.nombre}</b>${c.cuenta?`<br><span style="font-size:10px;color:#7C98B6">${c.cuenta}</span>`:''}</td>
       <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
-      <td>${c.fecha}</td>
+      <td>${mdaFecha(c.fecha)}</td>
       <td style="font-size:11px;color:#7C98B6">${estado==='rechazado' ? (c.motivoRechazo||'') : (c.notas||'')}</td>
       <td>${estado==='pendiente' ? `<button class="btn btn-ghost btn-xs" onclick="saludEditarReportePendiente(${c.id})">✏️</button>` : ''}</td>
     </tr>`).join('') : '<tr><td colspan="6" class="tbl-empty">Aún no has reportado ningún cliente</td></tr>';
@@ -9474,7 +9490,7 @@ function abrirVistaPreviaAgenteSalud(agenteId) {
               <td>${badges[estado]}</td>
               <td><b>${c.nombre}</b>${c.cuenta?`<br><span style="font-size:10px;color:#7C98B6">${c.cuenta}</span>`:''}</td>
               <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
-              <td>${c.fecha||'—'}</td>
+              <td>${mdaFecha(c.fecha)||'—'}</td>
               <td style="font-size:11px;color:#7C98B6">${estado==='rechazado' ? (c.motivoRechazo||'—') : (c.notas||'—')}</td>
             </tr>`).join('') : '<tr><td colspan="5" class="tbl-empty">Aún no ha reportado ningún cliente</td></tr>'}
         </tbody>
@@ -9980,7 +9996,7 @@ window.debugQuincena = function(nombreAgente, mes, q) {
     const match = pp.mes===mes && pp.q===q;
     const com = (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1);
     if(match) suma += com;
-    console.log(`${match?'✅':'❌'} fecha:${v.fecha} mes:${v.mes} prod:${v.productoId} com:${v.comision} qty:${v.cantidad} → pago:[${pp.mes} Q${pp.q}] total:$${com} qPago:${v.quincenaPago||'auto'}`);
+    console.log(`${match?'✅':'❌'} fecha:${mdaFecha(v.fecha)} mes:${v.mes} prod:${v.productoId} com:${v.comision} qty:${v.cantidad} → pago:[${pp.mes} Q${pp.q}] total:$${com} qPago:${v.quincenaPago||'auto'}`);
   });
   console.log(`SUMA TOTAL para ${mes} Q${q}: $${suma}`);
   console.groupEnd();
@@ -11036,7 +11052,7 @@ function renderAgenteDashboard() {
         ${cbRecientes.slice(0,3).map(({v}) => `
           <div style="background:#fff;border:1px solid #F5C6C6;border-radius:8px;padding:8px 12px;font-size:12px">
             <span style="font-weight:700;color:#33475B">${v.cliente||'Cliente'}</span>
-            <span style="color:#99ACC2"> · ${v.fecha}</span>
+            <span style="color:#99ACC2"> · ${mdaFecha(v.fecha)}</span>
             ${v.chargebackMotivo ? `<div style="color:#7C98B6;font-size:11px;margin-top:2px">${v.chargebackMotivo}</div>` : ''}
           </div>`).join('')}
         ${cbRecientes.length>3 ? `<div style="font-size:11px;color:#99ACC2">+ ${cbRecientes.length-3} más</div>` : ''}
@@ -11832,7 +11848,7 @@ function renderAgenteChargebacks() {
   const body = document.getElementById('agente-chargebacks-body');
   body.innerHTML = cbs.length ? cbs.map(v => `
     <tr>
-      <td style="font-weight:600">${v.fecha}</td>
+      <td style="font-weight:600">${mdaFecha(v.fecha)}</td>
       <td>${v.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
       <td style="font-size:11px;color:#33475B">${v.chargebackMotivo||'—'}</td>
@@ -11896,7 +11912,7 @@ function renderAgenteComisiones() {
   const body = document.getElementById('agente-comisiones-body');
   body.innerHTML = propias.length ? propias.map(v => `
     <tr>
-      <td>${v.fecha}</td>
+      <td>${mdaFecha(v.fecha)}</td>
       <td>${v.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
       <td style="text-align:right;font-weight:700;color:${v.esChargeback?'#F2545B':'#00A492'}">${v.esChargeback?'−':''}${fmt(montoVenta(v))}</td>
@@ -12091,7 +12107,7 @@ function renderInspectorClientes() {
     // salte a la vista aunque esté viendo la lista completa sin filtrar.
     const pendiente = inspectorNecesitaSeguimiento(g) && !inspectorYaRevisado(g);
     return `<tr style="${pendiente?'background:#FFFBE8':''}">
-      <td>${g.fecha}</td>
+      <td>${mdaFecha(g.fecha)}</td>
       <td style="font-weight:600">${g.agente}</td>
       <td>${g.cliente||'—'}</td>
       <td style="color:#7C98B6">${g.cuenta||'—'}</td>
@@ -13544,7 +13560,7 @@ function descargarResumenQuincena(mes, quincena) {
   appData.ventas.forEach(v => {
     const pp = getPeríodoPago(v);
     if (v.mes === mes && pp.q === q) {
-      ventasRows.push([v.fecha, v.agente, v.productoId, v.cantidad, v.comision, (v.cantidad||0)*(v.comision||0)]);
+      ventasRows.push([mdaFecha(v.fecha), v.agente, v.productoId, v.cantidad, v.comision, (v.cantidad||0)*(v.comision||0)]);
     }
   });
   const wsV = XLSX.utils.aoa_to_sheet([ventasHeaders, ...ventasRows]);
@@ -14340,14 +14356,14 @@ function renderTopRSI() {
   };
 
   const isRSIPaid = (venta) => {
-    const key = `${venta.cliente||''}||${venta.fecha||''}`;
+    const key = `${venta.cliente||''}||${mdaFecha(venta.fecha)||''}`;
     return appData.rsIPagos.includes(key);
   };
 
   // Agrupar ventas por cliente + fecha (sin producto)
   const ventasMap = {};
   (appData.ventas||[]).forEach(v => {
-    const key = `${v.cliente||''}||${v.fecha||''}`;
+    const key = `${v.cliente||''}||${mdaFecha(v.fecha)||''}`;
     if(!ventasMap[key]) {
       ventasMap[key] = { cliente: v.cliente, fecha: v.fecha, ventas: [], paidByRSI: isRSIPaid(v) };
     }
@@ -14363,17 +14379,17 @@ function renderTopRSI() {
     const agentes = [...new Set(group.ventas.map(v=>v.agente))].join(', ');
     const productos = [...new Set(group.ventas.map(v=>getProdNombre(v.productoId)))].join(' + ');
     const totalComision = group.ventas.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
-    const key = `${group.cliente||''}||${group.fecha||''}`;
+    const key = `${group.cliente||''}||${mdaFecha(group.fecha)||''}`;
     const nMensajes = mensajesDeGrupo(key).length;
     return `<tr>
       <td style="font-weight:600">${group.cliente||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${productos||'—'}</td>
-      <td>${group.fecha||'—'}</td>
+      <td>${mdaFecha(group.fecha)||'—'}</td>
       <td>${agentes}</td>
       <td style="text-align:right;font-weight:700;color:#009FDB">$${totalComision.toFixed(2)}</td>
       <td style="text-align:center;white-space:nowrap">
         <button class="btn btn-xs btn-ghost" onclick="toggleChatRSI(${jsInlineArg(key)})" title="Dejar una nota o platicar con Admin sobre este pago">💬${nMensajes?' '+nMensajes:''}</button>
-        <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${group.fecha}')" style="padding:3px 6px;font-size:9px">✕</button>
+        <button class="btn btn-xs btn-danger" onclick="eliminarRSIPago('${group.cliente}','${mdaFecha(group.fecha)}')" style="padding:3px 6px;font-size:9px">✕</button>
       </td>
     </tr>
     ${_rsiChatAbierto===key ? `<tr><td colspan="6" style="padding:0 8px 8px">${chatRSIHtml(key, 'rsi-chat-input-'+encodeURIComponent(key), 'topEnviarMensajeRSI')}</td></tr>` : ''}`;
@@ -15516,7 +15532,7 @@ function renderAdminQuincenas() {
         </thead>
         <tbody>${auditMes.map(log => `
           <tr style="border-bottom:1px solid #F0F2F5">
-            <td style="padding:8px 12px;color:#33475B;font-size:11px">${log.fecha}</td>
+            <td style="padding:8px 12px;color:#33475B;font-size:11px">${mdaFecha(log.fecha)}</td>
             <td style="padding:8px 12px;color:#7C98B6;font-size:11px">${log.hora}</td>
             <td style="padding:8px 12px;color:#33475B;font-weight:600;font-size:11px">Q${log.quincena}</td>
             <td style="padding:8px 12px;font-size:11px">
@@ -15607,7 +15623,7 @@ function renderAdminGastosBravoReferencia() {
       <table>
         <thead><tr><th>Fecha</th><th>Gasto</th><th>Tipo de Pago</th><th style="text-align:right">Monto</th></tr></thead>
         <tbody>${gastos.map(g=>`<tr>
-          <td>${g.fecha}</td><td>${g.nombre||'—'}</td><td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
+          <td>${mdaFecha(g.fecha)}</td><td>${g.nombre||'—'}</td><td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
           <td style="text-align:right;font-weight:700;color:#E04048">${fmt(g.monto)}</td>
         </tr>`).join('')}</tbody>
         <tfoot><tr><td colspan="3" style="font-weight:700">${etiquetaTotal}</td><td style="text-align:right;font-weight:800;color:#E04048">${fmt(total)}</td></tr></tfoot>
@@ -15662,7 +15678,7 @@ function descargarBackupCompleto() {
   const wb = XLSX.utils.book_new();
 
   const wsVentas = XLSX.utils.json_to_sheet((appData.ventas||[]).map(v=>({
-    Fecha:v.fecha, Agente:v.agente, Cliente:v.cliente, Producto:getProdNombre(v.productoId),
+    Fecha:mdaFecha(v.fecha), Agente:v.agente, Cliente:v.cliente, Producto:getProdNombre(v.productoId),
     Cantidad:v.cantidad, Comision:v.comision, Mes:v.mes, Notas:v.notas||''
   })));
   XLSX.utils.book_append_sheet(wb, wsVentas, 'Ventas');
@@ -15673,12 +15689,12 @@ function descargarBackupCompleto() {
   XLSX.utils.book_append_sheet(wb, wsAgentes, 'Agentes');
 
   const wsGastos = XLSX.utils.json_to_sheet((appData.gastos||[]).map(g=>({
-    Fecha:g.fecha, Tipo:g.tipo, Descripcion:g.descripcion, Monto:g.monto, Mes:g.mes
+    Fecha:mdaFecha(g.fecha), Tipo:g.tipo, Descripcion:g.descripcion, Monto:g.monto, Mes:g.mes
   })));
   XLSX.utils.book_append_sheet(wb, wsGastos, 'Gastos');
 
   const wsIngresos = XLSX.utils.json_to_sheet((appData.ingresos||[]).map(i=>({
-    Fecha:i.fecha, Fuente:i.fuente, Descripcion:i.descripcion, Monto:i.monto, Mes:i.mes
+    Fecha:mdaFecha(i.fecha), Fuente:i.fuente, Descripcion:i.descripcion, Monto:i.monto, Mes:i.mes
   })));
   XLSX.utils.book_append_sheet(wb, wsIngresos, 'Ingresos');
 
@@ -15777,7 +15793,7 @@ function descargarVentasFiltradas() {
   const rowsVentas = ventas.map(v=>{
     const pp = getPeríodoPago(v);
     return {
-      ID: v.id, Fecha: v.fecha, Agente: v.agente, Cliente: v.cliente,
+      ID: v.id, Fecha: mdaFecha(v.fecha), Agente: v.agente, Cliente: v.cliente,
       Categoría: v.categoria, Producto: getProdNombre(v.productoId),
       Cantidad: v.cantidad, Comisión: v.comision,
       'Mes Pago': pp.mes, 'Quincena Pago': 'Q'+pp.q, Notas: v.notas||''
@@ -16470,7 +16486,7 @@ function saludRenderClientes() {
         <option value="pendiente" ${c.estado==='pendiente'?'selected':''}>Pendiente</option>
         <option value="cancelado" ${c.estado==='cancelado'?'selected':''}>Desconectado</option>
       </select></td>
-      <td>${c.fecha||'—'}</td><td>${c.mes}</td>
+      <td>${mdaFecha(c.fecha)||'—'}</td><td>${c.mes}</td>
       <td class="note-cell" title="${c.notas||''}">${c.notas||'—'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="saludToggleChat(${c.id})">💬${saludMensajesDeCliente(c.id).length ? ' '+saludMensajesDeCliente(c.id).length : ''}</button></td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -16875,7 +16891,7 @@ function saludRenderClientesPendientes() {
     const montoTxt = c.tipo==='salud' ? `${fmt(c.comResidualMensual)}/mes` : fmt(c.prima);
     const numMensajes = saludMensajesDeCliente(c.id).length;
     return `<tr>
-        <td style="font-weight:600">${c.fecha}</td>
+        <td style="font-weight:600">${mdaFecha(c.fecha)}</td>
         <td style="font-weight:600">${c.agente}</td>
         <td>${c.nombre}${c.notas?`<br><span style="font-size:10px;color:#52667c">${c.notas}</span>`:''}</td>
         <td>${c.cuenta||'—'}</td>
@@ -16940,7 +16956,7 @@ function saludRenderClientesRechazados() {
     const montoTxt = c.tipo==='salud' ? `${fmt(c.comResidualMensual)}/mes` : fmt(c.prima);
     const numMensajes = saludMensajesDeCliente(c.id).length;
     return `<tr>
-        <td style="font-weight:600">${c.fecha}</td>
+        <td style="font-weight:600">${mdaFecha(c.fecha)}</td>
         <td style="font-weight:600">${c.agente}</td>
         <td>${c.nombre}</td>
         <td>${c.cuenta||'—'}</td>
@@ -17358,7 +17374,7 @@ function saludRenderComisiones() {
   document.getElementById('salud-sueldos-body').innerHTML = sueldos.length ? sueldos.map((s,i)=>`<tr>
     <td>${i+1}</td><td>${s.agenteNombre}</td><td>${s.quincena}</td>
     <td style="font-weight:700;color:#6D28D9">${fmt(s.monto)}</td>
-    <td>${s.fecha}</td><td><span class="badge badge-paid">PAGADO</span></td>
+    <td>${mdaFecha(s.fecha)}</td><td><span class="badge badge-paid">PAGADO</span></td>
     <td><button class="btn btn-danger btn-xs" onclick="saludEliminarSueldo(${s.id})">✕</button></td>
   </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty">Sin pagos registrados</td></tr>';
 }
@@ -17478,7 +17494,7 @@ function saludRenderPagosRecibidos() {
         <table>
           <thead><tr><th>Fecha</th><th>Compañía</th><th>Cuenta de Banco</th><th style="text-align:right">Monto</th><th>Notas</th><th></th></tr></thead>
           <tbody>${pagos.length ? pagos.map(p=>`<tr>
-            <td>${p.fecha}</td>
+            <td>${mdaFecha(p.fecha)}</td>
             <td><b style="color:#4C1D95">${p.compania}</b></td>
             <td>${p.cuentaBanco}</td>
             <td style="text-align:right;font-weight:700;color:#6D28D9">${fmt(p.monto)}</td>
@@ -19488,7 +19504,7 @@ function bravoDashboard() {
             <tbody>
               ${(appData.bravo.reportesDiarios||[]).sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 5).map(r => `
                 <tr>
-                  <td>${r.fecha}</td>
+                  <td>${mdaFecha(r.fecha)}</td>
                   <td>${r.categoria || '—'}</td>
                   <td>${r.productosCount || 0} productos</td>
                   <td style="font-weight:700;color:#00BDA5">${fmt(r.gananciaTotal || 0)}</td>
@@ -19610,7 +19626,7 @@ function bravoRenderRegistrosTabla() {
   body.innerHTML = filtrados.length ? filtrados.map((r, i) => `
     <tr>
       <td>${i+1}</td>
-      <td style="font-weight:600">${r.fecha}</td>
+      <td style="font-weight:600">${mdaFecha(r.fecha)}</td>
       <td>${bravoSumarCantidad(r.accesorios)}</td>
       <td>${r.lycas ? r.lycas.length : 0}</td>
       <td>${r.reparaciones ? r.reparaciones.length : 0}</td>
@@ -19750,7 +19766,7 @@ function bravoDetectarCostoDuplicado() {
         <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th style="text-align:right">Precio</th><th style="text-align:right">Costo</th><th style="text-align:right">Ganancia Guardada</th><th style="text-align:right">Ganancia Bruta Esperada</th><th style="text-align:right">Diferencia</th><th></th></tr></thead>
         <tbody>${hallazgos.map(h=>`
           <tr>
-            <td>${h.fecha}</td>
+            <td>${mdaFecha(h.fecha)}</td>
             <td>${h.categoria}</td>
             <td>${h.descripcion}</td>
             <td style="text-align:right">${fmt(h.precio)}</td>
@@ -19847,7 +19863,7 @@ function bravoVerReporteRegistro(id) {
   document.getElementById('bravo-reporte-resumen-contenido').innerHTML = `
     <div style="text-align:center;margin-bottom:16px">
       <div style="font-size:13px;color:#7C98B6">Registro del</div>
-      <div style="font-size:18px;font-weight:800;color:#33475B">${r.fecha}</div>
+      <div style="font-size:18px;font-weight:800;color:#33475B">${mdaFecha(r.fecha)}</div>
     </div>
     ${secciones.length ? secciones.map(s => `
       <div style="margin-bottom:14px">
@@ -19866,7 +19882,7 @@ function bravoCompartirReporteWhatsApp(id) {
   const r = (appData.bravo.reportesDiarios||[]).find(x=>String(x.id)===String(idBuscado));
   if(!r) return;
   const secciones = bravoConstruirSeccionesReporte(r);
-  let texto = `📋 *Registro de Bravo — ${r.fecha}*\n\n`;
+  let texto = `📋 *Registro de Bravo — ${mdaFecha(r.fecha)}*\n\n`;
   if(secciones.length) {
     secciones.forEach(s => { texto += `${s.titulo}\n` + s.lineas.map(l=>`• ${l}`).join('\n') + '\n\n'; });
   } else {
@@ -19975,7 +19991,7 @@ function bravoDescargarReportesExcel() {
   // ---- 2. DETALLE DE ACCESORIOS ----
   const accRows = [];
   registros.forEach(r => (r.accesorios||[]).forEach(a => {
-    accRows.push([r.fecha, BRAVO_ACC_TIPO_LABELS_FULL[a.tipo]||a.tipo||'', a.cantidad||1, a.precio||0, a.costo||0, a.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[a.metodo]||a.metodo||'', a.notas||'']);
+    accRows.push([mdaFecha(r.fecha), BRAVO_ACC_TIPO_LABELS_FULL[a.tipo]||a.tipo||'', a.cantidad||1, a.precio||0, a.costo||0, a.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[a.metodo]||a.metodo||'', a.notas||'']);
   }));
   const wsAcc = XLSX.utils.aoa_to_sheet([
     ['Fecha','Tipo de Accesorio','Cantidad','Precio de Venta','Costo','Ganancia Neta','Método de Pago','Nota'],
@@ -19987,7 +20003,7 @@ function bravoDescargarReportesExcel() {
   // ---- 3. DETALLE DE LYCAS / T-MOBILE ----
   const lycaRows = [];
   registros.forEach(r => (r.lycas||[]).forEach(l => {
-    lycaRows.push([r.fecha, BRAVO_LYCA_TIPO_LABELS_FULL[l.tipo]||l.tipo||'', l.cliente||'', l.precio||0, l.costo||0, l.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[l.metodo]||l.metodo||'', l.notas||'']);
+    lycaRows.push([mdaFecha(r.fecha), BRAVO_LYCA_TIPO_LABELS_FULL[l.tipo]||l.tipo||'', l.cliente||'', l.precio||0, l.costo||0, l.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[l.metodo]||l.metodo||'', l.notas||'']);
   }));
   const wsLycaDet = XLSX.utils.aoa_to_sheet([
     ['Fecha','Tipo','Cliente / Agente','Precio Vendido','Costo','Ganancia Neta','Método de Pago','Nota'],
@@ -19999,7 +20015,7 @@ function bravoDescargarReportesExcel() {
   // ---- 4. DETALLE DE REPARACIONES ----
   const repRows = [];
   registros.forEach(r => (r.reparaciones||[]).forEach(x => {
-    repRows.push([r.fecha, BRAVO_REP_EQUIPO_LABELS_FULL[x.equipo]||x.equipo||'', BRAVO_REP_TIPO_LABELS_FULL[x.tipo]||x.tipo||'', x.precio||0, x.costo||0, x.abono||0, x.resta||0, x.ganancia||0, BRAVO_REP_ESTADO_LABELS_FULL[x.estado]||x.estado||'', x.notas||'']);
+    repRows.push([mdaFecha(r.fecha), BRAVO_REP_EQUIPO_LABELS_FULL[x.equipo]||x.equipo||'', BRAVO_REP_TIPO_LABELS_FULL[x.tipo]||x.tipo||'', x.precio||0, x.costo||0, x.abono||0, x.resta||0, x.ganancia||0, BRAVO_REP_ESTADO_LABELS_FULL[x.estado]||x.estado||'', x.notas||'']);
   }));
   const wsRep = XLSX.utils.aoa_to_sheet([
     ['Fecha','Equipo','Tipo de Reparación','Precio Cobrado','Costo Repuesto','Abono','Resta por Cobrar','Ganancia Neta','Estado','Nota'],
@@ -20011,7 +20027,7 @@ function bravoDescargarReportesExcel() {
   // ---- 5. DETALLE DE COMBOS ----
   const comboRows = [];
   registros.forEach(r => (r.combos||[]).forEach(c => {
-    comboRows.push([r.fecha, c.desc||'', c.precio||0, c.costo||0, c.comision||0, c.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[c.metodo]||c.metodo||'', c.notas||'']);
+    comboRows.push([mdaFecha(r.fecha), c.desc||'', c.precio||0, c.costo||0, c.comision||0, c.ganancia||0, BRAVO_METODO_PAGO_LABELS_FULL[c.metodo]||c.metodo||'', c.notas||'']);
   }));
   const wsCombos = XLSX.utils.aoa_to_sheet([
     ['Fecha','Descripción','Precio de Venta','Costo Combo','Comisión Vendedor','Ganancia Neta','Método de Pago','Nota'],
@@ -20023,7 +20039,7 @@ function bravoDescargarReportesExcel() {
   // ---- 6. DETALLE DE TELÉFONOS ----
   const telRows = [];
   registros.forEach(r => (r.telefonos||[]).forEach(t => {
-    telRows.push([r.fecha, t.modelo||'', t.costo||0, t.precio||0, t.ganancia||0, BRAVO_TEL_TIPO_LABELS_FULL[t.tipo]||t.tipo||'', BRAVO_METODO_PAGO_LABELS_FULL[t.metodo]||t.metodo||'', t.notas||'']);
+    telRows.push([mdaFecha(r.fecha), t.modelo||'', t.costo||0, t.precio||0, t.ganancia||0, BRAVO_TEL_TIPO_LABELS_FULL[t.tipo]||t.tipo||'', BRAVO_METODO_PAGO_LABELS_FULL[t.metodo]||t.metodo||'', t.notas||'']);
   }));
   const wsTel = XLSX.utils.aoa_to_sheet([
     ['Fecha','Modelo','Costo','Precio de Venta','Ganancia Neta','Tipo','Método de Pago','Nota'],
@@ -20035,7 +20051,7 @@ function bravoDescargarReportesExcel() {
   // ---- 7. ACTIVIDADES DOUGLAS ----
   const actRows = [];
   registros.forEach(r => (r.actividades||[]).forEach(a => {
-    actRows.push([r.fecha, DOUGLAS_ACTIVIDAD_LABELS[a.tipo]||a.tipo||'', a.cantidad||1, a.notas||'']);
+    actRows.push([mdaFecha(r.fecha), DOUGLAS_ACTIVIDAD_LABELS[a.tipo]||a.tipo||'', a.cantidad||1, a.notas||'']);
   }));
   const wsAct = XLSX.utils.aoa_to_sheet([
     ['Fecha','Tipo de Actividad','Cantidad','Nota'],
@@ -20066,8 +20082,8 @@ function bravoDescargarReportesExcel() {
     const cajaFinalMes = cajaDelMes.length ? (cajaDelMes[cajaDelMes.length-1].cajaInicial + cajaDelMes[cajaDelMes.length-1].totalEntradas - cajaDelMes[cajaDelMes.length-1].totalSalidas) : '';
     return [
       `${MESES_ES[parseInt(mm,10)-1]} ${yy}`, totalAcc, totalLyca, totalRep, totalCombo, totalTel, gananciaTotalMes,
-      promedioDiario, mejorDia ? `${mejorDia.fecha} (${fmt(mejorDiaGanancia)})` : '—',
-      peorDia ? `${peorDia.fecha} (${fmt(peorDiaGanancia)})` : '—', cajaFinalMes
+      promedioDiario, mejorDia ? `${mdaFecha(mejorDia.fecha)} (${fmt(mejorDiaGanancia)})` : '—',
+      peorDia ? `${mdaFecha(peorDia.fecha)} (${fmt(peorDiaGanancia)})` : '—', cajaFinalMes
     ];
   });
   const wsResumenMensual = XLSX.utils.aoa_to_sheet([
@@ -20870,7 +20886,7 @@ function bravoRenderReparacionesTabla() {
       <td style="text-align:right;font-weight:700;color:${(r.resta||0)>0?'#E04048':'#99ACC2'}">${(r.resta||0)>0?fmt(r.resta):'—'}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(r.ganancia||0)}</td>
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${REP_ESTADO_COLORS[r.estado]}22;color:${REP_ESTADO_COLORS[r.estado]||'#7C98B6'}">${REP_ESTADO_LABELS[r.estado]||r.estado||'—'}</span></td>
-      <td>${r.fecha||'—'}</td>
+      <td>${mdaFecha(r.fecha)||'—'}</td>
       <td style="font-size:11px">${REP_PAGO_LABELS[r.pago]||r.pago||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${r.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
@@ -21237,7 +21253,7 @@ function bravoROI() {
           <thead><tr><th>Fecha</th><th>Gasto</th><th style="text-align:center">Cantidad</th><th>Tipo de Pago</th><th style="text-align:right">Monto</th><th></th></tr></thead>
           <tbody>
             ${gastosMes.length ? gastosMes.map(g=>`<tr>
-              <td>${g.fecha}</td>
+              <td>${mdaFecha(g.fecha)}</td>
               <td>${g.nombre||'—'}${g.origen==='registro-diario' ? ' <span style="font-size:10px;color:#7C98B6;font-weight:600">🔗 Desde Registro Diario</span>' : ''}</td>
               <td style="text-align:center;color:#7C98B6">${g.cantidad || 1}</td>
               <td>${LYCA_PAGO_LABELS[g.tipoPago]||g.tipoPago||'—'}</td>
@@ -22630,7 +22646,7 @@ function bravoRenderCajaTabla() {
   const body = document.getElementById('bravo-caja-body');
   body.innerHTML = filtradas.length ? filtradas.map(c => `
     <tr>
-      <td style="font-weight:600">${c.fecha}</td>
+      <td style="font-weight:600">${mdaFecha(c.fecha)}</td>
       <td style="text-align:right;color:#7C98B6">$${fmt(c.cajaInicial || 0)}</td>
       <td style="text-align:right;color:#00BDA5;font-weight:600">+$${fmt(c.totalEntradas || 0)}</td>
       <td style="text-align:right;color:#E04048;font-weight:600">−$${fmt(c.totalSalidas || 0)}</td>
@@ -22850,12 +22866,12 @@ function bravoRenderComprasTabla() {
   const body = document.getElementById('bravo-compras-body');
   body.innerHTML = filtradas.length ? filtradas.map(c => `
     <tr>
-      <td style="font-weight:600">${c.fecha}</td>
+      <td style="font-weight:600">${mdaFecha(c.fecha)}</td>
       <td style="color:#7C98B6">${c.proveedor || '—'}${c.tipoPago ? `<div style="font-size:10px;color:#99ACC2;margin-top:2px">${LYCA_PAGO_LABELS[c.tipoPago]||c.tipoPago}</div>` : ''}</td>
       <td>${c.descripcion || '—'}</td>
       <td style="text-align:right;font-weight:700;color:#009FDB">${fmt(parseFloat(c.monto)||0)}</td>
       <td>${c.vendido
-        ? `<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap">✅ Vendido ${c.fechaVenta||''}</span>
+        ? `<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap">✅ Vendido ${mdaFecha(c.fechaVenta)||''}</span>
            ${(c.cliente || c.tipoPagoVenta) ? `<div style="font-size:10px;color:#7C98B6;margin-top:3px">${c.cliente?('👤 '+c.cliente):''}${c.cliente && c.tipoPagoVenta?' · ':''}${c.tipoPagoVenta?(LYCA_PAGO_LABELS[c.tipoPagoVenta]||c.tipoPagoVenta):''}</div>` : ''}`
         : `<span style="background:#FEF3C7;color:#B45309;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap">🟡 En inventario</span>`}
       </td>
