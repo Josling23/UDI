@@ -2612,6 +2612,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
       <div class="form-grid">
         <div class="form-group" style="grid-column:1/-1"><label>Nombre *</label><input type="text" id="bc-nombre" placeholder="Ej: Reparación de Pantallas — Agosto"></div>
         <div class="form-group"><label>Gasto ($)</label><input type="number" id="bc-gasto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group"><label>Leads (opcional) <span style="font-size:9px;font-weight:400;color:#99ACC2">— ej. campañas de Meta</span></label><input type="number" id="bc-leads" min="0" placeholder="0"></div>
         <div class="form-group"><label>Fecha de Inicio</label><input type="date" id="bc-inicio"></div>
         <div class="form-group">
           <label>Estado</label>
@@ -20468,6 +20469,8 @@ function bravoRenderCampanas() {
   grid.innerHTML = campanas.length ? campanas.map(c => {
     const { margen, unidades } = bravoCalcularMargenCampana(c.nombre);
     const roi = c.gasto ? ((margen-c.gasto)/c.gasto*100) : null;
+    const cpl = c.leads ? (c.gasto/c.leads) : null;
+    const conv = c.leads ? (unidades/c.leads*100) : null;
     const estadoColor = { activa:'#059669', pausada:'#D4A017', finalizada:'#7C98B6' };
     return `<div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:12px;padding:18px">
       <div style="display:flex;justify-content:space-between;margin-bottom:10px">
@@ -20482,10 +20485,12 @@ function bravoRenderCampanas() {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         <div style="background:#F5F8FA;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Gasto</div><div style="font-weight:700;color:#DC2626">${fmt(c.gasto||0)}</div></div>
+        <div style="background:#F5F8FA;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Leads</div><div style="font-weight:700;color:#0091AE">${c.leads||0}</div></div>
+        <div style="background:#F5F8FA;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Costo/Lead</div><div style="font-weight:700;color:#FF7A59">${cpl==null?'—':fmt(cpl)}</div></div>
         <div style="background:#F5F8FA;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Ventas Vinculadas</div><div style="font-weight:700;color:#33475B">${unidades}</div></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:${roi==null?'#F5F8FA':(roi>=0?'#F0FDF4':'#FFF0F0')};border-radius:8px">
-        <div style="font-size:10px;color:#7C98B6">Margen: ${fmt(margen)}</div>
+        <div style="font-size:10px;color:#7C98B6">Margen: ${fmt(margen)}${conv!=null?' · Conv. '+conv.toFixed(1)+'%':''}</div>
         <div style="font-weight:800;font-size:18px;color:${roi==null?'#7C98B6':(roi>=0?'#22c55e':'#ef4444')}">${roi==null?'—':((roi>=0?'+':'')+roi.toFixed(0)+'%')}</div>
       </div>
       ${c.notas?`<div style="font-size:11px;color:#7C98B6;margin-top:10px;font-style:italic">${c.notas}</div>`:''}
@@ -20499,6 +20504,7 @@ function bravoAbrirCampanaModal(id=null) {
   const c = id ? (appData.bravo.campanas||[]).find(x=>x.id===id) : null;
   document.getElementById('bc-nombre').value = c?.nombre||'';
   document.getElementById('bc-gasto').value = c?.gasto!=null ? c.gasto : '';
+  document.getElementById('bc-leads').value = c?.leads!=null ? c.leads : '';
   document.getElementById('bc-inicio').value = c?.inicio || fechaLocalHoy();
   document.getElementById('bc-estado').value = c?.estado||'activa';
   document.getElementById('bc-notas').value = c?.notas||'';
@@ -20510,6 +20516,7 @@ function bravoGuardarCampana() {
   const datos = {
     nombre,
     gasto: parseFloat(document.getElementById('bc-gasto').value) || 0,
+    leads: parseInt(document.getElementById('bc-leads').value) || 0,
     inicio: document.getElementById('bc-inicio').value,
     estado: document.getElementById('bc-estado').value,
     notas: document.getElementById('bc-notas').value.trim(),
