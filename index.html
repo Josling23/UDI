@@ -4957,25 +4957,31 @@ function renderSubdealers() {
   }
   // Filtros: agente + rango de fechas (busca por la fecha de CIERRE de cada
   // semana, para poder encontrar rápido la semana que se está buscando).
+  // Importante: como esta función reconstruye TODO el contenedor (incluyendo
+  // los propios controles de filtro) cada vez que se cambia un filtro, hay
+  // que leer los valores actuales ANTES de sobreescribir el innerHTML y
+  // luego devolverlos a los controles nuevos (value=.../selected) -- si no,
+  // el campo de fecha/el select se ven vacíos justo después de elegir algo,
+  // aunque el filtro sí se haya aplicado.
+  const filtroAg = document.getElementById('sd-f-agente')?.value || '';
+  const filtroDesde = document.getElementById('sd-f-desde')?.value || '';
+  const filtroHasta = document.getElementById('sd-f-hasta')?.value || '';
   content.innerHTML = `
     <div class="section-header"><h2>🤝 Pagos Sub-Dealers</h2></div>
     <div style="font-size:11px;color:#99ACC2;margin:-6px 0 16px">Ciclo semanal (viernes a jueves) — el cierre de cada semana se paga el lunes 11 días después. Los chargebacks de una semana se descuentan de esa misma semana.</div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px">
       <select id="sd-f-agente" onchange="renderSubdealers()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none;min-width:200px">
-        <option value="">🤝 Todos los Sub-Dealers</option>
-        ${agentes.map(a=>`<option value="${a.id}">${a.nombre}</option>`).join('')}
+        <option value="" ${filtroAg===''?'selected':''}>🤝 Todos los Sub-Dealers</option>
+        ${agentes.map(a=>`<option value="${a.id}" ${filtroAg===String(a.id)?'selected':''}>${a.nombre}</option>`).join('')}
       </select>
       <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:6px 10px">
-        <input type="date" id="sd-f-desde" onchange="renderSubdealers()" title="Cierre desde" style="border:none;outline:none;font-size:12px;color:#33475B">
+        <input type="date" id="sd-f-desde" value="${filtroDesde}" onchange="renderSubdealers()" title="Cierre desde" style="border:none;outline:none;font-size:12px;color:#33475B">
         <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
-        <input type="date" id="sd-f-hasta" onchange="renderSubdealers()" title="Cierre hasta" style="border:none;outline:none;font-size:12px;color:#33475B">
+        <input type="date" id="sd-f-hasta" value="${filtroHasta}" onchange="renderSubdealers()" title="Cierre hasta" style="border:none;outline:none;font-size:12px;color:#33475B">
       </div>
       <button onclick="document.getElementById('sd-f-agente').value='';document.getElementById('sd-f-desde').value='';document.getElementById('sd-f-hasta').value='';renderSubdealers()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
     </div>` +
     (() => {
-      const filtroAg = document.getElementById('sd-f-agente')?.value || '';
-      const filtroDesde = document.getElementById('sd-f-desde')?.value || '';
-      const filtroHasta = document.getElementById('sd-f-hasta')?.value || '';
       const agentesVis = filtroAg ? agentes.filter(a=>String(a.id)===filtroAg) : agentes;
       return agentesVis.map(a => {
         let semanas = subdealerAgruparPorSemana(a);
