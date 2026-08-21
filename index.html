@@ -490,6 +490,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-item" onclick="showPage('bravo-reparaciones',this)"><span class="icon">🔧</span><span>Reparaciones</span></div>
     <div class="nav-item" onclick="showPage('bravo-lyca',this)"><span class="icon">📱</span><span>Líneas Lyca</span></div>
     <div class="nav-item" onclick="showPage('bravo-roi',this)"><span class="icon">🔄</span><span>ROI Bravo</span></div>
+    <div class="nav-item" onclick="showPage('bravo-campanas',this)"><span class="icon">📢</span><span>Campañas</span></div>
     <div class="nav-item" onclick="showPage('bravo-caja',this)"><span class="icon">💵</span><span>Caja Chica</span></div>
     <div class="nav-item" onclick="showPage('bravo-compras',this)"><span class="icon">🛒</span><span>Compras y Gastos</span></div>
     <div class="nav-item" onclick="showPage('enlaces-bravo',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
@@ -936,6 +937,10 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 
     <div class="page" id="page-bravo-roi">
       <div id="bravo-roi-content"></div>
+    </div>
+
+    <div class="page" id="page-bravo-campanas">
+      <div id="bravo-campanas-content"></div>
     </div>
 
     <div class="page" id="page-bravo-caja">
@@ -2559,6 +2564,12 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <option value="punto">💳 Punto</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Campaña (opcional)</label>
+          <select id="rep-campana">
+            <option value="">— Sin campaña —</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -2586,6 +2597,36 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-bravo-costos-fijos')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarCostosFijosBravo()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL BRAVO - CAMPAÑA ===== -->
+<div class="modal-overlay" id="modal-bravo-campana">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h3 id="modal-bravo-campana-title">📢 Nueva Campaña</h3>
+      <button class="modal-close" onclick="closeModal('modal-bravo-campana')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1"><label>Nombre *</label><input type="text" id="bc-nombre" placeholder="Ej: Reparación de Pantallas — Agosto"></div>
+        <div class="form-group"><label>Gasto ($)</label><input type="number" id="bc-gasto" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="form-group"><label>Fecha de Inicio</label><input type="date" id="bc-inicio"></div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="bc-estado">
+            <option value="activa">Activa</option>
+            <option value="pausada">Pausada</option>
+            <option value="finalizada">Finalizada</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1"><label>Notas (opcional)</label><textarea id="bc-notas" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bravo-campana')">Cancelar</button>
+      <button class="btn btn-primary" onclick="bravoGuardarCampana()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -2933,6 +2974,12 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
               <input type="number" id="bravo-acc-costo" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
             </div>
           </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta venta vino de una promoción</span></label>
+            <select id="bravo-acc-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+              <option value="">— Sin campaña —</option>
+            </select>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
             <div>
               <label style="font-size:11px;font-weight:600;color:#7C98B6">Método de Pago *</label>
@@ -2982,6 +3029,12 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Costo ($) <span style="font-weight:400;color:#99ACC2">— déjalo en $0 si se vendió directo</span></label>
             <input type="number" id="bravo-lyca-costo" step="0.01" min="0" placeholder="0.00" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
           </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta venta vino de una promoción</span></label>
+          <select id="bravo-lyca-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <option value="">— Sin campaña —</option>
+          </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div>
@@ -3100,6 +3153,12 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           </div>
         </div>
         <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta reparación vino de una promoción</span></label>
+          <select id="bravo-rep-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <option value="">— Sin campaña —</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px">
           <label style="font-size:11px;font-weight:600;color:#7C98B6">Notas (opcional) <span style="font-weight:400;color:#99ACC2">— usa este campo para detallar el pago si elegiste "Otro"</span></label>
           <textarea id="bravo-rep-notas" placeholder="Ej: nombre del cliente, teléfono, detalle del problema, etc." style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px;min-height:44px;font-family:inherit"></textarea>
         </div>
@@ -3131,6 +3190,12 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <label style="font-size:11px;font-weight:600;color:#7C98B6">Comisión Vendedor ($)</label>
             <input type="number" id="bravo-combo-comision" step="0.01" min="0" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
           </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta venta vino de una promoción</span></label>
+          <select id="bravo-combo-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <option value="">— Sin campaña —</option>
+          </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div>
@@ -3214,6 +3279,12 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
               <option value="activacion">Con Activación</option>
             </select>
           </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta venta vino de una promoción</span></label>
+          <select id="bravo-tel-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
+            <option value="">— Sin campaña —</option>
+          </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div>
@@ -3736,6 +3807,8 @@ function normalizarAppData() {
   // su propia fecha), son la meta/referencia diaria. Editables desde el
   // Dashboard de Bravo; estos son solo los valores por defecto iniciales.
   if(!appData.bravo.costosFijos) appData.bravo.costosFijos = { rentaMensual: 1300, douglasPorViernes: 585, otrosMensual: 0 };
+  if(!appData.bravo.campanas) appData.bravo.campanas = [];
+  if(!appData.bravo.nextCampanaId) appData.bravo.nextCampanaId = 1;
   if(!appData.bravo.compras) appData.bravo.compras = [];
   if(!appData.bravo.nextCompraId) appData.bravo.nextCompraId = 1;
   if(!appData.bravo.reparaciones) appData.bravo.reparaciones = [];
@@ -4169,6 +4242,7 @@ function activarListenerAppData() {
           'bravo-reparaciones': bravoReparaciones,
           'bravo-lyca':         bravoLineasLyca,
           'bravo-roi':          bravoROI,
+          'bravo-campanas':     bravoRenderCampanas,
           'bravo-caja':         bravoCaja,
           'bravo-compras':      bravoCompras,
           'agente-dashboard':   renderAgenteDashboard,
@@ -4990,6 +5064,7 @@ const PAGE_TITLES = {
   'bravo-reparaciones':'🔧 Bravo — Reparaciones',
   'bravo-lyca':'📱 Bravo — Líneas Lyca',
   'bravo-roi':'🏪 Bravo — ROI',
+  'bravo-campanas':'📢 Bravo — Campañas',
   'bravo-caja':'💵 Caja Chica — Bravo',
   'bravo-compras':'🛒 Bravo — Compras y Gastos',
   'agente-dashboard':'📝 Mis Ventas',
@@ -5063,6 +5138,7 @@ function renderPage(name) {
   if(name==='bravo-reparaciones') bravoReparaciones();
   if(name==='bravo-lyca') bravoLineasLyca();
   if(name==='bravo-roi') bravoROI();
+  if(name==='bravo-campanas') bravoRenderCampanas();
   if(name==='bravo-caja') bravoCaja();
   if(name==='bravo-compras') bravoCompras();
   if(name==='agente-dashboard') renderAgenteDashboard();
@@ -19037,6 +19113,7 @@ function bravoRefrescarVistaActual() {
     'bravo-reparaciones': bravoReparaciones,
     'bravo-lyca':         bravoLineasLyca,
     'bravo-roi':          bravoROI,
+    'bravo-campanas':     bravoRenderCampanas,
     'bravo-caja':         bravoCaja,
     'bravo-compras':      bravoCompras,
   };
@@ -19963,6 +20040,7 @@ function bravoRepToggleMotivoPerdida() {
 
 function abrirModalReparacion(id=null) {
   if(!validarAccesoBravo()) return;
+  bravoPoblarSelectsCampana();
   const r = id ? (appData.bravo.reparaciones||[]).find(x=>x.id===id) : null;
   // Compatibilidad con reparaciones guardadas antes de agregar "Total Cobrado":
   // se reconstruye a partir de Costo del Repuesto + Ganancia ya guardados.
@@ -19988,6 +20066,7 @@ function abrirModalReparacion(id=null) {
   document.getElementById('rep-fecha').value = r?.fecha || fechaLocalHoy();
   document.getElementById('rep-fecha-promesa').value = r?.fechaPromesaEntrega || '';
   document.getElementById('rep-pago').value = r?.pago||'cash';
+  document.getElementById('rep-campana').value = r?.campana||'';
   calcularReparacionAuto();
   repToggleMotivoPerdida();
   document.getElementById('modal-bravo-reparacion').classList.add('open');
@@ -20052,7 +20131,8 @@ function guardarReparacion() {
     fechaPromesaEntrega,
     fechaEntregaReal,
     fecha, mes,
-    pago: document.getElementById('rep-pago').value
+    pago: document.getElementById('rep-pago').value,
+    campana: document.getElementById('rep-campana').value
   };
 
   if(editId) {
@@ -20338,6 +20418,128 @@ function guardarCostosFijosBravo() {
   bravoDashboard();
 }
 
+// ===== CAMPAÑAS DE BRAVO =====
+// Igual patrón que appData.campanas (AT&T), pero separado -- Bravo es una
+// tienda física con sus propias promociones (ej. reparaciones), y una venta
+// de Bravo se vincula por el NOMBRE de la campaña (igual que ventaAT&T.campana),
+// nunca por id, para que el campo siga siendo un simple texto en cada línea.
+const BRAVO_CAMPANA_SELECT_IDS = ['bravo-acc-campana','bravo-lyca-campana','bravo-rep-campana','bravo-combo-campana','bravo-tel-campana','rep-campana'];
+function bravoPoblarSelectsCampana() {
+  const activas = (appData.bravo.campanas||[]).filter(c=>c.estado==='activa');
+  const opts = '<option value="">— Sin campaña —</option>' + activas.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  BRAVO_CAMPANA_SELECT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = opts;
+  });
+}
+// Margen y unidades de TODAS las categorías de Bravo vinculadas a una
+// campaña por nombre -- recorre accesorios/lycas/combos/teléfonos dentro de
+// Registro Diario (bravoMargenLinea) y reparaciones (sueltas + de Registro
+// Diario, vía bravoTodasLasReparaciones -- forma uniforme .totalCosto/
+// .costoRepuesto). NO incluye appData.bravo.lineasLyca (inventario mensual
+// de SIMs, sin fecha diaria ni campo de campaña) -- mismo criterio que
+// Cobrado Hoy/Ganancia Devengada Hoy (Fase 3/4).
+function bravoCalcularMargenCampana(nombreCampana) {
+  let margen = 0, unidades = 0;
+  (appData.bravo.reportesDiarios||[]).forEach(reg => {
+    (reg.accesorios||[]).forEach(a => { if(a.campana===nombreCampana) { margen += bravoMargenLinea(a,'accesorio').margen; unidades += (a.cantidad||1); } });
+    (reg.lycas||[]).forEach(l => { if(l.campana===nombreCampana) { margen += bravoMargenLinea(l,'lyca').margen; unidades++; } });
+    (reg.combos||[]).forEach(c => { if(c.campana===nombreCampana) { margen += bravoMargenLinea(c,'combo').margen; unidades++; } });
+    (reg.telefonos||[]).forEach(t => { if(t.campana===nombreCampana) { margen += bravoMargenLinea(t,'telefono').margen; unidades++; } });
+  });
+  bravoTodasLasReparaciones().forEach(r => {
+    if(r.campana===nombreCampana) { margen += (r.totalCosto||0)-(r.costoRepuesto||0); unidades++; }
+  });
+  return { margen, unidades };
+}
+function bravoRenderCampanas() {
+  if(!validarAccesoBravo()) return;
+  const campanas = appData.bravo.campanas||[];
+  document.getElementById('bravo-campanas-content').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <h2>📢 Campañas de Bravo</h2>
+        <button class="btn btn-primary btn-sm" onclick="bravoAbrirCampanaModal()">➕ Nueva Campaña</button>
+      </div>
+      <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">Vincula una venta a una campaña desde el formulario de esa categoría (Accesorios/Reparaciones/Lycas/Combos/Teléfonos, tanto suelto como en Registro Diario) — aquí ves el resultado de cada una.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px" id="bravo-campanas-grid"></div>
+    </div>`;
+  const grid = document.getElementById('bravo-campanas-grid');
+  grid.innerHTML = campanas.length ? campanas.map(c => {
+    const { margen, unidades } = bravoCalcularMargenCampana(c.nombre);
+    const roi = c.gasto ? ((margen-c.gasto)/c.gasto*100) : null;
+    const estadoColor = { activa:'#059669', pausada:'#D4A017', finalizada:'#7C98B6' };
+    return `<div style="background:#fff;border:1.5px solid #CBD6E2;border-radius:12px;padding:18px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#33475B">${c.nombre}</div>
+          <div style="font-size:11px;margin-top:3px;color:${estadoColor[c.estado]||'#7C98B6'};font-weight:600">${(c.estado||'').toUpperCase()} ${c.inicio?'· desde '+c.inicio:''}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="bravoAbrirCampanaModal(${c.id})" style="background:none;border:1px solid #CBD6E2;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">✏️</button>
+          <button onclick="bravoEliminarCampana(${c.id})" style="background:#FFF0F0;border:1px solid #F2545B;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;color:#F2545B;font-weight:700">✕</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="background:#F5F8FA;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Gasto</div><div style="font-weight:700;color:#DC2626">${fmt(c.gasto||0)}</div></div>
+        <div style="background:#F5F8FA;border-radius:8px;padding:10px"><div style="font-size:10px;color:#7C98B6">Ventas Vinculadas</div><div style="font-weight:700;color:#33475B">${unidades}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:${roi==null?'#F5F8FA':(roi>=0?'#F0FDF4':'#FFF0F0')};border-radius:8px">
+        <div style="font-size:10px;color:#7C98B6">Margen: ${fmt(margen)}</div>
+        <div style="font-weight:800;font-size:18px;color:${roi==null?'#7C98B6':(roi>=0?'#22c55e':'#ef4444')}">${roi==null?'—':((roi>=0?'+':'')+roi.toFixed(0)+'%')}</div>
+      </div>
+      ${c.notas?`<div style="font-size:11px;color:#7C98B6;margin-top:10px;font-style:italic">${c.notas}</div>`:''}
+    </div>`;
+  }).join('') : '<div style="color:#7C98B6;padding:20px;font-size:13px">Sin campañas. Agrega una para empezar a medir su ROI. 📢</div>';
+}
+function bravoAbrirCampanaModal(id=null) {
+  if(!validarAccesoBravo()) return;
+  document.getElementById('modal-bravo-campana').dataset.editId = id||'';
+  document.getElementById('modal-bravo-campana-title').textContent = id ? '✏️ Editar Campaña' : '📢 Nueva Campaña';
+  const c = id ? (appData.bravo.campanas||[]).find(x=>x.id===id) : null;
+  document.getElementById('bc-nombre').value = c?.nombre||'';
+  document.getElementById('bc-gasto').value = c?.gasto!=null ? c.gasto : '';
+  document.getElementById('bc-inicio').value = c?.inicio || fechaLocalHoy();
+  document.getElementById('bc-estado').value = c?.estado||'activa';
+  document.getElementById('bc-notas').value = c?.notas||'';
+  document.getElementById('modal-bravo-campana').classList.add('open');
+}
+function bravoGuardarCampana() {
+  const nombre = document.getElementById('bc-nombre').value.trim();
+  if(!nombre) { showNotif('⚠️ Ingresa el nombre de la campaña','error'); return; }
+  const datos = {
+    nombre,
+    gasto: parseFloat(document.getElementById('bc-gasto').value) || 0,
+    inicio: document.getElementById('bc-inicio').value,
+    estado: document.getElementById('bc-estado').value,
+    notas: document.getElementById('bc-notas').value.trim(),
+  };
+  if(!appData.bravo.campanas) appData.bravo.campanas = [];
+  const editId = parseInt(document.getElementById('modal-bravo-campana').dataset.editId)||null;
+  if(editId) {
+    const c = appData.bravo.campanas.find(x=>x.id===editId);
+    if(c) Object.assign(c, datos);
+    showNotif('✅ Campaña actualizada');
+  } else {
+    const id = appData.bravo.nextCampanaId || 1;
+    appData.bravo.campanas.push({ id, ...datos });
+    appData.bravo.nextCampanaId = id + 1;
+    showNotif('✅ Campaña creada');
+  }
+  guardar();
+  closeModal('modal-bravo-campana');
+  bravoRenderCampanas();
+}
+function bravoEliminarCampana(id) {
+  // No borra ninguna venta ya vinculada -- solo quita la definición de la
+  // campaña; las ventas que ya la tenían asignada conservan el nombre en su
+  // campo .campana tal cual (igual que al eliminar una campaña en AT&T).
+  if(!confirm('¿Eliminar esta campaña? Las ventas ya vinculadas a ella NO se borran ni pierden su historial.')) return;
+  appData.bravo.campanas = (appData.bravo.campanas||[]).filter(c=>c.id!==id);
+  guardar();
+  bravoRenderCampanas();
+}
+
 function bravoRenderFunnelReparaciones() {
   const tbody = document.getElementById('bravo-funnel-tbody');
   if(!tbody) return;
@@ -20409,6 +20611,7 @@ function bravoReparacionesDesdeRegistros() {
         fechaEntregaReal: item.fechaEntregaReal||'',
         fecha: reg.fecha,
         pago: item.metodo || '',
+        campana: item.campana || '',
         mes: mesStr,
       });
     });
@@ -21017,6 +21220,7 @@ let bravoRepEditandoPagos = null;
 function abrirFormularioRegistroDiario(id=null) {
   bravoRepEditandoFechaEntregaReal = '';
   bravoRepEditandoPagos = null;
+  bravoPoblarSelectsCampana();
   if(id != null) {
     // Comparación tolerante: por si el id llegó como string o número
     // distinto tras una sincronización (evita fallar en silencio).
@@ -21148,6 +21352,7 @@ function bravoAgregarAccesorio() {
   const costo = parseFloat(document.getElementById('bravo-acc-costo').value) || 0;
   const metodo = document.getElementById('bravo-acc-metodo').value;
   const notas = document.getElementById('bravo-acc-notas').value.trim();
+  const campana = document.getElementById('bravo-acc-campana').value;
 
   if(!tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
@@ -21156,7 +21361,7 @@ function bravoAgregarAccesorio() {
   const ganancia = precio * cantidad;
 
   bravoRegistroTemp.accesorios.push({
-    tipo, cantidad, precio, costo, metodo, ganancia, notas
+    tipo, cantidad, precio, costo, metodo, ganancia, notas, campana
   });
 
   // Limpiar formulario
@@ -21165,6 +21370,7 @@ function bravoAgregarAccesorio() {
   document.getElementById('bravo-acc-precio').value = '';
   document.getElementById('bravo-acc-costo').value = '';
   document.getElementById('bravo-acc-notas').value = '';
+  document.getElementById('bravo-acc-campana').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaAccesorios();
@@ -21181,6 +21387,7 @@ function bravoEditarAccesorio(i) {
   document.getElementById('bravo-acc-costo').value = item.costo != null ? item.costo : '';
   document.getElementById('bravo-acc-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-acc-notas').value = item.notas || '';
+  document.getElementById('bravo-acc-campana').value = item.campana || '';
   bravoRegistroTemp.accesorios.splice(i,1);
   bravoRenderListaAccesorios();
   bravoActualizarResumen();
@@ -21195,6 +21402,7 @@ function bravoAgregarLyca() {
   const costo = parseFloat(document.getElementById('bravo-lyca-costo').value) || 0;
   const metodo = document.getElementById('bravo-lyca-metodo').value;
   const notas = document.getElementById('bravo-lyca-notas').value.trim();
+  const campana = document.getElementById('bravo-lyca-campana').value;
 
   if(!cliente || !precio || !costo) { showNotif('⚠️ Completa Cliente/Agente, Precio Vendido y Costo','error'); return; }
 
@@ -21203,7 +21411,7 @@ function bravoAgregarLyca() {
   const ganancia = precio;
 
   bravoRegistroTemp.lycas.push({
-    tipo, cliente, precio, costo, metodo, ganancia, notas
+    tipo, cliente, precio, costo, metodo, ganancia, notas, campana
   });
 
   // Limpiar formulario
@@ -21211,6 +21419,7 @@ function bravoAgregarLyca() {
   document.getElementById('bravo-lyca-precio').value = '';
   document.getElementById('bravo-lyca-costo').value = '';
   document.getElementById('bravo-lyca-notas').value = '';
+  document.getElementById('bravo-lyca-campana').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaLycas();
@@ -21227,6 +21436,7 @@ function bravoEditarLyca(i) {
   document.getElementById('bravo-lyca-costo').value = item.costo != null ? item.costo : '';
   document.getElementById('bravo-lyca-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-lyca-notas').value = item.notas || '';
+  document.getElementById('bravo-lyca-campana').value = item.campana || '';
   bravoRegistroTemp.lycas.splice(i,1);
   bravoRenderListaLycas();
   bravoActualizarResumen();
@@ -21253,6 +21463,7 @@ function bravoAgregarReparacion() {
   const notas = document.getElementById('bravo-rep-notas').value.trim();
   const fechaPromesaEntrega = document.getElementById('bravo-rep-fecha-promesa').value;
   const motivoPerdida = document.getElementById('bravo-rep-motivo-perdida').value;
+  const campana = document.getElementById('bravo-rep-campana').value;
 
   if(!equipo || !tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos (incluyendo Costo del repuesto)','error'); return; }
   if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
@@ -21289,7 +21500,7 @@ function bravoAgregarReparacion() {
   const resta = Math.max(0, precio - abono);
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas,
+    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas, campana,
     fechaPromesaEntrega, fechaEntregaReal,
     motivoPerdida: estado === 'perdido' ? motivoPerdida : ''
   });
@@ -21305,6 +21516,7 @@ function bravoAgregarReparacion() {
   document.getElementById('bravo-rep-notas').value = '';
   document.getElementById('bravo-rep-fecha-promesa').value = '';
   document.getElementById('bravo-rep-motivo-perdida').value = '';
+  document.getElementById('bravo-rep-campana').value = '';
   document.getElementById('bravo-rep-abono-label').innerHTML = 'Abono ($) <span style="font-weight:400;color:#99ACC2">— si el cliente paga parte ahora</span>';
   document.getElementById('bravo-rep-abono').readOnly = false;
   document.getElementById('bravo-rep-abono').style.background = '';
@@ -21337,6 +21549,7 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-notas').value = item.notas || '';
   document.getElementById('bravo-rep-fecha-promesa').value = item.fechaPromesaEntrega || '';
   document.getElementById('bravo-rep-motivo-perdida').value = item.motivoPerdida || '';
+  document.getElementById('bravo-rep-campana').value = item.campana || '';
   bravoRepEditandoFechaEntregaReal = item.fechaEntregaReal || '';
   bravoRepEditandoPagos = item.pagos || [];
   bravoRepToggleMotivoPerdida();
@@ -21355,6 +21568,7 @@ function bravoAgregarCombo() {
   const comision = parseFloat(document.getElementById('bravo-combo-comision').value) || 0;
   const metodo = document.getElementById('bravo-combo-metodo').value;
   const notas = document.getElementById('bravo-combo-notas').value.trim();
+  const campana = document.getElementById('bravo-combo-campana').value;
 
   if(!desc || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
@@ -21364,7 +21578,7 @@ function bravoAgregarCombo() {
   const ganancia = precio - comision;
 
   bravoRegistroTemp.combos.push({
-    desc, precio, costo, comision, metodo, ganancia, notas
+    desc, precio, costo, comision, metodo, ganancia, notas, campana
   });
 
   // Limpiar formulario
@@ -21373,6 +21587,7 @@ function bravoAgregarCombo() {
   document.getElementById('bravo-combo-costo').value = '';
   document.getElementById('bravo-combo-comision').value = '';
   document.getElementById('bravo-combo-notas').value = '';
+  document.getElementById('bravo-combo-campana').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaCombos();
@@ -21389,6 +21604,7 @@ function bravoEditarCombo(i) {
   document.getElementById('bravo-combo-comision').value = item.comision != null ? item.comision : '';
   document.getElementById('bravo-combo-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-combo-notas').value = item.notas || '';
+  document.getElementById('bravo-combo-campana').value = item.campana || '';
   bravoRegistroTemp.combos.splice(i,1);
   bravoRenderListaCombos();
   bravoActualizarResumen();
@@ -21403,6 +21619,7 @@ function bravoAgregarTelefono() {
   const tipo = document.getElementById('bravo-tel-tipo').value;
   const metodo = document.getElementById('bravo-tel-metodo').value;
   const notas = document.getElementById('bravo-tel-notas').value.trim();
+  const campana = document.getElementById('bravo-tel-campana').value;
 
   if(!modelo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
 
@@ -21411,7 +21628,7 @@ function bravoAgregarTelefono() {
   const ganancia = precio;
 
   bravoRegistroTemp.telefonos.push({
-    modelo, costo, precio, tipo, metodo, ganancia, notas
+    modelo, costo, precio, tipo, metodo, ganancia, notas, campana
   });
 
   // Limpiar formulario
@@ -21420,6 +21637,7 @@ function bravoAgregarTelefono() {
   document.getElementById('bravo-tel-costo').value = '';
   document.getElementById('bravo-tel-precio').value = '';
   document.getElementById('bravo-tel-notas').value = '';
+  document.getElementById('bravo-tel-campana').value = '';
 
   bravoActualizarResumen();
   bravoRenderListaTelefonos();
@@ -21437,6 +21655,7 @@ function bravoEditarTelefono(i) {
   document.getElementById('bravo-tel-tipo').value = item.tipo || 'desbloqueado';
   document.getElementById('bravo-tel-metodo').value = item.metodo || 'efectivo';
   document.getElementById('bravo-tel-notas').value = item.notas || '';
+  document.getElementById('bravo-tel-campana').value = item.campana || '';
   bravoRegistroTemp.telefonos.splice(i,1);
   bravoRenderListaTelefonos();
   bravoActualizarResumen();
