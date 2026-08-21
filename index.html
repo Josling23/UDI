@@ -4938,6 +4938,11 @@ function toggleSubdealerPago(agenteId, cierre) {
   guardar();
   renderSubdealers();
 }
+// Nombre + producto de una línea, para las listas de detalle/WhatsApp.
+function subdealerLineaTexto(v) {
+  const monto = (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
+  return { fecha: v.fecha, cliente: v.cliente||'—', producto: getProdNombre(v.productoId), monto };
+}
 function renderSubdealers() {
   const agentes = subdealerAgentes();
   const content = document.getElementById('subdealers-content');
@@ -4946,31 +4951,117 @@ function renderSubdealers() {
     content.innerHTML = '<div class="section"><div style="color:#7C98B6;padding:20px;font-size:13px">No hay Sub-Dealers registrados todavía. Crea un agente con rol "🤝 Sub-Dealer" en Admin → Agentes.</div></div>';
     return;
   }
-  content.innerHTML = `<div class="section-header"><h2>🤝 Pagos Sub-Dealers</h2></div>
-    <div style="font-size:11px;color:#99ACC2;margin:-6px 0 16px">Ciclo semanal (viernes a jueves) — el cierre de cada semana se paga el lunes 11 días después. Los chargebacks de una semana se descuentan de esa misma semana.</div>` +
-    agentes.map(a => {
-      const semanas = subdealerAgruparPorSemana(a);
-      return `<div class="section">
-        <div class="section-header"><h2 style="font-size:14px">${a.nombre}</h2></div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Semana (cierre jueves)</th><th>Ventas</th><th>Chargebacks</th><th>Neto</th><th>Fecha de Pago</th><th>Estado</th><th></th></tr></thead>
-            <tbody>
-              ${semanas.length ? semanas.map(s => `
-                <tr>
-                  <td>${s.cierre}</td>
-                  <td>${s.ventas.length} · ${fmt(s.bruto)}</td>
-                  <td style="color:#F2545B">${s.chargebacks.length} · −${fmt(s.descuentoCB)}</td>
-                  <td style="font-weight:700">${fmt(s.neto)}</td>
-                  <td>${s.pago}</td>
-                  <td>${s.pagado ? '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">✅ Pagado</span>' : '<span style="background:#FEF3C7;color:#D4A017;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">⏳ Pendiente</span>'}</td>
-                  <td><button class="btn btn-ghost btn-xs" onclick="toggleSubdealerPago(${a.id},'${s.cierre}')">${s.pagado?'↩️ Desmarcar':'✅ Marcar Pagado'}</button></td>
-                </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty">Sin ventas registradas</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-    }).join('');
+  // Filtros: agente + rango de fechas (busca por la fecha de CIERRE de cada
+  // semana, para poder encontrar rápido la semana que se está buscando).
+  content.innerHTML = `
+    <div class="section-header"><h2>🤝 Pagos Sub-Dealers</h2></div>
+    <div style="font-size:11px;color:#99ACC2;margin:-6px 0 16px">Ciclo semanal (viernes a jueves) — el cierre de cada semana se paga el lunes 11 días después. Los chargebacks de una semana se descuentan de esa misma semana.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px">
+      <select id="sd-f-agente" onchange="renderSubdealers()" style="background:#fff;border:1.5px solid #CBD6E2;color:#33475B;padding:9px 14px;border-radius:8px;font-size:13px;outline:none;min-width:200px">
+        <option value="">🤝 Todos los Sub-Dealers</option>
+        ${agentes.map(a=>`<option value="${a.id}">${a.nombre}</option>`).join('')}
+      </select>
+      <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #CBD6E2;border-radius:8px;padding:6px 10px">
+        <input type="date" id="sd-f-desde" onchange="renderSubdealers()" title="Cierre desde" style="border:none;outline:none;font-size:12px;color:#33475B">
+        <span style="color:#99ACC2;font-size:11px;font-weight:600">→</span>
+        <input type="date" id="sd-f-hasta" onchange="renderSubdealers()" title="Cierre hasta" style="border:none;outline:none;font-size:12px;color:#33475B">
+      </div>
+      <button onclick="document.getElementById('sd-f-agente').value='';document.getElementById('sd-f-desde').value='';document.getElementById('sd-f-hasta').value='';renderSubdealers()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#7C98B6;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✕ Ver todo</button>
+    </div>` +
+    (() => {
+      const filtroAg = document.getElementById('sd-f-agente')?.value || '';
+      const filtroDesde = document.getElementById('sd-f-desde')?.value || '';
+      const filtroHasta = document.getElementById('sd-f-hasta')?.value || '';
+      const agentesVis = filtroAg ? agentes.filter(a=>String(a.id)===filtroAg) : agentes;
+      return agentesVis.map(a => {
+        let semanas = subdealerAgruparPorSemana(a);
+        if(filtroDesde) semanas = semanas.filter(s=>s.cierre >= filtroDesde);
+        if(filtroHasta) semanas = semanas.filter(s=>s.cierre <= filtroHasta);
+        return `<div class="section">
+          <div class="section-header"><h2 style="font-size:14px">${a.nombre}</h2></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Semana (cierre jueves)</th><th>Ventas</th><th>Chargebacks</th><th>Neto</th><th>Fecha de Pago</th><th>Estado</th><th></th></tr></thead>
+              <tbody>
+                ${semanas.length ? semanas.map(s => `
+                  <tr>
+                    <td>${s.cierre}</td>
+                    <td>${s.ventas.length} · ${fmt(s.bruto)}</td>
+                    <td style="color:#F2545B">${s.chargebacks.length} · −${fmt(s.descuentoCB)}</td>
+                    <td style="font-weight:700">${fmt(s.neto)}</td>
+                    <td>${s.pago}</td>
+                    <td>${s.pagado ? '<span style="background:#D1FAE5;color:#059669;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">✅ Pagado</span>' : '<span style="background:#FEF3C7;color:#D4A017;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:600">⏳ Pendiente</span>'}</td>
+                    <td style="white-space:nowrap">
+                      <button class="btn btn-ghost btn-xs" onclick="abrirDetalleSubdealerSemana(${a.id},'${s.cierre}')" title="Ver qué clientes/ventas componen este monto">👁️ Detalle</button>
+                      <button class="btn btn-ghost btn-xs" onclick="generarReporteSubdealerSemanaWhatsApp(${a.id},'${s.cierre}')" title="Generar reporte para enviar por WhatsApp">📲</button>
+                      <button class="btn btn-ghost btn-xs" onclick="toggleSubdealerPago(${a.id},'${s.cierre}')">${s.pagado?'↩️':'✅'}</button>
+                    </td>
+                  </tr>`).join('') : '<tr><td colspan="7" class="tbl-empty">Sin ventas registradas en este rango</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+      }).join('');
+    })();
+}
+// Detalle de una semana específica: lista cada cliente/venta que compone el
+// pago, y cada cliente/venta que se descontó por chargeback -- para que
+// quede claro exactamente qué se le está pagando y qué se le está restando.
+function abrirDetalleSubdealerSemana(agenteId, cierre) {
+  const agente = appData.agentes.find(a=>a.id===agenteId);
+  if(!agente) { showNotif('⚠️ Agente no encontrado','error'); return; }
+  const semana = subdealerAgruparPorSemana(agente).find(s=>s.cierre===cierre);
+  if(!semana) { showNotif('⚠️ No se encontró esa semana','error'); return; }
+
+  const filaVenta = v => { const l = subdealerLineaTexto(v); return `<tr><td>${l.fecha}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#00A492">${fmt(l.monto)}</td></tr>`; };
+  const filaCB = v => { const l = subdealerLineaTexto(v); return `<tr><td>${l.fecha}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#F2545B">−${fmt(l.monto)}</td></tr>`; };
+
+  const html = `
+    <h4 style="color:#0057A8;margin-bottom:4px">${agente.nombre} — Semana con cierre ${semana.cierre}</h4>
+    <div style="font-size:11px;color:#7C98B6;margin-bottom:16px">💳 Fecha de Pago: ${semana.pago} · Estado: ${semana.pagado?'✅ Pagado':'⏳ Pendiente'}</div>
+    <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:6px">✅ Ventas Pagadas (${semana.ventas.length})</div>
+    <div class="tbl-wrap" style="margin-bottom:16px">
+      <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th></tr></thead>
+        <tbody>${semana.ventas.length ? semana.ventas.map(filaVenta).join('') : '<tr><td colspan="4" class="tbl-empty">Sin ventas</td></tr>'}</tbody>
+      </table>
+    </div>
+    ${semana.chargebacks.length ? `
+    <div style="font-size:12px;font-weight:700;color:#F2545B;margin-bottom:6px">❌ Chargebacks Descontados (${semana.chargebacks.length})</div>
+    <div class="tbl-wrap" style="margin-bottom:16px">
+      <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th></tr></thead>
+        <tbody>${semana.chargebacks.map(filaCB).join('')}</tbody>
+      </table>
+    </div>` : ''}
+    <div style="background:#F0FDF4;border:2px solid #00BDA5;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#7C98B6;margin-bottom:6px">💰 NETO A PAGAR</div>
+      <div style="font-size:24px;font-weight:900;color:#00BDA5">${fmt(semana.neto)}</div>
+    </div>`;
+
+  document.getElementById('modal-detalle-titulo').textContent = `📊 Detalle — ${agente.nombre} — ${semana.cierre}`;
+  document.getElementById('modal-detalle-body').innerHTML = html;
+  document.getElementById('modal-detalle-agente').classList.add('open');
+}
+// Texto del reporte de WhatsApp de una semana específica -- mismo criterio
+// que el resto de reportes de la app (líneas con *negrita* de WhatsApp,
+// total resaltado al final).
+function construirTextoReporteSubdealerSemana(agente, semana) {
+  const lineasVenta = semana.ventas.map(v => { const l = subdealerLineaTexto(v); return `• ${l.fecha} - ${l.cliente} - ${l.producto}: ${fmt(l.monto)}`; });
+  const lineasCB = semana.chargebacks.map(v => { const l = subdealerLineaTexto(v); return `• ${l.fecha} - ${l.cliente} - ${l.producto}: -${fmt(l.monto)}`; });
+  return `🤝 *PAGO SUB-DEALER* — USA Distributor Inc.\n\n` +
+    `👤 ${agente.nombre}\n` +
+    `📅 Semana con cierre: ${semana.cierre}\n` +
+    `💳 Fecha de Pago: ${semana.pago}\n\n` +
+    `✅ *Ventas Pagadas (${semana.ventas.length})*\n${lineasVenta.length ? lineasVenta.join('\n') : 'Ninguna'}\n` +
+    (lineasCB.length ? `\n❌ *Chargebacks Descontados (${semana.chargebacks.length})*\n${lineasCB.join('\n')}\n` : '') +
+    `\n💰 *NETO A PAGAR: ${fmt(semana.neto)}*`;
+}
+function generarReporteSubdealerSemanaWhatsApp(agenteId, cierre) {
+  const agente = appData.agentes.find(a=>a.id===agenteId);
+  if(!agente) { showNotif('⚠️ Agente no encontrado','error'); return; }
+  const semana = subdealerAgruparPorSemana(agente).find(s=>s.cierre===cierre);
+  if(!semana) { showNotif('⚠️ No se encontró esa semana','error'); return; }
+  const texto = construirTextoReporteSubdealerSemana(agente, semana);
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 }
 
 function getComisionesQuincena(a, mes, q) {
