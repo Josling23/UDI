@@ -4905,6 +4905,23 @@ function subdealerFechaPago(cierreStr) {
 function subdealerAgentes() {
   return (appData.agentes||[]).filter(a => !a.soloHQ && (a.rol==='subdealer' || a.rol==='subdealер'));
 }
+// Diagnóstico de por qué una venta con el nombre de este subdealer NO
+// aparece agrupada en subdealerAgruparPorSemana() -- esa función exige
+// v.fecha (con formato "YYYY-MM-DD" válido) y excluye grabaciones
+// (esGrabacion/_esGrabacion), condiciones que otras pantallas (ej. la
+// tarjeta de comisiones de Admin → Agentes, que solo filtra por v.mes) no
+// aplican. Por eso un agente puede tener comisión/unidades ese mes y aun
+// así no ver nada en Pagos Sub-Dealers. Puramente de lectura -- no cambia
+// ni un solo dato.
+function subdealerDiagnostico(agente) {
+  const nombreLow = (agente.nombre||'').trim().toLowerCase();
+  const todas = (appData.ventas||[]).filter(v => (v.agente||'').trim().toLowerCase()===nombreLow);
+  const sinFecha = todas.filter(v => !v.fecha);
+  const grabaciones = todas.filter(v => v.fecha && (v.esGrabacion || v._esGrabacion));
+  const fechaInvalida = todas.filter(v => v.fecha && !v.esGrabacion && !v._esGrabacion && !/^\d{4}-\d{2}-\d{2}/.test(v.fecha));
+  const incluidas = todas.length - sinFecha.length - grabaciones.length - fechaInvalida.length;
+  return { total: todas.length, sinFecha: sinFecha.length, grabaciones: grabaciones.length, fechaInvalida: fechaInvalida.length, incluidas };
+}
 // Agrupa las ventas de un subdealer por semana de cierre. Las ventas normales
 // se agrupan por su fecha de venta. Los chargebacks se agrupan por la fecha en
 // que se marcaron como chargeback (v.chargebackFecha), NO por la fecha de la
@@ -4987,8 +5004,17 @@ function renderSubdealers() {
         let semanas = subdealerAgruparPorSemana(a);
         if(filtroDesde) semanas = semanas.filter(s=>s.cierre >= filtroDesde);
         if(filtroHasta) semanas = semanas.filter(s=>s.cierre <= filtroHasta);
+        const diag = subdealerDiagnostico(a);
+        const avisoDiag = diag.total > diag.incluidas ? `
+          <div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#92400E">
+            ⚠️ Encontré <b>${diag.total}</b> venta${diag.total!==1?'s':''} en el sistema con el nombre "${a.nombre}", pero solo <b>${diag.incluidas}</b> se está${diag.incluidas!==1?'n':''} contando aquí.
+            ${diag.sinFecha ? `<br>· ${diag.sinFecha} sin fecha registrada` : ''}
+            ${diag.grabaciones ? `<br>· ${diag.grabaciones} marcada${diag.grabaciones!==1?'s':''} como "llamada grabada" (crédito de $2, no una venta propia)` : ''}
+            ${diag.fechaInvalida ? `<br>· ${diag.fechaInvalida} con la fecha en un formato que no se pudo leer` : ''}
+          </div>` : '';
         return `<div class="section">
           <div class="section-header"><h2 style="font-size:14px">${a.nombre}</h2></div>
+          ${avisoDiag}
           <div class="tbl-wrap">
             <table>
               <thead><tr><th>Semana (cierre jueves)</th><th>Ventas</th><th>Chargebacks</th><th>Neto</th><th>Fecha de Pago</th><th>Estado</th><th></th></tr></thead>
