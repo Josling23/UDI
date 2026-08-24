@@ -11076,6 +11076,24 @@ function renderAgenteDashboard() {
   const gruposPendientes = new Set(pendientes.map(v => v.grupoId)).size;
   const btnStyle = 'flex:1;min-width:220px;background:#fff;border:1.5px solid #CBD6E2;border-radius:16px;padding:28px 20px;cursor:pointer;transition:all 0.15s;text-align:center';
 
+  // Contador de líneas Lyca disponibles (inventario de Bravo) -- solo para
+  // agentes normales (no subdealers/gerentes/supervisores/inspector), a
+  // pedido de la dueña, para que sepan en tiempo real si hay stock que
+  // ofrecerle a un cliente. Solo la CANTIDAD, sin costos ni datos del
+  // inventario -- mismo criterio ("estado==='disponible'") que ya usa la
+  // alerta de stock bajo de Bravo → Dashboard.
+  const agenteObj = perms?.agenteId ? (appData.agentes||[]).find(x=>x.id===perms.agenteId) : null;
+  const esAgenteRegular = agenteObj && (!agenteObj.rol || agenteObj.rol==='agente');
+  const lycaDisponibles = (appData.bravo?.lineasLyca||[]).filter(l=>l.estado==='disponible').length;
+  const contadorLyca = esAgenteRegular ? `
+    <div style="background:#F0FDFA;border:1.5px solid #00BDA5;border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:28px">📱</div>
+      <div>
+        <div style="font-size:11px;color:#0D9488;font-weight:700;text-transform:uppercase;letter-spacing:0.3px">Líneas Lyca Disponibles</div>
+        <div style="font-size:26px;font-weight:900;color:#00BDA5">${lycaDisponibles}</div>
+      </div>
+    </div>` : '';
+
   const cbRecientes = chargebacksRecientesNoLeidos(perms?.agenteId);
   const alertaChargebacks = cbRecientes.length ? `
     <div style="background:#FFF0F0;border:1.5px solid #F2545B;border-radius:14px;padding:16px 18px;margin-bottom:16px">
@@ -11095,6 +11113,7 @@ function renderAgenteDashboard() {
   document.getElementById('agente-dashboard-content').innerHTML = `
     <div class="section">
       <div class="section-header"><h2>👋 Hola, ${nombre}</h2></div>
+      ${contadorLyca}
       ${alertaChargebacks}
       <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
         <button onclick="_agvEditGrupoId=null;showPage('agente-reportar')" style="${btnStyle};border-color:#009FDB"
