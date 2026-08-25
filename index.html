@@ -12161,10 +12161,16 @@ function renderInspectorClientes() {
     const productos = g.lineas.map(l => {
       const nombre = getProdNombre(l.productoId);
       if(!puedeChargeback(g)) return `<div>${nombre}</div>`;
-      const btn = l.esChargeback
+      const btnCB = l.esChargeback
         ? `<button class="btn btn-ghost btn-xs" style="padding:1px 6px;font-size:9px" onclick="inspectorQuitarChargeback(${l.id})" title="El cliente se reconectó — volver a marcarlo activo">✅ Quitar CB</button>`
         : `<button class="btn btn-ghost btn-xs" style="padding:1px 6px;font-size:9px" onclick="inspectorMarcarChargeback(${l.id})" title="Marcar como Chargeback">⚠️ Marcar CB</button>`;
-      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">${nombre} ${btn}</div>`;
+      // Editar una venta ya oficial (appData.ventas) reutiliza el mismo
+      // formulario/función que ya usa Inspector para "Agregar Venta" y que
+      // usa Admin en su propia pantalla de Ventas -- openVentaModal(id) ya
+      // soporta cargar y editar una venta existente, no hace falta ningún
+      // formulario ni función nueva.
+      const btnEditar = `<button class="btn btn-ghost btn-xs" style="padding:1px 6px;font-size:9px" onclick="openVentaModal(${l.id})" title="Editar esta venta">✏️ Editar</button>`;
+      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">${nombre} ${btnEditar} ${btnCB}</div>`;
     }).join('');
     const motivo = g.estado==='chargeback' ? g.chargebackMotivo : g.estado==='rechazado' ? g.motivoRechazo : '';
     // Resaltar la fila cuando tiene algo pendiente de revisar, para que
