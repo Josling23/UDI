@@ -3984,11 +3984,24 @@ function fusionarConServidor(local, servidor, conocido) {
     const conocidoArr = Array.isArray(conocido) ? conocido : [];
     const localClaves = new Set(localArr.map(_claveDeElemento));
     const conocidoClaves = new Set(conocidoArr.map(_claveDeElemento));
+    const servidorClaves = new Set(servidor.map(_claveDeElemento));
     const recuperados = servidor.filter(x => {
       const k = _claveDeElemento(x);
       return !localClaves.has(k) && !conocidoClaves.has(k);
     });
-    return recuperados.length ? [...localArr, ...recuperados] : localArr;
+    // Elemento que esta sesión ya conocía (estaba en "conocido") pero que el
+    // servidor YA NO tiene: alguien más lo quitó/movió desde entonces (ej.
+    // aprobó una venta pendiente, que sale de ventasPendientes y entra a
+    // ventas) — se respeta esa eliminación en vez de resucitarlo. Un
+    // elemento que esta sesión agregó recién (está en local pero NUNCA
+    // estuvo en "conocido") nunca se toca aquí, así que una venta pendiente
+    // que el usuario acaba de crear no desaparece solo porque el servidor
+    // todavía no la tiene.
+    const localSinLosBorradosPorOtros = localArr.filter(x => {
+      const k = _claveDeElemento(x);
+      return servidorClaves.has(k) || !conocidoClaves.has(k);
+    });
+    return [...localSinLosBorradosPorOtros, ...recuperados];
   }
   if (servidor && typeof servidor === 'object') {
     const localObj = (local && typeof local === 'object' && !Array.isArray(local)) ? local : {};
