@@ -3509,6 +3509,30 @@ const PRODUCTOS_CATALOG = [
   { id:'cero',        cat:'otro',     nombre:'Cero',                    comision:0,  excelCol:'CERO'         },
 ];
 
+// ============================================================
+// TELÉFONO DE LÍNEA — control de duplicados (por seguridad, a pedido de la
+// dueña, efectivo desde el día que se agregó: los registros anteriores a
+// esto no tienen este campo y se quedan tal cual, sin exigirlo).
+// Solo aplica a los productos "Línea" de AT&T Mobility (att-act8/att-act10)
+// — son los que representan una línea nueva activada, no accesorios/upgrades.
+// ============================================================
+const PRODUCTOS_LINEA_MOBILITY = ['att-act8', 'att-act10'];
+function normalizarTelefono(tel) {
+  return (tel || '').replace(/\D/g, '');
+}
+// Busca si este número de teléfono YA está registrado en otra venta (oficial
+// o pendiente de aprobar) -- devuelve ese registro, o null si está libre.
+// excluirVentaId permite ignorar la propia línea que se está editando.
+function telefonoLineaYaRegistrado(telefono, excluirVentaId) {
+  const norm = normalizarTelefono(telefono);
+  if (!norm) return null;
+  const enVentas = (appData.ventas || []).find(v => v.id !== excluirVentaId && normalizarTelefono(v.telefonoLinea) === norm);
+  if (enVentas) return enVentas;
+  const enPendientes = (appData.ventasPendientes || []).find(v => v.id !== excluirVentaId && normalizarTelefono(v.telefonoLinea) === norm);
+  if (enPendientes) return enPendientes;
+  return null;
+}
+
 const CAT_LABELS = {
   'mobility':       '📱 AT&T Mobility',
   'internet':       '🌐 Internet Residencial',
@@ -5953,7 +5977,7 @@ function aprobarVentaPendiente(grupoId) {
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
-      cantidad: l.cantidad, comision: l.comision,
+      cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'',
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
@@ -6162,7 +6186,7 @@ function adminAprobarRechazada(grupoId) {
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
-      cantidad: l.cantidad, comision: l.comision,
+      cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'',
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
@@ -7761,6 +7785,10 @@ function agregarLineaVenta(linea=null) {
         <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Notas del producto</div>
         <input type="text" id="vl-nota-${idx}" placeholder="Ej: iPhone 17 Pro Max, Protect ✅..." style="${iSty}">
       </div>
+    </div>
+    <div id="vl-tel-wrap-${idx}" style="display:none;margin-top:8px">
+      <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">📞 Teléfono de la línea vendida *</div>
+      <input type="tel" id="vl-tel-${idx}" placeholder="Ej: 407-555-1234" style="${iSty}">
     </div>`;
   document.getElementById('v-lineas-container').appendChild(div);
   if(linea) {
@@ -7772,6 +7800,9 @@ function agregarLineaVenta(linea=null) {
       document.getElementById('vl-qty-'+idx).value = linea.cantidad||1;
       document.getElementById('vl-com-'+idx).value = linea.comision||'';
       document.getElementById('vl-nota-'+idx).value = linea.notas||'';
+      const telWrap = document.getElementById('vl-tel-wrap-'+idx);
+      if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(linea.productoId) ? 'block' : 'none';
+      document.getElementById('vl-tel-'+idx).value = linea.telefonoLinea||'';
       updateVentaTotal();
     },10);
   }
@@ -7794,6 +7825,8 @@ function onLineProdChange(idx) {
     // FIX: Si com es 0, mostrar "0" no cadena vacía
     document.getElementById('vl-com-'+idx).value = (com !== null && com !== undefined) ? com : '';
   }
+  const telWrap = document.getElementById('vl-tel-wrap-'+idx);
+  if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(pid) ? 'block' : 'none';
   updateVentaTotal();
 }
 
@@ -8372,6 +8405,7 @@ function guardarVenta() {
   let hasIncompleteLines = false;
   let incompleteLineNumbers = [];
 
+  let telefonoInvalido = null;
   document.querySelectorAll('[id^="vlinea-"]').forEach((div, visibleIdx)=>{
     const idx = div.id.replace('vlinea-','');
     const cat  = document.getElementById('vl-cat-'+idx)?.value||'';
@@ -8379,6 +8413,7 @@ function guardarVenta() {
     const qty  = parseInt(document.getElementById('vl-qty-'+idx)?.value)||1;
     const com  = parseFloat(document.getElementById('vl-com-'+idx)?.value)||0;
     const nota = document.getElementById('vl-nota-'+idx)?.value?.trim()||'';
+    const telefonoLinea = document.getElementById('vl-tel-'+idx)?.value?.trim()||'';
 
     if(!cat || !prod) {
       console.warn(`Línea ${visibleIdx+1} incompleta: cat=${cat}, prod=${prod}`);
@@ -8386,7 +8421,20 @@ function guardarVenta() {
       incompleteLineNumbers.push(visibleIdx+1);
       return;
     }
-    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota });
+    // Teléfono de la línea: solo para los productos "Línea" de Mobility, y
+    // solo obligatorio al CREAR una venta nueva (no se exige retroactivo al
+    // editar una venta vieja que nunca tuvo este campo). El chequeo de
+    // duplicado sí aplica siempre que haya un valor, para no dejar pasar un
+    // número repetido aunque sea al editar.
+    if(!telefonoInvalido && PRODUCTOS_LINEA_MOBILITY.includes(prod)) {
+      if(!telefonoLinea && editVentaId===null) {
+        telefonoInvalido = `⚠️ Línea ${visibleIdx+1}: ingresa el número de teléfono de la línea vendida`;
+      } else if(telefonoLinea) {
+        const dup = telefonoLineaYaRegistrado(telefonoLinea, editVentaId);
+        if(dup) telefonoInvalido = `⚠️ Ese número de teléfono ya fue registrado antes (cliente: ${dup.cliente||'—'}) — por seguridad no se puede repetir`;
+      }
+    }
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea });
   });
 
   // Si hay líneas incompletas, mostrar error específico
@@ -8395,6 +8443,7 @@ function guardarVenta() {
     showNotif(`⚠️ Línea${incompleteLineNumbers.length>1?'s':''} ${lineNums} incompleta${incompleteLineNumbers.length>1?'s':''} — Selecciona Categoría y Producto para todas`, 'error');
     return;
   }
+  if(telefonoInvalido) { showNotif(telefonoInvalido, 'error'); return; }
 
   console.log(`Líneas a guardar: ${lineas.length}`, lineas);
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
@@ -8444,6 +8493,7 @@ function guardarVenta() {
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
+        telefonoLinea: l.telefonoLinea||'',
         ...(reportadoPor!==undefined ? { reportadoPor } : {}),
         ...(grupoId!==undefined ? { grupoId } : {}),
         ...(idx===0 ? chargebackFields : {}) };
@@ -8480,6 +8530,7 @@ function guardarVenta() {
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
+        telefonoLinea: l.telefonoLinea||'',
         ...(reportadoPorAuto!==undefined ? { reportadoPor: reportadoPorAuto, grupoId: grupoIdNuevo } : {}) };
       console.log(`Agregando venta ${idx+1}:`, ventaObj);
       appData.ventas.push(ventaObj);
@@ -11407,6 +11458,9 @@ function renderAgenteReportar() {
       document.getElementById('agv-prod-'+idx).value = l.productoId||'';
       document.getElementById('agv-qty-'+idx).value = l.cantidad||1;
       document.getElementById('agv-com-'+idx).value = l.comision!=null ? l.comision : '';
+      const telWrap = document.getElementById('agv-tel-wrap-'+idx);
+      if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(l.productoId) ? 'block' : 'none';
+      document.getElementById('agv-tel-'+idx).value = l.telefonoLinea||'';
     });
   } else {
     agenteAgregarLineaVenta();
@@ -11459,6 +11513,10 @@ function agenteAgregarLineaVenta() {
         <input type="text" id="agv-nota-${idx}" placeholder="Ej: iPhone 17 Pro Max, Protect ✅..." style="${iSty}">
       </div>
     </div>
+    <div id="agv-tel-wrap-${idx}" style="display:none;margin-top:8px">
+      <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">📞 Teléfono de la línea vendida *</div>
+      <input type="tel" id="agv-tel-${idx}" placeholder="Ej: 407-555-1234" style="${iSty}">
+    </div>
     <input type="hidden" id="agv-com-${idx}">`;
   document.getElementById('agv-lineas-container').appendChild(div);
 }
@@ -11479,6 +11537,8 @@ function agenteOnLineProdChange(idx) {
     const com = getComisionDirectaAgente(pid, agente);
     document.getElementById('agv-com-'+idx).value = (com !== null && com !== undefined) ? com : '';
   }
+  const telWrap = document.getElementById('agv-tel-wrap-'+idx);
+  if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(pid) ? 'block' : 'none';
   agenteUpdateVentaTotal();
 }
 
@@ -11515,19 +11575,37 @@ function guardarVentaAgente() {
 
   const lineas = [];
   let hasIncompleteLines = false;
-  document.querySelectorAll('[id^="agvlinea-"]').forEach(div=>{
+  let telefonoInvalido = null;
+  document.querySelectorAll('[id^="agvlinea-"]').forEach((div, visibleIdx)=>{
     const idx = div.id.replace('agvlinea-','');
     const cat  = document.getElementById('agv-cat-'+idx)?.value||'';
     const prod = document.getElementById('agv-prod-'+idx)?.value||'';
     const qty  = parseInt(document.getElementById('agv-qty-'+idx)?.value)||1;
     const com  = parseFloat(document.getElementById('agv-com-'+idx)?.value)||0;
     const nota = document.getElementById('agv-nota-'+idx)?.value?.trim()||'';
+    const telefonoLinea = document.getElementById('agv-tel-'+idx)?.value?.trim()||'';
     if(!cat || !prod) { hasIncompleteLines = true; return; }
-    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota });
+    // Teléfono de la línea: obligatorio para los productos "Línea" de
+    // Mobility (tanto al crear como al corregir un reporte, ya que sigue
+    // siendo un reporte pendiente/actual, no un dato histórico) y con
+    // chequeo de duplicado por seguridad, a pedido de la dueña.
+    if(!telefonoInvalido && PRODUCTOS_LINEA_MOBILITY.includes(prod)) {
+      if(!telefonoLinea) {
+        telefonoInvalido = `⚠️ Línea ${visibleIdx+1}: ingresa el número de teléfono de la línea vendida`;
+      } else {
+        const dup = telefonoLineaYaRegistrado(telefonoLinea, undefined);
+        // Si el "duplicado" es en realidad una línea del MISMO reporte que se
+        // está corrigiendo (mismo grupoId), no es un duplicado real -- es el
+        // mismo número que ya traía este reporte pendiente.
+        if(dup && dup.grupoId !== _agvEditGrupoId) telefonoInvalido = `⚠️ Ese número de teléfono ya fue registrado antes (cliente: ${dup.cliente||'—'}) — por seguridad no se puede repetir`;
+      }
+    }
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea });
   });
 
   if(hasIncompleteLines) { showNotif('⚠️ Completa Categoría y Producto en todas las líneas','error'); return; }
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
+  if(telefonoInvalido) { showNotif(telefonoInvalido, 'error'); return; }
 
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
@@ -11549,6 +11627,7 @@ function guardarVentaAgente() {
       id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana, grabadoPor,
       notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
       productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
+      telefonoLinea: l.telefonoLinea||'',
       reportadoPor: perms.agenteId, creadoEn: creadoEnOriginal,
     });
   });
