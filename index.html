@@ -5899,7 +5899,7 @@ function renderVentasPendientesTabla() {
         <td style="padding:4px 8px;color:#7C98B6">${CAT_LABELS[l.categoria]||l.categoria}</td>
         <td style="padding:4px 8px;text-align:right"><input type="number" min="1" value="${l.cantidad}" style="width:50px;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right" onchange="ventaPendienteInlineEdit(${l.id},'cantidad',parseInt(this.value)||1)"></td>
         <td style="padding:4px 8px;text-align:right"><input type="number" step="0.01" min="0" value="${l.comision}" style="width:70px;border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right;color:#009FDB;font-weight:700" onchange="ventaPendienteInlineEdit(${l.id},'comision',parseFloat(this.value)||0)"></td>
-        <td style="padding:4px 8px;color:#7C98B6;font-size:10px" colspan="2">${l.notas||''}</td>
+        <td style="padding:4px 8px;color:#7C98B6;font-size:10px" colspan="2">${l.notas||''}${l.telefonoLinea ? `${l.notas?' · ':''}<span style="color:#33475B;font-weight:600">📞 ${l.telefonoLinea}</span>` : ''}</td>
       </tr>`).join('');
 
     const enEdicion = _vpEditandoGrupoId===grupoId;
