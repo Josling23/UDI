@@ -1001,6 +1001,14 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
               <input type="text" id="agv-cuenta" placeholder="VND1507">
             </div>
           </div>
+          <div class="form-group" id="agv-subagente-wrap" style="display:none;margin:10px 0 0">
+            <label>👥 ¿Cuál de tus agentes hizo esta venta? *</label>
+            <select id="agv-subagente"></select>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <input type="text" id="agv-subagente-nuevo" placeholder="Nombre nuevo (ej. Agent 016)" style="flex:1;border:1.5px solid #CBD6E2;border-radius:7px;padding:6px 9px;font-size:12px">
+              <button type="button" onclick="agvAgregarSubAgente()" style="background:#F5F8FA;border:1.5px solid #CBD6E2;color:#33475B;padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">+ Agregar</button>
+            </div>
+          </div>
           <div class="form-group" style="margin:10px 0 0">
             <label>📢 Campaña</label>
             <select id="agv-campana"><option value="">— Sin campaña / Orgánico —</option></select>
@@ -3927,6 +3935,17 @@ function normalizarAppData() {
   // Normalizar productosExtra en cada agente
   appData.agentes.forEach(a => { if(!a.productosExtra) a.productosExtra = []; });
 
+  // Lista de "sub-agentes" propios de cada Sub-Dealer (ej. "Agent 001",
+  // "Agent 002"...) -- para que al reportar una venta puedan indicar cuál de
+  // su propio equipo la hizo. Empieza con 15 por defecto y cada Sub-Dealer
+  // puede agregar más desde su formulario de "Reportar Venta". Puramente
+  // aditivo: solo se inicializa si todavía no existe.
+  appData.agentes.forEach(a => {
+    if((a.rol==='subdealer' || a.rol==='subdealер') && !a.subAgentesLista) {
+      a.subAgentesLista = Array.from({length:15}, (_,i) => 'Agent ' + String(i+1).padStart(3,'0'));
+    }
+  });
+
   // Normalizar estructura de ventas: asegurar que TODAS tengan los campos necesarios
   appData.ventas.forEach(v => {
     if(!v.id) v.id = Math.max(...appData.ventas.map(x=>x.id||0), 0) + 1;
@@ -4999,7 +5018,7 @@ function toggleSubdealerPago(agenteId, cierre) {
 // Nombre + producto de una línea, para las listas de detalle/WhatsApp.
 function subdealerLineaTexto(v) {
   const monto = (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1);
-  return { fecha: v.fecha, cliente: v.cliente||'—', producto: getProdNombre(v.productoId), monto };
+  return { fecha: v.fecha, cliente: v.cliente||'—', producto: getProdNombre(v.productoId), monto, subAgente: v.subAgente||'' };
 }
 function renderSubdealers() {
   const agentes = subdealerAgentes();
@@ -5086,22 +5105,22 @@ function abrirDetalleSubdealerSemana(agenteId, cierre) {
   const semana = subdealerAgruparPorSemana(agente).find(s=>s.cierre===cierre);
   if(!semana) { showNotif('⚠️ No se encontró esa semana','error'); return; }
 
-  const filaVenta = v => { const l = subdealerLineaTexto(v); return `<tr><td>${mdaFecha(l.fecha)}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#00A492">${fmt(l.monto)}</td></tr>`; };
-  const filaCB = v => { const l = subdealerLineaTexto(v); return `<tr><td>${mdaFecha(l.fecha)}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="text-align:right;font-weight:700;color:#F2545B">−${fmt(l.monto)}</td></tr>`; };
+  const filaVenta = v => { const l = subdealerLineaTexto(v); return `<tr><td>${mdaFecha(l.fecha)}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="font-size:11px;color:#00A492">${l.subAgente||'—'}</td><td style="text-align:right;font-weight:700;color:#00A492">${fmt(l.monto)}</td></tr>`; };
+  const filaCB = v => { const l = subdealerLineaTexto(v); return `<tr><td>${mdaFecha(l.fecha)}</td><td>${l.cliente}</td><td style="font-size:11px;color:#7C98B6">${l.producto}</td><td style="font-size:11px;color:#7C98B6">${l.subAgente||'—'}</td><td style="text-align:right;font-weight:700;color:#F2545B">−${fmt(l.monto)}</td></tr>`; };
 
   const html = `
     <h4 style="color:#0057A8;margin-bottom:4px">${agente.nombre} — Semana con cierre ${mdaFecha(semana.cierre)}</h4>
     <div style="font-size:11px;color:#7C98B6;margin-bottom:16px">💳 Fecha de Pago: ${mdaFecha(semana.pago)} · Estado: ${semana.pagado?'✅ Pagado':'⏳ Pendiente'}</div>
     <div style="font-size:12px;font-weight:700;color:#33475B;margin-bottom:6px">✅ Ventas Pagadas (${semana.ventas.length})</div>
     <div class="tbl-wrap" style="margin-bottom:16px">
-      <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th></tr></thead>
-        <tbody>${semana.ventas.length ? semana.ventas.map(filaVenta).join('') : '<tr><td colspan="4" class="tbl-empty">Sin ventas</td></tr>'}</tbody>
+      <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Agente</th><th style="text-align:right">Monto</th></tr></thead>
+        <tbody>${semana.ventas.length ? semana.ventas.map(filaVenta).join('') : '<tr><td colspan="5" class="tbl-empty">Sin ventas</td></tr>'}</tbody>
       </table>
     </div>
     ${semana.chargebacks.length ? `
     <div style="font-size:12px;font-weight:700;color:#F2545B;margin-bottom:6px">❌ Chargebacks Descontados (${semana.chargebacks.length})</div>
     <div class="tbl-wrap" style="margin-bottom:16px">
-      <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th style="text-align:right">Monto</th></tr></thead>
+      <table><thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Agente</th><th style="text-align:right">Monto</th></tr></thead>
         <tbody>${semana.chargebacks.map(filaCB).join('')}</tbody>
       </table>
     </div>` : ''}
@@ -5118,8 +5137,8 @@ function abrirDetalleSubdealerSemana(agenteId, cierre) {
 // que el resto de reportes de la app (líneas con *negrita* de WhatsApp,
 // total resaltado al final).
 function construirTextoReporteSubdealerSemana(agente, semana) {
-  const lineasVenta = semana.ventas.map(v => { const l = subdealerLineaTexto(v); return `• ${mdaFecha(l.fecha)} - ${l.cliente} - ${l.producto}: ${fmt(l.monto)}`; });
-  const lineasCB = semana.chargebacks.map(v => { const l = subdealerLineaTexto(v); return `• ${mdaFecha(l.fecha)} - ${l.cliente} - ${l.producto}: -${fmt(l.monto)}`; });
+  const lineasVenta = semana.ventas.map(v => { const l = subdealerLineaTexto(v); return `• ${mdaFecha(l.fecha)} - ${l.cliente} - ${l.producto}${l.subAgente?' ('+l.subAgente+')':''}: ${fmt(l.monto)}`; });
+  const lineasCB = semana.chargebacks.map(v => { const l = subdealerLineaTexto(v); return `• ${mdaFecha(l.fecha)} - ${l.cliente} - ${l.producto}${l.subAgente?' ('+l.subAgente+')':''}: -${fmt(l.monto)}`; });
   return `🤝 *PAGO SUB-DEALER* — USA Distributor Inc.\n\n` +
     `👤 ${agente.nombre}\n` +
     `📅 Semana con cierre: ${mdaFecha(semana.cierre)}\n` +
@@ -5914,7 +5933,7 @@ function renderVentasPendientesTabla() {
                  <option value="">🎙️ — Sin grabación —</option>
                  ${appData.agentes.filter(a=>a.activo!==false).map(a=>`<option value="${a.nombre}" ${g.grabadoPor===a.nombre?'selected':''}>🎙️ ${a.nombre}</option>`).join('')}
                </select>`
-            : (g.cliente||'⚠️ Sin cliente')}${!enEdicion && g.grabadoPor ? `<div style="display:inline-block;background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:2px 7px;font-size:10px;color:#33475B;font-weight:600;margin-top:3px">🎙️ Grabó: ${g.grabadoPor}</div>` : ''}</td>
+            : (g.cliente||'⚠️ Sin cliente')}${!enEdicion && g.grabadoPor ? `<div style="display:inline-block;background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:2px 7px;font-size:10px;color:#33475B;font-weight:600;margin-top:3px">🎙️ Grabó: ${g.grabadoPor}</div>` : ''}${!enEdicion && g.subAgente ? `<div style="display:inline-block;background:#E8F9F7;border:1px solid #00BDA5;border-radius:6px;padding:2px 7px;font-size:10px;color:#33475B;font-weight:600;margin-top:3px">👥 Vendió: ${g.subAgente}</div>` : ''}</td>
         <td>${enEdicion ? `<input type="text" value="${g.cuenta||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cuenta',this.value)">` : (g.cuenta||'—')}</td>
         <td>${g.mes}</td>
         <td>
@@ -5977,7 +5996,7 @@ function aprobarVentaPendiente(grupoId) {
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
-      cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'',
+      cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
@@ -6186,7 +6205,7 @@ function adminAprobarRechazada(grupoId) {
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
-      cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'',
+      cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
@@ -8494,6 +8513,10 @@ function guardarVenta() {
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
         telefonoLinea: l.telefonoLinea||'',
+        // Se preserva de la venta original (igual que reportadoPor/grupoId) --
+        // el formulario de Admin/Inspector no tiene este campo, así que si no
+        // se rescatara aquí, editar una venta de un Sub-Dealer lo borraría.
+        subAgente: (original && original.subAgente) || '',
         ...(reportadoPor!==undefined ? { reportadoPor } : {}),
         ...(grupoId!==undefined ? { grupoId } : {}),
         ...(idx===0 ? chargebackFields : {}) };
@@ -11425,6 +11448,44 @@ function agvPoblarGrabadoPor() {
     agentes.map(a=>`<option value="${a.nombre}">${a.nombre}</option>`).join('');
 }
 
+// Sub-Dealers tienen su propio equipo interno de agentes (ej. "Agent 001",
+// "Agent 002"...) que no tienen su propio login en el sistema -- este
+// dropdown deja que el Sub-Dealer indique cuál de ellos hizo la venta que
+// está reportando, para que quede registrado quién vendió dentro de su
+// equipo. Solo se muestra para el rol Sub-Dealer; para el resto de agentes
+// queda oculto y no aplica.
+function agvPoblarSubAgente(valorActual) {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteObj = perms?.agenteId ? (appData.agentes||[]).find(x=>x.id===perms.agenteId) : null;
+  const esSubdealer = !!(agenteObj && (agenteObj.rol==='subdealer' || agenteObj.rol==='subdealер'));
+  const wrap = document.getElementById('agv-subagente-wrap');
+  if(wrap) wrap.style.display = esSubdealer ? 'block' : 'none';
+  if(!esSubdealer) return;
+  const lista = agenteObj.subAgentesLista || [];
+  const sel = document.getElementById('agv-subagente');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Selecciona —</option>' + lista.map(n=>`<option value="${n}">${n}</option>`).join('');
+  sel.value = valorActual || '';
+}
+
+function agvAgregarSubAgente() {
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  const agenteObj = perms?.agenteId ? (appData.agentes||[]).find(x=>x.id===perms.agenteId) : null;
+  if(!agenteObj) return;
+  const input = document.getElementById('agv-subagente-nuevo');
+  const nombre = (input?.value||'').trim();
+  if(!nombre) { showNotif('⚠️ Escribe un nombre antes de agregar','error'); return; }
+  if(!agenteObj.subAgentesLista) agenteObj.subAgentesLista = [];
+  if(agenteObj.subAgentesLista.some(n=>n.toLowerCase()===nombre.toLowerCase())) {
+    showNotif('⚠️ Ese nombre ya está en tu lista','error'); return;
+  }
+  agenteObj.subAgentesLista.push(nombre);
+  guardar();
+  agvPoblarSubAgente(nombre);
+  input.value = '';
+  showNotif(`✅ "${nombre}" agregado a tu lista`);
+}
+
 function renderAgenteReportar() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   document.getElementById('agv-agente-nombre').value = perms ? perms.nombre : '';
@@ -11446,6 +11507,7 @@ function renderAgenteReportar() {
   // que se preselecciona su nombre por defecto — si fue otra persona, el
   // vendedor solo tiene que cambiar el dropdown antes de enviar.
   document.getElementById('agv-grabado-por').value = g ? (g.grabadoPor||'') : (perms ? perms.nombre : '');
+  agvPoblarSubAgente(g ? (g.subAgente||'') : '');
 
   document.getElementById('agv-lineas-container').innerHTML = '';
   _agvLineaCount = 0;
@@ -11564,11 +11626,15 @@ function guardarVentaAgente() {
   const campana = document.getElementById('agv-campana').value;
   const notas   = document.getElementById('agv-notas').value.trim();
   const grabadoPor = document.getElementById('agv-grabado-por').value;
+  const agenteObj = (appData.agentes||[]).find(x=>x.id===perms.agenteId);
+  const esSubdealer = !!(agenteObj && (agenteObj.rol==='subdealer' || agenteObj.rol==='subdealер'));
+  const subAgente = esSubdealer ? (document.getElementById('agv-subagente')?.value||'') : '';
 
   if(!fecha) { showNotif('⚠️ Selecciona la fecha de activación','error'); return; }
   if(!cliente) { showNotif('⚠️ Ingresa el nombre del cliente','error'); return; }
   if(/[áéíóúÁÉÍÓÚ]/.test(cliente)) { showNotif('⚠️ El nombre del cliente no debe llevar acentos — escríbelo exactamente como aparece en la orden','error'); return; }
   if(!cuenta) { showNotif('⚠️ Ingresa el número de cuenta (VND+día+año)','error'); return; }
+  if(esSubdealer && !subAgente) { showNotif('⚠️ Selecciona cuál de tus agentes hizo esta venta','error'); return; }
 
   const [y, m] = fecha.split('-');
   const mes = mesStrDesdeNum(parseInt(y,10), parseInt(m,10));
@@ -11627,7 +11693,7 @@ function guardarVentaAgente() {
       id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana, grabadoPor,
       notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
       productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
-      telefonoLinea: l.telefonoLinea||'',
+      telefonoLinea: l.telefonoLinea||'', subAgente,
       reportadoPor: perms.agenteId, creadoEn: creadoEnOriginal,
     });
   });
