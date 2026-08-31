@@ -5925,7 +5925,7 @@ function renderVentasPendientesTabla() {
     const iStyVp = 'border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:12px;width:100%';
 
     return `<tr style="background:#F9FAFB;border-top:2px solid #F5C26B">
-        <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'fecha',this.value)">` : g.fecha}</td>
+        <td style="font-weight:600">${enEdicion ? `<input type="date" value="${g.fecha}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'fecha',this.value)">` : g.fecha}${!enEdicion && g.creadoEn ? `<div style="font-size:9px;color:#99ACC2;font-weight:400;margin-top:2px">📥 Registrado: ${fmtHoraMensaje(g.creadoEn)}</div>` : ''}</td>
         <td style="font-weight:600">${g.agente}</td>
         <td>${enEdicion
             ? `<input type="text" value="${g.cliente||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cliente',this.value)">
