@@ -6517,14 +6517,32 @@ function renderRecalcularSeguroLista() {
   `).join('');
 }
 
+// Bono de escala YA creado para una orden, si existe (null si todavía no
+// tiene). Es la base de la protección anti-duplicado del recálculo: la
+// línea de bono se guarda siempre con el mismo grupoId de la orden, así que
+// encontrarla es prueba de que a esa orden ya se le aplicó el recálculo.
+function segBonoEscalaDeGrupo(grupoId) {
+  if(grupoId == null) return null;
+  return (appData.ventas||[]).find(x => x.productoId==='seg-escala-bono' && x.grupoId===grupoId) || null;
+}
+
 // Aplica el recálculo ya con el Estado resuelto para cada línea del grupo
 // (paso compartido entre el flujo manual, línea por línea, y el flujo
 // masivo "Aplicar a todos"). Muta las líneas originales y, si corresponde,
 // agrega la línea de bono -- devuelve el monto del bono creado (0 si no
-// aplicó, ej. porque todas las líneas resultaron ser de Nueva York).
+// aplicó, ej. porque todas las líneas resultaron ser de Nueva York, o
+// porque esa orden ya tenía su bono de antes).
 function procesarRecalculoSegGrupo(grupoId, elegidos) {
   const lineas = elegidos.map(e=>e.linea);
   if(!lineas.length) return 0;
+
+  // Protección anti-duplicado: si a esta orden YA se le creó su línea de
+  // Bono Escala de Seguro, no se crea otra -- pasaba con el doble clic en
+  // "Aplicar recálculo"/"Aplicar a todos", o con dos sesiones abiertas
+  // aplicando la misma orden, y dejaba el bono pagado dos veces. Las líneas
+  // sí se terminan de completar (Estado/comisión son idempotentes), para
+  // que una orden a medio completar no se quede pendiente para siempre.
+  const yaTieneBono = !!segBonoEscalaDeGrupo(grupoId);
 
   elegidos.forEach(({linea, estado, previo}) => { linea.segEstado = estado; linea.segSeguroPrevio = previo; });
 
@@ -6532,7 +6550,7 @@ function procesarRecalculoSegGrupo(grupoId, elegidos) {
   segElegibles.forEach(({linea}) => { linea.comision = 1; });
   const bono = montoSegEscalaAgente(segElegibles.length) - segElegibles.length;
 
-  if(bono > 0) {
+  if(bono > 0 && !yaTieneBono) {
     const primera = lineas[0];
     const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
     appData.ventas.push({
@@ -6546,7 +6564,7 @@ function procesarRecalculoSegGrupo(grupoId, elegidos) {
       grupoId,
     });
   }
-  return bono;
+  return yaTieneBono ? 0 : bono;
 }
 
 function aplicarRecalculoSeg(grupoId) {
@@ -6567,11 +6585,19 @@ function aplicarRecalculoSeg(grupoId) {
 
   if(!confirm(`¿Aplicar el recálculo de esta orden (${lineas[0].cliente||'cliente'})?\n\nEsto va a ajustar la comisión de estas líneas de Seguro según la escala nueva.`)) return;
 
+  // Se mira ANTES de procesar, para poder avisar con claridad cuando el
+  // recálculo de esta orden ya se había aplicado (doble clic, u otra sesión).
+  const bonoPrevio = segBonoEscalaDeGrupo(grupoId);
+
   const bono = procesarRecalculoSegGrupo(grupoId, elegidos);
 
   guardar();
   renderRecalcularSeguroLista();
   renderDashboard();
+  if(bonoPrevio) {
+    showNotif(`⚠️ Esta orden ya tenía su Bono Escala de Seguro (${fmt(parseFloat(bonoPrevio.comision)||0)}) — no se creó otro para no pagarlo doble`, 'error', 8000);
+    return;
+  }
   showNotif(bono>0
     ? `✅ Recalculado — se agregó un bono de ${fmt(bono)} por esta orden`
     : '✅ Recalculado — esta orden se queda en tarifa tradicional (ej. Nueva York), sin bono');
@@ -6597,16 +6623,19 @@ function aplicarRecalculoSegTodos() {
   if(!confirm(`¿Aplicar el recálculo a las ${grupos.length} orden${grupos.length>1?'es':''} pendientes de ${mes} Q${quincena}?\n\nSe va a asumir que NINGUNA es de Nueva York (se guardará como "Fuera de NY, sin especificar" en vez del estado real de cada cliente).`)) return;
 
   let totalBono = 0;
+  let yaTenian = 0;
   grupos.forEach(g => {
     const lineas = (appData.ventas||[]).filter(v=> v.productoId==='att-seg' && (v.grupoId!=null?v.grupoId:v.id)===g.grupoId);
     const elegidos = lineas.map(l => ({ linea: l, estado: l.segEstado || SEG_ESTADO_SIN_ESPECIFICAR, previo: !!l.segSeguroPrevio }));
+    if(segBonoEscalaDeGrupo(g.grupoId)) yaTenian++;
     totalBono += procesarRecalculoSegGrupo(g.grupoId, elegidos);
   });
 
   guardar();
   renderRecalcularSeguroLista();
   renderDashboard();
-  showNotif(`✅ Recalculadas ${grupos.length} orden${grupos.length>1?'es':''} — bonos agregados por un total de ${fmt(totalBono)}`);
+  showNotif(`✅ Recalculadas ${grupos.length} orden${grupos.length>1?'es':''} — bonos agregados por un total de ${fmt(totalBono)}` +
+    (yaTenian ? ` · ${yaTenian} orden${yaTenian>1?'es ya tenían':' ya tenía'} su bono de antes, no se duplicó` : ''));
 }
 
 function quitarVentaChargeback(ventaId) {
