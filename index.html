@@ -449,6 +449,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-item" onclick="showPage('ventas-pendientes',this)"><span class="icon">🕓</span><span>Ventas Pendientes</span><span id="nav-pendientes-badge" style="display:none;background:#F2545B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:auto"></span></div>
     <div class="nav-item" onclick="showPage('ventas-rechazadas',this)"><span class="icon">❌</span><span>Ventas Rechazadas</span></div>
     <div class="nav-item" onclick="showPage('chargebacks-admin',this)"><span class="icon">⚠️</span><span>Chargebacks</span></div>
+    <div class="nav-item" onclick="showPage('recalcular-seguros',this)"><span class="icon">🛡️</span><span>Recalcular Seguros</span></div>
     <div class="nav-item" onclick="showPage('agentes',this)"><span class="icon">👥</span><span>Agentes</span></div>
     <div class="nav-section">Reportes</div>
     <div class="nav-item" onclick="showPage('resumen',this)"><span class="icon">📅</span><span>Resumen Mensual</span></div>
@@ -765,6 +766,22 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <tbody id="chargebacks-detalle-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- ===== RECALCULAR SEGUROS ===== -->
+    <div class="page" id="page-recalcular-seguros">
+      <div class="section">
+        <div class="section-header"><h2>🛡️ Recalcular Seguros</h2></div>
+        <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Para los Seguros (SEG) que ya se registraron ANTES de activarle a un agente la modalidad nueva (o antes de elegir el Estado del cliente), aquí puedes indicar el Estado de cada uno para que se le aplique la comisión por escala que corresponda — sin borrar ni perder ningún dato ya guardado. Solo aparecen las órdenes de agentes que HOY tienen la modalidad nueva activada y que aún les falta el Estado.</div>
+        <div class="filters">
+          <select id="rs-mes" onchange="renderRecalcularSeguroLista()"></select>
+          <select id="rs-q" onchange="renderRecalcularSeguroLista()">
+            <option value="1">Quincena 1</option>
+            <option value="2">Quincena 2</option>
+          </select>
+        </div>
+        <div id="rs-lista"></div>
       </div>
     </div>
 
@@ -4420,6 +4437,10 @@ function activarListenerAppData() {
           'agente-comisiones':  renderAgenteComisiones,
           'inspector-clientes': renderInspectorClientes,
           'chargebacks-admin':  renderChargebacksAdmin,
+          // 'recalcular-seguros' NO se re-renderiza aquí a propósito -- mismo
+          // motivo que 'agente-reportar'/'agente-actividad' arriba: tiene
+          // selects de Estado sin guardar por cada línea, y perderlos con
+          // cada sincronización remota sería peor que no refrescar.
         };
         if (renderMap[pageId]) {
           renderMap[pageId]();
@@ -5450,6 +5471,7 @@ const PAGE_TITLES = {
   'ventas-pendientes':'🕓 Ventas Pendientes',
   'ventas-rechazadas':'❌ Ventas Rechazadas',
   'chargebacks-admin':'⚠️ Chargebacks',
+  'recalcular-seguros':'🛡️ Recalcular Seguros',
   resumen:'📅 Resumen Mensual', pagos:'💳 Pagos Agentes', subdealers:'🤝 Pagos Sub-Dealers', 'rendimiento-agentes':'📊 Rendimiento de Agentes', campanas:'📢 Campañas & ROI',
   productos:'📦 Productos & Comisiones',
   top:'⭐ TOP', admin:'📋 Administración', hq:'🏛️ HEADQUARTERS', usuarios:'👤 Usuarios',
@@ -5517,6 +5539,7 @@ function renderPage(name) {
   if(name==='ventas-pendientes') renderVentasPendientes();
   if(name==='ventas-rechazadas') renderVentasRechazadas();
   if(name==='chargebacks-admin') renderChargebacksAdmin();
+  if(name==='recalcular-seguros') renderRecalcularSeguros();
   if(name==='resumen') renderResumen();
   if(name==='pagos') renderPagos();
   if(name==='subdealers') renderSubdealers();
@@ -6410,6 +6433,134 @@ function avisoChargebackSegEscala(v) {
   const bonoOrden = (v.grupoId!=null ? candidatos.find(x=>x.grupoId===v.grupoId) : null) || candidatos.find(x=>x.fecha===v.fecha) || null;
   const extra = bonoOrden ? (parseFloat(bonoOrden.comision)||0) : 0;
   return `🛡️ Este Seguro se pagó bajo la modalidad nueva y sigue dentro de los 95 días (día ${dias} de 95). Su orden recibió un bono de escala de ${fmt(extra)} — evalúa si corresponde descontarlo del próximo pago de ${v.agente} en Pagos de Agentes.`;
+}
+
+// ============================================================
+// RECALCULAR SEGUROS (retroactivo) — para los Seguros que ya se habían
+// registrado ANTES de activarle a un agente la modalidad nueva de SEG (o
+// antes de que existiera el campo Estado), permite indicarle el Estado a
+// cada línea y aplicar la comisión por escala correspondiente sobre lo que
+// ya está en Ventas -- sin borrar ni recrear nada, solo completando el
+// Estado que faltaba y agregando la línea de bono si corresponde (mismo
+// patrón que usa guardarVenta() al guardar en vivo). Nunca toca una
+// quincena ya cerrada.
+// ============================================================
+function renderRecalcularSeguros() {
+  populateMes('rs-mes', false);
+  renderRecalcularSeguroLista();
+}
+
+// Agrupa las líneas de Seguro del período elegido, de agentes que HOY están
+// en la modalidad nueva. Solo se listan los grupos (órdenes) que tengan AL
+// MENOS una línea sin Estado todavía -- así, en cuanto un grupo queda
+// completo, desaparece solo de esta lista y nunca se puede reprocesar por
+// accidente (no depende de ningún flag adicional).
+function segGruposPendientesRecalculo(mes, quincena) {
+  const q = parseInt(quincena);
+  const todas = (appData.ventas||[]).filter(v=>{
+    if(v.productoId!=='att-seg') return false;
+    if(!esAgenteNombreEnModalidadNueva(v.agente)) return false;
+    const p = getPeríodoPago(v);
+    return p.mes===mes && p.q===q;
+  });
+  const grupos = {};
+  const orden = [];
+  todas.forEach(v=>{
+    const gid = v.grupoId!=null ? v.grupoId : v.id;
+    if(!grupos[gid]) { grupos[gid] = { grupoId: gid, agente: v.agente, cliente: v.cliente, cuenta: v.cuenta, fecha: v.fecha, lineas: [] }; orden.push(gid); }
+    grupos[gid].lineas.push(v);
+  });
+  return orden.map(gid=>grupos[gid])
+    .filter(g => g.lineas.some(l=>!l.segEstado))
+    .sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+}
+
+function renderRecalcularSeguroLista() {
+  const mes = document.getElementById('rs-mes')?.value || '';
+  const quincena = document.getElementById('rs-q')?.value || '2';
+  const cont = document.getElementById('rs-lista');
+  if(!cont) return;
+  if(!mes) { cont.innerHTML = '<div class="tbl-empty">Selecciona un mes</div>'; return; }
+
+  const cerrada = estaQuincenaCerrada(mes, quincena);
+  const grupos = segGruposPendientesRecalculo(mes, quincena);
+
+  if(!grupos.length) {
+    cont.innerHTML = `<div class="tbl-empty">✅ No hay Seguros pendientes de recalcular en ${mes} Q${quincena}</div>`;
+    return;
+  }
+
+  cont.innerHTML = (cerrada ? `<div style="background:#FEE2E2;color:#DC2626;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:12px">🔒 Esta quincena está cerrada — no se puede aplicar el recálculo aquí. Reábrela primero si hace falta corregir algo.</div>` : '') +
+    grupos.map(g => `
+    <div style="border:1.5px solid #CBD6E2;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-weight:700;color:#33475B">${g.agente}</span>
+          <span style="color:#99ACC2"> · ${g.cliente||'—'} · ${g.cuenta||'—'} · ${mdaFecha(g.fecha)}</span>
+        </div>
+        <button class="btn btn-primary btn-sm" ${cerrada?'disabled':''} onclick='aplicarRecalculoSeg(${JSON.stringify(g.grupoId)})'>✅ Aplicar recálculo (${g.lineas.length} línea${g.lineas.length>1?'s':''})</button>
+      </div>
+      ${g.lineas.map(l => `
+        <div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid #F5F8FA">
+          <span style="font-size:11px;color:#99ACC2;min-width:60px">🛡️ Seguro</span>
+          <select id="rs-estado-${l.id}" style="border:1.5px solid #CBD6E2;border-radius:6px;padding:5px 8px;font-size:12px;flex:1">
+            <option value="">— Selecciona Estado —</option>
+            ${ESTADOS_EEUU.map(([cod,nom])=>`<option value="${cod}" ${l.segEstado===cod?'selected':''}>${nom}</option>`).join('')}
+          </select>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#33475B;font-weight:600;white-space:nowrap">
+            <input type="checkbox" id="rs-previo-${l.id}" ${l.segSeguroPrevio?'checked':''}> ¿Seguro previo?
+          </label>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function aplicarRecalculoSeg(grupoId) {
+  const lineas = (appData.ventas||[]).filter(v=> v.productoId==='att-seg' && (v.grupoId!=null?v.grupoId:v.id)===grupoId);
+  if(!lineas.length) return;
+
+  const periodo = getPeríodoPago(lineas[0]);
+  if(!validarQuincenaNoEsteeCerrada(periodo.mes, periodo.q)) return;
+
+  let faltaEstado = false;
+  const elegidos = lineas.map(l=>{
+    const estado = document.getElementById('rs-estado-'+l.id)?.value || '';
+    const previo = !!document.getElementById('rs-previo-'+l.id)?.checked;
+    if(!estado) faltaEstado = true;
+    return { linea: l, estado, previo };
+  });
+  if(faltaEstado) { showNotif('⚠️ Selecciona el Estado en todas las líneas de esta orden antes de aplicar', 'error'); return; }
+
+  if(!confirm(`¿Aplicar el recálculo de esta orden (${lineas[0].cliente||'cliente'})?\n\nEsto va a ajustar la comisión de estas líneas de Seguro según la escala nueva.`)) return;
+
+  elegidos.forEach(({linea, estado, previo}) => { linea.segEstado = estado; linea.segSeguroPrevio = previo; });
+
+  const segElegibles = elegidos.filter(e => e.estado !== 'NY');
+  segElegibles.forEach(({linea}) => { linea.comision = 1; });
+  const bono = montoSegEscalaAgente(segElegibles.length) - segElegibles.length;
+
+  if(bono > 0) {
+    const primera = lineas[0];
+    const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
+    appData.ventas.push({
+      id: maxId, fecha: primera.fecha, agente: primera.agente, cliente: primera.cliente, cuenta: primera.cuenta,
+      mes: primera.mes, campana: primera.campana||'', quincenaPago: primera.quincenaPago||'', mesPago: primera.mesPago||'',
+      llamadaGrabada:false, agenteGrabacion:'', comisionGrabacion:0,
+      notas: `Bono escala de Seguro (retroactivo, ${segElegibles.length} línea${segElegibles.length>1?'s':''})`,
+      productoId:'seg-escala-bono', categoria:'mobility', cantidad:1, comision:bono,
+      telefonoLinea:'', segEstado:'', segSeguroPrevio:false,
+      ...(primera.reportadoPor!==undefined ? { reportadoPor: primera.reportadoPor } : {}),
+      grupoId,
+    });
+  }
+
+  guardar();
+  renderRecalcularSeguroLista();
+  renderDashboard();
+  showNotif(bono>0
+    ? `✅ Recalculado — se agregó un bono de ${fmt(bono)} por esta orden`
+    : '✅ Recalculado — esta orden se queda en tarifa tradicional (ej. Nueva York), sin bono');
 }
 
 function quitarVentaChargeback(ventaId) {
