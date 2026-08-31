@@ -1911,7 +1911,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         </div>
         <div class="form-group" style="margin:0">
           <label>Agente *</label>
-          <select id="v-agente" onchange="updateVentaTotal()"></select>
+          <select id="v-agente" onchange="updateVentaTotal();actualizarVisibilidadSegTodasLasLineas()"></select>
         </div>
         <div class="form-group" style="margin:0">
           <label>💳 Quincena de Pago</label>
@@ -2119,7 +2119,15 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           <input type="number" id="a-sueldo" placeholder="0.00" step="0.01" min="0">
         </div>
         <div class="form-group"><label>Teléfono</label><input type="text" id="a-tel" placeholder="(305) 000-0000"></div>
-        <div class="form-group" style="grid-column:1/-1"><label>Email</label><input type="email" id="a-email" placeholder="correo@email.com"></div>
+        <div class="form-group"><label>Email</label><input type="email" id="a-email" placeholder="correo@email.com"></div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>🛡️ Modalidad de comisión de Seguro (SEG / AT&T Protect)</label>
+          <select id="a-seg-modalidad">
+            <option value="tradicional">Tradicional — $1 por unidad, sin riesgo de chargeback</option>
+            <option value="nueva">Nueva — escala por cantidad (hasta $12), con riesgo de chargeback a 95 días</option>
+          </select>
+          <span style="font-size:9px;font-weight:400;color:#99ACC2"> — solo activar cuando el agente haya aceptado esta modalidad. Nueva York siempre paga $1, sin importar la modalidad.</span>
+        </div>
       </div>
 
       <!-- Agentes supervisados (gerente/supervisor) -->
@@ -3554,6 +3562,75 @@ function nombresSubdealerSet() {
   return new Set((appData.agentes||[]).filter(a=>esRolSubdealer(a.rol)).map(a=>(a.nombre||'').trim().toLowerCase()));
 }
 
+// ============================================================
+// SEGURO DE CELULAR (SEG / AT&T Protect) — nueva modalidad de comisión por
+// escala, opcional por agente (a pedido de la dueña, comunicado al equipo de
+// ventas). El agente que acepta esta modalidad gana más por orden (según
+// cuántas líneas con seguro venda en la MISMA orden/reporte), a cambio de
+// asumir el riesgo de que se le descuente si el cliente cancela el seguro
+// dentro de los primeros 95 días y la empresa recibe un chargeback. Nueva
+// York queda siempre en la tarifa tradicional de $1, sin importar la
+// modalidad elegida. Todo esto es opcional/aditivo -- un agente sin
+// segModalidad configurado se trata como "tradicional" (como siempre).
+// ============================================================
+const ESTADOS_EEUU = [
+  ['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],
+  ['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['FL','Florida'],['GA','Georgia'],
+  ['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],
+  ['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],
+  ['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],
+  ['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],
+  ['NM','New Mexico'],['NY','Nueva York'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],
+  ['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],
+  ['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],
+  ['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming'],
+];
+// Escala de comisión del AGENTE por orden, según cantidad de líneas con
+// seguro en esa misma orden (1=$4, 2=$8, 3=$10, 4 o más=$12, tope fijo).
+function montoSegEscalaAgente(count) {
+  if(count>=4) return 12;
+  return ({1:4, 2:8, 3:10})[count] || 0;
+}
+// Escala de comisión de José Piña sobre esa misma orden (1 línea=$2, 2 o
+// más=$4, tope fijo) -- solo aplica a agentes que él supervisa.
+function montoSegEscalaJosePina(count) {
+  if(count>=2) return 4;
+  return count===1 ? 2 : 0;
+}
+function esAgenteNombreEnModalidadNueva(nombreAgente) {
+  const a = (appData.agentes||[]).find(x=>(x.nombre||'').trim().toLowerCase()===(nombreAgente||'').trim().toLowerCase());
+  return !!(a && a.segModalidad==='nueva');
+}
+// Una línea de SEG usa la escala nueva solo si su agente aceptó la modalidad
+// Y el estado no es Nueva York (ahí siempre es la tarifa tradicional).
+function segLineaUsaEscala(v) {
+  return v && v.productoId==='att-seg' && esAgenteNombreEnModalidadNueva(v.agente) && v.segEstado !== 'NY';
+}
+// Comisión de supervisión total que un supervisor/gerente gana de un
+// conjunto de ventas YA FILTRADAS (por mes/quincena) de sus agentes
+// supervisados. Reemplaza el cálculo estándar por-unidad SOLO para el caso
+// especial de José Piña + líneas de Seguro bajo la escala nueva -- ahí se
+// agrupan por orden (grupoId) y se paga su escala fija, en vez de su tarifa
+// normal configurada para ese producto. Para cualquier otro supervisor, o
+// para José Piña en ventas que no califican (Nueva York / modalidad
+// tradicional), el cálculo es exactamente el mismo de siempre.
+function calcularComisionSupervisionDeVentas(supervisorNombre, ventasDelAgente) {
+  const esJP = esJosePina(supervisorNombre);
+  let total = 0;
+  const gruposEscalaJP = {};
+  (ventasDelAgente||[]).forEach(v => {
+    if(esJP && segLineaUsaEscala(v)) {
+      const gid = v.grupoId != null ? v.grupoId : v.id;
+      if(!gruposEscalaJP[gid]) gruposEscalaJP[gid] = 0;
+      gruposEscalaJP[gid] += (parseFloat(v.cantidad)||1);
+      return;
+    }
+    total += getComisionSupervisionPorAgente(supervisorNombre, v.agente, v.productoId) * (parseFloat(v.cantidad)||1);
+  });
+  Object.values(gruposEscalaJP).forEach(count => { total += montoSegEscalaJosePina(count); });
+  return total;
+}
+
 const CAT_LABELS = {
   'mobility':       '📱 AT&T Mobility',
   'internet':       '🌐 Internet Residencial',
@@ -4790,6 +4867,7 @@ function getCatalogCom(productoId) {
 }
 function getProdNombre(productoId) {
   if(productoId === 'grabacion') return '📞 Grabación de Llamada';
+  if(productoId === 'seg-escala-bono') return '🛡️ Bono Escala de Seguro';
   const p = getCatalogoCompleto().find(x=>x.id===productoId);
   return p ? p.nombre : productoId;
 }
@@ -4849,9 +4927,8 @@ function getComisionesMes(a, mes) {
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const supervisados = (a.agentesSupervisa||[]).map(n=>normNombre(n));
     const deAgentes = supervisados.length
-      ? appData.ventas
-          .filter(v=>v.mes===mes && supervisados.includes(normNombre(v.agente)))
-          .reduce((s,v)=>s + getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId)*v.cantidad, 0)
+      ? calcularComisionSupervisionDeVentas(a.nombre, appData.ventas
+          .filter(v=>v.mes===mes && supervisados.includes(normNombre(v.agente))))
       : 0;
     return propias + deAgentes + extras;
   }
@@ -5199,12 +5276,12 @@ function getComisionesQuincena(a, mes, q) {
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>normNombre(n));
     const deAgentes = sups.length
-      ? appData.ventas.filter(v=>{
+      ? calcularComisionSupervisionDeVentas(a.nombre, appData.ventas.filter(v=>{
           if(v.esGrabacion || v._esGrabacion) return false;
           if(!sups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
-        }).reduce((s,v)=>s + getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId)*v.cantidad, 0)
+        }))
       : 0;
     return propias + deAgentes + extras;
   }
@@ -5252,12 +5329,12 @@ function getComisionesQuincenaDesglose(a, mes, q) {
   if(a.rol==='gerente'||a.rol==='supervisor') {
     const sups = (a.agentesSupervisa||[]).map(n=>normNombre(n));
     supervision = sups.length
-      ? appData.ventas.filter(v=>{
+      ? calcularComisionSupervisionDeVentas(a.nombre, appData.ventas.filter(v=>{
           if(v.esGrabacion) return false;
           if(!sups.includes(normNombre(v.agente))) return false;
           const pp = getPeríodoPago(v);
           return pp.mes === mes && pp.q === q;
-        }).reduce((s,v)=>s + getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId)*v.cantidad, 0)
+        }))
       : 0;
   }
 
@@ -6022,6 +6099,7 @@ function aprobarVentaPendiente(grupoId) {
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
+      segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
@@ -6231,6 +6309,7 @@ function adminAprobarRechazada(grupoId) {
       grabadoPor: l.grabadoPor || '',
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
+      segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
     });
   });
@@ -6310,7 +6389,27 @@ function marcarVentaChargeback(ventaId) {
   crearNotificacion({ paraInspector: true }, 'chargeback', `Nuevo chargeback: ${v.cliente||'un cliente'} (${v.agente}) — ${v.chargebackMotivo}`, v.grupoId);
   guardar();
   renderVentas();
-  showNotif('⚠️ Venta marcada como Chargeback');
+  // Seguro bajo la modalidad nueva, dentro de los 95 días: se avisa cuánto
+  // de más se pagó por la escala, para que se descuente a mano del próximo
+  // pago (mismo criterio que el resto de chargebacks -- no se automatiza).
+  const avisoSeg = avisoChargebackSegEscala(v);
+  showNotif(avisoSeg || '⚠️ Venta marcada como Chargeback', 'error', avisoSeg ? 15000 : undefined);
+}
+// Si esta venta es un Seguro que se pagó bajo la escala nueva y sigue
+// dentro de los primeros 95 días, arma un aviso con cuánto de más se pagó
+// (el bono de esa orden) para que Admin decida si aplica el descuento en el
+// próximo pago -- no se automatiza, mismo criterio que ya usa toda la app
+// para chargebacks (se marca y se avisa, el ajuste de pago es manual).
+function avisoChargebackSegEscala(v) {
+  if(!segLineaUsaEscala(v)) return null;
+  const fechaVenta = new Date(v.fecha);
+  if(isNaN(fechaVenta.getTime())) return null;
+  const dias = Math.floor((Date.now() - fechaVenta.getTime()) / 86400000);
+  if(dias >= 95) return null;
+  const candidatos = (appData.ventas||[]).filter(x => x.productoId==='seg-escala-bono' && (x.agente||'').trim().toLowerCase()===(v.agente||'').trim().toLowerCase());
+  const bonoOrden = (v.grupoId!=null ? candidatos.find(x=>x.grupoId===v.grupoId) : null) || candidatos.find(x=>x.fecha===v.fecha) || null;
+  const extra = bonoOrden ? (parseFloat(bonoOrden.comision)||0) : 0;
+  return `🛡️ Este Seguro se pagó bajo la modalidad nueva y sigue dentro de los 95 días (día ${dias} de 95). Su orden recibió un bono de escala de ${fmt(extra)} — evalúa si corresponde descontarlo del próximo pago de ${v.agente} en Pagos de Agentes.`;
 }
 
 function quitarVentaChargeback(ventaId) {
@@ -7833,6 +7932,21 @@ function agregarLineaVenta(linea=null) {
     <div id="vl-tel-wrap-${idx}" style="display:none;margin-top:8px">
       <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">📞 Teléfono de la línea vendida o portabilidad *</div>
       <input type="tel" id="vl-tel-${idx}" placeholder="Ej: 407-555-1234" style="${iSty}">
+    </div>
+    <div id="vl-seg-wrap-${idx}" style="display:none;margin-top:8px;background:#F4F5FF;border:1px solid #6A78D1;border-radius:8px;padding:10px">
+      <div style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase;margin-bottom:6px">🛡️ Modalidad Nueva de Seguro</div>
+      <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px;align-items:end">
+        <div>
+          <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Estado *</div>
+          <select id="vl-seg-estado-${idx}" style="${iSty}">
+            <option value="">— Selecciona —</option>
+            ${ESTADOS_EEUU.map(([cod,nom])=>`<option value="${cod}">${nom}</option>`).join('')}
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#33475B;font-weight:600;cursor:pointer;padding-bottom:8px">
+          <input type="checkbox" id="vl-seg-previo-${idx}"> ¿Cliente ya tenía seguro de una orden anterior?
+        </label>
+      </div>
     </div>`;
   document.getElementById('v-lineas-container').appendChild(div);
   if(linea) {
@@ -7847,9 +7961,30 @@ function agregarLineaVenta(linea=null) {
       const telWrap = document.getElementById('vl-tel-wrap-'+idx);
       if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(linea.productoId) ? 'block' : 'none';
       document.getElementById('vl-tel-'+idx).value = linea.telefonoLinea||'';
+      actualizarVisibilidadSegLinea(idx, linea.productoId);
+      document.getElementById('vl-seg-estado-'+idx).value = linea.segEstado||'';
+      document.getElementById('vl-seg-previo-'+idx).checked = !!linea.segSeguroPrevio;
       updateVentaTotal();
     },10);
   }
+}
+// Muestra/oculta los campos de la modalidad nueva de Seguro (Estado + seguro
+// previo) para una línea puntual del formulario -- solo aplica al producto
+// SEG y cuando el agente elegido en la venta aceptó la modalidad nueva.
+function actualizarVisibilidadSegLinea(idx, productoId) {
+  const agente = document.getElementById('v-agente')?.value||'';
+  const wrap = document.getElementById('vl-seg-wrap-'+idx);
+  if(wrap) wrap.style.display = (productoId==='att-seg' && esAgenteNombreEnModalidadNueva(agente)) ? 'block' : 'none';
+}
+// Si el usuario cambia el agente DESPUÉS de haber agregado líneas de
+// producto, hay que re-evaluar todas las líneas ya agregadas (puede que
+// ahora sí o ya no aplique la modalidad nueva de Seguro).
+function actualizarVisibilidadSegTodasLasLineas() {
+  document.querySelectorAll('[id^="vlinea-"]').forEach(div=>{
+    const idx = div.id.replace('vlinea-','');
+    const pid = document.getElementById('vl-prod-'+idx)?.value||'';
+    actualizarVisibilidadSegLinea(idx, pid);
+  });
 }
 
 function onLineCatChange(idx) {
@@ -7871,6 +8006,7 @@ function onLineProdChange(idx) {
   }
   const telWrap = document.getElementById('vl-tel-wrap-'+idx);
   if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(pid) ? 'block' : 'none';
+  actualizarVisibilidadSegLinea(idx, pid);
   updateVentaTotal();
 }
 
@@ -8458,6 +8594,8 @@ function guardarVenta() {
     const com  = parseFloat(document.getElementById('vl-com-'+idx)?.value)||0;
     const nota = document.getElementById('vl-nota-'+idx)?.value?.trim()||'';
     const telefonoLinea = document.getElementById('vl-tel-'+idx)?.value?.trim()||'';
+    const segEstado = document.getElementById('vl-seg-estado-'+idx)?.value||'';
+    const segSeguroPrevio = !!document.getElementById('vl-seg-previo-'+idx)?.checked;
 
     if(!cat || !prod) {
       console.warn(`Línea ${visibleIdx+1} incompleta: cat=${cat}, prod=${prod}`);
@@ -8478,7 +8616,13 @@ function guardarVenta() {
         if(dup) telefonoInvalido = `⚠️ Ese número de teléfono ya fue registrado antes (cliente: ${dup.cliente||'—'}) — por seguridad no se puede repetir`;
       }
     }
-    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea });
+    // Estado del Seguro: solo obligatorio cuando el producto es SEG Y el
+    // agente eligió la modalidad nueva (mismo criterio que muestra/oculta el
+    // campo en pantalla).
+    if(!telefonoInvalido && prod==='att-seg' && esAgenteNombreEnModalidadNueva(agente) && !segEstado) {
+      telefonoInvalido = `⚠️ Línea ${visibleIdx+1}: selecciona el Estado del seguro`;
+    }
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea, segEstado, segSeguroPrevio });
   });
 
   // Si hay líneas incompletas, mostrar error específico
@@ -8491,6 +8635,27 @@ function guardarVenta() {
 
   console.log(`Líneas a guardar: ${lineas.length}`, lineas);
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
+
+  // Escala nueva de Seguro (SEG): se cuenta cuántas líneas de SEG elegibles
+  // (Estado distinto de Nueva York) hay en ESTA MISMA orden -- cada línea
+  // queda guardada con el valor tradicional ($1, fácil de auditar por
+  // unidad), y la diferencia hasta la escala se agrega como una línea de
+  // bono aparte (mismo patrón ya usado para la comisión de "Llamada
+  // Grabada"). La comisión de José Piña sobre esto se calcula sola, en vivo,
+  // por calcularComisionSupervisionDeVentas() -- no hace falta nada aquí.
+  if(esAgenteNombreEnModalidadNueva(agente)) {
+    const segElegibles = lineas.filter(l => l.productoId==='att-seg' && l.segEstado && l.segEstado!=='NY');
+    if(segElegibles.length) {
+      const totalEscala = montoSegEscalaAgente(segElegibles.length);
+      const totalTradicional = segElegibles.length;
+      segElegibles.forEach(l => { l.comision = 1; });
+      const bono = totalEscala - totalTradicional;
+      if(bono > 0) {
+        lineas.push({ categoria:'mobility', productoId:'seg-escala-bono', cantidad:1, comision:bono,
+          notaLinea:`Bono escala de Seguro (${segElegibles.length} línea${segElegibles.length>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
+      }
+    }
+  }
 
   if(editVentaId !== null) {
     // Edit: eliminar todas las líneas antiguas de esta venta y crear nuevas
@@ -8537,7 +8702,7 @@ function guardarVenta() {
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
-        telefonoLinea: l.telefonoLinea||'',
+        telefonoLinea: l.telefonoLinea||'', segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
         // Se preserva de la venta original (igual que reportadoPor/grupoId) --
         // el formulario de Admin/Inspector no tiene este campo, así que si no
         // se rescatara aquí, editar una venta de un Sub-Dealer lo borraría.
@@ -8578,7 +8743,7 @@ function guardarVenta() {
         comisionGrabacion: idx === 0 ? comisionGrabacion : 0,
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
-        telefonoLinea: l.telefonoLinea||'',
+        telefonoLinea: l.telefonoLinea||'', segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
         ...(reportadoPorAuto!==undefined ? { reportadoPor: reportadoPorAuto, grupoId: grupoIdNuevo } : {}) };
       console.log(`Agregando venta ${idx+1}:`, ventaObj);
       appData.ventas.push(ventaObj);
@@ -9126,6 +9291,7 @@ function openAgenteModal(id=null) {
   document.getElementById('a-sueldo').value  = a?.sueldoQuincenal!=null ? a.sueldoQuincenal : '';
   document.getElementById('a-tel').value     = a?.tel||'';
   document.getElementById('a-email').value   = a?.email||'';
+  document.getElementById('a-seg-modalidad').value = a?.segModalidad==='nueva' ? 'nueva' : 'tradicional';
 
   // Tabla de comisiones — se renderiza en onRolChange()
 
@@ -9199,6 +9365,7 @@ function guardarAgente() {
     comisionesPersonales: comPs,
     comisionesDirectas: esSupervisor ? comDir : {},
     agentesSupervisa: esSupervisor ? agentesSupervisa : [],
+    segModalidad: document.getElementById('a-seg-modalidad').value==='nueva' ? 'nueva' : 'tradicional',
     activo: true,
   };
   if(editAgenteId !== null) {
@@ -10321,10 +10488,7 @@ function renderPagos() {
 
         Object.keys(porAgente).forEach(agNom=>{
           const ventas = porAgente[agNom];
-          const comTotal = ventas.reduce((s,v)=>{
-            const rate = getComisionSupervisionPorAgente(a.nombre, v.agente, v.productoId);
-            return s + rate * (v.cantidad||1);
-          }, 0);
+          const comTotal = calcularComisionSupervisionDeVentas(a.nombre, ventas);
 
           desglose += '<div style="color:#33475B;margin-bottom:3px">';
           desglose += '<b>' + agNom + ':</b> ';
@@ -11559,6 +11723,9 @@ function renderAgenteReportar() {
       const telWrap = document.getElementById('agv-tel-wrap-'+idx);
       if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(l.productoId) ? 'block' : 'none';
       document.getElementById('agv-tel-'+idx).value = l.telefonoLinea||'';
+      agenteActualizarVisibilidadSegLinea(idx, l.productoId);
+      document.getElementById('agv-seg-estado-'+idx).value = l.segEstado||'';
+      document.getElementById('agv-seg-previo-'+idx).checked = !!l.segSeguroPrevio;
     });
   } else {
     agenteAgregarLineaVenta();
@@ -11615,8 +11782,28 @@ function agenteAgregarLineaVenta() {
       <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">📞 Teléfono de la línea vendida o portabilidad *</div>
       <input type="tel" id="agv-tel-${idx}" placeholder="Ej: 407-555-1234" style="${iSty}">
     </div>
+    <div id="agv-seg-wrap-${idx}" style="display:none;margin-top:8px;background:#F4F5FF;border:1px solid #6A78D1;border-radius:8px;padding:10px">
+      <div style="font-size:9px;font-weight:700;color:#6A78D1;text-transform:uppercase;margin-bottom:6px">🛡️ Modalidad Nueva de Seguro</div>
+      <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px;align-items:end">
+        <div>
+          <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Estado *</div>
+          <select id="agv-seg-estado-${idx}" style="${iSty}">
+            <option value="">— Selecciona —</option>
+            ${ESTADOS_EEUU.map(([cod,nom])=>`<option value="${cod}">${nom}</option>`).join('')}
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#33475B;font-weight:600;cursor:pointer;padding-bottom:8px">
+          <input type="checkbox" id="agv-seg-previo-${idx}"> ¿Cliente ya tenía seguro de una orden anterior?
+        </label>
+      </div>
+    </div>
     <input type="hidden" id="agv-com-${idx}">`;
   document.getElementById('agv-lineas-container').appendChild(div);
+}
+function agenteActualizarVisibilidadSegLinea(idx, productoId) {
+  const agente = document.getElementById('agv-agente-nombre')?.value||'';
+  const wrap = document.getElementById('agv-seg-wrap-'+idx);
+  if(wrap) wrap.style.display = (productoId==='att-seg' && esAgenteNombreEnModalidadNueva(agente)) ? 'block' : 'none';
 }
 
 function agenteOnLineCatChange(idx) {
@@ -11637,6 +11824,7 @@ function agenteOnLineProdChange(idx) {
   }
   const telWrap = document.getElementById('agv-tel-wrap-'+idx);
   if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(pid) ? 'block' : 'none';
+  agenteActualizarVisibilidadSegLinea(idx, pid);
   agenteUpdateVentaTotal();
 }
 
@@ -11686,6 +11874,8 @@ function guardarVentaAgente() {
     const com  = parseFloat(document.getElementById('agv-com-'+idx)?.value)||0;
     const nota = document.getElementById('agv-nota-'+idx)?.value?.trim()||'';
     const telefonoLinea = document.getElementById('agv-tel-'+idx)?.value?.trim()||'';
+    const segEstado = document.getElementById('agv-seg-estado-'+idx)?.value||'';
+    const segSeguroPrevio = !!document.getElementById('agv-seg-previo-'+idx)?.checked;
     if(!cat || !prod) { hasIncompleteLines = true; return; }
     // Teléfono de la línea: obligatorio para los productos "Línea" de
     // Mobility (tanto al crear como al corregir un reporte, ya que sigue
@@ -11702,12 +11892,33 @@ function guardarVentaAgente() {
         if(dup && dup.grupoId !== _agvEditGrupoId) telefonoInvalido = `⚠️ Ese número de teléfono ya fue registrado antes (cliente: ${dup.cliente||'—'}) — por seguridad no se puede repetir`;
       }
     }
-    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea });
+    if(!telefonoInvalido && prod==='att-seg' && esAgenteNombreEnModalidadNueva(perms.nombre) && !segEstado) {
+      telefonoInvalido = `⚠️ Línea ${visibleIdx+1}: selecciona el Estado del seguro`;
+    }
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea, segEstado, segSeguroPrevio });
   });
 
   if(hasIncompleteLines) { showNotif('⚠️ Completa Categoría y Producto en todas las líneas','error'); return; }
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
   if(telefonoInvalido) { showNotif(telefonoInvalido, 'error'); return; }
+
+  // Escala nueva de Seguro (SEG) -- mismo criterio que en el formulario de
+  // Admin/Inspector: se cuenta cuántas líneas de SEG elegibles (Estado
+  // distinto de Nueva York) hay en ESTE MISMO reporte, cada línea queda en
+  // el valor tradicional ($1) y la diferencia se agrega como bono aparte.
+  if(esAgenteNombreEnModalidadNueva(perms.nombre)) {
+    const segElegibles = lineas.filter(l => l.productoId==='att-seg' && l.segEstado && l.segEstado!=='NY');
+    if(segElegibles.length) {
+      const totalEscala = montoSegEscalaAgente(segElegibles.length);
+      const totalTradicional = segElegibles.length;
+      segElegibles.forEach(l => { l.comision = 1; });
+      const bono = totalEscala - totalTradicional;
+      if(bono > 0) {
+        lineas.push({ categoria:'mobility', productoId:'seg-escala-bono', cantidad:1, comision:bono,
+          notaLinea:`Bono escala de Seguro (${segElegibles.length} línea${segElegibles.length>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
+      }
+    }
+  }
 
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
@@ -11730,6 +11941,7 @@ function guardarVentaAgente() {
       notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
       productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
       telefonoLinea: l.telefonoLinea||'', subAgente,
+      segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: perms.agenteId, creadoEn: creadoEnOriginal,
     });
   });
