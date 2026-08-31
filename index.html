@@ -780,6 +780,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <option value="1">Quincena 1</option>
             <option value="2">Quincena 2</option>
           </select>
+          <button class="btn btn-ghost btn-sm" onclick="aplicarRecalculoSegTodos()">⚡ Aplicar a todos (ninguno es Nueva York)</button>
         </div>
         <div id="rs-lista"></div>
       </div>
@@ -6516,23 +6517,14 @@ function renderRecalcularSeguroLista() {
   `).join('');
 }
 
-function aplicarRecalculoSeg(grupoId) {
-  const lineas = (appData.ventas||[]).filter(v=> v.productoId==='att-seg' && (v.grupoId!=null?v.grupoId:v.id)===grupoId);
-  if(!lineas.length) return;
-
-  const periodo = getPeríodoPago(lineas[0]);
-  if(!validarQuincenaNoEsteeCerrada(periodo.mes, periodo.q)) return;
-
-  let faltaEstado = false;
-  const elegidos = lineas.map(l=>{
-    const estado = document.getElementById('rs-estado-'+l.id)?.value || '';
-    const previo = !!document.getElementById('rs-previo-'+l.id)?.checked;
-    if(!estado) faltaEstado = true;
-    return { linea: l, estado, previo };
-  });
-  if(faltaEstado) { showNotif('⚠️ Selecciona el Estado en todas las líneas de esta orden antes de aplicar', 'error'); return; }
-
-  if(!confirm(`¿Aplicar el recálculo de esta orden (${lineas[0].cliente||'cliente'})?\n\nEsto va a ajustar la comisión de estas líneas de Seguro según la escala nueva.`)) return;
+// Aplica el recálculo ya con el Estado resuelto para cada línea del grupo
+// (paso compartido entre el flujo manual, línea por línea, y el flujo
+// masivo "Aplicar a todos"). Muta las líneas originales y, si corresponde,
+// agrega la línea de bono -- devuelve el monto del bono creado (0 si no
+// aplicó, ej. porque todas las líneas resultaron ser de Nueva York).
+function procesarRecalculoSegGrupo(grupoId, elegidos) {
+  const lineas = elegidos.map(e=>e.linea);
+  if(!lineas.length) return 0;
 
   elegidos.forEach(({linea, estado, previo}) => { linea.segEstado = estado; linea.segSeguroPrevio = previo; });
 
@@ -6554,6 +6546,28 @@ function aplicarRecalculoSeg(grupoId) {
       grupoId,
     });
   }
+  return bono;
+}
+
+function aplicarRecalculoSeg(grupoId) {
+  const lineas = (appData.ventas||[]).filter(v=> v.productoId==='att-seg' && (v.grupoId!=null?v.grupoId:v.id)===grupoId);
+  if(!lineas.length) return;
+
+  const periodo = getPeríodoPago(lineas[0]);
+  if(!validarQuincenaNoEsteeCerrada(periodo.mes, periodo.q)) return;
+
+  let faltaEstado = false;
+  const elegidos = lineas.map(l=>{
+    const estado = document.getElementById('rs-estado-'+l.id)?.value || '';
+    const previo = !!document.getElementById('rs-previo-'+l.id)?.checked;
+    if(!estado) faltaEstado = true;
+    return { linea: l, estado, previo };
+  });
+  if(faltaEstado) { showNotif('⚠️ Selecciona el Estado en todas las líneas de esta orden antes de aplicar', 'error'); return; }
+
+  if(!confirm(`¿Aplicar el recálculo de esta orden (${lineas[0].cliente||'cliente'})?\n\nEsto va a ajustar la comisión de estas líneas de Seguro según la escala nueva.`)) return;
+
+  const bono = procesarRecalculoSegGrupo(grupoId, elegidos);
 
   guardar();
   renderRecalcularSeguroLista();
@@ -6561,6 +6575,38 @@ function aplicarRecalculoSeg(grupoId) {
   showNotif(bono>0
     ? `✅ Recalculado — se agregó un bono de ${fmt(bono)} por esta orden`
     : '✅ Recalculado — esta orden se queda en tarifa tradicional (ej. Nueva York), sin bono');
+}
+
+// Marca especial para cuando Admin confirma que NINGUNA orden pendiente del
+// período es de Nueva York, y prefiere aplicar el recálculo a todas de una
+// vez en vez de elegir el Estado exacto línea por línea. La comisión sale
+// igual de bien calculada (todas cuentan para la escala, como corresponde),
+// pero se guarda este marcador en vez del estado real de cada cliente --
+// por eso se pierde el detalle de en qué estado específico fue esa venta.
+const SEG_ESTADO_SIN_ESPECIFICAR = 'FUERA_NY_SIN_ESPECIFICAR';
+
+function aplicarRecalculoSegTodos() {
+  const mes = document.getElementById('rs-mes')?.value || '';
+  const quincena = document.getElementById('rs-q')?.value || '2';
+  if(!mes) { showNotif('⚠️ Selecciona un mes primero','error'); return; }
+  if(!validarQuincenaNoEsteeCerrada(mes, parseInt(quincena))) return;
+
+  const grupos = segGruposPendientesRecalculo(mes, quincena);
+  if(!grupos.length) { showNotif('✅ No hay nada pendiente de recalcular en ese período'); return; }
+
+  if(!confirm(`¿Aplicar el recálculo a las ${grupos.length} orden${grupos.length>1?'es':''} pendientes de ${mes} Q${quincena}?\n\nSe va a asumir que NINGUNA es de Nueva York (se guardará como "Fuera de NY, sin especificar" en vez del estado real de cada cliente).`)) return;
+
+  let totalBono = 0;
+  grupos.forEach(g => {
+    const lineas = (appData.ventas||[]).filter(v=> v.productoId==='att-seg' && (v.grupoId!=null?v.grupoId:v.id)===g.grupoId);
+    const elegidos = lineas.map(l => ({ linea: l, estado: l.segEstado || SEG_ESTADO_SIN_ESPECIFICAR, previo: !!l.segSeguroPrevio }));
+    totalBono += procesarRecalculoSegGrupo(g.grupoId, elegidos);
+  });
+
+  guardar();
+  renderRecalcularSeguroLista();
+  renderDashboard();
+  showNotif(`✅ Recalculadas ${grupos.length} orden${grupos.length>1?'es':''} — bonos agregados por un total de ${fmt(totalBono)}`);
 }
 
 function quitarVentaChargeback(ventaId) {
