@@ -3541,6 +3541,19 @@ function telefonoLineaYaRegistrado(telefono, excluirVentaId) {
   return null;
 }
 
+// ============================================================
+// SEPARAR MONTOS DE SUB-DEALERS DE LOS TOTALES GENERALES — a pedido de la
+// dueña: los Sub-Dealers se pagan aparte (ciclo semanal, ver Pagos
+// Sub-Dealers), así que su dinero no debe mezclarse dentro de los totales
+// de nómina/comisiones/ganancia de los demás agentes (quincenales). Estos
+// helpers se usan en los cálculos agregados (Resumen Mensual, Dashboard,
+// Nómina, Excel, TOP Rendimiento) para excluirlos de esos totales.
+// ============================================================
+function esRolSubdealer(rol) { return rol==='subdealer' || rol==='subdealер'; }
+function nombresSubdealerSet() {
+  return new Set((appData.agentes||[]).filter(a=>esRolSubdealer(a.rol)).map(a=>(a.nombre||'').trim().toLowerCase()));
+}
+
 const CAT_LABELS = {
   'mobility':       '📱 AT&T Mobility',
   'internet':       '🌐 Internet Residencial',
@@ -5258,6 +5271,7 @@ function calcNominaQuincena(mes, q) {
   let totalNomina = 0;
 
   appData.agentes.forEach(a => {
+    if(esRolSubdealer(a.rol)) return; // se pagan aparte, ciclo semanal (ver Pagos Sub-Dealers)
     const key = getQuincenaKey(a.nombre, mes, q);
     const basico = getBasicoQuincena(a, mes, q);
     const comisiones = getComisionesQuincena(a, mes, q);
@@ -5704,15 +5718,25 @@ function populateMes(selId, includeAll=true) {
 // ============================================================
 function renderDashboard() {
   const mes = mesActual();
-  const ventasMes = appData.ventas.filter(v=>v.mes===mes);
+  // Los Sub-Dealers se pagan aparte (ciclo semanal, ver Pagos Sub-Dealers) --
+  // se excluyen de estos totales generales para que su dinero no se mezcle
+  // con el de los agentes de quincena, y se muestran en su propia tarjeta.
+  const nombresSD = nombresSubdealerSet();
+  const esDeSubdealer = v => nombresSD.has((v.agente||'').trim().toLowerCase());
+  const ventasMesTodas = appData.ventas.filter(v=>v.mes===mes);
+  const ventasMes = ventasMesTodas.filter(v=>!esDeSubdealer(v));
+  const ventasMesSD = ventasMesTodas.filter(esDeSubdealer);
   const totalCom = ventasMes.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
   const totalUnits = ventasMes.reduce((s,v)=>s+(parseInt(v.cantidad)||0),0);
   const mobility = ventasMes.filter(v=>v.categoria==='mobility');
   const internet = ventasMes.filter(v=>v.categoria==='internet'||v.categoria==='otros-internet');
   const movilCom = mobility.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
   const internetCom = internet.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
-  const totalVentasTodas = appData.ventas.length;
-  const comTotal = appData.ventas.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+  const ventasTodasNoSD = appData.ventas.filter(v=>!esDeSubdealer(v));
+  const totalVentasTodas = ventasTodasNoSD.length;
+  const comTotal = ventasTodasNoSD.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+  const comTotalSDMes = ventasMesSD.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+  const unitsSDMes = ventasMesSD.reduce((s,v)=>s+(parseInt(v.cantidad)||0),0);
 
   document.getElementById('dash-cards').innerHTML = `
     <div class="card blue"><label>Ventas Este Mes</label><div class="val">${totalUnits}</div><div class="sub">${ventasMes.length} transacciones</div></div>
@@ -5721,6 +5745,7 @@ function renderDashboard() {
     <div class="card teal"><label>Internet — Mes</label><div class="val">${internet.reduce((s,v)=>s+v.cantidad,0)}</div><div class="sub">${fmt(internetCom)}</div></div>
     <div class="card orange"><label>Agentes Activos</label><div class="val">${appData.agentes.length}</div><div class="sub">registrados</div></div>
     <div class="card purple"><label>Com. Total General</label><div class="val">${fmt(comTotal)}</div><div class="sub">${totalVentasTodas} ventas históricas</div></div>
+    <div class="card purple"><label>🤝 Sub-Dealers — Mes (aparte)</label><div class="val">${unitsSDMes}</div><div class="sub">${fmt(comTotalSDMes)} · ver Pagos Sub-Dealers</div></div>
   `;
 
   // Bonus activation alerts
@@ -5766,8 +5791,8 @@ function renderDashboard() {
     <td style="color:#7C98B6">${v.cliente||'—'}</td>
   </tr>`).join('') : '<tr><td colspan="8" class="tbl-empty">Sin ventas registradas</td></tr>';
 
-  // Top agentes del mes (excluir soloHQ) — solo líneas principales (mobility) e internet
-  const agSum = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
+  // Top agentes del mes (excluir soloHQ y Sub-Dealers, que se pagan aparte) — solo líneas principales (mobility) e internet
+  const agSum = appData.agentes.filter(a=>!a.soloHQ && !esRolSubdealer(a.rol)).map(a=>{
     const vv = ventasMes.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase()
       && (v.categoria==='mobility'||v.categoria==='internet'));
     const com = vv.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
@@ -9684,12 +9709,20 @@ function renderResumen() {
   const mes = sel.value || mesPorDefecto();
   if(!mes) return;
 
-  const ventas = appData.ventas.filter(v=>v.mes===mes);
+  // Los Sub-Dealers se pagan aparte (ciclo semanal, ver Pagos Sub-Dealers) --
+  // se separan de "ventas" para que su dinero no se mezcle en estos totales
+  // mensuales/quincenales, y se muestran en su propia tarjeta aparte.
+  const nombresSD = nombresSubdealerSet();
+  const ventasMesTodas = appData.ventas.filter(v=>v.mes===mes);
+  const ventas = ventasMesTodas.filter(v=>!nombresSD.has((v.agente||'').trim().toLowerCase()));
+  const ventasSubdealer = ventasMesTodas.filter(v=>nombresSD.has((v.agente||'').trim().toLowerCase()));
   const totalCom = ventas.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
   const totalUnits = ventas.reduce((s,v)=>s+v.cantidad,0);
   const mobility = ventas.filter(v=>v.categoria==='mobility');
   const internet = ventas.filter(v=>v.categoria==='internet'||v.categoria==='otros-internet');
   const otros = ventas.filter(v=>v.categoria==='prepago'||v.categoria==='servicios');
+  const totalComSD = ventasSubdealer.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
+  const totalUnitsSD = ventasSubdealer.reduce((s,v)=>s+v.cantidad,0);
 
   document.getElementById('resumen-cards').innerHTML = `
     <div class="card blue"><label>Total Unidades</label><div class="val">${totalUnits}</div><div class="sub">${ventas.length} registros</div></div>
@@ -9697,6 +9730,7 @@ function renderResumen() {
     <div class="card navy"><label>Mobility</label><div class="val">${mobility.reduce((s,v)=>s+v.cantidad,0)}</div><div class="sub">${fmt(mobility.reduce((s,v)=>s+getComision(v)*v.cantidad,0))}</div></div>
     <div class="card teal"><label>Internet</label><div class="val">${internet.reduce((s,v)=>s+v.cantidad,0)}</div><div class="sub">${fmt(internet.reduce((s,v)=>s+getComision(v)*v.cantidad,0))}</div></div>
     <div class="card orange"><label>Prepago + Servicios</label><div class="val">${otros.reduce((s,v)=>s+v.cantidad,0)}</div><div class="sub">${fmt(otros.reduce((s,v)=>s+getComision(v)*v.cantidad,0))}</div></div>
+    <div class="card purple"><label>🤝 Sub-Dealers (aparte)</label><div class="val">${totalUnitsSD}</div><div class="sub">${fmt(totalComSD)} · ver Pagos Sub-Dealers</div></div>
   `;
 
   // Mobility breakdown
@@ -9737,8 +9771,10 @@ function renderResumen() {
     }).join('') + `</tbody></table>`
     : '<div style="color:#99ACC2;font-size:12px;padding:10px">Sin ventas de Prepago / Servicios</div>');
 
-  // Por agente (excluir soloHQ)
-  const agRows = appData.agentes.filter(a=>!a.soloHQ).map(a=>{
+  // Por agente (excluir soloHQ y Sub-Dealers -- estos se pagan aparte, ver
+  // tarjeta "Sub-Dealers" de arriba y la pantalla Pagos Sub-Dealers; las
+  // columnas de sueldo/quincena de esta tabla no les aplican)
+  const agRows = appData.agentes.filter(a=>!a.soloHQ && !esRolSubdealer(a.rol)).map(a=>{
     const vv = ventas.filter(v=>(v.agente||'').trim().toLowerCase()===(a.nombre||'').trim().toLowerCase());
     const com = vv.reduce((s,v)=>s+getComision(v)*v.cantidad,0);
     const units = vv.reduce((s,v)=>s+v.cantidad,0);
@@ -12839,7 +12875,7 @@ function guardarHQAgente() {
 // sumarlo al total de Jose Piña sin duplicar código de renderPagos().
 function getTotalNominaAgentesQuincena(mes, q) {
   const meses = getMeses();
-  const todos = appData.agentes.filter(a=>!a.soloHQ);
+  const todos = appData.agentes.filter(a=>!a.soloHQ && !esRolSubdealer(a.rol)); // sub-dealers se pagan aparte
   return todos.reduce((total, a)=>{
     const comQ = getComisionesQuincena(a, mes, q);
     const nombreLow = (a.nombre||'').trim().toLowerCase();
@@ -13769,10 +13805,13 @@ function descargarResumenQuincena(mes, quincena) {
   const wsF = XLSX.utils.aoa_to_sheet([finHeaders, ...finRows]);
   XLSX.utils.book_append_sheet(wb, wsF, 'Resumen');
 
-  // Sheet 2: Ventas de Agentes
+  // Sheet 2: Ventas de Agentes -- no incluye Sub-Dealers, que no manejan
+  // quincenas (se pagan aparte, ciclo semanal, ver Pagos Sub-Dealers)
+  const nombresSD = nombresSubdealerSet();
   const ventasHeaders = ['Fecha', 'Agente', 'Producto', 'Cantidad', 'Comisión/u', 'Total'];
   const ventasRows = [];
   appData.ventas.forEach(v => {
+    if (nombresSD.has((v.agente||'').trim().toLowerCase())) return;
     const pp = getPeríodoPago(v);
     if (v.mes === mes && pp.q === q) {
       ventasRows.push([mdaFecha(v.fecha), v.agente, v.productoId, v.cantidad, v.comision, (v.cantidad||0)*(v.comision||0)]);
@@ -13785,7 +13824,7 @@ function descargarResumenQuincena(mes, quincena) {
   const comHeaders = ['Agente', 'Sueldo', 'Comisiones', 'Bonos', 'Préstamo', 'Descuentos', 'Total'];
   const comRows = [];
   appData.agentes.forEach(a => {
-    if (a.soloHQ) return;
+    if (a.soloHQ || esRolSubdealer(a.rol)) return;
     const basico = getBasicoQuincena(a, mes, q);
     const comisiones = getComisionesQuincena(a, mes, q);
     const bonos = getExtra('bono', a.nombre, mes+'Q'+q);
@@ -14069,6 +14108,10 @@ function renderTopRendimiento() {
   const mesesFiltro = selMes ? [selMes] : meses;
 
   let granVentas=0, granComAgente=0, granComATT=0, granCanceladas=0, granComAgenteCancel=0, granComATTCancel=0, granSueldo=0;
+  // Los Sub-Dealers se pagan aparte (ciclo semanal, ver Pagos Sub-Dealers) --
+  // se acumulan en un total SEPARADO, para que su dinero no se mezcle con el
+  // de los agentes/gerentes/supervisores de quincena en el TOTAL general.
+  let granVentasSD=0, granComAgenteSD=0, granComATTSD=0, granCanceladasSD=0, granComAgenteCancelSD=0, granComATTCancelSD=0, granSueldoSD=0;
 
   const filas = agentesFiltrados.map(a=>{
     const nombreLow = normNombre(a.nombre);
@@ -14107,8 +14150,13 @@ function renderTopRendimiento() {
     const gananciaCancel = comATTCancel - comAgenteCancel;
     const gananciaActiva = gananciaTotal - gananciaCancel;
 
-    granVentas += ventasCount; granComAgente += comAgente; granComATT += comATT; granSueldo += sueldoAgente;
-    granCanceladas += canceladas; granComAgenteCancel += comAgenteCancel; granComATTCancel += comATTCancel;
+    if(esRolSubdealer(a.rol)) {
+      granVentasSD += ventasCount; granComAgenteSD += comAgente; granComATTSD += comATT; granSueldoSD += sueldoAgente;
+      granCanceladasSD += canceladas; granComAgenteCancelSD += comAgenteCancel; granComATTCancelSD += comATTCancel;
+    } else {
+      granVentas += ventasCount; granComAgente += comAgente; granComATT += comATT; granSueldo += sueldoAgente;
+      granCanceladas += canceladas; granComAgenteCancel += comAgenteCancel; granComATTCancel += comATTCancel;
+    }
 
     return `<tr>
       <td style="font-weight:700;color:#33475B">${a.nombre}</td>
@@ -14125,6 +14173,9 @@ function renderTopRendimiento() {
   const gananciaTotalGeneral  = granComATT - granComAgente - granSueldo;
   const gananciaCancelGeneral = granComATTCancel - granComAgenteCancel;
   const gananciaActivaGeneral = gananciaTotalGeneral - gananciaCancelGeneral;
+  const gananciaTotalGeneralSD  = granComATTSD - granComAgenteSD - granSueldoSD;
+  const gananciaCancelGeneralSD = granComATTCancelSD - granComAgenteCancelSD;
+  const gananciaActivaGeneralSD = gananciaTotalGeneralSD - gananciaCancelGeneralSD;
 
   html += `
     <div class="section">
@@ -14147,7 +14198,7 @@ function renderTopRendimiento() {
           <tbody>
             ${filas.length ? filas.join('') : '<tr><td colspan="8" class="tbl-empty">Sin ventas en este período</td></tr>'}
             <tr style="background:#F5F8FA;border-top:2px solid #CBD6E2">
-              <td style="font-weight:800;color:#33475B">TOTAL</td>
+              <td style="font-weight:800;color:#33475B">TOTAL (Agentes)</td>
               <td style="text-align:right;font-weight:800;color:#009FDB">${granVentas}</td>
               <td style="text-align:right;font-weight:800;color:#33475B">${fmt(granSueldo)}</td>
               <td style="text-align:right;font-weight:800;color:#7C98B6">${fmt(granComAgente)}</td>
@@ -14156,6 +14207,17 @@ function renderTopRendimiento() {
               <td style="text-align:right;font-weight:800;color:#D4A017">${granCanceladas>0 ? granCanceladas+' ('+fmt(gananciaCancelGeneral)+')' : '—'}</td>
               <td style="text-align:right;font-weight:900;color:#33475B">${fmt(gananciaActivaGeneral)}</td>
             </tr>
+            ${granVentasSD>0 ? `
+            <tr style="background:#F4F5FF;border-top:2px solid #6A78D1">
+              <td style="font-weight:800;color:#6A78D1">🤝 TOTAL Sub-Dealers (aparte)</td>
+              <td style="text-align:right;font-weight:800;color:#009FDB">${granVentasSD}</td>
+              <td style="text-align:right;font-weight:800;color:#33475B">${fmt(granSueldoSD)}</td>
+              <td style="text-align:right;font-weight:800;color:#7C98B6">${fmt(granComAgenteSD)}</td>
+              <td style="text-align:right;font-weight:800;color:#33475B">${fmt(granComATTSD)}</td>
+              <td style="text-align:right;font-weight:900;color:${gananciaTotalGeneralSD>=0?'#00BDA5':'#F2545B'}">${fmt(gananciaTotalGeneralSD)}</td>
+              <td style="text-align:right;font-weight:800;color:#D4A017">${granCanceladasSD>0 ? granCanceladasSD+' ('+fmt(gananciaCancelGeneralSD)+')' : '—'}</td>
+              <td style="text-align:right;font-weight:900;color:#33475B">${fmt(gananciaActivaGeneralSD)}</td>
+            </tr>` : ''}
           </tbody>
         </table>
       </div>
@@ -16039,9 +16101,12 @@ function descargarVentasFiltradas() {
   // ── Hoja 3: Pagos — básico, bonos, préstamos, descuentos y total por agente/quincena ──
   const mesesList = f.mes ? [f.mes] : getMeses();
   const qList = f.q ? [parseInt(f.q)] : [1,2];
+  // Sin un vendedor específico elegido, se excluyen los Sub-Dealers de este
+  // total general de "Pagos" (se pagan aparte, no manejan quincenas) -- si
+  // se filtra explícitamente por el nombre de un Sub-Dealer sí se respeta.
   const agentesList = f.vendedor
     ? appData.agentes.filter(a=>!a.soloHQ && normNombre(a.nombre)===normNombre(f.vendedor))
-    : appData.agentes.filter(a=>!a.soloHQ);
+    : appData.agentes.filter(a=>!a.soloHQ && !esRolSubdealer(a.rol));
 
   const rowsPagos = [];
   agentesList.forEach(a=>{
