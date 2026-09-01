@@ -3609,6 +3609,15 @@ function montoSegEscalaAgente(count) {
   if(count>=4) return 12;
   return ({1:4, 2:8, 3:10})[count] || 0;
 }
+// Cuántos seguros elegibles trae una orden. Se suma la CANTIDAD de cada
+// línea, NO cuántas líneas hay: un agente puede meter varios dispositivos en
+// una sola línea usando el campo Cantidad, y cada uno cuenta para la escala
+// (mismo criterio que ya usa la comisión de José Piña más abajo). Contar
+// líneas subcalculaba el bono -- ej. una sola línea con Cantidad 3 pagaba
+// como 1 seguro ($4) en vez de como 3 ($10).
+function unidadesSegEscala(lineas) {
+  return (lineas||[]).reduce((s,l)=> s + (parseFloat(l.cantidad)||1), 0);
+}
 // Escala de comisión de José Piña sobre esa misma orden (1 línea=$2, 2 o
 // más=$4, tope fijo) -- solo aplica a agentes que él supervisa.
 function montoSegEscalaJosePina(count) {
@@ -6548,7 +6557,8 @@ function procesarRecalculoSegGrupo(grupoId, elegidos) {
 
   const segElegibles = elegidos.filter(e => e.estado !== 'NY');
   segElegibles.forEach(({linea}) => { linea.comision = 1; });
-  const bono = montoSegEscalaAgente(segElegibles.length) - segElegibles.length;
+  const unidades = unidadesSegEscala(segElegibles.map(e=>e.linea));
+  const bono = montoSegEscalaAgente(unidades) - unidades;
 
   if(bono > 0 && !yaTieneBono) {
     const primera = lineas[0];
@@ -6557,7 +6567,7 @@ function procesarRecalculoSegGrupo(grupoId, elegidos) {
       id: maxId, fecha: primera.fecha, agente: primera.agente, cliente: primera.cliente, cuenta: primera.cuenta,
       mes: primera.mes, campana: primera.campana||'', quincenaPago: primera.quincenaPago||'', mesPago: primera.mesPago||'',
       llamadaGrabada:false, agenteGrabacion:'', comisionGrabacion:0,
-      notas: `Bono escala de Seguro (retroactivo, ${segElegibles.length} línea${segElegibles.length>1?'s':''})`,
+      notas: `Bono escala de Seguro (retroactivo, ${unidades} seguro${unidades>1?'s':''})`,
       productoId:'seg-escala-bono', categoria:'mobility', cantidad:1, comision:bono,
       telefonoLinea:'', segEstado:'', segSeguroPrevio:false,
       ...(primera.reportadoPor!==undefined ? { reportadoPor: primera.reportadoPor } : {}),
@@ -8862,8 +8872,9 @@ function guardarVenta() {
   console.log(`Líneas a guardar: ${lineas.length}`, lineas);
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
 
-  // Escala nueva de Seguro (SEG): se cuenta cuántas líneas de SEG elegibles
-  // (Estado distinto de Nueva York) hay en ESTA MISMA orden -- cada línea
+  // Escala nueva de Seguro (SEG): se cuentan cuántos seguros elegibles
+  // (Estado distinto de Nueva York) hay en ESTA MISMA orden -- sumando la
+  // Cantidad de cada línea, no cuántas líneas son -- y cada línea
   // queda guardada con el valor tradicional ($1, fácil de auditar por
   // unidad), y la diferencia hasta la escala se agrega como una línea de
   // bono aparte (mismo patrón ya usado para la comisión de "Llamada
@@ -8872,13 +8883,14 @@ function guardarVenta() {
   if(esAgenteNombreEnModalidadNueva(agente)) {
     const segElegibles = lineas.filter(l => l.productoId==='att-seg' && l.segEstado && l.segEstado!=='NY');
     if(segElegibles.length) {
-      const totalEscala = montoSegEscalaAgente(segElegibles.length);
-      const totalTradicional = segElegibles.length;
+      const unidades = unidadesSegEscala(segElegibles);
+      const totalEscala = montoSegEscalaAgente(unidades);
+      const totalTradicional = unidades;
       segElegibles.forEach(l => { l.comision = 1; });
       const bono = totalEscala - totalTradicional;
       if(bono > 0) {
         lineas.push({ categoria:'mobility', productoId:'seg-escala-bono', cantidad:1, comision:bono,
-          notaLinea:`Bono escala de Seguro (${segElegibles.length} línea${segElegibles.length>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
+          notaLinea:`Bono escala de Seguro (${unidades} seguro${unidades>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
       }
     }
   }
@@ -12129,19 +12141,21 @@ function guardarVentaAgente() {
   if(telefonoInvalido) { showNotif(telefonoInvalido, 'error'); return; }
 
   // Escala nueva de Seguro (SEG) -- mismo criterio que en el formulario de
-  // Admin/Inspector: se cuenta cuántas líneas de SEG elegibles (Estado
-  // distinto de Nueva York) hay en ESTE MISMO reporte, cada línea queda en
-  // el valor tradicional ($1) y la diferencia se agrega como bono aparte.
+  // Admin/Inspector: se cuentan cuántos seguros elegibles (Estado distinto
+  // de Nueva York) hay en ESTE MISMO reporte, sumando la Cantidad de cada
+  // línea; cada línea queda en el valor tradicional ($1) y la diferencia se
+  // agrega como bono aparte.
   if(esAgenteNombreEnModalidadNueva(perms.nombre)) {
     const segElegibles = lineas.filter(l => l.productoId==='att-seg' && l.segEstado && l.segEstado!=='NY');
     if(segElegibles.length) {
-      const totalEscala = montoSegEscalaAgente(segElegibles.length);
-      const totalTradicional = segElegibles.length;
+      const unidades = unidadesSegEscala(segElegibles);
+      const totalEscala = montoSegEscalaAgente(unidades);
+      const totalTradicional = unidades;
       segElegibles.forEach(l => { l.comision = 1; });
       const bono = totalEscala - totalTradicional;
       if(bono > 0) {
         lineas.push({ categoria:'mobility', productoId:'seg-escala-bono', cantidad:1, comision:bono,
-          notaLinea:`Bono escala de Seguro (${segElegibles.length} línea${segElegibles.length>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
+          notaLinea:`Bono escala de Seguro (${unidades} seguro${unidades>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
       }
     }
   }
