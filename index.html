@@ -2605,9 +2605,9 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           </select>
         </div>
         <div class="form-group">
-          <label>Campaña (opcional)</label>
+          <label>¿De dónde vino esta reparación?</label>
           <select id="rep-campana">
-            <option value="">— Sin campaña —</option>
+            <option value="">— Sin especificar —</option>
           </select>
         </div>
       </div>
@@ -3194,9 +3194,9 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta reparación vino de una promoción</span></label>
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">¿De dónde vino esta reparación? <span style="font-weight:400;color:#99ACC2">— del local, o de una campaña activa</span></label>
           <select id="bravo-rep-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
-            <option value="">— Sin campaña —</option>
+            <option value="">— Sin especificar —</option>
           </select>
         </div>
         <div style="margin-bottom:12px">
@@ -21015,7 +21015,7 @@ function abrirModalReparacion(id=null) {
   document.getElementById('rep-fecha').value = r?.fecha || fechaLocalHoy();
   document.getElementById('rep-fecha-promesa').value = r?.fechaPromesaEntrega || '';
   document.getElementById('rep-pago').value = r?.pago||'cash';
-  document.getElementById('rep-campana').value = r?.campana||'';
+  document.getElementById('rep-campana').value = bravoRepSelectDesdeProcedencia(r);
   calcularReparacionAuto();
   repToggleMotivoPerdida();
   document.getElementById('modal-bravo-reparacion').classList.add('open');
@@ -21081,7 +21081,7 @@ function guardarReparacion() {
     fechaEntregaReal,
     fecha, mes,
     pago: document.getElementById('rep-pago').value,
-    campana: document.getElementById('rep-campana').value
+    ...bravoRepProcedenciaDesdeSelect(document.getElementById('rep-campana').value)
   };
 
   if(editId) {
@@ -21156,7 +21156,7 @@ function bravoReparaciones() {
             <th>Cliente</th><th>Teléfono</th>
             <th style="text-align:right">Costo Repuesto</th><th style="text-align:right">Total Cobrado</th><th style="text-align:right">Abono</th>
             <th style="text-align:right">Resta</th><th style="text-align:right">Ganancia</th>
-            <th style="text-align:center">Estado</th><th>Fecha</th><th>Pago</th><th>Mes</th><th></th>
+            <th style="text-align:center">Estado</th><th>Procedencia</th><th>Fecha</th><th>Pago</th><th>Mes</th><th></th>
           </tr>
         </thead>
         <tbody id="bravo-rep-tbody"></tbody>
@@ -21373,13 +21373,47 @@ function guardarCostosFijosBravo() {
 // de Bravo se vincula por el NOMBRE de la campaña (igual que ventaAT&T.campana),
 // nunca por id, para que el campo siga siendo un simple texto en cada línea.
 const BRAVO_CAMPANA_SELECT_IDS = ['bravo-acc-campana','bravo-lyca-campana','bravo-rep-campana','bravo-combo-campana','bravo-tel-campana','rep-campana'];
+// Las REPARACIONES, además de poder venir de una campaña, pueden venir
+// simplemente del local (el cliente entró a la tienda por su cuenta). Antes
+// la única alternativa era "— Sin campaña —", que mezclaba dos cosas muy
+// distintas: "llegó al local solo" y "no se anotó de dónde vino". Este
+// valor centinela las separa. Se guarda en r.procedencia, NO en r.campana,
+// para que el ROI de campañas (que cruza por NOMBRE de campaña) siga igual.
+// Ojo: el campo r.origen ya existe con otro significado ('registro' = la
+// reparación se cargó desde el Registro Diario), por eso este es aparte.
+const BRAVO_REP_SELECT_IDS = ['bravo-rep-campana','rep-campana'];
+const BRAVO_PROCEDENCIA_LOCAL = '__local__';
 function bravoPoblarSelectsCampana() {
   const activas = (appData.bravo.campanas||[]).filter(c=>c.estado==='activa');
-  const opts = '<option value="">— Sin campaña —</option>' + activas.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  const optsCampanas = activas.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  const opts = '<option value="">— Sin campaña —</option>' + optsCampanas;
+  const optsRep = '<option value="">— Sin especificar —</option>' +
+    `<option value="${BRAVO_PROCEDENCIA_LOCAL}">🏪 Del local (el cliente vino a la tienda)</option>` +
+    (activas.length ? `<optgroup label="📢 De una campaña activa">${optsCampanas}</optgroup>` : '');
   BRAVO_CAMPANA_SELECT_IDS.forEach(id => {
     const el = document.getElementById(id);
-    if(el) el.innerHTML = opts;
+    if(el) el.innerHTML = BRAVO_REP_SELECT_IDS.includes(id) ? optsRep : opts;
   });
+}
+// Traduce lo elegido en el select de una reparación a los dos campos que se
+// guardan, y de vuelta. Un solo desplegable para quien lo llena; dos campos
+// limpios por dentro.
+function bravoRepProcedenciaDesdeSelect(valor) {
+  if(valor === BRAVO_PROCEDENCIA_LOCAL) return { procedencia: 'local', campana: '' };
+  if(valor) return { procedencia: 'campana', campana: valor };
+  return { procedencia: '', campana: '' };
+}
+function bravoRepSelectDesdeProcedencia(r) {
+  if(!r) return '';
+  if(r.procedencia === 'local') return BRAVO_PROCEDENCIA_LOCAL;
+  return r.campana || '';
+}
+// Etiqueta corta para mostrar en la tabla de Reparaciones.
+function bravoRepProcedenciaLabel(r) {
+  if(!r) return '—';
+  if(r.procedencia === 'local') return '🏪 Del local';
+  if(r.campana) return '📢 ' + r.campana;
+  return '—';
 }
 // Margen y unidades de TODAS las categorías de Bravo vinculadas a una
 // campaña por nombre -- recorre accesorios/lycas/combos/teléfonos dentro de
@@ -21567,6 +21601,7 @@ function bravoReparacionesDesdeRegistros() {
         fecha: reg.fecha,
         pago: item.metodo || '',
         campana: item.campana || '',
+        procedencia: item.procedencia || '',
         mes: mesStr,
       });
     });
@@ -21618,6 +21653,7 @@ function bravoRenderReparacionesTabla() {
       <td style="text-align:right;font-weight:700;color:${(r.resta||0)>0?'#E04048':'#99ACC2'}">${(r.resta||0)>0?fmt(r.resta):'—'}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(r.ganancia||0)}</td>
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${REP_ESTADO_COLORS[r.estado]}22;color:${REP_ESTADO_COLORS[r.estado]||'#7C98B6'}">${REP_ESTADO_LABELS[r.estado]||r.estado||'—'}</span></td>
+      <td style="font-size:11px;color:#7C98B6">${bravoRepProcedenciaLabel(r)}</td>
       <td>${mdaFecha(r.fecha)||'—'}</td>
       <td style="font-size:11px">${REP_PAGO_LABELS[r.pago]||r.pago||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${r.mes||'—'}</td>
@@ -21627,7 +21663,7 @@ function bravoRenderReparacionesTabla() {
           : `<button class="btn btn-ghost btn-xs" onclick="abrirModalReparacion(${r.id})">✏️</button>
              <button class="btn btn-danger btn-xs" onclick="eliminarReparacion(${r.id})">✕</button>`}
       </td>
-    </tr>`).join('') : '<tr><td colspan="12" class="tbl-empty">Sin reparaciones registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="13" class="tbl-empty">Sin reparaciones registradas</td></tr>';
 
   document.getElementById('bravo-rep-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
@@ -21637,7 +21673,7 @@ function bravoRenderReparacionesTabla() {
       <td style="text-align:right">${fmt(totalAbono)}</td>
       <td style="text-align:right;color:${totalResta>0?'#E04048':'#33475B'}">${fmt(totalResta)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
-      <td colspan="5"></td>
+      <td colspan="6"></td>
     </tr>` : '';
 }
 
@@ -22418,7 +22454,7 @@ function bravoAgregarReparacion() {
   const notas = document.getElementById('bravo-rep-notas').value.trim();
   const fechaPromesaEntrega = document.getElementById('bravo-rep-fecha-promesa').value;
   const motivoPerdida = document.getElementById('bravo-rep-motivo-perdida').value;
-  const campana = document.getElementById('bravo-rep-campana').value;
+  const { procedencia, campana } = bravoRepProcedenciaDesdeSelect(document.getElementById('bravo-rep-campana').value);
 
   if(!equipo || !tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos (incluyendo Costo del repuesto)','error'); return; }
   if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
@@ -22455,7 +22491,7 @@ function bravoAgregarReparacion() {
   const resta = Math.max(0, precio - abono);
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas, campana,
+    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas, campana, procedencia,
     fechaPromesaEntrega, fechaEntregaReal,
     motivoPerdida: estado === 'perdido' ? motivoPerdida : ''
   });
@@ -22504,7 +22540,7 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-notas').value = item.notas || '';
   document.getElementById('bravo-rep-fecha-promesa').value = item.fechaPromesaEntrega || '';
   document.getElementById('bravo-rep-motivo-perdida').value = item.motivoPerdida || '';
-  document.getElementById('bravo-rep-campana').value = item.campana || '';
+  document.getElementById('bravo-rep-campana').value = bravoRepSelectDesdeProcedencia(item);
   bravoRepEditandoFechaEntregaReal = item.fechaEntregaReal || '';
   bravoRepEditandoPagos = item.pagos || [];
   bravoRepToggleMotivoPerdida();
