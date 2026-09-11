@@ -456,7 +456,6 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-item" onclick="showPage('pagos',this)"><span class="icon">💳</span><span>Pagos Agentes</span></div>
     <div class="nav-item" onclick="showPage('subdealers',this)"><span class="icon">🤝</span><span>Pagos Sub-Dealers</span></div>
     <div class="nav-item" onclick="showPage('rendimiento-agentes',this)"><span class="icon">📊</span><span>Rendimiento de Agentes</span></div>
-    <div class="nav-item" onclick="showPage('campanas',this)"><span class="icon">📢</span><span>Campañas & ROI</span></div>
     <div class="nav-section">Config</div>
     <div class="nav-item" onclick="showPage('productos',this)"><span class="icon">📦</span><span>Productos & Com.</span></div>
     <div class="nav-item" onclick="showPage('enlaces-admin',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
@@ -478,6 +477,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
     <div class="nav-section">⭐ TOP</div>
     <div class="nav-item active" onclick="showPage('top',this)"><span class="icon">📈</span><span>ROI & Finanzas</span></div>
     <div class="nav-item" onclick="showPage('top-rendimiento',this)"><span class="icon">📊</span><span>Rendimiento & Ganancias</span></div>
+    <div class="nav-item" onclick="showPage('campanas',this)"><span class="icon">📢</span><span>Campañas & ROI</span></div>
     <div class="nav-item" onclick="showPage('usuarios',this)"><span class="icon">👤</span><span>Usuarios</span></div>
     <div class="nav-item" onclick="showPage('enlaces-top',this)"><span class="icon">🔗</span><span>Enlaces</span></div>
     <div class="nav-section" style="margin-top:auto"></div>
@@ -2605,9 +2605,9 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           </select>
         </div>
         <div class="form-group">
-          <label>Campaña (opcional)</label>
+          <label>¿De dónde vino esta reparación?</label>
           <select id="rep-campana">
-            <option value="">— Sin campaña —</option>
+            <option value="">— Sin especificar —</option>
           </select>
         </div>
       </div>
@@ -2890,6 +2890,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <option value="David">David</option>
           </select>
         </div>
+        <div class="form-group"><label>Fecha <span style="color:#99ACC2;font-weight:400;font-size:9px">— el día en que se agregó</span></label><input type="date" id="lyca-fecha" onchange="lycaSincronizarMesDesdeFecha()"></div>
         <div class="form-group"><label>Mes</label><select id="lyca-mes"></select></div>
         <div class="form-group">
           <label>Método de Pago</label>
@@ -3194,9 +3195,9 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <label style="font-size:11px;font-weight:600;color:#7C98B6">Campaña (opcional) <span style="font-weight:400;color:#99ACC2">— si esta reparación vino de una promoción</span></label>
+          <label style="font-size:11px;font-weight:600;color:#7C98B6">¿De dónde vino esta reparación? <span style="font-weight:400;color:#99ACC2">— del local, o de una campaña activa</span></label>
           <select id="bravo-rep-campana" style="width:100%;padding:8px;border:1.5px solid #CBD6E2;border-radius:6px;font-size:12px">
-            <option value="">— Sin campaña —</option>
+            <option value="">— Sin especificar —</option>
           </select>
         </div>
         <div style="margin-bottom:12px">
@@ -3608,6 +3609,15 @@ const ESTADOS_EEUU = [
 function montoSegEscalaAgente(count) {
   if(count>=4) return 12;
   return ({1:4, 2:8, 3:10})[count] || 0;
+}
+// Cuántos seguros elegibles trae una orden. Se suma la CANTIDAD de cada
+// línea, NO cuántas líneas hay: un agente puede meter varios dispositivos en
+// una sola línea usando el campo Cantidad, y cada uno cuenta para la escala
+// (mismo criterio que ya usa la comisión de José Piña más abajo). Contar
+// líneas subcalculaba el bono -- ej. una sola línea con Cantidad 3 pagaba
+// como 1 seguro ($4) en vez de como 3 ($10).
+function unidadesSegEscala(lineas) {
+  return (lineas||[]).reduce((s,l)=> s + (parseFloat(l.cantidad)||1), 0);
 }
 // Escala de comisión de José Piña sobre esa misma orden (1 línea=$2, 2 o
 // más=$4, tope fijo) -- solo aplica a agentes que él supervisa.
@@ -6517,36 +6527,55 @@ function renderRecalcularSeguroLista() {
   `).join('');
 }
 
+// Bono de escala YA creado para una orden, si existe (null si todavía no
+// tiene). Es la base de la protección anti-duplicado del recálculo: la
+// línea de bono se guarda siempre con el mismo grupoId de la orden, así que
+// encontrarla es prueba de que a esa orden ya se le aplicó el recálculo.
+function segBonoEscalaDeGrupo(grupoId) {
+  if(grupoId == null) return null;
+  return (appData.ventas||[]).find(x => x.productoId==='seg-escala-bono' && x.grupoId===grupoId) || null;
+}
+
 // Aplica el recálculo ya con el Estado resuelto para cada línea del grupo
 // (paso compartido entre el flujo manual, línea por línea, y el flujo
 // masivo "Aplicar a todos"). Muta las líneas originales y, si corresponde,
 // agrega la línea de bono -- devuelve el monto del bono creado (0 si no
-// aplicó, ej. porque todas las líneas resultaron ser de Nueva York).
+// aplicó, ej. porque todas las líneas resultaron ser de Nueva York, o
+// porque esa orden ya tenía su bono de antes).
 function procesarRecalculoSegGrupo(grupoId, elegidos) {
   const lineas = elegidos.map(e=>e.linea);
   if(!lineas.length) return 0;
+
+  // Protección anti-duplicado: si a esta orden YA se le creó su línea de
+  // Bono Escala de Seguro, no se crea otra -- pasaba con el doble clic en
+  // "Aplicar recálculo"/"Aplicar a todos", o con dos sesiones abiertas
+  // aplicando la misma orden, y dejaba el bono pagado dos veces. Las líneas
+  // sí se terminan de completar (Estado/comisión son idempotentes), para
+  // que una orden a medio completar no se quede pendiente para siempre.
+  const yaTieneBono = !!segBonoEscalaDeGrupo(grupoId);
 
   elegidos.forEach(({linea, estado, previo}) => { linea.segEstado = estado; linea.segSeguroPrevio = previo; });
 
   const segElegibles = elegidos.filter(e => e.estado !== 'NY');
   segElegibles.forEach(({linea}) => { linea.comision = 1; });
-  const bono = montoSegEscalaAgente(segElegibles.length) - segElegibles.length;
+  const unidades = unidadesSegEscala(segElegibles.map(e=>e.linea));
+  const bono = montoSegEscalaAgente(unidades) - unidades;
 
-  if(bono > 0) {
+  if(bono > 0 && !yaTieneBono) {
     const primera = lineas[0];
     const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
     appData.ventas.push({
       id: maxId, fecha: primera.fecha, agente: primera.agente, cliente: primera.cliente, cuenta: primera.cuenta,
       mes: primera.mes, campana: primera.campana||'', quincenaPago: primera.quincenaPago||'', mesPago: primera.mesPago||'',
       llamadaGrabada:false, agenteGrabacion:'', comisionGrabacion:0,
-      notas: `Bono escala de Seguro (retroactivo, ${segElegibles.length} línea${segElegibles.length>1?'s':''})`,
+      notas: `Bono escala de Seguro (retroactivo, ${unidades} seguro${unidades>1?'s':''})`,
       productoId:'seg-escala-bono', categoria:'mobility', cantidad:1, comision:bono,
       telefonoLinea:'', segEstado:'', segSeguroPrevio:false,
       ...(primera.reportadoPor!==undefined ? { reportadoPor: primera.reportadoPor } : {}),
       grupoId,
     });
   }
-  return bono;
+  return yaTieneBono ? 0 : bono;
 }
 
 function aplicarRecalculoSeg(grupoId) {
@@ -6567,11 +6596,19 @@ function aplicarRecalculoSeg(grupoId) {
 
   if(!confirm(`¿Aplicar el recálculo de esta orden (${lineas[0].cliente||'cliente'})?\n\nEsto va a ajustar la comisión de estas líneas de Seguro según la escala nueva.`)) return;
 
+  // Se mira ANTES de procesar, para poder avisar con claridad cuando el
+  // recálculo de esta orden ya se había aplicado (doble clic, u otra sesión).
+  const bonoPrevio = segBonoEscalaDeGrupo(grupoId);
+
   const bono = procesarRecalculoSegGrupo(grupoId, elegidos);
 
   guardar();
   renderRecalcularSeguroLista();
   renderDashboard();
+  if(bonoPrevio) {
+    showNotif(`⚠️ Esta orden ya tenía su Bono Escala de Seguro (${fmt(parseFloat(bonoPrevio.comision)||0)}) — no se creó otro para no pagarlo doble`, 'error', 8000);
+    return;
+  }
   showNotif(bono>0
     ? `✅ Recalculado — se agregó un bono de ${fmt(bono)} por esta orden`
     : '✅ Recalculado — esta orden se queda en tarifa tradicional (ej. Nueva York), sin bono');
@@ -6597,16 +6634,19 @@ function aplicarRecalculoSegTodos() {
   if(!confirm(`¿Aplicar el recálculo a las ${grupos.length} orden${grupos.length>1?'es':''} pendientes de ${mes} Q${quincena}?\n\nSe va a asumir que NINGUNA es de Nueva York (se guardará como "Fuera de NY, sin especificar" en vez del estado real de cada cliente).`)) return;
 
   let totalBono = 0;
+  let yaTenian = 0;
   grupos.forEach(g => {
     const lineas = (appData.ventas||[]).filter(v=> v.productoId==='att-seg' && (v.grupoId!=null?v.grupoId:v.id)===g.grupoId);
     const elegidos = lineas.map(l => ({ linea: l, estado: l.segEstado || SEG_ESTADO_SIN_ESPECIFICAR, previo: !!l.segSeguroPrevio }));
+    if(segBonoEscalaDeGrupo(g.grupoId)) yaTenian++;
     totalBono += procesarRecalculoSegGrupo(g.grupoId, elegidos);
   });
 
   guardar();
   renderRecalcularSeguroLista();
   renderDashboard();
-  showNotif(`✅ Recalculadas ${grupos.length} orden${grupos.length>1?'es':''} — bonos agregados por un total de ${fmt(totalBono)}`);
+  showNotif(`✅ Recalculadas ${grupos.length} orden${grupos.length>1?'es':''} — bonos agregados por un total de ${fmt(totalBono)}` +
+    (yaTenian ? ` · ${yaTenian} orden${yaTenian>1?'es ya tenían':' ya tenía'} su bono de antes, no se duplicó` : ''));
 }
 
 function quitarVentaChargeback(ventaId) {
@@ -7022,7 +7062,6 @@ const AYUDA_TOPICS = [
   { area:'admin', pregunta:'¿Dónde veo los pagos de mis agentes?', respuesta:'"💳 Pagos Agentes" te muestra, por quincena, cuánto le toca a cada quien (comisiones + sueldo + bonos − descuentos), y puedes marcar cuándo ya se les pagó.' },
   { area:'admin', pregunta:'¿Qué veo en el Dashboard?', respuesta:'Un resumen del mes actual: ventas totales, comisión total, desglose de Mobility e Internet, agentes activos, tus últimas 10 ventas, el top de agentes por comisión, y una gráfica de ventas mes por mes.' },
   { area:'admin', pregunta:'¿Cómo veo el resumen de un mes específico?', respuesta:'"📅 Resumen Mensual" — elige el mes y te desglosa las ventas por producto (Mobility, Internet, Otros) y por agente, incluyendo sueldo pagado.' },
-  { area:'admin', pregunta:'¿Cómo agrego una campaña publicitaria y veo su ROI?', respuesta:'"📢 Campañas & ROI" → agrega la campaña con su gasto y leads. El sistema calcula solo el ROI, el costo por lead y el % de conversión, cruzando las ventas que llegaron marcadas con esa campaña.' },
   { area:'admin', pregunta:'¿Cómo cambio la comisión de un producto?', respuesta:'"📦 Productos & Comisiones" — cada producto del catálogo (Mobility e Internet, por compañía) tiene su campo de comisión editable. También puedes agregar productos nuevos con "+ Agregar".' },
   { area:'admin', pregunta:'¿Qué se registra en "Gastos & Nómina"?', respuesta:'Los gastos y la nómina mensual del lado de AT&T — esto alimenta directo el cálculo de ROI en TOP. También te muestra, solo de referencia, lo que Bravo ya reportó como gasto, para que no lo anotes dos veces.' },
 
@@ -7044,6 +7083,7 @@ const AYUDA_TOPICS = [
   { area:'bravo', pregunta:'¿Para qué es "Compras y Gastos"?', respuesta:'Es solo informativo, para llevar control de lo que se compra de inventario — no afecta la ganancia ni el ROI de Bravo.' },
 
   { area:'top', pregunta:'¿Qué es la pestaña "Comparativo" en TOP?', respuesta:'Compara la utilidad de AT&T, Bravo y Salud/Dental del mismo mes, lado a lado, más un historial de los últimos 6 meses.' },
+  { area:'top', pregunta:'¿Cómo agrego una campaña publicitaria y veo su ROI?', respuesta:'"📢 Campañas & ROI" (en TOP) → agrega la campaña con su gasto y leads. El sistema calcula solo el ROI, el costo por lead y el % de conversión, cruzando las ventas que llegaron marcadas con esa campaña.' },
   { area:'top', pregunta:'¿Cómo cambio el PIN de acceso de cada área?', respuesta:'Pestaña "⚙️ Config" → "🔑 Acceso & Seguridad" — ahí guardas el PIN de Administración, TOP, HQ y Salud para compartirlo con cada persona.' },
   { area:'top', pregunta:'¿Para qué sirve "Usuarios"?', respuesta:'Crea una cuenta de acceso real (correo + contraseña), pero elegir el rol ahí NO le da acceso a ninguna área — eso se configura aparte, directo conmigo. Si necesitas dar de alta a alguien nuevo con acceso a Admin/TOP/HQ/Salud, dímelo y lo agrego yo.' },
 ];
@@ -8833,8 +8873,9 @@ function guardarVenta() {
   console.log(`Líneas a guardar: ${lineas.length}`, lineas);
   if(!lineas.length) { showNotif('⚠️ Agrega al menos un producto','error'); return; }
 
-  // Escala nueva de Seguro (SEG): se cuenta cuántas líneas de SEG elegibles
-  // (Estado distinto de Nueva York) hay en ESTA MISMA orden -- cada línea
+  // Escala nueva de Seguro (SEG): se cuentan cuántos seguros elegibles
+  // (Estado distinto de Nueva York) hay en ESTA MISMA orden -- sumando la
+  // Cantidad de cada línea, no cuántas líneas son -- y cada línea
   // queda guardada con el valor tradicional ($1, fácil de auditar por
   // unidad), y la diferencia hasta la escala se agrega como una línea de
   // bono aparte (mismo patrón ya usado para la comisión de "Llamada
@@ -8843,13 +8884,14 @@ function guardarVenta() {
   if(esAgenteNombreEnModalidadNueva(agente)) {
     const segElegibles = lineas.filter(l => l.productoId==='att-seg' && l.segEstado && l.segEstado!=='NY');
     if(segElegibles.length) {
-      const totalEscala = montoSegEscalaAgente(segElegibles.length);
-      const totalTradicional = segElegibles.length;
+      const unidades = unidadesSegEscala(segElegibles);
+      const totalEscala = montoSegEscalaAgente(unidades);
+      const totalTradicional = unidades;
       segElegibles.forEach(l => { l.comision = 1; });
       const bono = totalEscala - totalTradicional;
       if(bono > 0) {
         lineas.push({ categoria:'mobility', productoId:'seg-escala-bono', cantidad:1, comision:bono,
-          notaLinea:`Bono escala de Seguro (${segElegibles.length} línea${segElegibles.length>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
+          notaLinea:`Bono escala de Seguro (${unidades} seguro${unidades>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
       }
     }
   }
@@ -12100,19 +12142,21 @@ function guardarVentaAgente() {
   if(telefonoInvalido) { showNotif(telefonoInvalido, 'error'); return; }
 
   // Escala nueva de Seguro (SEG) -- mismo criterio que en el formulario de
-  // Admin/Inspector: se cuenta cuántas líneas de SEG elegibles (Estado
-  // distinto de Nueva York) hay en ESTE MISMO reporte, cada línea queda en
-  // el valor tradicional ($1) y la diferencia se agrega como bono aparte.
+  // Admin/Inspector: se cuentan cuántos seguros elegibles (Estado distinto
+  // de Nueva York) hay en ESTE MISMO reporte, sumando la Cantidad de cada
+  // línea; cada línea queda en el valor tradicional ($1) y la diferencia se
+  // agrega como bono aparte.
   if(esAgenteNombreEnModalidadNueva(perms.nombre)) {
     const segElegibles = lineas.filter(l => l.productoId==='att-seg' && l.segEstado && l.segEstado!=='NY');
     if(segElegibles.length) {
-      const totalEscala = montoSegEscalaAgente(segElegibles.length);
-      const totalTradicional = segElegibles.length;
+      const unidades = unidadesSegEscala(segElegibles);
+      const totalEscala = montoSegEscalaAgente(unidades);
+      const totalTradicional = unidades;
       segElegibles.forEach(l => { l.comision = 1; });
       const bono = totalEscala - totalTradicional;
       if(bono > 0) {
         lineas.push({ categoria:'mobility', productoId:'seg-escala-bono', cantidad:1, comision:bono,
-          notaLinea:`Bono escala de Seguro (${segElegibles.length} línea${segElegibles.length>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
+          notaLinea:`Bono escala de Seguro (${unidades} seguro${unidades>1?'s':''})`, telefonoLinea:'', segEstado:'', segSeguroPrevio:false });
       }
     }
   }
@@ -20972,7 +21016,7 @@ function abrirModalReparacion(id=null) {
   document.getElementById('rep-fecha').value = r?.fecha || fechaLocalHoy();
   document.getElementById('rep-fecha-promesa').value = r?.fechaPromesaEntrega || '';
   document.getElementById('rep-pago').value = r?.pago||'cash';
-  document.getElementById('rep-campana').value = r?.campana||'';
+  document.getElementById('rep-campana').value = bravoRepSelectDesdeProcedencia(r);
   calcularReparacionAuto();
   repToggleMotivoPerdida();
   document.getElementById('modal-bravo-reparacion').classList.add('open');
@@ -21038,7 +21082,7 @@ function guardarReparacion() {
     fechaEntregaReal,
     fecha, mes,
     pago: document.getElementById('rep-pago').value,
-    campana: document.getElementById('rep-campana').value
+    ...bravoRepProcedenciaDesdeSelect(document.getElementById('rep-campana').value)
   };
 
   if(editId) {
@@ -21113,7 +21157,7 @@ function bravoReparaciones() {
             <th>Cliente</th><th>Teléfono</th>
             <th style="text-align:right">Costo Repuesto</th><th style="text-align:right">Total Cobrado</th><th style="text-align:right">Abono</th>
             <th style="text-align:right">Resta</th><th style="text-align:right">Ganancia</th>
-            <th style="text-align:center">Estado</th><th>Fecha</th><th>Pago</th><th>Mes</th><th></th>
+            <th style="text-align:center">Estado</th><th>Procedencia</th><th>Fecha</th><th>Pago</th><th>Mes</th><th></th>
           </tr>
         </thead>
         <tbody id="bravo-rep-tbody"></tbody>
@@ -21330,13 +21374,47 @@ function guardarCostosFijosBravo() {
 // de Bravo se vincula por el NOMBRE de la campaña (igual que ventaAT&T.campana),
 // nunca por id, para que el campo siga siendo un simple texto en cada línea.
 const BRAVO_CAMPANA_SELECT_IDS = ['bravo-acc-campana','bravo-lyca-campana','bravo-rep-campana','bravo-combo-campana','bravo-tel-campana','rep-campana'];
+// Las REPARACIONES, además de poder venir de una campaña, pueden venir
+// simplemente del local (el cliente entró a la tienda por su cuenta). Antes
+// la única alternativa era "— Sin campaña —", que mezclaba dos cosas muy
+// distintas: "llegó al local solo" y "no se anotó de dónde vino". Este
+// valor centinela las separa. Se guarda en r.procedencia, NO en r.campana,
+// para que el ROI de campañas (que cruza por NOMBRE de campaña) siga igual.
+// Ojo: el campo r.origen ya existe con otro significado ('registro' = la
+// reparación se cargó desde el Registro Diario), por eso este es aparte.
+const BRAVO_REP_SELECT_IDS = ['bravo-rep-campana','rep-campana'];
+const BRAVO_PROCEDENCIA_LOCAL = '__local__';
 function bravoPoblarSelectsCampana() {
   const activas = (appData.bravo.campanas||[]).filter(c=>c.estado==='activa');
-  const opts = '<option value="">— Sin campaña —</option>' + activas.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  const optsCampanas = activas.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('');
+  const opts = '<option value="">— Sin campaña —</option>' + optsCampanas;
+  const optsRep = '<option value="">— Sin especificar —</option>' +
+    `<option value="${BRAVO_PROCEDENCIA_LOCAL}">🏪 Del local (el cliente vino a la tienda)</option>` +
+    (activas.length ? `<optgroup label="📢 De una campaña activa">${optsCampanas}</optgroup>` : '');
   BRAVO_CAMPANA_SELECT_IDS.forEach(id => {
     const el = document.getElementById(id);
-    if(el) el.innerHTML = opts;
+    if(el) el.innerHTML = BRAVO_REP_SELECT_IDS.includes(id) ? optsRep : opts;
   });
+}
+// Traduce lo elegido en el select de una reparación a los dos campos que se
+// guardan, y de vuelta. Un solo desplegable para quien lo llena; dos campos
+// limpios por dentro.
+function bravoRepProcedenciaDesdeSelect(valor) {
+  if(valor === BRAVO_PROCEDENCIA_LOCAL) return { procedencia: 'local', campana: '' };
+  if(valor) return { procedencia: 'campana', campana: valor };
+  return { procedencia: '', campana: '' };
+}
+function bravoRepSelectDesdeProcedencia(r) {
+  if(!r) return '';
+  if(r.procedencia === 'local') return BRAVO_PROCEDENCIA_LOCAL;
+  return r.campana || '';
+}
+// Etiqueta corta para mostrar en la tabla de Reparaciones.
+function bravoRepProcedenciaLabel(r) {
+  if(!r) return '—';
+  if(r.procedencia === 'local') return '🏪 Del local';
+  if(r.campana) return '📢 ' + r.campana;
+  return '—';
 }
 // Margen y unidades de TODAS las categorías de Bravo vinculadas a una
 // campaña por nombre -- recorre accesorios/lycas/combos/teléfonos dentro de
@@ -21524,6 +21602,7 @@ function bravoReparacionesDesdeRegistros() {
         fecha: reg.fecha,
         pago: item.metodo || '',
         campana: item.campana || '',
+        procedencia: item.procedencia || '',
         mes: mesStr,
       });
     });
@@ -21575,6 +21654,7 @@ function bravoRenderReparacionesTabla() {
       <td style="text-align:right;font-weight:700;color:${(r.resta||0)>0?'#E04048':'#99ACC2'}">${(r.resta||0)>0?fmt(r.resta):'—'}</td>
       <td style="text-align:right;font-weight:700;color:#00BDA5">${fmt(r.ganancia||0)}</td>
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${REP_ESTADO_COLORS[r.estado]}22;color:${REP_ESTADO_COLORS[r.estado]||'#7C98B6'}">${REP_ESTADO_LABELS[r.estado]||r.estado||'—'}</span></td>
+      <td style="font-size:11px;color:#7C98B6">${bravoRepProcedenciaLabel(r)}</td>
       <td>${mdaFecha(r.fecha)||'—'}</td>
       <td style="font-size:11px">${REP_PAGO_LABELS[r.pago]||r.pago||'—'}</td>
       <td style="font-size:11px;color:#7C98B6">${r.mes||'—'}</td>
@@ -21584,7 +21664,7 @@ function bravoRenderReparacionesTabla() {
           : `<button class="btn btn-ghost btn-xs" onclick="abrirModalReparacion(${r.id})">✏️</button>
              <button class="btn btn-danger btn-xs" onclick="eliminarReparacion(${r.id})">✕</button>`}
       </td>
-    </tr>`).join('') : '<tr><td colspan="12" class="tbl-empty">Sin reparaciones registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="13" class="tbl-empty">Sin reparaciones registradas</td></tr>';
 
   document.getElementById('bravo-rep-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
@@ -21594,7 +21674,7 @@ function bravoRenderReparacionesTabla() {
       <td style="text-align:right">${fmt(totalAbono)}</td>
       <td style="text-align:right;color:${totalResta>0?'#E04048':'#33475B'}">${fmt(totalResta)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
-      <td colspan="5"></td>
+      <td colspan="6"></td>
     </tr>` : '';
 }
 
@@ -21641,9 +21721,26 @@ function abrirModalLineaLyca(id=null) {
   document.getElementById('lyca-pago-metodo').value = l?.pagoMetodo || 'efectivo';
   populateMes('lyca-mes', false);
   document.getElementById('lyca-mes').value = l?.mes || mesPorDefecto();
+  // Línea nueva: se propone la fecha de hoy. Línea vieja guardada ANTES de
+  // que existiera este campo: se deja en blanco a propósito, porque su día
+  // real nunca se registró -- inventarle uno sería peor que dejarlo vacío.
+  document.getElementById('lyca-fecha').value = l ? (l.fecha || '') : fechaLocalHoy();
   calcularGananciaLyca();
   lycaActualizarAsignadoRequerido();
   document.getElementById('modal-bravo-lyca').classList.add('open');
+}
+
+// Al elegir la fecha, el Mes se acomoda solo, para que los dos no puedan
+// quedar diciendo cosas distintas. Si ese mes todavía no existe en la lista
+// de meses de la app, se respeta el que ya estaba en vez de borrarlo.
+function lycaSincronizarMesDesdeFecha() {
+  const fecha = document.getElementById('lyca-fecha')?.value || '';
+  if(!fecha) return;
+  const [anio, mes] = fecha.split('-').map(Number);
+  if(!anio || !mes) return;
+  const mesStr = mesStrDesdeNum(anio, mes);
+  const sel = document.getElementById('lyca-mes');
+  if(sel && [...sel.options].some(o => o.value === mesStr)) sel.value = mesStr;
 }
 
 function guardarLineaLyca() {
@@ -21674,6 +21771,7 @@ function guardarLineaLyca() {
     estado,
     asignadoPor,
     pagoMetodo: document.getElementById('lyca-pago-metodo').value,
+    fecha: document.getElementById('lyca-fecha').value,
     mes: document.getElementById('lyca-mes').value
   };
 
@@ -21739,7 +21837,7 @@ function bravoLineasLyca() {
           <tr>
             <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th><th>Agente</th>
             <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Comisión</th><th style="text-align:right">Ganancia</th>
-            <th style="text-align:center">Estado</th><th>Asignado por</th><th>Método Pago</th><th>Mes</th><th></th>
+            <th style="text-align:center">Estado</th><th>Asignado por</th><th>Método Pago</th><th>Fecha</th><th>Mes</th><th></th>
           </tr>
         </thead>
         <tbody id="bravo-lyca-tbody"></tbody>
@@ -21797,13 +21895,14 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${LYCA_ESTADO_COLORS[l.estado]}22;color:${LYCA_ESTADO_COLORS[l.estado]||'#7C98B6'}">${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}</span></td>
       <td style="font-size:11px;color:#7C98B6">${l.asignadoPor||'<span style="color:#CBD6E2">—</span>'}</td>
       <td style="font-size:11px;color:#7C98B6">${LYCA_PAGO_LABELS[l.pagoMetodo]||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.fecha ? mdaFecha(l.fecha) : '—'}</td>
       <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
         <button class="btn btn-ghost btn-xs" style="background:#25D366;color:#fff;border-color:#25D366" onclick="compartirLineaLycaWhatsApp(${l.id})" title="Enviar por WhatsApp (sin comisión, costo, pago ni ganancia)">📱</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="17" class="tbl-empty">Sin líneas registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="18" class="tbl-empty">Sin líneas registradas</td></tr>';
 
   document.getElementById('bravo-lyca-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
@@ -21812,7 +21911,7 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right">${fmt(totalPago)}</td>
       <td style="text-align:right;color:#D4A017">${fmt(totalComision)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
-      <td colspan="5"></td>
+      <td colspan="6"></td>
     </tr>` : '';
 }
 
@@ -22375,7 +22474,7 @@ function bravoAgregarReparacion() {
   const notas = document.getElementById('bravo-rep-notas').value.trim();
   const fechaPromesaEntrega = document.getElementById('bravo-rep-fecha-promesa').value;
   const motivoPerdida = document.getElementById('bravo-rep-motivo-perdida').value;
-  const campana = document.getElementById('bravo-rep-campana').value;
+  const { procedencia, campana } = bravoRepProcedenciaDesdeSelect(document.getElementById('bravo-rep-campana').value);
 
   if(!equipo || !tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos (incluyendo Costo del repuesto)','error'); return; }
   if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
@@ -22412,7 +22511,7 @@ function bravoAgregarReparacion() {
   const resta = Math.max(0, precio - abono);
 
   bravoRegistroTemp.reparaciones.push({
-    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas, campana,
+    equipo, tipo, precio, costo, abono, pagos, resta, estado, metodo, ganancia, notas, campana, procedencia,
     fechaPromesaEntrega, fechaEntregaReal,
     motivoPerdida: estado === 'perdido' ? motivoPerdida : ''
   });
@@ -22461,7 +22560,7 @@ function bravoEditarReparacion(i) {
   document.getElementById('bravo-rep-notas').value = item.notas || '';
   document.getElementById('bravo-rep-fecha-promesa').value = item.fechaPromesaEntrega || '';
   document.getElementById('bravo-rep-motivo-perdida').value = item.motivoPerdida || '';
-  document.getElementById('bravo-rep-campana').value = item.campana || '';
+  document.getElementById('bravo-rep-campana').value = bravoRepSelectDesdeProcedencia(item);
   bravoRepEditandoFechaEntregaReal = item.fechaEntregaReal || '';
   bravoRepEditandoPagos = item.pagos || [];
   bravoRepToggleMotivoPerdida();
