@@ -2890,6 +2890,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <option value="David">David</option>
           </select>
         </div>
+        <div class="form-group"><label>Fecha <span style="color:#99ACC2;font-weight:400;font-size:9px">— el día en que se agregó</span></label><input type="date" id="lyca-fecha" onchange="lycaSincronizarMesDesdeFecha()"></div>
         <div class="form-group"><label>Mes</label><select id="lyca-mes"></select></div>
         <div class="form-group">
           <label>Método de Pago</label>
@@ -21720,9 +21721,26 @@ function abrirModalLineaLyca(id=null) {
   document.getElementById('lyca-pago-metodo').value = l?.pagoMetodo || 'efectivo';
   populateMes('lyca-mes', false);
   document.getElementById('lyca-mes').value = l?.mes || mesPorDefecto();
+  // Línea nueva: se propone la fecha de hoy. Línea vieja guardada ANTES de
+  // que existiera este campo: se deja en blanco a propósito, porque su día
+  // real nunca se registró -- inventarle uno sería peor que dejarlo vacío.
+  document.getElementById('lyca-fecha').value = l ? (l.fecha || '') : fechaLocalHoy();
   calcularGananciaLyca();
   lycaActualizarAsignadoRequerido();
   document.getElementById('modal-bravo-lyca').classList.add('open');
+}
+
+// Al elegir la fecha, el Mes se acomoda solo, para que los dos no puedan
+// quedar diciendo cosas distintas. Si ese mes todavía no existe en la lista
+// de meses de la app, se respeta el que ya estaba en vez de borrarlo.
+function lycaSincronizarMesDesdeFecha() {
+  const fecha = document.getElementById('lyca-fecha')?.value || '';
+  if(!fecha) return;
+  const [anio, mes] = fecha.split('-').map(Number);
+  if(!anio || !mes) return;
+  const mesStr = mesStrDesdeNum(anio, mes);
+  const sel = document.getElementById('lyca-mes');
+  if(sel && [...sel.options].some(o => o.value === mesStr)) sel.value = mesStr;
 }
 
 function guardarLineaLyca() {
@@ -21753,6 +21771,7 @@ function guardarLineaLyca() {
     estado,
     asignadoPor,
     pagoMetodo: document.getElementById('lyca-pago-metodo').value,
+    fecha: document.getElementById('lyca-fecha').value,
     mes: document.getElementById('lyca-mes').value
   };
 
@@ -21818,7 +21837,7 @@ function bravoLineasLyca() {
           <tr>
             <th>Teléfono</th><th>Cliente</th><th>Compañía</th><th>Área</th><th>PIN</th><th>Cuenta</th><th>Postal</th><th>Agente</th>
             <th style="text-align:right">Costo</th><th style="text-align:right">Pago</th><th style="text-align:right">Comisión</th><th style="text-align:right">Ganancia</th>
-            <th style="text-align:center">Estado</th><th>Asignado por</th><th>Método Pago</th><th>Mes</th><th></th>
+            <th style="text-align:center">Estado</th><th>Asignado por</th><th>Método Pago</th><th>Fecha</th><th>Mes</th><th></th>
           </tr>
         </thead>
         <tbody id="bravo-lyca-tbody"></tbody>
@@ -21876,13 +21895,14 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${LYCA_ESTADO_COLORS[l.estado]}22;color:${LYCA_ESTADO_COLORS[l.estado]||'#7C98B6'}">${LYCA_ESTADO_LABELS[l.estado]||l.estado||'—'}</span></td>
       <td style="font-size:11px;color:#7C98B6">${l.asignadoPor||'<span style="color:#CBD6E2">—</span>'}</td>
       <td style="font-size:11px;color:#7C98B6">${LYCA_PAGO_LABELS[l.pagoMetodo]||'—'}</td>
+      <td style="font-size:11px;color:#7C98B6">${l.fecha ? mdaFecha(l.fecha) : '—'}</td>
       <td style="font-size:11px;color:#7C98B6">${l.mes||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick="abrirModalLineaLyca(${l.id})">✏️</button>
         <button class="btn btn-ghost btn-xs" style="background:#25D366;color:#fff;border-color:#25D366" onclick="compartirLineaLycaWhatsApp(${l.id})" title="Enviar por WhatsApp (sin comisión, costo, pago ni ganancia)">📱</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarLineaLyca(${l.id})">✕</button>
       </td>
-    </tr>`).join('') : '<tr><td colspan="17" class="tbl-empty">Sin líneas registradas</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="18" class="tbl-empty">Sin líneas registradas</td></tr>';
 
   document.getElementById('bravo-lyca-tfoot').innerHTML = filtradas.length ? `
     <tr style="background:#F5F8FA;font-weight:800;border-top:2px solid #CBD6E2">
@@ -21891,7 +21911,7 @@ function bravoRenderLineasLycaTabla() {
       <td style="text-align:right">${fmt(totalPago)}</td>
       <td style="text-align:right;color:#D4A017">${fmt(totalComision)}</td>
       <td style="text-align:right;color:#00BDA5">${fmt(totalGanancia)}</td>
-      <td colspan="5"></td>
+      <td colspan="6"></td>
     </tr>` : '';
 }
 
