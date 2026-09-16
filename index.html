@@ -5409,6 +5409,25 @@ function getBasicoQuincena(a, mes, q) {
   if(registro && typeof registro === 'object' && registro.sueldoSnapshot != null) return registro.sueldoSnapshot;
   return a.sueldoQuincenal || 0;
 }
+
+// Agentes que entran en la NÓMINA (Pagos Agentes y sus reportes), en el
+// orden en que se muestran. Antes cada pantalla de pago repetía esta misma
+// lista a mano y el rol Inspector se había quedado fuera de todas: se le
+// podía configurar el Sueldo Quincenal en Admin -> Agentes, pero después no
+// aparecía en ningún lado para pagárselo. Un Inspector no vende ni gana
+// comisión (solo hace seguimiento), pero sí cobra su sueldo, así que va
+// aquí. Los soloHQ quedan fuera porque sus pagos viven en HEADQUARTERS, y
+// los Sub-Dealers también porque tienen su propio ciclo semanal en Pagos
+// Sub-Dealers.
+function agentesParaNomina() {
+  const sinHQ = (appData.agentes||[]).filter(a=>!a.soloHQ);
+  return [
+    ...sinHQ.filter(a=>a.rol==='gerente'),
+    ...sinHQ.filter(a=>a.rol==='supervisor'),
+    ...sinHQ.filter(a=>!a.rol||a.rol==='agente'),
+    ...sinHQ.filter(a=>a.rol==='inspector'),
+  ];
+}
 function mesActual() { const d=new Date(); return MESES_ES[d.getMonth()]+' '+d.getFullYear(); }
 // Fecha de HOY en horario LOCAL, formato YYYY-MM-DD (mismo formato que
 // <input type="date">). new Date().toISOString() usa UTC, así que en
@@ -9235,7 +9254,7 @@ function renderAgentes() {
               <span style="font-size:15px;font-weight:700;color:#33475B">${a.nombre}</span>
               <span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;background:${ROL_BG[rol]};color:${ROL_COLORS[rol]}">${ROL_LABELS[rol]||rol}</span>
             </div>
-            <div style="font-size:11px;color:#7C98B6">💰 Sueldo: ${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal)+'/quinc.':'Solo comisión'}${a.tel?` · 📞 ${a.tel}`:''}</div>
+            <div style="font-size:11px;color:#7C98B6">💰 Sueldo: ${a.sueldoQuincenal>0?fmt(a.sueldoQuincenal)+'/quinc.':(rol==='inspector'?'Sin sueldo asignado':'Solo comisión')}${a.tel?` · 📞 ${a.tel}`:''}</div>
             ${supervisa?`<div style="font-size:10px;color:#99ACC2;margin-top:2px">Supervisa: ${supervisa}</div>`:''}
           </div>
         </div>
@@ -10262,11 +10281,7 @@ function abrirCongelarPagosEnLote() {
   const meses = filtroMes ? [filtroMes] : getMeses();
   const qs = filtroQ ? [parseInt(filtroQ)] : [1,2];
 
-  const agentesTodos = [
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
-  ];
+  const agentesTodos = agentesParaNomina();
   const agentes = filtroAgId ? agentesTodos.filter(a=>a.id===filtroAgId) : agentesTodos;
 
   if(!agentes.length) { showNotif('⚠️ No hay agentes que coincidan con el filtro', 'error'); return; }
@@ -10571,11 +10586,7 @@ function renderPagos() {
   const fpMes = document.getElementById('fp-mes');
   if(fpAg) {
     const curAg = fpAg.value;
-    const todos = [
-      ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
-      ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
-      ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
-    ];
+    const todos = agentesParaNomina();
     fpAg.innerHTML = '<option value="">👥 Todos los agentes</option>' +
       todos.map(a=>`<option value="${a.id}" ${a.id==curAg?'selected':''}>${a.nombre}</option>`).join('');
   }
@@ -10607,11 +10618,7 @@ function renderPagos() {
   // If filtroQ is '' or unset, qVis stays as [1,2]
 
   // Agrupar por rol (excluir soloHQ — sus pagos están en HEADQUARTERS)
-  const todos = [
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
-  ];
+  const todos = agentesParaNomina();
   const ordenados = filtroAgId ? todos.filter(a=>a.id===filtroAgId) : todos;
   // ── Resumen de pago quincena actual ──
   const hoy = new Date().getDate();
@@ -11090,11 +11097,7 @@ function generarReporteTodosAgentes() {
   if(filtroQ === '1') qVis = [1];
   else if(filtroQ === '2') qVis = [2];
 
-  const todos = [
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
-  ];
+  const todos = agentesParaNomina();
 
   const bloques = [];
   todos.forEach(a=>{
@@ -11187,11 +11190,7 @@ function generarReporteSueldosComisiones() {
   if(filtroQ === '1') qVis = [1];
   else if(filtroQ === '2') qVis = [2];
 
-  const todos = [
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='gerente'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&a.rol==='supervisor'),
-    ...appData.agentes.filter(a=>!a.soloHQ&&(!a.rol||a.rol==='agente')),
-  ];
+  const todos = agentesParaNomina();
   const agentesVis = filtroAgId ? todos.filter(a=>a.id===filtroAgId) : todos;
 
   const bloques = [];
