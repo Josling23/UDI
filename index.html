@@ -3793,6 +3793,25 @@ function userCanManageJosePina(email) {
   return emailLower === 'interjosling@hotmail.com' || emailLower === 'gsteven0912@gmail.com';
 }
 
+// Quién puede ELIMINAR registros oficiales: eliminar una venta ya aprobada,
+// eliminar un reporte rechazado, revertir una venta aprobada, o eliminar un
+// agente. A pedido de la dueña, solo ella y José Piña -- antes bastaba con
+// tener el área "admin", así que cualquier cuenta de back-office podía
+// borrar una activación reportada sin dejar rastro. Lo que un vendedor
+// puede quitar de SU PROPIO reporte mientras sigue pendiente o rechazado no
+// entra aquí: eso es suyo y todavía no es oficial.
+const CORREOS_PUEDEN_ELIMINAR = ['interjosling@hotmail.com', 'gsteven0912@gmail.com'];
+function puedeEliminarRegistros(email) {
+  return CORREOS_PUEDEN_ELIMINAR.includes((email || '').trim().toLowerCase());
+}
+// Guarda para usar al principio de cada acción de borrado. Devuelve true si
+// hay que detenerse, y ya avisa a quien lo intentó.
+function bloquearSiNoPuedeEliminar() {
+  if(puedeEliminarRegistros(currentUser ? currentUser.email : '')) return false;
+  showNotif('🔒 Solo Josling o José Piña pueden eliminar registros. Pídele a uno de ellos que lo haga.', 'error', 8000);
+  return true;
+}
+
 // ============================================================
 // AVATAR (iniciales + color por nombre) — sin subida de fotos, no hay
 // backend de archivos; genera algo visualmente distinto por persona
@@ -6335,7 +6354,7 @@ function renderVentasRechazadasTabla() {
           </select>
           <button class="btn btn-success btn-xs" onclick="adminAprobarRechazada(${grupoId})">✅ Aprobar</button>
           <button class="btn btn-ghost btn-xs" onclick="adminReactivarRechazada(${grupoId})">↩️ Reactivar</button>
-          <button class="btn btn-danger btn-xs" onclick="adminEliminarRechazada(${grupoId})">🗑️ Eliminar</button>
+          ${puedeEliminarRegistros(currentUser ? currentUser.email : '') ? `<button class="btn btn-danger btn-xs" onclick="adminEliminarRechazada(${grupoId})">🗑️ Eliminar</button>` : ''}
           <button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaRechazada(${grupoId})">💬${mensajesDeGrupo(grupoId).length ? ' '+mensajesDeGrupo(grupoId).length : ''}</button>
         </td>
       </tr>
@@ -6424,6 +6443,7 @@ function adminAprobarRechazada(grupoId) {
 // deja ningún rastro ni notifica al agente (uso para reportes duplicados o
 // que definitivamente no proceden).
 function adminEliminarRechazada(grupoId) {
+  if(bloquearSiNoPuedeEliminar()) return;
   if(!confirm('¿Eliminar definitivamente este reporte rechazado? No se puede deshacer.')) return;
   appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
   guardar();
@@ -6439,6 +6459,7 @@ function adminEliminarRechazada(grupoId) {
 // agente (tienen grupoId); una venta metida directo por Admin no tiene "a
 // quién" devolvérsela, así que ese botón nunca aparece para esas.
 function revertirVentaAprobada(grupoId) {
+  if(bloquearSiNoPuedeEliminar()) return;
   const lineas = (appData.ventas||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
   if(!confirm('¿Seguro que quieres RECHAZAR esta venta ya aprobada?\n\nSe quitará de Registro Diario, comisiones y pagos, y volverá a la bandeja de rechazados del vendedor para que la corrija y la vuelva a enviar. Esta acción no se puede deshacer.')) return;
@@ -8071,9 +8092,9 @@ function renderVentas() {
     <td style="color:#7C98B6;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${v.notas||''}">${v.notas||'—'}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-ghost btn-xs" onclick="openVentaModal(${v.id})">✏️</button>
-      <button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>
+      ${puedeEliminarRegistros(currentUser ? currentUser.email : '') ? `<button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id})">✕</button>` : ''}
       ${v.grupoId ? `<button class="btn btn-ghost btn-xs" onclick="adminToggleChatVentaOficial(${v.grupoId})">💬${mensajesDeGrupo(v.grupoId).length ? ' '+mensajesDeGrupo(v.grupoId).length : ''}</button>` : ''}
-      ${v.grupoId ? `<button class="btn btn-danger btn-xs" onclick="revertirVentaAprobada(${v.grupoId})" title="Rechazar esta venta ya aprobada, por si hay un error que corregir">↩️ Rechazar</button>` : ''}
+      ${v.grupoId && puedeEliminarRegistros(currentUser ? currentUser.email : '') ? `<button class="btn btn-danger btn-xs" onclick="revertirVentaAprobada(${v.grupoId})" title="Rechazar esta venta ya aprobada, por si hay un error que corregir">↩️ Rechazar</button>` : ''}
       ${v.esChargeback
         ? `<button class="btn btn-ghost btn-xs" style="color:#F2545B;border-color:#F2545B" onclick="quitarVentaChargeback(${v.id})" title="Marcada como Chargeback — clic para quitar">⚠️ CB</button>`
         : `<button class="btn btn-ghost btn-xs" onclick="marcarVentaChargeback(${v.id})" title="Marcar esta venta como Chargeback">⚠️ CB</button>`}
@@ -9213,6 +9234,7 @@ function ventaInlineEdit(id, field, value, prodSelect) {
 }
 
 function eliminarVenta(id) {
+  if(bloquearSiNoPuedeEliminar()) return;
   if(!confirm('¿Eliminar esta venta?')) return;
 
   // Validar que la quincena no esté cerrada
@@ -9305,7 +9327,7 @@ function renderAgentes() {
           <button onclick="toggleUbicacion('att',${a.id})" title="Cambiar ubicación" style="border:none;background:${a.ubicacion==='remoto'?'#D1FAE5':'#DBEAFE'};color:${a.ubicacion==='remoto'?'#059669':'#1D4ED8'};border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${a.ubicacion==='remoto'?'🟢 Remoto':'🔵 Oficina'}</button>
           <button class="btn btn-ghost btn-xs" onclick="abrirVistaPreviaAgente(${a.id})" title="Ver de solo lectura lo que este vendedor ve en su cuenta">👁️ Vista Previa</button>
           <button class="btn btn-ghost btn-xs" onclick="openAgenteModal(${a.id})">✏️ Editar</button>
-          <button class="btn btn-danger btn-xs" onclick="eliminarAgente(${a.id})">✕</button>
+          ${puedeEliminarRegistros(currentUser ? currentUser.email : '') ? `<button class="btn btn-danger btn-xs" onclick="eliminarAgente(${a.id})">✕</button>` : ''}
         </div>
       </div>
       <div style="margin-bottom:12px">
@@ -9503,7 +9525,8 @@ function renderAgenteVentas() {
     const estaCerrada = estaQuincenaCerrada(periodo.mes, periodo.q);
     const btnEliminar = estaCerrada
       ? `<span style="color:#F2545B;font-weight:700;font-size:11px">🔒 CERRADA</span>`
-      : `<button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id});renderAgentes()">✕</button>`;
+      : (puedeEliminarRegistros(currentUser ? currentUser.email : '')
+          ? `<button class="btn btn-danger btn-xs" onclick="eliminarVenta(${v.id});renderAgentes()">✕</button>` : '');
 
     return `<tr style="opacity:${estaCerrada ? '0.7' : '1'}">
     <td style="color:#99ACC2">${i+1}</td>
@@ -9698,6 +9721,7 @@ function toggleUbicacion(area, id) {
 }
 
 function eliminarAgente(id) {
+  if(bloquearSiNoPuedeEliminar()) return;
   if(!confirm('¿Eliminar agente?')) return;
   appData.agentes = appData.agentes.filter(a=>a.id!==id);
   appData.ventasExtra = (appData.ventasExtra||[]).filter(e=>e.agenteId!==id);
