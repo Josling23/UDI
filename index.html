@@ -4587,6 +4587,17 @@ async function cargar() {
   // datos de ejemplo solo en memoria para esta sesión, SIN guardarlos en
   // Firebase — un guardado real solo debe ocurrir cuando el usuario edite
   // algo intencionalmente (eso ya dispara guardar() por su cuenta).
+  // Y mientras tanto se bloquea TODO guardado, igual que en el respaldo de
+  // localStorage de arriba. Sin esto, una sesión que arrancó con datos de
+  // ejemplo (Firebase no respondió Y el navegador no tenía copia: teléfono
+  // nuevo, caché borrada, con mala señal) se consideraba "al día", y el
+  // primer cambio que hiciera esa persona escribía en el servidor las 6
+  // ventas de mentira y el agente de ejemplo -- metiendo datos falsos y
+  // pisando el perfil real de José Piña, sin que nadie lo autorizara. El
+  // listener en tiempo real levanta este bloqueo en cuanto llegan datos
+  // reales del servidor, así que en cuanto la conexión se recupera la
+  // sesión vuelve a funcionar sola, sin recargar.
+  _appDataPuedeEstarDesactualizada = true;
   {
     // Datos de ejemplo
     const hoy = new Date();
