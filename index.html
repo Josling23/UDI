@@ -4304,7 +4304,25 @@ function activarListenerAppData() {
     const idsMensajesAntes = new Set((appData.mensajesVenta||[]).map(m=>m.id));
     const idsChargebackAntes = new Set((appData.ventas||[]).filter(v=>v.esChargeback).map(v=>v.id));
     sanearColeccionesVaciasFirebase(raw);
-    appData = { ...appData, ...raw };
+    // FUSIÓN, no reemplazo. Antes esto era `appData = { ...appData, ...raw }`,
+    // un merge superficial que sustituía COLECCIONES ENTERAS por las del
+    // servidor. Si en ese instante esta sesión tenía algo recién creado y
+    // todavía sin guardar -- ej. el reporte que un vendedor acaba de enviar,
+    // cuyo guardado va en camino -- ese evento se lo llevaba de la memoria, y
+    // el guardado en curso terminaba escribiendo la versión ya vaciada. El
+    // vendedor veía "🕓 Reporte enviado", sin ningún error, y el reporte no
+    // aparecía nunca en Ventas Pendientes. Causa real confirmada de reportes
+    // y de comisiones que desaparecían sin que nadie los tocara. El evento
+    // llega con CUALQUIER guardado de CUALQUIER usuario, así que con varias
+    // personas trabajando a la vez la ventana se abre seguido -- y más aún
+    // mientras Admin aprueba en tanda, porque ahí la lista de pendientes
+    // queda vacía en el servidor y sanearColeccionesVaciasFirebase() la fuerza
+    // a [] en el snapshot.
+    // Se usa la misma fusionarConServidor() que ya usa guardar(): lo que esta
+    // sesión creó y el servidor aún no conoce se conserva, y lo que otro
+    // borró/movió de verdad (una venta pendiente que ya aprobaron) sí se
+    // respeta, porque estaba en la foto confirmada anterior.
+    appData = fusionarConServidor(appData, raw, _ultimoSnapshotConfirmadoAppData || {});
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
       appData.agentes.forEach(a => {
@@ -4319,9 +4337,14 @@ function activarListenerAppData() {
     // Actualización real (no eco propio) confirmada del servidor — esta
     // sesión ya está al día, y este conteo (y esta foto completa) pasan a
     // ser la nueva base de comparación para el próximo guardado.
+    // La foto se toma de `raw` (lo que el servidor REALMENTE tiene), no de
+    // appData: appData puede traer además cosas locales todavía sin guardar.
+    // Guardarlas aquí como "ya conocido" hacía que el siguiente guardado las
+    // leyera como "esto lo borró otra sesión" y las descartara -- o sea, el
+    // dato se salvaba de este evento y se perdía igual un segundo después.
     _appDataPuedeEstarDesactualizada = false;
-    _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
-    _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
+    _ultimoConteoConfirmadoAppData = contarRegistrosArbol(raw);
+    _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(raw));
 
     // Si Josling (u otro dueño) acaba de aprobar/rechazar una solicitud de
     // descarga que esta misma pestaña está esperando, recogerla ahora.
