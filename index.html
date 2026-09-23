@@ -4218,11 +4218,18 @@ function guardar() {
   return _guardarEnCurso;
 }
 
+// _guardarInterno() devuelve true SOLO si los datos llegaron de verdad al
+// servidor, y false en los tres casos en que no: sesión sin confirmar,
+// guardado cancelado por la protección de caída de registros, o error de
+// escritura. Así quien llama puede esperar el resultado antes de decirle
+// "listo" al usuario y limpiarle el formulario. Los sitios que la llaman sin
+// await siguen funcionando igual (ignoran el valor); los formularios del
+// vendedor sí lo usan, que es donde perder lo escrito duele.
 async function _guardarInterno() {
   normalizarAppData();
   if (_appDataPuedeEstarDesactualizada) {
     showNotif('🛑 No se guardó: no se pudo confirmar que tienes los datos más recientes del servidor. Recarga la página (Ctrl+Shift+R) antes de volver a intentar, para no sobrescribir cambios de otros.', 'error', 10000);
-    return;
+    return false;
   }
   // Releer el servidor y fusionar cualquier cosa que otra sesión haya
   // agregado desde la última sincronización confirmada de ESTA sesión —
@@ -4242,7 +4249,7 @@ async function _guardarInterno() {
   const conteoNuevo = contarRegistrosArbol(appData);
   if (_ultimoConteoConfirmadoAppData !== null && (_ultimoConteoConfirmadoAppData - conteoNuevo) > UMBRAL_CAIDA_SOSPECHOSA_REGISTROS) {
     const ok = confirm(`⚠️ Este guardado eliminaría ${_ultimoConteoConfirmadoAppData - conteoNuevo} registros de golpe (de ${_ultimoConteoConfirmadoAppData} a ${conteoNuevo}). Esto normalmente indica un problema (datos desactualizados en esta sesión), no una acción intencional.\n\n¿Seguro que quieres guardar así de todas formas?`);
-    if (!ok) { showNotif('🛑 Guardado cancelado para proteger los datos existentes', 'error'); return; }
+    if (!ok) { showNotif('🛑 Guardado cancelado para proteger los datos existentes', 'error'); return false; }
   }
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   _syncSeq++;
@@ -4253,9 +4260,11 @@ async function _guardarInterno() {
     await fbDB.ref('appData').set(appData);
     _ultimoConteoConfirmadoAppData = conteoNuevo;
     _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
+    return true;
   } catch(e) {
     console.warn('Firebase write error:', e);
     showNotif('⚠️ No se pudo guardar en el servidor (' + e.message + '). Tus cambios solo quedaron en este dispositivo.', 'error');
+    return false;
   }
 }
 
@@ -11774,13 +11783,14 @@ function renderAgenteActividad() {
   `;
 }
 
-function guardarActividadDiaria() {
+async function guardarActividadDiaria() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const agenteId = perms?.agenteId;
   if(!agenteId) return;
   const hoy = fechaLocalHoy();
   if(!appData.actividadDiaria) appData.actividadDiaria = [];
   let registro = appData.actividadDiaria.find(a=>a.agenteId===agenteId && a.fecha===hoy);
+  const existiaRegistro = !!registro;
   if(!registro) {
     // id determinístico (agenteId+fecha), NO un contador maxId+1 -- ese
     // patrón calculaba el id a partir de la copia local de cada sesión, así
@@ -11795,6 +11805,9 @@ function guardarActividadDiaria() {
     registro = { id: agenteId+'_'+hoy, agenteId, fecha: hoy };
     appData.actividadDiaria.push(registro);
   }
+  // Foto previa para poder deshacer la suma si el guardado no llega.
+  const registroAntes = JSON.parse(JSON.stringify(registro));
+  const eraNuevo = !existiaRegistro;
   let huboAlgoNuevo = false;
   ACTIVIDAD_DIARIA_CAMPOS.forEach(c=>{
     const nuevo = parseFloat(document.getElementById('aa-'+c.id).value) || 0;
@@ -11802,7 +11815,18 @@ function guardarActividadDiaria() {
     registro[c.id] = (registro[c.id]||0) + nuevo;
   });
   if(!huboAlgoNuevo) { showNotif('⚠️ No escribiste ningún dato nuevo para sumar', 'error'); return; }
-  guardar();
+  // Se espera la confirmación antes de decir "actualizado" y poner las
+  // casillas en 0. Antes el ✅ salía siempre y las casillas se limpiaban
+  // aunque el guardado se hubiera bloqueado: el agente perdía los números
+  // que acababa de contar, sin enterarse.
+  const guardado = await guardar();
+  if(!guardado) {
+    // Se deshace la suma y se le dejan los números escritos tal cual.
+    if(eraNuevo) appData.actividadDiaria = appData.actividadDiaria.filter(a=>a!==registro);
+    else Object.assign(registro, registroAntes);
+    showNotif('🛑 No se pudo guardar — tus números NO se perdieron, siguen escritos aquí. Revisa tu conexión y dale "Sumar a Hoy" otra vez. Si se repite, recarga la página con Ctrl+Shift+R.', 'error', 12000);
+    return;
+  }
   showNotif('✅ Reporte diario actualizado');
   renderAgenteActividad(); // refresca el resumen y limpia las casillas a 0
 }
@@ -12101,7 +12125,7 @@ function agenteUpdateVentaTotal() {
   if(el) el.textContent = fmt(total);
 }
 
-function guardarVentaAgente() {
+async function guardarVentaAgente() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   if(!perms || !perms.agenteId) { showNotif('⚠️ No se pudo identificar tu perfil de agente','error'); return; }
 
@@ -12186,6 +12210,12 @@ function guardarVentaAgente() {
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
 
+  // Foto de lo que hay ANTES de tocar nada, para poder deshacerlo si el
+  // guardado no llega al servidor (ver el final de esta función).
+  const pendientesAntes = [...appData.ventasPendientes];
+  const notificacionesAntes = [...(appData.notificaciones||[])];
+  const nextIdAntes = appData.nextVentaPendienteId;
+
   // Editando un reporte ya enviado: se reemplazan sus líneas (mismo grupoId,
   // se conserva cuándo se creó originalmente) en vez de crear uno nuevo.
   const editando = _agvEditGrupoId !== null;
@@ -12212,7 +12242,22 @@ function guardarVentaAgente() {
   if(!editando) {
     crearNotificacion({ paraAdmin: true }, 'reporte_nuevo', `Nuevo reporte de ${perms.nombre}: ${cliente}`, grupoId);
   }
-  guardar();
+  // Se ESPERA la confirmación antes de decir "enviado" y limpiar el
+  // formulario. Antes se llamaba guardar() sin await: el ✅ y el borrado del
+  // formulario salían siempre, aunque el guardado se hubiera bloqueado o
+  // fallado, y el vendedor se quedaba sin el reporte y sin saberlo.
+  const guardado = await guardar();
+  if(!guardado) {
+    // No llegó al servidor: se deshace lo que se metió en memoria (si no, un
+    // guardado posterior lo escribiría por su cuenta, o el reintento del
+    // vendedor crearía un duplicado) y se le deja TODO lo que escribió en
+    // pantalla para que solo tenga que volver a darle Enviar.
+    appData.ventasPendientes = pendientesAntes;
+    appData.notificaciones = notificacionesAntes;
+    appData.nextVentaPendienteId = nextIdAntes;
+    showNotif('🛑 No se pudo enviar el reporte — NO se perdió nada, sigue aquí en pantalla. Revisa tu conexión y dale Enviar otra vez. Si se repite, recarga la página con Ctrl+Shift+R.', 'error', 12000);
+    return;
+  }
   showNotif(editando
     ? `✅ Reporte actualizado (${lineas.length} producto${lineas.length>1?'s':''})`
     : `🕓 Reporte enviado — pendiente de revisión (${lineas.length} producto${lineas.length>1?'s':''})`);
