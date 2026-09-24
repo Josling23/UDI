@@ -6198,11 +6198,40 @@ function ventaPendienteInlineEdit(id, field, value) {
   renderVentasPendientesTabla();
 }
 
-function aprobarVentaPendiente(grupoId) {
+// Mientras una aprobación o un rechazo va en camino al servidor, se ignora
+// cualquier otro clic. Sin esto, Admin puede hacer clic más rápido de lo que
+// tarda el guardado y encolar decenas -- que es justo lo que se pierde si
+// refresca la página antes de que la cola termine.
+let _vpGuardandoEnCurso = false;
+function vpOcupado() {
+  if(_vpGuardandoEnCurso) {
+    showNotif('⏳ Espera — se está guardando el anterior. No refresques la página.', 'info', 4000);
+    return true;
+  }
+  return false;
+}
+
+// Aprobar ESPERA a que el guardado llegue al servidor antes de decir que la
+// venta ya es oficial. Antes llamaba a guardar() sin await: el ✅ salía al
+// instante y el guardado quedaba en cola. Con una base de miles de
+// registros, cada guardado lee y reescribe el árbol completo, así que
+// aprobando varios seguidos la cola se retrasa -- y si Admin refresca la
+// página en ese momento, la cola muere y esas aprobaciones vuelven a
+// Ventas Pendientes, sin ningún aviso. Reporte real: 25 aprobadas que
+// reaparecieron sin aprobar tras refrescar.
+// Con opts.sinGuardar el llamador (la aprobación masiva) mueve todo en
+// memoria y guarda UNA sola vez al final, en vez de una vez por reporte.
+// Devuelve true solo si quedó guardado de verdad.
+async function aprobarVentaPendiente(grupoId, opts = {}) {
+  if(!opts.sinGuardar && vpOcupado()) return false;
   const lineas = (appData.ventasPendientes||[]).filter(v=>v.grupoId===grupoId);
-  if(!lineas.length) return;
+  if(!lineas.length) return false;
   const quincenaPago = document.getElementById('vp-quincena-'+grupoId)?.value || '';
   const aprobadoEn = new Date().toISOString();
+  // Foto previa, por si el guardado no llega (ver el final de la función).
+  const ventasAntes = [...appData.ventas];
+  const pendientesAntes = [...appData.ventasPendientes];
+  const notificacionesAntes = [...(appData.notificaciones||[])];
 
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
   lineas.forEach(l=>{
@@ -6223,26 +6252,57 @@ function aprobarVentaPendiente(grupoId) {
   if(lineas[0].reportadoPor) {
     crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'aprobado', `Tu reporte de ${lineas[0].cliente||'venta'} fue activado`, grupoId);
   }
-  guardar();
+  if(opts.sinGuardar) return true;   // guarda el llamador, una sola vez
+
+  _vpGuardandoEnCurso = true;
+  const guardado = await guardar();
+  _vpGuardandoEnCurso = false;
+  if(!guardado) {
+    // No llegó al servidor: se deshace para que el reporte siga en
+    // Pendientes tal como estaba, en vez de quedar aprobado solo en esta
+    // pantalla y reaparecer sin aprobar al recargar.
+    appData.ventas = ventasAntes;
+    appData.ventasPendientes = pendientesAntes;
+    appData.notificaciones = notificacionesAntes;
+    renderVentasPendientesTabla();
+    showNotif('🛑 No se pudo aprobar — el reporte sigue en Ventas Pendientes, no se perdió. Revisa tu conexión e inténtalo otra vez.', 'error', 12000);
+    return false;
+  }
   renderVentasPendientesTabla();
   renderDashboard();
   showNotif(`✅ ${lineas.length} línea${lineas.length>1?'s':''} activada${lineas.length>1?'s':''} — ya cuenta${lineas.length>1?'n':''} como venta oficial`);
+  return true;
 }
 
-function rechazarVentaPendiente(grupoId) {
+async function rechazarVentaPendiente(grupoId) {
+  if(vpOcupado()) return;
   const lineas = (appData.ventasPendientes||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
   const motivo = prompt('¿Por qué se rechaza este reporte?', '');
   if(motivo === null) return;
 
   if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
+  // Foto previa, por si el guardado no llega.
+  const rechazadasAntes = [...appData.ventasRechazadas];
+  const pendientesAntes = [...appData.ventasPendientes];
+  const notificacionesAntes = [...(appData.notificaciones||[])];
   lineas.forEach(l=> appData.ventasRechazadas.push({ ...l, motivoRechazo: motivo.trim() || 'Sin motivo especificado' }));
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
 
   if(lineas[0].reportadoPor) {
     crearNotificacion({ paraAgenteId: lineas[0].reportadoPor }, 'rechazado', `Tu reporte fue rechazado: ${motivo.trim()||'Sin motivo especificado'}`, grupoId);
   }
-  guardar();
+  _vpGuardandoEnCurso = true;
+  const guardado = await guardar();
+  _vpGuardandoEnCurso = false;
+  if(!guardado) {
+    appData.ventasRechazadas = rechazadasAntes;
+    appData.ventasPendientes = pendientesAntes;
+    appData.notificaciones = notificacionesAntes;
+    renderVentasPendientesTabla();
+    showNotif('🛑 No se pudo rechazar — el reporte sigue en Ventas Pendientes, no se perdió. Revisa tu conexión e inténtalo otra vez.', 'error', 12000);
+    return;
+  }
   renderVentasPendientesTabla();
   showNotif('❌ Reporte rechazado');
 }
@@ -7831,12 +7891,42 @@ function adminEnviarMensajeRSI(key) {
   refrescarChatRSI();
 }
 
-function aprobarVisiblesVentasPendientes() {
+async function aprobarVisiblesVentasPendientes() {
+  if(vpOcupado()) return;
   const filtradas = filtrarVentasPendientes();
   const grupoIds = [...new Set(filtradas.map(v=>v.grupoId))];
   if(!grupoIds.length) { showNotif('⚠️ No hay reportes pendientes visibles con estos filtros','error'); return; }
   if(!confirm(`¿Aprobar los ${grupoIds.length} reporte${grupoIds.length>1?'s':''} visible${grupoIds.length>1?'s':''}?`)) return;
-  grupoIds.forEach(gid => aprobarVentaPendiente(gid));
+
+  // Se mueven TODOS en memoria y se guarda una sola vez. Antes se llamaba a
+  // aprobarVentaPendiente() por cada uno, y cada una disparaba su propio
+  // guardado completo: aprobar 25 reportes eran 25 lecturas y 25 escrituras
+  // del árbol entero, encoladas. Ahora es una sola, y se espera.
+  const ventasAntes = [...appData.ventas];
+  const pendientesAntes = [...appData.ventasPendientes];
+  const notificacionesAntes = [...(appData.notificaciones||[])];
+
+  let movidos = 0;
+  for(const gid of grupoIds) {
+    if(await aprobarVentaPendiente(gid, { sinGuardar: true })) movidos++;
+  }
+  if(!movidos) { showNotif('⚠️ No se pudo aprobar ninguno', 'error'); return; }
+
+  showNotif(`⏳ Guardando ${movidos} reporte${movidos>1?'s':''}... no refresques la página.`, 'info', 30000);
+  _vpGuardandoEnCurso = true;
+  const guardado = await guardar();
+  _vpGuardandoEnCurso = false;
+  if(!guardado) {
+    appData.ventas = ventasAntes;
+    appData.ventasPendientes = pendientesAntes;
+    appData.notificaciones = notificacionesAntes;
+    renderVentasPendientesTabla();
+    showNotif('🛑 No se pudo aprobar — los reportes siguen en Ventas Pendientes, no se perdió ninguno. Revisa tu conexión e inténtalo otra vez.', 'error', 12000);
+    return;
+  }
+  renderVentasPendientesTabla();
+  renderDashboard();
+  showNotif(`✅ ${movidos} reporte${movidos>1?'s':''} activado${movidos>1?'s':''} — ya cuenta${movidos>1?'n':''} como ventas oficiales`);
 }
 
 // Aplicar fechas automáticas según quincena seleccionada
