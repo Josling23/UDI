@@ -3955,6 +3955,20 @@ function normalizarAppData() {
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
   if(!appData.ventasRechazadas) appData.ventasRechazadas = [];
+  // Red de seguridad: ids repetidos en los reportes pendientes. Los que se
+  // crearon con el contador viejo (nextVentaPendienteId++) pudieron quedar
+  // duplicados entre vendedores, y con ids iguales fusionarConServidor() los
+  // toma por el mismo registro y hace desaparecer uno. Aquí se reasigna un id
+  // único a los repetidos, sin tocar el primero ni ningún otro dato.
+  {
+    const vistos = new Set();
+    (appData.ventasPendientes||[]).forEach((v, i) => {
+      if(v.id == null || vistos.has(String(v.id))) {
+        v.id = idLineaPendiente(v.reportadoPor || 'rep', v.grupoId != null ? v.grupoId : 'sg', i);
+      }
+      vistos.add(String(v.id));
+    });
+  }
   if(!appData.mensajesVenta) appData.mensajesVenta = [];
   if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
   if(!appData.notificaciones) appData.notificaciones = [];
@@ -4155,6 +4169,21 @@ const UMBRAL_CAIDA_SOSPECHOSA_REGISTROS = 5;
 // cualquier profundidad — así protege TODO Admin, Bravo, TOP y HQ (y su
 // equivalente en Salud) desde un solo lugar, sin tocar cada pantalla.
 // ============================================================
+// Id de una línea de reporte pendiente. NO puede salir de un contador
+// (nextVentaPendienteId++), porque ese contador lo calcula cada sesión de SU
+// copia local: dos vendedores reportando entre una sincronización y la
+// siguiente calculaban el MISMO id de forma independiente. Con ids iguales,
+// fusionarConServidor() los toma por el mismo registro y se queda con uno
+// solo -- el otro reporte desaparece sin ningún aviso. Reproducido: con 17
+// vendedores reportando casi a la vez, sobrevivía 1 y se perdían 16.
+// Es exactamente el mismo fallo que ya se corrigió en los Reportes Diarios
+// (ver guardarActividadDiaria, id determinístico agenteId+fecha).
+// quien = agenteId del vendedor (o 'adm' para las acciones de Admin), que es
+// lo que hace imposible el choque aunque dos caigan en el mismo milisegundo.
+function idLineaPendiente(quien, grupoId, indice) {
+  return `${quien}_${grupoId}_${indice}`;
+}
+
 function _claveDeElemento(x) {
   return (x && typeof x === 'object' && 'id' in x) ? ('id:' + x.id) : ('val:' + JSON.stringify(x));
 }
@@ -6446,14 +6475,15 @@ function adminEnviarMensajeVentaRechazada(grupoId) {
 // mecanismo que ya usa el propio agente en "Mis Reportes" (agenteReenviarReporte),
 // solo que aquí lo dispara Admin.
 function adminReactivarRechazada(grupoId) {
+  const quienReenvia = 'adm';
   const lineas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
   const nuevoGrupoId = Date.now();
-  lineas.forEach(l=>{
+  lineas.forEach((l, idx)=>{
     const { motivoRechazo, id, grupoId: _viejo, ...resto } = l;
-    appData.ventasPendientes.push({ ...resto, id: appData.nextVentaPendienteId++, grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
+    appData.ventasPendientes.push({ ...resto, id: idLineaPendiente(quienReenvia, nuevoGrupoId, idx), grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
   });
   appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
   if(lineas[0].reportadoPor) {
@@ -12352,8 +12382,8 @@ async function guardarVentaAgente() {
     appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
   }
 
-  lineas.forEach(l=>{
-    const id = appData.nextVentaPendienteId++;
+  lineas.forEach((l, idx)=>{
+    const id = idLineaPendiente(perms.agenteId, grupoId, idx);
     appData.ventasPendientes.push({
       id, grupoId, fecha, agente: perms.nombre, cliente, cuenta, mes, campana, grabadoPor,
       notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
@@ -12646,14 +12676,16 @@ function agenteEliminarReportesSeleccionados() {
 // sin motivoRechazo) para que Admin lo revise de nuevo, sin que el agente
 // tenga que volver a escribir todo desde cero.
 function agenteReenviarReporte(grupoId) {
+  const permsRe = getUserPermissions(currentUser ? currentUser.email : '');
+  const quienReenvia = permsRe?.agenteId || 'age';
   const lineas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
   if(!appData.ventasPendientes) appData.ventasPendientes = [];
   if(!appData.nextVentaPendienteId) appData.nextVentaPendienteId = 1;
   const nuevoGrupoId = Date.now();
-  lineas.forEach(l=>{
+  lineas.forEach((l, idx)=>{
     const { motivoRechazo, id, grupoId: _viejo, ...resto } = l;
-    appData.ventasPendientes.push({ ...resto, id: appData.nextVentaPendienteId++, grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
+    appData.ventasPendientes.push({ ...resto, id: idLineaPendiente(quienReenvia, nuevoGrupoId, idx), grupoId: nuevoGrupoId, creadoEn: new Date().toISOString() });
   });
   appData.ventasRechazadas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId!==grupoId);
   if(lineas[0].reportadoPor) {
