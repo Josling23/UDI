@@ -4334,6 +4334,84 @@ function sanearColeccionesVaciasFirebase(raw) {
 // Listener en tiempo real — se activa automáticamente cada vez que otro usuario guarda
 let _appDataListenerOn = false;
 let _ultimoTokenEnviado = null; // token del último guardar() propio, para reconocer su eco con certeza
+// ============================================================
+// RECARGA REMOTA — "Cerrar todas las sesiones" desde HEADQUARTERS
+// ------------------------------------------------------------
+// Un arreglo publicado solo protege a quien recarga la página: quien sigue
+// con la versión vieja cargada en su navegador la sigue ejecutando, y en
+// algunos casos puede pisar el trabajo de los demás. Esto permite forzar,
+// desde HQ, que TODAS las pestañas abiertas se recarguen solas.
+//
+// Vive en su propia rama de Firebase ('recargaForzada'), NO dentro de
+// appData, a propósito: si estuviera en appData, fusionarConServidor()
+// respetaría el valor local de una sesión vieja al guardar y la marca se
+// borraría sola, dejando sin efecto la orden para los demás.
+//
+// Cada sesión anota al entrar qué versión había; solo se recarga si después
+// aparece una MÁS NUEVA. Así nunca entra en un bucle de recargas.
+let _versionRecargaAlEntrar = null;
+let _recargaEnCuenta = false;
+const SEGUNDOS_ANTES_DE_RECARGAR = 20;
+
+function activarListenerRecargaForzada() {
+  fbDB.ref('recargaForzada').on('value', snap => {
+    const v = snap.exists() ? (snap.val().version || 0) : 0;
+    // Primera lectura: solo se toma nota de en qué versión entró esta sesión.
+    if (_versionRecargaAlEntrar === null) { _versionRecargaAlEntrar = v; return; }
+    if (v > _versionRecargaAlEntrar && !_recargaEnCuenta) {
+      _recargaEnCuenta = true;
+      mostrarAvisoRecarga(snap.exists() ? (snap.val().por || '') : '');
+    }
+  });
+}
+
+// Aviso con cuenta regresiva en vez de recargar de golpe: si alguien está a
+// medio escribir un reporte, le da tiempo de darle Enviar antes de que la
+// pantalla se reinicie.
+function mostrarAvisoRecarga(por) {
+  const caja = document.createElement('div');
+  caja.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.92);display:flex;align-items:center;justify-content:center;padding:24px;font-family:inherit';
+  caja.innerHTML = `
+    <div style="background:#fff;border-radius:16px;max-width:460px;padding:28px 30px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+      <div style="font-size:44px;margin-bottom:10px">🔄</div>
+      <div style="font-size:19px;font-weight:800;color:#33475B;margin-bottom:10px">Se actualizó la aplicación</div>
+      <div style="font-size:13px;color:#7C98B6;line-height:1.55;margin-bottom:8px">
+        Esta pantalla se va a recargar sola para que trabajes con la versión nueva.
+      </div>
+      <div style="font-size:13px;color:#B45309;background:#FFFBEF;border:1px solid #F5C26B;border-radius:9px;padding:10px 12px;line-height:1.5;margin-bottom:18px">
+        ⚠️ Si tienes algo a medio escribir, <b>dale Enviar ahora</b> antes de que termine la cuenta.
+      </div>
+      <div style="font-size:13px;color:#7C98B6;margin-bottom:16px">
+        Recargando en <b id="recarga-cuenta" style="color:#F2545B;font-size:17px">${SEGUNDOS_ANTES_DE_RECARGAR}</b> segundos${por ? ` · pedido por ${por}` : ''}
+      </div>
+      <button onclick="location.reload()" style="background:#009FDB;color:#fff;border:none;border-radius:9px;padding:11px 26px;font-size:14px;font-weight:700;cursor:pointer">Recargar ahora</button>
+    </div>`;
+  document.body.appendChild(caja);
+  let quedan = SEGUNDOS_ANTES_DE_RECARGAR;
+  const reloj = setInterval(() => {
+    quedan--;
+    const el = document.getElementById('recarga-cuenta');
+    if (el) el.textContent = quedan;
+    if (quedan <= 0) { clearInterval(reloj); location.reload(); }
+  }, 1000);
+}
+
+// Botón de HQ: ordena la recarga a todas las sesiones abiertas.
+async function forzarRecargaDeTodos() {
+  if(!puedeEliminarRegistros(currentUser ? currentUser.email : '')) {
+    showNotif('🔒 Solo Josling o José Piña pueden hacer esto.', 'error', 6000);
+    return;
+  }
+  if(!confirm('¿Cerrar y recargar TODAS las sesiones abiertas?\n\nA cada persona que tenga la app abierta le va a salir un aviso y su pantalla se recargará en ' + SEGUNDOS_ANTES_DE_RECARGAR + ' segundos. Tendrán tiempo de enviar lo que estén escribiendo.\n\nÚsalo después de publicar un cambio, para que nadie siga con la versión vieja.')) return;
+  const perms = getUserPermissions(currentUser ? currentUser.email : '');
+  try {
+    await fbDB.ref('recargaForzada').set({ version: Date.now(), por: perms ? perms.nombre : 'Admin' });
+    showNotif('✅ Orden enviada — todas las sesiones abiertas se van a recargar en ' + SEGUNDOS_ANTES_DE_RECARGAR + ' segundos. La tuya también.', 'success', 10000);
+  } catch(e) {
+    showNotif('⚠️ No se pudo enviar la orden (' + e.message + ')', 'error', 8000);
+  }
+}
+
 function activarListenerAppData() {
   if (_appDataListenerOn) return;
   _appDataListenerOn = true;
@@ -4562,6 +4640,7 @@ function aplicarSnapshotAppData(snap) {
   normalizarAppData();
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   activarListenerAppData();
+  activarListenerRecargaForzada();
   // Lectura real y fresca del servidor confirmada — a partir de aquí sí se
   // puede guardar con confianza, y este conteo (y esta foto completa) pasan
   // a ser la base contra la que se compara cualquier guardado futuro en
@@ -4621,6 +4700,7 @@ async function cargar() {
     }
     normalizarAppData();
     activarListenerAppData();
+  activarListenerRecargaForzada();
     // No se pudo confirmar una lectura fresca del servidor — esta copia es
     // la última que quedó guardada en ESTE navegador, que puede estar
     // desactualizada frente a lo que otros hayan guardado desde entonces.
@@ -4631,6 +4711,7 @@ async function cargar() {
     return;
   }
   activarListenerAppData();
+  activarListenerRecargaForzada();
   // Sin datos previos en ningún lado (ni Firebase ni localStorage) → mostrar
   // datos de ejemplo solo en memoria para esta sesión, SIN guardarlos en
   // Firebase — un guardado real solo debe ocurrir cuando el usuario edite
@@ -13917,6 +13998,23 @@ function renderHQ() {
         </table></div>
       </div>`;
   });
+
+  // Herramienta de HQ: obligar a que todas las sesiones abiertas se recarguen.
+  // Sirve justo después de publicar un cambio, para que nadie siga trabajando
+  // con la versión vieja cargada en su navegador.
+  if(puedeEliminarRegistros(currentUser ? currentUser.email : '')) {
+    html += `
+      <div class="section" style="margin-top:18px">
+        <div class="section-header"><h2>🔄 Sesiones abiertas</h2></div>
+        <div style="font-size:12px;color:#7C98B6;line-height:1.6;margin-bottom:14px">
+          Cuando se publica una corrección, solo queda protegido quien recarga la página.
+          Quien siga con la versión vieja abierta la sigue usando. Este botón le avisa a
+          <b>todas</b> las personas conectadas y recarga su pantalla en ${SEGUNDOS_ANTES_DE_RECARGAR} segundos
+          — con tiempo de enviar lo que estén escribiendo. Tu propia pantalla también se recarga.
+        </div>
+        <button class="btn btn-primary" onclick="forzarRecargaDeTodos()">🔄 Recargar todas las sesiones abiertas</button>
+      </div>`;
+  }
 
   document.getElementById('hq-content').innerHTML = html;
 }
