@@ -15412,9 +15412,16 @@ function renderTopRSI() {
     return appData.rsIPagos.includes(key);
   };
 
-  // Agrupar ventas por cliente + fecha (sin producto)
+  // Agrupar ventas por cliente + fecha (sin producto).
+  // Las líneas de "Llamada Grabada" NO entran aquí: son la comisión interna
+  // de quien grabó la llamada, no una activación que RS&I tenga que pagar --
+  // a pedido de la dueña. Se excluyen SOLO de esta vista; el registro sigue
+  // intacto en Registro Diario, en las comisiones y en los pagos del agente,
+  // no se borra nada. Mismo criterio que ya usan Rendimiento de Agentes y
+  // TOP -> Rendimiento & Ganancias.
   const ventasMap = {};
   (appData.ventas||[]).forEach(v => {
+    if(v.esGrabacion || v._esGrabacion) return;
     const key = `${v.cliente||''}||${v.fecha||''}`;
     if(!ventasMap[key]) {
       ventasMap[key] = { cliente: v.cliente, fecha: v.fecha, ventas: [], paidByRSI: isRSIPaid(v) };
