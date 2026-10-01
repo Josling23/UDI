@@ -10647,6 +10647,13 @@ function setExtra(tipo, agente, mes, valor) {
   if(tipo === 'bonodesc' || tipo === 'desc-motivo') {
     if(valor && valor.trim()) appData.quincenas[k] = valor.trim();
     else delete appData.quincenas[k];
+  } else if(tipo === 'bono' && String(valor).trim() === '0' && bonoActivacionesAuto(agente, mes) > 0) {
+    // Un 0 escrito a propósito sobre un bono que el sistema calcularía
+    // solo significa "a este agente NO le toca" — hay que guardarlo como
+    // 0 de verdad. Si se borrara la llave (como abajo), getExtra()
+    // volvería a devolver el bono automático y el 0 no serviría de nada.
+    // Dejar el campo VACÍO sigue devolviendo el control al automático.
+    appData.quincenas[k] = 0;
   } else {
     // Para números, parsear
     if(parseFloat(valor)) appData.quincenas[k] = parseFloat(valor);
@@ -10658,6 +10665,13 @@ function getExtra(tipo, agente, mes) {
   const val = appData.quincenas[getExtraKey(tipo,agente,mes)];
   // Para tipos de string (bonodesc, etc), devolver el string
   if(tipo === 'bonodesc' || tipo === 'desc-motivo') return val || '';
+  // Bono sin valor escrito a mano -> se calcula el bono por activaciones
+  // (ver bonoActivacionesAuto()). Un valor manual, incluido un 0
+  // explícito, siempre manda sobre el automático. Con esto el bono
+  // automático aparece de una vez en los 20+ sitios que leen el bono
+  // (tabla de Pagos, nómina, reporte del agente, Excel, HQ) sin tocar
+  // ninguno de ellos.
+  if(tipo === 'bono' && val == null) return bonoActivacionesAuto(agente, mes);
   // Para números, devolver parseFloat o 0
   return parseFloat(val)||0;
 }
@@ -10781,6 +10795,67 @@ function getActivacionesMes(agenteNombre, mes) {
   ).reduce((s,v)=>s+(parseFloat(v.cantidad)||1), 0);
 }
 
+// ============================================================
+// BONO POR ACTIVACIONES — AUTOMÁTICO
+// ------------------------------------------------------------
+// Hasta ahora el sistema solo AVISABA ("¡Pendiente agregar bono!") y
+// alguien tenía que ir a Pagos y teclear el monto a mano, agente por
+// agente y mes por mes.
+//
+// Ahora se CALCULA al vuelo, igual que las comisiones, y NO se guarda
+// ningún número. Eso es deliberado: un dato calculado no se puede
+// perder en un guardado fallido, no se puede pagar doble si dos
+// sesiones de Admin escriben a la vez, y siempre refleja las
+// activaciones que de verdad hay en el sistema. Si luego se le aprueba
+// o se le revierte una venta al agente, el bono se reacomoda solo.
+//
+// Reglas:
+//  - Se paga UN solo nivel: el más alto alcanzado, NO acumulativo
+//    (15 activaciones pagan el bono de 15, no 5+10+15). Es el mismo
+//    criterio que ya usaba el banner de renderBonosActivacion().
+//  - La meta es MENSUAL, pero los bonos en Pagos viven por quincena.
+//    El bono cae completo en Q2, al cerrar el mes, cuando el total ya
+//    es definitivo. En Q1 devuelve 0.
+//  - Admin sigue mandando: si hay un bono escrito a mano para esa
+//    quincena, ese gana y el automático no se suma (ver getExtra()).
+//    Para anular el automático sin poner otro monto, se escribe un 0.
+//
+// Los MONTOS viven aquí, en un solo sitio. Mientras estén en null la
+// función devuelve 0 y NADA cambia en la app — queda inerte hasta que
+// se definan de verdad.
+// ============================================================
+const BONOS_ACTIVACION_MONTOS = {
+  5:  null,   // ⭐   bono al llegar a 5 activaciones en el mes
+  10: null,   // ⭐⭐  bono al llegar a 10
+  15: null,   // ⭐⭐⭐ bono al llegar a 15
+};
+function hayBonosActivacionConfigurados() {
+  return Object.values(BONOS_ACTIVACION_MONTOS).some(v => parseFloat(v) > 0);
+}
+// Monto que le corresponde a un agente por el mes completo (sin importar
+// quincena). Devuelve 0 si no llegó a ningún nivel o si no hay montos
+// configurados.
+function bonoActivacionesDelMes(agenteNombre, mes) {
+  if(!hayBonosActivacionConfigurados()) return 0;
+  const total = getActivacionesMes(agenteNombre, mes);
+  let monto = 0;
+  // Niveles de menor a mayor: se queda con el último alcanzado (el más alto).
+  Object.keys(BONOS_ACTIVACION_MONTOS)
+    .map(Number).sort((a,b)=>a-b)
+    .forEach(n => { if(total >= n) monto = parseFloat(BONOS_ACTIVACION_MONTOS[n]) || 0; });
+  return monto;
+}
+// Igual que la anterior pero para una clave de quincena tal como la usa
+// getExtra() ("Septiembre 2026Q2"). Solo paga en Q2. Si la clave no trae
+// sufijo QN devuelve 0, para no alterar los sitios que leen el bono por
+// mes suelto.
+function bonoActivacionesAuto(agenteNombre, mesQ) {
+  const m = String(mesQ||'').match(/^(.*)Q([12])$/);
+  if(!m) return 0;
+  if(parseInt(m[2]) !== 2) return 0;   // el bono del mes cae en Q2
+  return bonoActivacionesDelMes(agenteNombre, m[1]);
+}
+
 // ── Banner de alertas de bonos por activaciones ──
 function renderBonosActivacion(mes, agentes) {
   const MILESTONES = [
@@ -10802,7 +10877,25 @@ function renderBonosActivacion(mes, agentes) {
 
   if(!alertas.length) return '';
 
-  const cards = alertas.map(({agente, total, milestone})=>`
+  const cards = alertas.map(({agente, total, milestone})=>{
+    // Estado real del bono de este agente para el mes: automático,
+    // reemplazado a mano por Admin, anulado con un 0, o sin montos
+    // configurados todavía.
+    const auto     = bonoActivacionesDelMes(agente.nombre, mes);
+    const manual   = appData.quincenas[getExtraKey('bono', agente.nombre, mes+'Q2')];
+    const hayManual = manual != null;
+    let pie;
+    if(!hayBonosActivacionConfigurados()) {
+      pie = '<div style="font-size:10px;color:#F2545B;font-weight:700;margin-top:6px">⚠️ Falta definir el monto del bono</div>';
+    } else if(hayManual) {
+      const m = parseFloat(manual) || 0;
+      pie = m > 0
+        ? `<div style="font-size:10px;color:#6A78D1;font-weight:700;margin-top:6px">✍️ Bono puesto a mano: ${fmt(m)} (manda sobre ${fmt(auto)})</div>`
+        : `<div style="font-size:10px;color:#7C98B6;font-weight:700;margin-top:6px">🚫 Bono anulado a mano (el automático sería ${fmt(auto)})</div>`;
+    } else {
+      pie = `<div style="font-size:10px;color:#059669;font-weight:700;margin-top:6px">✅ Bono automático ${fmt(auto)} — se paga en Q2</div>`;
+    }
+    return `
     <div style="background:${milestone.bg};border:2px solid ${milestone.color};border-radius:10px;padding:12px 16px;min-width:180px;flex:1;max-width:260px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="font-size:12px;font-weight:800;color:#33475B">${agente.nombre}</div>
@@ -10810,9 +10903,9 @@ function renderBonosActivacion(mes, agentes) {
       </div>
       <div style="font-size:22px;font-weight:900;color:${milestone.color};margin-bottom:2px">${total} act.</div>
       <div style="font-size:10px;color:#7C98B6;font-weight:600">Alcanzó: <b style="color:${milestone.color}">${milestone.label}</b></div>
-      <div style="font-size:10px;color:#F2545B;font-weight:700;margin-top:6px">💰 ¡Pendiente agregar bono!</div>
-    </div>
-  `).join('');
+      ${pie}
+    </div>`;
+  }).join('');
 
   return `
     <div style="background:#FFFBE8;border:2px solid #F5C26B;border-radius:12px;padding:14px 18px;margin-bottom:20px">
@@ -10820,7 +10913,7 @@ function renderBonosActivacion(mes, agentes) {
         <span style="font-size:18px">🎯</span>
         <div>
           <div style="font-size:13px;font-weight:800;color:#33475B">Bonos por Activaciones — ${mes}</div>
-          <div style="font-size:11px;color:#7C98B6">Milestones: ⭐ 5 act. · ⭐⭐ 10 act. · ⭐⭐⭐ 15 act. (mensual)</div>
+          <div style="font-size:11px;color:#7C98B6">Milestones: ⭐ 5 act. · ⭐⭐ 10 act. · ⭐⭐⭐ 15 act. (mensual) — se paga el nivel más alto, en Q2</div>
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div>
