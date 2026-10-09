@@ -3969,6 +3969,44 @@ function normalizarAppData() {
       vistos.add(String(v.id));
     });
   }
+  // Red de seguridad hermana para appData.ventas: con el _uid ya no se
+  // pierde ninguna venta en la fusión, pero dos sesiones que aprueben a la
+  // vez sí pueden haberle puesto el MISMO id numérico a dos ventas
+  // distintas (los ids salen de max(ids locales)+1 en diez sitios). Con ids
+  // repetidos, eliminarVenta() borraría las dos y editarVenta() editaría la
+  // equivocada, así que al primero se le deja su id y a los demás se les da
+  // uno libre.
+  // Solo se renumeran los que TRAEN _uid: esos son nuevos y la fusión los
+  // identifica por _uid, de modo que cambiarles el id numérico es inofensivo
+  // y todas las sesiones llegan al mismo resultado (el orden es por _uid, que
+  // es estable). A un registro viejo sin _uid no se le toca el id: la fusión
+  // sí lo identifica por id y renumerarlo sí podría descuadrar a otra sesión.
+  {
+    const ventas = appData.ventas || [];
+    const porId = new Map();
+    ventas.forEach(v => {
+      if(!v || v.id == null) return;
+      const k = String(v.id);
+      if(!porId.has(k)) porId.set(k, []);
+      porId.get(k).push(v);
+    });
+    let maxId = ventas.reduce((m,v)=>Math.max(m, Number(v && v.id) || 0), 0);
+    Array.from(porId.keys()).sort().forEach(k => {
+      const grupo = porId.get(k);
+      if(grupo.length < 2) return;
+      // Se queda con el id: el que no tiene _uid (el viejo) o, si todos son
+      // nuevos, el de _uid menor. A los demás con _uid se les reasigna.
+      const sinUid  = grupo.filter(v => v._uid == null);
+      const conUidO = grupo.filter(v => v._uid != null)
+                           .sort((a,b) => String(a._uid) < String(b._uid) ? -1 : 1);
+      const ordenados = sinUid.length ? [...sinUid, ...conUidO] : conUidO;
+      ordenados.slice(sinUid.length ? 0 : 1).forEach(v => {
+        if(v._uid == null) return;   // viejo: no se toca
+        maxId++;
+        v.id = maxId;
+      });
+    });
+  }
   if(!appData.mensajesVenta) appData.mensajesVenta = [];
   if(!appData.nextMensajeVentaId) appData.nextMensajeVentaId = 1;
   if(!appData.notificaciones) appData.notificaciones = [];
@@ -4184,8 +4222,23 @@ function idLineaPendiente(quien, grupoId, indice) {
   return `${quien}_${grupoId}_${indice}`;
 }
 
+// La clave con la que fusionarConServidor() decide si dos elementos son "el
+// mismo registro". Si el elemento trae _uid (marca única de nacimiento, ver
+// uidRegistro()), esa manda: dos sesiones distintas NUNCA pueden generar el
+// mismo _uid, así que dos registros diferentes jamás se toman por uno y no
+// se puede perder ninguno en la fusión. Los registros viejos, sin _uid,
+// siguen claveándose por id exactamente como antes — 'uid:' e 'id:' no
+// chocan entre sí, así que la mezcla de viejos y nuevos es segura.
+// IMPORTANTE: el _uid se pone UNA sola vez, al crear el registro. No se le
+// puede rellenar después a los registros viejos: cada sesión generaría un
+// _uid distinto para el MISMO registro y la fusión los tomaría por dos,
+// duplicándolos.
 function _claveDeElemento(x) {
-  return (x && typeof x === 'object' && 'id' in x) ? ('id:' + x.id) : ('val:' + JSON.stringify(x));
+  if (x && typeof x === 'object') {
+    if (x._uid != null) return 'uid:' + x._uid;
+    if ('id' in x) return 'id:' + x.id;
+  }
+  return 'val:' + JSON.stringify(x);
 }
 function fusionarConServidor(local, servidor, conocido) {
   if (Array.isArray(servidor)) {
@@ -4239,6 +4292,33 @@ function fusionarConServidor(local, servidor, conocido) {
 // listener más abajo, que lo usan para reconocer con certeza el eco de mi
 // propio guardado, sin importar el orden en que lleguen los eventos).
 const _syncSesionId = Date.now() + '_' + Math.random().toString(36).slice(2);
+// Marca única e irrepetible para un registro nuevo. Lleva el id de ESTA
+// pestaña (_syncSesionId, que ya mezcla reloj + azar) más un contador
+// propio, así que dos sesiones no pueden coincidir ni cayendo en el mismo
+// milisegundo. Es lo que arregla de raíz la pérdida de ventas al aprobar:
+// los ids numéricos de appData.ventas se calculan en DIEZ sitios distintos
+// como max(ids locales)+1, cada uno sobre la copia local de su sesión. Dos
+// sesiones aprobando casi a la vez calculaban el MISMO id, y con ids
+// iguales fusionarConServidor() los tomaba por el mismo registro y hacía
+// desaparecer uno. Reproducido: Admin aprueba 2 reportes de una agente y
+// otra sesión aprueba 2 de otro agente -> los 2 de la primera se pierden,
+// sin quedar en Pendientes ni en Rechazadas. Mismo fallo que ya se corrigió
+// en los reportes pendientes (idLineaPendiente) y en los reportes diarios.
+let _uidSeq = 0;
+function uidRegistro() {
+  return _syncSesionId + '_' + (++_uidSeq);
+}
+// Le pone su marca de nacimiento a un registro nuevo, justo al meterlo en la
+// colección. Se llama en el push, no antes y no después: así cada venta
+// creada en cualquiera de los diez sitios queda protegida, y los registros
+// que ya viven en el servidor no se tocan nunca (ver la advertencia en
+// _claveDeElemento()). Si el registro ya trae _uid, se respeta el que trae.
+function conUid(registro) {
+  if (registro && typeof registro === 'object' && registro._uid == null) {
+    registro._uid = uidRegistro();
+  }
+  return registro;
+}
 let _syncSeq = 0;
 // true cuando esta sesión NO pudo confirmar que tiene los datos más
 // recientes del servidor (ej. cargar() tuvo que caer al respaldo de
@@ -5886,12 +5966,12 @@ function guardarAgenteRapido() {
 
   const rol = document.getElementById('nag-rol').value;
   const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
-  appData.agentes.push({
+  appData.agentes.push(conUid({
     id: maxId+1, nombre, rol,
     sueldoQuincenal: 0, tel: '', email: '',
     comisionesPersonales: {}, comisionesDirectas: {}, agentesSupervisa: [],
     activo: true,
-  });
+  }));
   guardar();
 
   const targetId = document.getElementById('modal-agente-rapido').dataset.target;
@@ -5986,7 +6066,7 @@ function guardarEnlace() {
     if(e) Object.assign(e, { nombre, url });
     showNotif('✅ Enlace actualizado');
   } else {
-    lista.push({ id: 'lnk_' + Date.now(), nombre, url });
+    lista.push(conUid({ id: 'lnk_' + Date.now(), nombre, url }));
     showNotif('✅ Enlace agregado');
   }
 
@@ -6346,7 +6426,7 @@ async function aprobarVentaPendiente(grupoId, opts = {}) {
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
   lineas.forEach(l=>{
     maxId++;
-    appData.ventas.push({
+    appData.ventas.push(conUid({
       id: maxId, fecha: l.fecha, agente: l.agente, cliente: l.cliente, cuenta: l.cuenta,
       mes: l.mes, campana: l.campana, quincenaPago, mesPago: '',
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
@@ -6355,7 +6435,7 @@ async function aprobarVentaPendiente(grupoId, opts = {}) {
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
-    });
+    }));
   });
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
 
@@ -6588,7 +6668,7 @@ function adminAprobarRechazada(grupoId) {
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
   lineas.forEach(l=>{
     maxId++;
-    appData.ventas.push({
+    appData.ventas.push(conUid({
       id: maxId, fecha: l.fecha, agente: l.agente, cliente: l.cliente, cuenta: l.cuenta,
       mes: l.mes, campana: l.campana, quincenaPago, mesPago: '',
       llamadaGrabada: false, agenteGrabacion: '', comisionGrabacion: 0,
@@ -6597,7 +6677,7 @@ function adminAprobarRechazada(grupoId) {
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
-    });
+    }));
   });
   appData.ventasRechazadas = appData.ventasRechazadas.filter(v=>v.grupoId!==grupoId);
 
@@ -6818,7 +6898,7 @@ function procesarRecalculoSegGrupo(grupoId, elegidos) {
   if(bono > 0 && !yaTieneBono) {
     const primera = lineas[0];
     const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0) + 1;
-    appData.ventas.push({
+    appData.ventas.push(conUid({
       id: maxId, fecha: primera.fecha, agente: primera.agente, cliente: primera.cliente, cuenta: primera.cuenta,
       mes: primera.mes, campana: primera.campana||'', quincenaPago: primera.quincenaPago||'', mesPago: primera.mesPago||'',
       llamadaGrabada:false, agenteGrabacion:'', comisionGrabacion:0,
@@ -6827,7 +6907,7 @@ function procesarRecalculoSegGrupo(grupoId, elegidos) {
       telefonoLinea:'', segEstado:'', segSeguroPrevio:false,
       ...(primera.reportadoPor!==undefined ? { reportadoPor: primera.reportadoPor } : {}),
       grupoId,
-    });
+    }));
   }
   return yaTieneBono ? 0 : bono;
 }
@@ -7203,7 +7283,7 @@ function deptoCrearNotificacion(depto, destino, tipo, texto, refId) {
   if(!c.notifs()) c.setNotifs([]);
   if(!c.nextNotifId()) c.setNextNotifId(1);
   const id = c.nextNotifId();
-  c.notifs().push({
+  c.notifs().push(conUid({
     id,
     paraAdmin: !!destino.paraAdmin,
     paraAgenteId: destino.paraAgenteId != null ? destino.paraAgenteId : null,
@@ -7212,7 +7292,7 @@ function deptoCrearNotificacion(depto, destino, tipo, texto, refId) {
     tipo, texto, grupoId: refId,
     leida: false,
     creadoEn: new Date().toISOString(),
-  });
+  }));
   c.setNextNotifId(id+1);
 }
 
@@ -7471,7 +7551,7 @@ function sdEnviarSolicitud() {
   const perms = getUserPermissions(currentUser ? currentUser.email : '');
   const id = 'sd' + Date.now();
   if(!appData.solicitudesDescarga) appData.solicitudesDescarga = [];
-  appData.solicitudesDescarga.push({
+  appData.solicitudesDescarga.push(conUid({
     id,
     nombreArchivo: _sdArchivoActual,
     solicitanteEmail: (currentUser ? currentUser.email : '').toLowerCase(),
@@ -7479,7 +7559,7 @@ function sdEnviarSolicitud() {
     estado: 'pendiente',
     entregado: false,
     creadoEn: new Date().toISOString(),
-  });
+  }));
   guardar();
   _solicitudDescargaCallbacks[id] = _sdCallbackActual;
   _sdSolicitudIdActual = id;
@@ -8752,7 +8832,7 @@ function guardarImportacionExcel() {
       notas: '📊 Importado desde Excel',
       llamadaGrabada: false
     };
-    appData.ventas.push(ventaObj);
+    appData.ventas.push(conUid(ventaObj));
     guardados++;
   });
 
@@ -8947,7 +9027,7 @@ function guardarVentasPegadas() {
     const grupoKey = tieneGrabacion ? `${mdaFecha(r.fecha)}|${r.agente}|${r.cliente}|${r.agenteGrabacion}` : null;
     const esPrimeraDelGrupo = tieneGrabacion && !gruposGrabacionYaFacturados.has(grupoKey);
 
-    appData.ventas.push({
+    appData.ventas.push(conUid({
       id: ventaId,
       fecha: r.fecha,
       agente: r.agente,
@@ -8965,7 +9045,7 @@ function guardarVentasPegadas() {
       llamadaGrabada: esPrimeraDelGrupo,
       agenteGrabacion: esPrimeraDelGrupo ? r.agenteGrabacion : '',
       comisionGrabacion: esPrimeraDelGrupo ? 2 : 0,
-    });
+    }));
     guardados++;
 
     // Igual que en el formulario manual: la llamada grabada crea un registro
@@ -8975,12 +9055,12 @@ function guardarVentasPegadas() {
     if(esPrimeraDelGrupo) {
       gruposGrabacionYaFacturados.add(grupoKey);
       maxId++;
-      appData.ventas.push({
+      appData.ventas.push(conUid({
         id: maxId, fecha: r.fecha, agente: r.agenteGrabacion, cliente: r.cliente, cuenta: '',
         mes: mesCalc, campana: '', quincenaPago: r.quincena || '', mesPago: r.mesPago || '',
         productoId: 'grabacion', categoria: 'grabada', cantidad: 1, comision: 2,
         notas: 'Grabación llamada: '+r.cliente, esGrabacion: true, refVentaId: ventaId,
-      });
+      }));
       grabaciones++;
     }
   });
@@ -9233,7 +9313,7 @@ function guardarVenta() {
         ...(reportadoPor!==undefined ? { reportadoPor } : {}),
         ...(grupoId!==undefined ? { grupoId } : {}),
         ...(idx===0 ? chargebackFields : {}) };
-      appData.ventas.push(ventaObj);
+      appData.ventas.push(conUid(ventaObj));
     });
 
     // Crear grabación si corresponde
@@ -9243,7 +9323,7 @@ function guardarVenta() {
       const grabObj = { id:maxId, fecha, agente:agenteGrabacion, cliente, cuenta:'', mes, campana:'', quincenaPago, mesPago,
         productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
         notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:newVentaId };
-      appData.ventas.push(grabObj);
+      appData.ventas.push(conUid(grabObj));
     }
     showNotif(`✅ Venta actualizada con ${lineas.length} producto${lineas.length>1?'s':''}`);
   } else {
@@ -9269,7 +9349,7 @@ function guardarVenta() {
         telefonoLinea: l.telefonoLinea||'', segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
         ...(reportadoPorAuto!==undefined ? { reportadoPor: reportadoPorAuto, grupoId: grupoIdNuevo } : {}) };
       console.log(`Agregando venta ${idx+1}:`, ventaObj);
-      appData.ventas.push(ventaObj);
+      appData.ventas.push(conUid(ventaObj));
       console.log(`Total ventas ahora: ${appData.ventas.length}`);
 
       // Recordar el ID de la primera venta para la grabación
@@ -9285,7 +9365,7 @@ function guardarVenta() {
         productoId:'grabacion', categoria:'grabada', cantidad:1, comision:comGrab,
         notas:'Grabación llamada: '+cliente, esGrabacion:true, refVentaId:firstVentaId };
       console.log('Agregando grabación:', grabObj);
-      appData.ventas.push(grabObj);
+      appData.ventas.push(conUid(grabObj));
       showNotif(`📞 Grabación registrada para ${agenteGrabacion} — Comisión: $${fmt(comGrab)}`);
     }
     showNotif(`✅ ${lineas.length} venta${lineas.length>1?'s':''}  registrada${lineas.length>1?'s':''}`);
@@ -9345,7 +9425,7 @@ function guardarVentaJosePina() {
     llamadaGrabada: false
   };
 
-  appData.ventas.push(newVenta);
+  appData.ventas.push(conUid(newVenta));
   guardar();
 
   // Limpiar formulario
@@ -9899,7 +9979,7 @@ function guardarAgente() {
     showNotif('✅ Agente actualizado');
   } else {
     const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
-    appData.agentes.push({ id: maxId+1, ...data });
+    appData.agentes.push(conUid({ id: maxId+1, ...data }));
     showNotif('✅ Agente agregado');
   }
   guardar();
@@ -10217,7 +10297,7 @@ function saludGuardarClienteAgente() {
     showNotif('✅ Reporte actualizado');
   } else {
     id = saludData.nextClientePendienteId++;
-    saludData.clientesPendientes.push({ id, creadoEn: new Date().toISOString(), ...data });
+    saludData.clientesPendientes.push(conUid({ id, creadoEn: new Date().toISOString(), ...data }));
     showNotif('🕓 Reporte enviado — pendiente de revisión');
   }
   saludReportarEditId = null;
@@ -10382,7 +10462,7 @@ function ajustarVentaExtra(agenteId, prodId, mes, delta) {
     const ep = (a?.productosExtra||[]).find(p=>p.id===prodId);
     if(!ep) return;
     e = { id: appData.nextExtraId++, agenteId, prodId, comisionUnit: ep.comisionUnit, cantidad: 0, mes };
-    appData.ventasExtra.push(e);
+    appData.ventasExtra.push(conUid(e));
   }
   e.cantidad = Math.max(0, (e.cantidad||0) + delta);
   // limpiar entradas en cero
@@ -11624,7 +11704,7 @@ function guardarOI() {
     const p = appData.otrosInternet.find(x=>x.id===_editOIId);
     if(p) { p.nombre=nombre; p.velocidad=velocidad; p.comision=comision; }
   } else {
-    appData.otrosInternet.push({ id:'oi_'+Date.now(), nombre, velocidad, comision });
+    appData.otrosInternet.push(conUid({ id:'oi_'+Date.now(), nombre, velocidad, comision }));
   }
   guardar();
   closeModal('modal-oi');
@@ -11671,7 +11751,7 @@ function guardarProductoNuevo() {
     const p = appData.productosCustom.find(x=>x.id===_editProductoNuevoId);
     if(p) { p.nombre=nombre; p.cat=cat; p.empresa=empresa; p.comision=comision; }
   } else {
-    appData.productosCustom.push({ id:'pc_'+Date.now(), nombre, cat, empresa, comision });
+    appData.productosCustom.push(conUid({ id:'pc_'+Date.now(), nombre, cat, empresa, comision }));
   }
   guardar();
   closeModal('modal-producto-nuevo');
@@ -13617,7 +13697,7 @@ function guardarHQAgente() {
     showNotif('✅ Datos actualizados');
   } else {
     const maxId = appData.agentes.reduce((m,a)=>Math.max(m,a.id||0),0);
-    appData.agentes.push({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, comisionesPorAgente, soloHQ:true, activo:true });
+    appData.agentes.push(conUid({ id:maxId+1, nombre, rol, sueldoQuincenal:sueldo, tel, email, comisionesPersonales:comPs, comisionesDirectas:comDirs, agentesSupervisa, comisionesPorAgente, soloHQ:true, activo:true }));
     if(!appData.nextId||appData.nextId<=maxId+1) appData.nextId=maxId+2;
     showNotif('✅ Perfil creado en HEADQUARTERS');
   }
@@ -14163,7 +14243,7 @@ function agregarAuditLog(action, mes, quincena) {
   const hora = now.toLocaleTimeString('es-ES');
   const user = currentUser ? currentUser.email : 'Sin usuario';
 
-  appData.auditLog.push({
+  appData.auditLog.push(conUid({
     timestamp,
     fecha,
     hora,
@@ -14171,7 +14251,7 @@ function agregarAuditLog(action, mes, quincena) {
     action,
     mes,
     quincena
-  });
+  }));
 }
 
 function cerrarQuincena(mes, quincena) {
@@ -15248,7 +15328,7 @@ function guardarPagoATT() {
     Object.assign(p, { fecha, monto, notas, mes });
   } else {
     if(!appData.nextPagoAttId) appData.nextPagoAttId = 1;
-    appData.pagosATT.push({ id: appData.nextPagoAttId++, fecha, monto, notas, mes });
+    appData.pagosATT.push(conUid({ id: appData.nextPagoAttId++, fecha, monto, notas, mes }));
   }
   guardar();
   closeModal('modal-pago-att');
@@ -15285,7 +15365,7 @@ function abrirIngreso(mesParam) {
   if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
   if(!appData.ingresos) appData.ingresos = [];
   const maxId  = appData.ingresos.reduce((m,i)=>Math.max(m,i.id||0),0);
-  appData.ingresos.push({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), fuente: fuente.trim()||'Otro', descripcion: desc.trim(), monto, mes });
+  appData.ingresos.push(conUid({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), fuente: fuente.trim()||'Otro', descripcion: desc.trim(), monto, mes }));
   guardar(); renderTopROI(); showNotif('✅ Ingreso registrado');
 }
 
@@ -15334,7 +15414,7 @@ function abrirGasto() {
   if(!monto) { showNotif('⚠️ Ingresa un monto válido','error'); return; }
   if(!appData.gastos) appData.gastos = [];
   const maxId = appData.gastos.reduce((m,g)=>Math.max(m,g.id||0),0);
-  appData.gastos.push({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), descripcion: desc.trim(), tipo: tipo, monto, mes });
+  appData.gastos.push(conUid({ id:maxId+1, fecha: new Date().toISOString().slice(0,10), descripcion: desc.trim(), tipo: tipo, monto, mes }));
   guardar(); renderTopROI(); showNotif(`✅ Gasto ${tipo.toUpperCase()} registrado`);
 }
 
@@ -15396,7 +15476,7 @@ function renderTopRSI() {
         const key = `${cliente}||${producto}||${fecha}`;
 
         if(!appData.rsIPagos.includes(key)) {
-          appData.rsIPagos.push(key);
+          appData.rsIPagos.push(conUid(key));
         }
       }
     });
@@ -15513,7 +15593,7 @@ function renderTopRSI() {
             if(fecha) {
               const key = cliente + '||' + fecha;
               if(!appData.rsIPagos.includes(key)) {
-                appData.rsIPagos.push(key);
+                appData.rsIPagos.push(conUid(key));
                 processed++;
               }
             } else {
@@ -15525,7 +15605,7 @@ function renderTopRSI() {
                 if(ventaClienteLower.includes(clienteLower)) {
                   const key = v.cliente + '||' + v.fecha;
                   if(!appData.rsIPagos.includes(key)) {
-                    appData.rsIPagos.push(key);
+                    appData.rsIPagos.push(conUid(key));
                     processed++;
                   }
                 }
@@ -17002,10 +17082,10 @@ function manejarArchivoVentasFiltradas(event) {
         if(v) Object.assign(v, p.datos, { notas: p.datos.notas || v.notas });
       } else {
         maxId++;
-        appData.ventas.push({
+        appData.ventas.push(conUid({
           id: maxId, cuenta:'', campana:'', quincenaPago:'', llamadaGrabada:false,
           ...p.datos, notas: p.datos.notas || '📊 Importado desde Excel filtrado'
-        });
+        }));
       }
     });
 
@@ -17343,7 +17423,7 @@ function guardarRSIReporteCell(input) {
     if(idx>=0) appData.ingresos[idx].monto = rep.neto;
     else {
       const maxId = appData.ingresos.reduce((m,i)=>Math.max(m,i.id||0),0);
-      appData.ingresos.push({ id:maxId+1, fecha:new Date().toISOString().slice(0,10), fuente:'RS&I', descripcion:'', monto: rep.neto, mes });
+      appData.ingresos.push(conUid({ id:maxId+1, fecha:new Date().toISOString().slice(0,10), fuente:'RS&I', descripcion:'', monto: rep.neto, mes }));
     }
   } else if(idx>=0) {
     appData.ingresos.splice(idx,1);
@@ -17752,7 +17832,7 @@ function saludSubirClientesExcel(event) {
         const c = saludData.clientes.find(x=>x.id===p.id);
         if(c) Object.assign(c, p.datos);
       } else {
-        saludData.clientes.push({ id: saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0, ...p.datos });
+        saludData.clientes.push(conUid({ id: saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0, ...p.datos }));
       }
     });
 
@@ -17894,8 +17974,8 @@ function saludGuardarCliente() {
   } else {
     // Congela la tasa/split vigente en este momento — cambios futuros a
     // saludData.comisiones no afectan retroactivamente a este cliente.
-    saludData.clientes.push({ id:saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0,
-      tasaComAnual: saludData.comisiones.tasaAnual, splitAdelantoMeses: saludData.comisiones.splitAdelantoMeses, ...data });
+    saludData.clientes.push(conUid({ id:saludData.nextId++, adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0,
+      tasaComAnual: saludData.comisiones.tasaAnual, splitAdelantoMeses: saludData.comisiones.splitAdelantoMeses, ...data }));
     showNotif('✅ Cliente agregado');
   }
   guardarSalud(); closeModal('modal-salud-cliente'); saludRenderClientes();
@@ -17929,11 +18009,11 @@ function saludAprobarClienteInterno(c) {
   const idViejo = c.id;
   const { id, creadoEn, motivoRechazo, reportadoPor, ...resto } = c;
   const nuevoId = saludData.nextId++;
-  saludData.clientes.push({
+  saludData.clientes.push(conUid({
     ...resto, id: nuevoId, reportadoPor,
     tasaComAnual: saludData.comisiones.tasaAnual, splitAdelantoMeses: saludData.comisiones.splitAdelantoMeses,
     estado: 'activo', adelantoPagado:false, finalPagado:false, comAgentePagada:false, mesesCobradosSalud:0,
-  });
+  }));
   // El motor de chat compartido (deptoMensajesDe/deptoEnviarMensaje) guarda
   // la referencia bajo el campo genérico "grupoId" (mismo nombre que usa
   // AT&T para sus ventas) — no "clienteId", aunque para Salud representa
@@ -17985,7 +18065,7 @@ function saludRechazarClientePendiente(id) {
   const motivo = prompt('¿Por qué se rechaza este reporte?', '');
   if(motivo === null) return;
   if(!saludData.clientesRechazados) saludData.clientesRechazados = [];
-  saludData.clientesRechazados.push({ ...c, motivoRechazo: motivo.trim() || 'Sin motivo especificado' });
+  saludData.clientesRechazados.push(conUid({ ...c, motivoRechazo: motivo.trim() || 'Sin motivo especificado' }));
   saludData.clientesPendientes = saludData.clientesPendientes.filter(x=>x.id!==id);
   if(c.reportadoPor) saludCrearNotificacion({ paraAgenteId: c.reportadoPor }, 'rechazado', `Tu reporte fue rechazado: ${motivo.trim()||'Sin motivo especificado'}`, id);
   guardarSalud();
@@ -18055,7 +18135,7 @@ function saludReactivarClienteRechazado(id) {
   if(!c) return;
   const { motivoRechazo, ...resto } = c;
   if(!saludData.clientesPendientes) saludData.clientesPendientes = [];
-  saludData.clientesPendientes.push({ ...resto, creadoEn: new Date().toISOString() });
+  saludData.clientesPendientes.push(conUid({ ...resto, creadoEn: new Date().toISOString() }));
   saludData.clientesRechazados = saludData.clientesRechazados.filter(x=>x.id!==id);
   if(c.reportadoPor) saludCrearNotificacion({ paraAgenteId: c.reportadoPor }, 'reactivado', `Tu reporte de ${c.nombre} fue reconsiderado — vuelve a estar en revisión`, id);
   guardarSalud();
@@ -18337,7 +18417,7 @@ function saludGuardarAgente() {
     saludData.clientes.forEach(c=>{ if(c.agente===oldNombre) c.agente=data.nombre; });
     showNotif('✅ Agente actualizado');
   } else {
-    saludData.agentes.push({ id:Math.max(0,...saludData.agentes.map(x=>x.id))+1, ...data });
+    saludData.agentes.push(conUid({ id:Math.max(0,...saludData.agentes.map(x=>x.id))+1, ...data }));
     showNotif('✅ Agente agregado');
   }
   guardarSalud(); closeModal('modal-salud-agente'); saludRenderAgentes();
@@ -18473,7 +18553,7 @@ function saludGuardarSueldo() {
   const quincena = document.getElementById('ss-quincena').value.trim();
   const fecha = document.getElementById('ss-fecha').value;
   if(!agenteNombre||!monto) { showNotif('⚠️ Completa los campos','error'); return; }
-  saludData.sueldos.push({ id:saludData.nextSueldoId++, agenteNombre, monto, quincena, fecha });
+  saludData.sueldos.push(conUid({ id:saludData.nextSueldoId++, agenteNombre, monto, quincena, fecha }));
   guardarSalud(); closeModal('modal-salud-sueldo'); saludRenderComisiones(); saludRenderPagos();
   showNotif('✅ Pago de sueldo registrado');
 }
@@ -18514,7 +18594,7 @@ function saludGuardarPago() {
     Object.assign(p, { fecha, monto, compania, cuentaBanco, notas, mes });
   } else {
     if(!saludData.nextPagoId) saludData.nextPagoId = 1;
-    saludData.pagos.push({ id: saludData.nextPagoId++, fecha, monto, compania, cuentaBanco, notas, mes });
+    saludData.pagos.push(conUid({ id: saludData.nextPagoId++, fecha, monto, compania, cuentaBanco, notas, mes }));
   }
   guardarSalud();
   closeModal('modal-salud-pago');
@@ -18774,7 +18854,7 @@ function attGuardarCampana() {
     Object.assign(appData.campanas.find(x=>x.id===attEditCampId), data);
     showNotif('✅ Campaña actualizada');
   } else {
-    appData.campanas.push({ id: appData.nextCampId++, ...data });
+    appData.campanas.push(conUid({ id: appData.nextCampId++, ...data }));
     showNotif('✅ Campaña agregada');
   }
   guardar(); closeModal('modal-att-campana'); attRenderCampanas();
@@ -18871,7 +18951,7 @@ function saludGuardarCampana() {
     Object.assign(saludData.campanas.find(x=>x.id===saludEditCampId), data);
     showNotif('✅ Campaña actualizada');
   } else {
-    saludData.campanas.push({ id:saludData.nextCampId++, ...data });
+    saludData.campanas.push(conUid({ id:saludData.nextCampId++, ...data }));
     showNotif('✅ Campaña agregada');
   }
   guardarSalud(); closeModal('modal-salud-campana'); saludRenderCampanas();
@@ -19344,7 +19424,7 @@ function migrarAgentes() {
         changed = true;
       }
     } else {
-      appData.agentes.push({
+      appData.agentes.push(conUid({
         id: ++maxId,
         nombre: ag.nombre,
         rol: ag.rol || 'agente',
@@ -19353,7 +19433,7 @@ function migrarAgentes() {
         comisionesPersonales: ag.comPs || { 'att-act8':8,'att-act10':10,'att-upgrade':3,'air':45,'lyca':6,'att-combo':4,'att-seg':1 },
         agentesSupervisa: [],
         productosExtra: [],
-      });
+      }));
       changed = true;
     }
   });
@@ -19659,7 +19739,7 @@ function ejecutarMigraciones() {
     { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'RS&I',  monto:22431.72, desc:'Pago RS&I Junio 2026 (parcial)' },
     { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'Bravo', monto:1581.90,  desc:'Ganancia Bravo Junio 2026 (parcial)' },
     { mes:'Junio 2026',   fecha:'2026-06-20', fuente:'Salud', monto:1794.69,  desc:'Ganancia salud Junio 2026 (parcial)' },
-  ].forEach(i => appData.ingresos.push({id:++iid, fecha:i.fecha, fuente:i.fuente, descripcion:i.desc, monto:i.monto, mes:i.mes}));
+  ].forEach(i => appData.ingresos.push(conUid({id:++iid, fecha:i.fecha, fuente:i.fuente, descripcion:i.desc, monto:i.monto, mes:i.mes})));
 
   // ── Gastos totales confirmados por reportes ───────────────────
   let gid = 0;
@@ -19670,7 +19750,7 @@ function ejecutarMigraciones() {
     { mes:'Abril 2026',   fecha:'2026-04-30', total:16550.59 },
     { mes:'Mayo 2026',    fecha:'2026-05-31', total:27163.94 },
     { mes:'Junio 2026',   fecha:'2026-06-20', total:14573.22 },
-  ].forEach(g => appData.gastos.push({id:++gid, fecha:g.fecha, tipo:'variable', descripcion:`Total gastos ${g.mes}`, monto:g.total, mes:g.mes}));
+  ].forEach(g => appData.gastos.push(conUid({id:++gid, fecha:g.fecha, tipo:'variable', descripcion:`Total gastos ${g.mes}`, monto:g.total, mes:g.mes})));
 
   appData[MARCA] = true;
   guardar();
@@ -19876,7 +19956,7 @@ function ejecutarMigraciones() {
       if(appData._ventasRegistradas[v._key]) return; // ya existe
       const maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
       const { _key, ...ventaData } = v;
-      appData.ventas.push({ id: maxId+1, ...ventaData });
+      appData.ventas.push(conUid({ id: maxId+1, ...ventaData }));
       appData._ventasRegistradas[_key] = true;
       changed = true;
     });
@@ -20351,7 +20431,7 @@ function importarDatosJunio() {
       timestamp: new Date(reporte.fecha).getTime()
     };
 
-    appData.bravo.reportesDiarios.push(nuevoReporte);
+    appData.bravo.reportesDiarios.push(conUid(nuevoReporte));
   });
 
   // guardarEnFirebase() nunca existió como función real en esta app — esta
@@ -21419,7 +21499,7 @@ function guardarReparacion() {
     showNotif('✅ Reparación actualizada');
   } else {
     const id = appData.bravo.nextReparacionId || 1;
-    appData.bravo.reparaciones.push({ id, ...datos });
+    appData.bravo.reparaciones.push(conUid({ id, ...datos }));
     appData.bravo.nextReparacionId = id + 1;
     showNotif('✅ Reparación registrada');
   }
@@ -21841,7 +21921,7 @@ function bravoGuardarCampana() {
     showNotif('✅ Campaña actualizada');
   } else {
     const id = appData.bravo.nextCampanaId || 1;
-    appData.bravo.campanas.push({ id, ...datos });
+    appData.bravo.campanas.push(conUid({ id, ...datos }));
     appData.bravo.nextCampanaId = id + 1;
     showNotif('✅ Campaña creada');
   }
@@ -22112,7 +22192,7 @@ function guardarLineaLyca() {
     showNotif('✅ Línea actualizada');
   } else {
     const id = appData.bravo.nextLineaLycaId || 1;
-    appData.bravo.lineasLyca.push({ id, ...datos });
+    appData.bravo.lineasLyca.push(conUid({ id, ...datos }));
     appData.bravo.nextLineaLycaId = id + 1;
     showNotif('✅ Línea guardada');
   }
@@ -22456,7 +22536,7 @@ function guardarGastoBravo() {
     Object.assign(g, { fecha, tipoGasto, cantidad, costoUnitario, monto, nombre, tipoPago });
   } else {
     if(!appData.bravo.nextGastoId) appData.bravo.nextGastoId = 1;
-    appData.bravo.gastos.push({ id: appData.bravo.nextGastoId++, fecha, tipoGasto, cantidad, costoUnitario, monto, nombre, tipoPago });
+    appData.bravo.gastos.push(conUid({ id: appData.bravo.nextGastoId++, fecha, tipoGasto, cantidad, costoUnitario, monto, nombre, tipoPago }));
   }
   guardar();
   closeModal('modal-bravo-gasto');
@@ -22529,7 +22609,7 @@ function bravoSincronizarGastosDeReporte(reporte) {
   (reporte.combos||[]).forEach(c => { const g = bravoLineaAGasto('combo', c, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
   (reporte.telefonos||[]).forEach(t => { const g = bravoLineaAGasto('telefono', t, reporte.fecha, reporte.id); if(g) nuevos.push(g); });
 
-  nuevos.forEach(g => { g.id = appData.bravo.nextGastoId++; appData.bravo.gastos.push(g); });
+  nuevos.forEach(g => { g.id = appData.bravo.nextGastoId++; appData.bravo.gastos.push(conUid(g)); });
 }
 
 // Estructura de datos temporal para el formulario
@@ -23272,7 +23352,7 @@ function bravoGuardarRegistro() {
     const datosCaja = { fecha, cajaInicial, totalEntradas: cajaEntradas, totalSalidas: cajaSalidas, notas: cajaNotas };
     const cajaExistente = appData.bravo.caja.find(c => c.fecha === fecha);
     if(cajaExistente) Object.assign(cajaExistente, datosCaja);
-    else appData.bravo.caja.push({ id: appData.bravo.nextCajaId++, ...datosCaja });
+    else appData.bravo.caja.push(conUid({ id: appData.bravo.nextCajaId++, ...datosCaja }));
   }
 
   if(bravoRegistroTemp.id) {
@@ -23299,7 +23379,7 @@ function bravoGuardarRegistro() {
     };
 
     if(idx !== -1) appData.bravo.reportesDiarios[idx] = registroActualizado;
-    else appData.bravo.reportesDiarios.push(registroActualizado);
+    else appData.bravo.reportesDiarios.push(conUid(registroActualizado));
 
     bravoSincronizarGastosDeReporte(registroActualizado);
 
@@ -23325,7 +23405,7 @@ function bravoGuardarRegistro() {
       timestamp: new Date().toISOString()
     };
 
-    appData.bravo.reportesDiarios.push(registro);
+    appData.bravo.reportesDiarios.push(conUid(registro));
 
     bravoSincronizarGastosDeReporte(registro);
 
@@ -23649,7 +23729,7 @@ function bravoGuardarReportesImportados() {
         categoria: 'Múltiple',
         timestamp: new Date().toISOString()
       };
-      appData.bravo.reportesDiarios.push(registro);
+      appData.bravo.reportesDiarios.push(conUid(registro));
       bravoSincronizarGastosDeReporte(registro);
       creados++;
     }
@@ -23657,7 +23737,7 @@ function bravoGuardarReportesImportados() {
       const existenteMismaFecha = appData.bravo.caja.find(c => c.fecha === r.fecha);
       const datos = { fecha: r.fecha, cajaInicial: r.caja.cajaInicial, totalEntradas: r.caja.totalEntradas, totalSalidas: r.caja.totalSalidas, notas: r.caja.notas };
       if(existenteMismaFecha) Object.assign(existenteMismaFecha, datos);
-      else { appData.bravo.caja.push({ id: appData.bravo.nextCajaId++, ...datos }); }
+      else { appData.bravo.caja.push(conUid({ id: appData.bravo.nextCajaId++, ...datos })); }
       cajasGuardadas++;
     }
   });
@@ -23851,7 +23931,7 @@ function guardarCajaChica() {
     showNotif('✅ Caja actualizada');
   } else {
     const id = appData.bravo.nextCajaId || 1;
-    appData.bravo.caja.push({ id, ...datos });
+    appData.bravo.caja.push(conUid({ id, ...datos }));
     appData.bravo.nextCajaId = id + 1;
     showNotif('✅ Caja guardada');
   }
@@ -24059,7 +24139,7 @@ function guardarCompraBravo() {
     showNotif('✅ Compra actualizada');
   } else {
     const id = appData.bravo.nextCompraId || 1;
-    appData.bravo.compras.push({ id, ...datos });
+    appData.bravo.compras.push(conUid({ id, ...datos }));
     appData.bravo.nextCompraId = id + 1;
     showNotif('✅ Compra registrada');
   }
