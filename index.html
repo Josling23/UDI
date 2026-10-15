@@ -636,6 +636,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
             <button class="btn btn-success btn-sm" onclick="openImportarExcelModal()">📊 Importar Excel</button>
             <button class="btn btn-success btn-sm" onclick="abrirModalImportarVentasTexto()">📋 Pegar Ventas</button>
             <button class="btn btn-success btn-sm" onclick="solicitarDescarga('Registro Diario AT&T', descargarRegistroDiarioPorFecha)">⬇️ Descargar por Fecha</button>
+            <button class="btn btn-sm" id="btn-revisar-duplicados" onclick="abrirRevisarDuplicados()" style="display:none;background:#FFF3EE;border:1.5px solid #FF7A59;color:#C44122;font-weight:700">🧹 Revisar y borrar duplicados</button>
           </div>
         </div>
         <div class="filters">
@@ -2036,6 +2037,23 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 </div>
 
 <!-- ===== MODAL IMPORTAR EXCEL ===== -->
+<div class="modal-overlay" id="modal-duplicados">
+  <div class="modal" style="max-width:1000px;max-height:88vh">
+    <div class="modal-header">
+      <h3>🧹 Revisar y borrar duplicados</h3>
+      <button class="modal-close" onclick="closeModal('modal-duplicados')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow:auto">
+      <div id="dup-contenido"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #EAF0F6;display:flex;gap:10px;justify-content:flex-end;align-items:center">
+      <span style="font-size:11px;color:#7C98B6;margin-right:auto">Nada se borra hasta que confirmes. Siempre se conserva el id más bajo.</span>
+      <button class="btn btn-ghost" onclick="closeModal('modal-duplicados')">Cancelar</button>
+      <button class="btn btn-danger" id="dup-btn-borrar" onclick="borrarDuplicadosMarcados()">Nada marcado</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-importar-excel">
   <div class="modal" style="max-width:820px;max-height:85vh">
     <div class="modal-header">
@@ -3810,6 +3828,163 @@ function bloquearSiNoPuedeEliminar() {
   if(puedeEliminarRegistros(currentUser ? currentUser.email : '')) return false;
   showNotif('🔒 Solo Josling o José Piña pueden eliminar registros. Pídele a uno de ellos que lo haga.', 'error', 8000);
   return true;
+}
+
+// ============================================================
+// REVISAR Y BORRAR DUPLICADOS (solo Admin, solo Josling o José)
+// ------------------------------------------------------------
+// Dos registros con TODOS los campos iguales no siempre son un duplicado.
+// guardarVenta() guarda una orden de varias líneas con una FILA POR LÍNEA,
+// con ids consecutivos y el MISMO grupoId (ver el lineas.forEach). Si el
+// cliente compró dos veces el mismo producto y se capturó como dos líneas en
+// vez de cantidad 2, esas dos filas quedan idénticas salvo el id: son VENTAS
+// REALES y borrar una le quita comisión al vendedor.
+// Por eso esto separa los grupos en dos:
+//   - grupoId DISTINTO (o sin grupoId) -> re-inserción: el mismo reporte
+//     entró dos veces (aprobado dos veces, o un lote enviado dos veces).
+//     Son los duplicados de verdad y van marcados para borrar.
+//   - MISMO grupoId -> una sola orden guardada línea por línea. Se listan
+//     aparte, DESMARCADOS, y solo se borran si una persona los marca a mano
+//     después de revisarlos.
+// Nada se borra hasta confirmar, siempre se conserva el id más bajo, y el
+// borrado espera la confirmación del servidor y se deshace si no llega.
+// ============================================================
+const CAMPOS_DUPLICADO = ['fecha','agente','productoId','cliente','cuenta','cantidad','comision','mes','quincenaPago','notas'];
+function _claveDuplicado(v) {
+  const t = x => String(x == null ? '' : x).trim().toLowerCase();
+  const n = x => { const f = parseFloat(x); return isNaN(f) ? 0 : f; };
+  return CAMPOS_DUPLICADO.map(c => (c==='cantidad'||c==='comision') ? n(v[c]) : t(v[c]))
+    .concat((v.esGrabacion||v._esGrabacion) ? '1' : '0').join('|');
+}
+// Devuelve { reinsercion:[grupo...], mismoGrupo:[grupo...] }, donde cada
+// grupo es { clave, conservar, sobrantes:[], grupoIds:[], comisionInflada }.
+function analizarDuplicados() {
+  const porClave = {};
+  (appData.ventas||[]).forEach((v, i) => {
+    if(!v) return;
+    const k = _claveDuplicado(v);
+    (porClave[k] = porClave[k] || []).push({ v, i });
+  });
+  const reinsercion = [], mismoGrupo = [];
+  Object.keys(porClave).sort().forEach(k => {
+    const filas = porClave[k];
+    if(filas.length < 2) return;
+    filas.sort((a,b) => (Number(a.v.id)||Infinity) - (Number(b.v.id)||Infinity) || a.i - b.i);
+    const conservar = filas[0].v;
+    const sobrantes = filas.slice(1).map(x => x.v);
+    const gids = filas.map(x => x.v.grupoId);
+    // "Mismo grupo" solo si TODOS traen el mismo grupoId y no es vacío.
+    const todosMismoGrupo = gids[0] != null && gids[0] !== '' && gids.every(g => g === gids[0]);
+    const comisionInflada = sobrantes.reduce((s,v) => s + (parseFloat(v.comision)||0) * (parseFloat(v.cantidad)||1), 0);
+    const grupo = { clave:k, conservar, sobrantes, grupoIds:gids, comisionInflada };
+    (todosMismoGrupo ? mismoGrupo : reinsercion).push(grupo);
+  });
+  return { reinsercion, mismoGrupo };
+}
+
+// Abre el panel de revisión. NO borra nada: solo muestra.
+function abrirRevisarDuplicados() {
+  if(bloquearSiNoPuedeEliminar()) return;
+  const { reinsercion, mismoGrupo } = analizarDuplicados();
+  const nSobrantes = reinsercion.reduce((s,g)=>s+g.sobrantes.length, 0);
+  const nMismo     = mismoGrupo.reduce((s,g)=>s+g.sobrantes.length, 0);
+  const comR = reinsercion.reduce((s,g)=>s+g.comisionInflada, 0);
+  const comM = mismoGrupo.reduce((s,g)=>s+g.comisionInflada, 0);
+
+  const fila = (g, marcadoPorDefecto, idx, tipo) => g.sobrantes.map((v,j)=>`
+    <tr style="border-bottom:1px solid #EAF0F6">
+      <td style="padding:5px 7px"><input type="checkbox" class="dup-chk" onchange="actualizarConteoDuplicados()" data-tipo="${tipo}" data-grupo="${idx}" data-sobrante="${j}" ${marcadoPorDefecto?'checked':''}></td>
+      <td style="padding:5px 7px;font-family:monospace;font-size:11px">${v.id}</td>
+      <td style="padding:5px 7px;font-size:11px;color:#7C98B6">conserva ${g.conservar.id}</td>
+      <td style="padding:5px 7px;font-size:11px">${mdaFecha(v.fecha)}</td>
+      <td style="padding:5px 7px;font-size:11px">${v.agente||'—'}</td>
+      <td style="padding:5px 7px;font-size:11px">${v.cliente||'—'}</td>
+      <td style="padding:5px 7px;font-size:11px">${getProdNombre(v.productoId)}</td>
+      <td style="padding:5px 7px;font-size:11px;text-align:right">${fmt((parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1))}</td>
+      <td style="padding:5px 7px;font-family:monospace;font-size:10px;color:#99ACC2">${v.grupoId==null?'—':v.grupoId}</td>
+    </tr>`).join('');
+
+  const cabecera = `<tr style="background:#F5F8FA">
+      <th style="padding:6px 7px;text-align:left;font-size:10px">✓</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">Id a borrar</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">Se conserva</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">Fecha</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">Agente</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">Cliente</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">Producto</th>
+      <th style="padding:6px 7px;text-align:right;font-size:10px">Comisión</th>
+      <th style="padding:6px 7px;text-align:left;font-size:10px">grupoId</th>
+    </tr>`;
+
+  document.getElementById('dup-contenido').innerHTML = `
+    <div style="background:#FFF3EE;border:2px solid #FF7A59;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;color:#33475B;margin-bottom:4px">🗑️ Duplicados por re-inserción — ${nSobrantes} fila${nSobrantes===1?'':'s'} a borrar</div>
+      <div style="font-size:11px;color:#7C98B6">El mismo reporte entró dos veces (aprobado dos veces, o un lote enviado dos veces): tienen <b>grupoId distinto</b>. Se conserva siempre el id más bajo. Comisión inflada: <b>${fmt(comR)}</b>.</div>
+    </div>
+    ${nSobrantes ? `<div style="max-height:260px;overflow:auto;border:1px solid #CBD6E2;border-radius:8px;margin-bottom:18px"><table style="width:100%;border-collapse:collapse">${cabecera}${reinsercion.map((g,i)=>fila(g,true,i,'R')).join('')}</table></div>`
+                 : '<div style="font-size:12px;color:#00BDA5;font-weight:600;margin-bottom:18px">✅ No hay duplicados por re-inserción.</div>'}
+
+    <div style="background:#FFFBE8;border:2px solid #F5C26B;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;color:#33475B;margin-bottom:4px">⚠️ Probablemente NO son duplicados — ${nMismo} fila${nMismo===1?'':'s'}, <b>desmarcadas</b></div>
+      <div style="font-size:11px;color:#7C98B6">Comparten el <b>mismo grupoId</b>: es UNA orden guardada línea por línea (p.ej. el cliente llevó dos veces el mismo producto y se capturó como dos líneas en vez de cantidad 2). <b>Son ventas reales y borrarlas le quita comisión al vendedor.</b> Si revisaste una y de verdad está repetida, márcala a mano. En juego: ${fmt(comM)}.</div>
+    </div>
+    ${nMismo ? `<div style="max-height:260px;overflow:auto;border:1px solid #CBD6E2;border-radius:8px"><table style="width:100%;border-collapse:collapse">${cabecera}${mismoGrupo.map((g,i)=>fila(g,false,i,'M')).join('')}</table></div>`
+             : '<div style="font-size:12px;color:#7C98B6">No hay grupos de este tipo.</div>'}`;
+
+  _dupAnalisis = { reinsercion, mismoGrupo };
+  document.getElementById('modal-duplicados').classList.add('open');
+  actualizarConteoDuplicados();
+}
+let _dupAnalisis = null;
+
+function actualizarConteoDuplicados() {
+  const n = document.querySelectorAll('.dup-chk:checked').length;
+  const btn = document.getElementById('dup-btn-borrar');
+  if(btn) {
+    btn.textContent = n ? `🗑️ Borrar ${n} fila${n===1?'':'s'} marcada${n===1?'':'s'}` : 'Nada marcado';
+    btn.disabled = !n;
+    btn.style.opacity = n ? '1' : '.5';
+    btn.style.cursor = n ? 'pointer' : 'not-allowed';
+  }
+}
+
+async function borrarDuplicadosMarcados() {
+  if(bloquearSiNoPuedeEliminar()) return;
+  if(!_dupAnalisis) return;
+  const marcados = Array.from(document.querySelectorAll('.dup-chk:checked')).map(chk => {
+    const lista = chk.dataset.tipo === 'R' ? _dupAnalisis.reinsercion : _dupAnalisis.mismoGrupo;
+    return lista[parseInt(chk.dataset.grupo)].sobrantes[parseInt(chk.dataset.sobrante)];
+  });
+  if(!marcados.length) { showNotif('⚠️ No hay nada marcado', 'error'); return; }
+  const deMismoGrupo = marcados.filter(v => v.grupoId != null && v.grupoId !== '' &&
+    _dupAnalisis.mismoGrupo.some(g => g.sobrantes.includes(v))).length;
+  const comision = marcados.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+
+  const msg = `¿Borrar ${marcados.length} registro${marcados.length===1?'':'s'} de forma definitiva?\n\n` +
+    `• Se conserva siempre el id más bajo de cada grupo.\n` +
+    `• Baja ${fmt(comision)} de comisión.\n` +
+    (deMismoGrupo ? `• ⚠️ ${deMismoGrupo} de ellos comparten grupoId: PUEDEN SER VENTAS REALES de una orden de varias líneas.\n` : '') +
+    `\nEsto no se puede deshacer.`;
+  if(!confirm(msg)) return;
+
+  const ventasAntes = [...appData.ventas];
+  const aBorrar = new Set(marcados);
+  appData.ventas = appData.ventas.filter(v => !aBorrar.has(v));
+  agregarAuditLog(`Borrado de ${marcados.length} duplicado(s): ids ${marcados.map(v=>v.id).join(', ')}`, '', '');
+
+  const btn = document.getElementById('dup-btn-borrar');
+  if(btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  const ok = await guardar();
+  if(!ok) {
+    appData.ventas = ventasAntes;
+    actualizarConteoDuplicados();
+    showNotif('🛑 No se borró nada — el guardado no llegó al servidor y se deshizo todo. Revisa tu conexión e inténtalo otra vez.', 'error', 14000);
+    return;
+  }
+  closeModal('modal-duplicados');
+  renderVentas();
+  renderDashboard();
+  showNotif(`🗑️ ${marcados.length} duplicado${marcados.length===1?'':'s'} borrado${marcados.length===1?'':'s'} — bajó ${fmt(comision)} de comisión`, 'success', 10000);
 }
 
 // ============================================================
@@ -8277,6 +8452,9 @@ function aplicarFechasQuincena() {
 function renderVentas() {
   populateAgente('fv-agente');
   populateMes('fv-mes');
+  // El botón de limpieza solo existe para quien puede borrar (Josling / José).
+  const btnDup = document.getElementById('btn-revisar-duplicados');
+  if(btnDup) btnDup.style.display = puedeEliminarRegistros(currentUser ? currentUser.email : '') ? 'inline-block' : 'none';
   const search = (document.getElementById('fv-search')?.value||'').toLowerCase();
   const fCat = document.getElementById('fv-cat')?.value||'';
   const fAg  = document.getElementById('fv-agente')?.value||'';
