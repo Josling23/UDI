@@ -3956,6 +3956,14 @@ async function borrarDuplicadosMarcados() {
     return lista[parseInt(chk.dataset.grupo)].sobrantes[parseInt(chk.dataset.sobrante)];
   });
   if(!marcados.length) { showNotif('⚠️ No hay nada marcado', 'error'); return; }
+  {
+    const cerrados = marcados.filter(v => registroEnQuincenaCerrada(v));
+    if(cerrados.length) {
+      const p = getPeríodoPago(cerrados[0]);
+      showNotif(`🔒 ${cerrados.length} de los marcados están en ${p.mes} Q${p.q}, CERRADA. No se borró nada — desmarca esos o pide a Josling que reabra la quincena.`, 'error', 14000);
+      return;
+    }
+  }
   const deMismoGrupo = marcados.filter(v => v.grupoId != null && v.grupoId !== '' &&
     _dupAnalisis.mismoGrupo.some(g => g.sobrantes.includes(v))).length;
   const comision = marcados.reduce((s,v)=>s+(parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
@@ -6725,6 +6733,13 @@ async function aprobarVentaPendiente(grupoId, opts = {}) {
   // De la memoria, no del DOM: el <select> pudo haberse redibujado en blanco
   // entre que Admin eligio y pulso aprobar (ver _vpQuincenaElegida).
   const quincenaPago = vpGetQuincena(grupoId) || (document.getElementById('vp-quincena-'+grupoId)?.value || '');
+  // Aprobar mete lineas nuevas en una quincena: si esa quincena ya se
+  // cerro, no se puede. Se mira el periodo de DESTINO, con la quincena que
+  // Admin eligio para este reporte.
+  {
+    const destino = getPeríodoPago({ ...lineas[0], quincenaPago: quincenaPago });
+    if(bloquearSiPeriodoCerrado(destino.mes, destino.q, 'aprobar reportes ahí')) return false;
+  }
   const aprobadoEn = new Date().toISOString();
   // Foto previa, por si el guardado no llega (ver el final de la función).
   const ventasAntes = [...appData.ventas];
@@ -6972,6 +6987,10 @@ function adminAprobarRechazada(grupoId) {
   const lineas = (appData.ventasRechazadas||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
   const quincenaPago = document.getElementById('vr-quincena-'+grupoId)?.value || '';
+  {
+    const destino = getPeríodoPago({ ...lineas[0], quincenaPago: quincenaPago });
+    if(bloquearSiPeriodoCerrado(destino.mes, destino.q, 'aprobar reportes ahí')) return;
+  }
   const aprobadoEn = new Date().toISOString();
 
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
@@ -7023,6 +7042,7 @@ function revertirVentaAprobada(grupoId) {
   if(bloquearSiNoPuedeEliminar()) return;
   const lineas = (appData.ventas||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return;
+  if(lineas.some(l => bloquearSiRegistroCerrado(l, 'rechazar esta venta ya aprobada'))) return;
   if(!confirm('¿Seguro que quieres RECHAZAR esta venta ya aprobada?\n\nSe quitará de Registro Diario, comisiones y pagos, y volverá a la bandeja de rechazados del vendedor para que la corrija y la vuelva a enviar. Esta acción no se puede deshacer.')) return;
   const motivo = prompt('¿Por qué se rechaza esta venta ya aprobada?', '');
   if(motivo === null) return;
@@ -8622,11 +8642,16 @@ function renderVentas() {
     // por fecha solo para ofrecerla -- no se guarda hasta que alguien la fije.
     const qElegida  = quincenaElegida(v);
     const qSugerida = getPeríodoPagoAuto(v).q;
+    // Quincena cerrada = registro congelado: se marca con candado y el
+    // selector de quincena se deshabilita (los guardias del codigo lo frenan
+    // igual, esto es para que se VEA antes de intentarlo).
+    const _pReg     = getPeríodoPago(v);
+    const congelado = estaQuincenaCerrada(_pReg.mes, _pReg.q);
     // Product dropdown options for this category
     const catProds = getCatalogoCompleto().filter(p=>p.cat===v.categoria);
     const prodOpts = catProds.map(p=>`<option value="${p.id}" ${p.id===v.productoId?'selected':''}>${p.nombre}</option>`).join('');
     return `<tr>
-    <td style="color:#99ACC2">${i+1}</td>
+    <td style="color:#99ACC2">${i+1}${congelado?` <span title="${_pReg.mes} Q${_pReg.q} cerrada — registro congelado, ya se pagó" style="cursor:help">🔒</span>`:''}</td>
     <td>${mdaFecha(v.fecha)}</td>
     <td>${v.agente}</td>
     <td style="min-width:160px">
@@ -8644,8 +8669,8 @@ function renderVentas() {
     <td style="color:#7C98B6">${v.cuenta||'—'}</td>
     <td>${v.mes}</td>
     <td style="min-width:104px">
-      <select style="${iSty};width:102px;background:${qElegida!==null?'#EAF7FB':'#FFFBE8'};font-weight:600;color:${qElegida!==null?'#0057A8':'#946C00'}"
-        title="${qElegida!==null?'Quincena fijada a mano — no se recalcula nunca':'Nadie la ha fijado: se muestra la sugerida por fecha. Eligela para fijarla.'}"
+      <select ${congelado?'disabled':''} style="${iSty};width:102px;background:${congelado?'#F5F8FA':(qElegida!==null?'#EAF7FB':'#FFFBE8')};font-weight:600;color:${congelado?'#7C98B6':(qElegida!==null?'#0057A8':'#946C00')};${congelado?'cursor:not-allowed':''}"
+        title="${congelado?(_pReg.mes+' Q'+_pReg.q+' esta CERRADA (ya se pago): este registro esta congelado'):(qElegida!==null?'Quincena fijada a mano — no se recalcula nunca':'Nadie la ha fijado: se muestra la sugerida por fecha. Eligela para fijarla.')}"
         onchange="ventaInlineEdit(${v.id},'quincenaPago',this.value)">
         <option value="" ${qElegida===null?'selected':''}>⚠️ Sugerido Q${qSugerida}</option>
         <option value="1" ${qElegida===1?'selected':''}>Q1</option>
@@ -9095,6 +9120,14 @@ function mostrarPreviewImportacion() {
 async function guardarImportacionExcel() {
   if(loteOcupado()) return;
   const validRows = _importData.filter(r=>r.valido);
+  {
+    const cerradas = validRows.filter(r => registroEnQuincenaCerrada(r));
+    if(cerradas.length) {
+      const p = getPeríodoPago(cerradas[0]);
+      showNotif(`🔒 ${cerradas.length} fila(s) caen en ${p.mes} Q${p.q}, que está CERRADA. No se importó nada — quita esas filas o pide a Josling que reabra la quincena.`, 'error', 14000);
+      return;
+    }
+  }
   if(validRows.length === 0) {
     showNotif('⚠️ No hay registros válidos para guardar','error');
     return;
@@ -9301,6 +9334,14 @@ function renderPreviewVentasPegadas() {
 async function guardarVentasPegadas() {
   if(loteOcupado()) return;
   const validas = ventasPegadasParseadas.filter(r => r.incluir && r.valido);
+  {
+    const cerradas = validas.filter(r => registroEnQuincenaCerrada(r));
+    if(cerradas.length) {
+      const p = getPeríodoPago(cerradas[0]);
+      showNotif(`🔒 ${cerradas.length} fila(s) caen en ${p.mes} Q${p.q}, que está CERRADA. No se guardó nada — quita esas filas o pide a Josling que reabra la quincena.`, 'error', 14000);
+      return;
+    }
+  }
   if(validas.length === 0) { showNotif('⚠️ No hay ventas válidas marcadas para guardar','error'); return; }
 
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
@@ -9453,6 +9494,13 @@ function guardarVenta() {
   const notas       = document.getElementById('v-notas').value.trim();
   const quincenaPago     = document.getElementById('v-quincena').value;
   const mesPago          = (quincenaPago==='1'||quincenaPago==='2') ? (document.getElementById('v-mes-pago')?.value||'') : '';
+  // Quincena de DESTINO: ni una venta nueva ni una editada pueden caer en
+  // una quincena ya cerrada (el candado de mas arriba solo cubre el periodo
+  // ORIGINAL de una venta que se edita).
+  {
+    const destino = getPeríodoPago({ fecha, mes, quincenaPago, mesPago });
+    if(bloquearSiPeriodoCerrado(destino.mes, destino.q, 'guardar ventas ahí')) return;
+  }
   const llamadaGrabada   = document.getElementById('v-llamada-grabada').checked;
   let agenteGrabacion  = llamadaGrabada ? (document.getElementById('v-agente-grabacion').value||'').trim() : '';
   // Normalizar nombre del agente de grabación para que coincida exactamente con el registro
@@ -9786,6 +9834,16 @@ function actualizarListaVentasHQ() {
 function ventaInlineEdit(id, field, value, prodSelect) {
   const v = appData.ventas.find(x=>x.id===id);
   if(!v) return;
+  // Quincena cerrada: ni editar el registro ni SACARLO de esa quincena.
+  if(bloquearSiRegistroCerrado(v, field==='quincenaPago' ? 'mover este registro de quincena' : 'editar este registro')) { renderVentas(); return; }
+  // Y tampoco METERLO en una quincena que ya este cerrada.
+  if(field==='quincenaPago') {
+    const qDestino = parseInt(value);
+    if(qDestino===1 || qDestino===2) {
+      const pDestino = getPeríodoPago({ ...v, quincenaPago: value });
+      if(bloquearSiPeriodoCerrado(pDestino.mes, pDestino.q, 'mover este registro ahí')) { renderVentas(); return; }
+    }
+  }
   if(field==='productoId') {
     v.productoId = value;
     // Auto-update comision to catalog default for this agent
@@ -14551,6 +14609,14 @@ function agregarAuditLog(action, mes, quincena) {
 }
 
 function cerrarQuincena(mes, quincena) {
+  if(estaQuincenaCerrada(mes, quincena)) { showNotif(`🔒 ${mes} Q${quincena} ya estaba cerrada`, 'info'); return; }
+  const cuantos = (appData.ventas||[]).filter(v => {
+    const p = getPeríodoPago(v);
+    return p.mes === mes && p.q === quincena;
+  }).length;
+  if(!confirm(`¿Cerrar ${mes} Q${quincena}?\n\n` +
+      `Se congelan ${cuantos} registro${cuantos===1?'':'s'}: ya no se podrán editar, borrar, mover de quincena, aprobar de nuevo ni revertir, y no se podrán crear registros nuevos en esa quincena.\n\n` +
+      `Solo Josling puede reabrirla después.\n\n¿Confirmas?`)) return;
   if (!appData.quincenasCerradas) appData.quincenasCerradas = {};
   const key = getKeyQuincenaCerrada(mes, quincena);
   appData.quincenasCerradas[key] = true;
@@ -14561,6 +14627,11 @@ function cerrarQuincena(mes, quincena) {
 }
 
 function reabrirQuincena(mes, quincena) {
+  if(!puedeReabrirQuincena(currentUser ? currentUser.email : '')) {
+    showNotif('🔒 Solo Josling puede reabrir una quincena cerrada. Cerrarla protege lo ya pagado; reabrirla lo desprotege.', 'error', 9000);
+    return;
+  }
+  if(!confirm(`¿Reabrir ${mes} Q${quincena}?\n\nEsa quincena ya se pagó y está congelada. Al reabrirla se vuelve a poder editar, borrar y mover sus registros, y eso puede descuadrar lo que ya se pagó.\n\n¿Seguro?`)) return;
   if (!appData.quincenasCerradas) appData.quincenasCerradas = {};
   const key = getKeyQuincenaCerrada(mes, quincena);
   appData.quincenasCerradas[key] = false;
@@ -14577,6 +14648,49 @@ function validarQuincenaNoEsteeCerrada(mes, quincena) {
     return false;
   }
   return true;
+}
+
+// ============================================================
+// QUINCENA CERRADA = CONGELADA (decision de Josling)
+// ------------------------------------------------------------
+// Una vez pagada una quincena, se cierra y sus registros quedan intactos:
+// no se pueden editar, borrar, mover de quincena, aprobar de nuevo ni
+// revertir, y tampoco se pueden crear registros nuevos dentro de ella.
+// Antes el cierre solo frenaba cuatro cosas (guardarVenta en edicion,
+// eliminarVenta, toggleQuincena y setExtra); por los demas caminos --
+// la edicion en linea de la tabla, aprobar un pendiente, revertir una
+// aprobada, las cargas en lote y la limpieza de duplicados -- se podia
+// seguir tocando una quincena ya pagada y descuadrar lo que ya se habia
+// pagado.
+// La quincena de un registro sale de getPeríodoPago(), que respeta la
+// eleccion manual (ver "LA QUINCENA ES MANUAL").
+// ============================================================
+function registroEnQuincenaCerrada(v) {
+  if(!v) return false;
+  const p = getPeríodoPago(v);
+  return estaQuincenaCerrada(p.mes, p.q);
+}
+// Guarda para el principio de cualquier accion sobre UN registro. Devuelve
+// true si hay que detenerse, y ya avisa a quien lo intento.
+function bloquearSiRegistroCerrado(v, accion) {
+  if(!registroEnQuincenaCerrada(v)) return false;
+  const p = getPeríodoPago(v);
+  showNotif(`🔒 ${p.mes} Q${p.q} está CERRADA (ya se pagó). No se puede ${accion||'modificar este registro'}. Si de verdad hay que cambiarlo, Josling tiene que reabrir la quincena primero.`, 'error', 11000);
+  return true;
+}
+// Igual, pero para un periodo { mes, q } al que se quiere ENTRAR (crear o
+// mover un registro hacia esa quincena).
+function bloquearSiPeriodoCerrado(mes, q, accion) {
+  if(!estaQuincenaCerrada(mes, q)) return false;
+  showNotif(`🔒 ${mes} Q${q} está CERRADA (ya se pagó). No se puede ${accion||'agregar registros ahí'}. Si hace falta, Josling tiene que reabrirla primero.`, 'error', 11000);
+  return true;
+}
+// Reabrir una quincena cerrada es SOLO de Josling: es deshacer un cierre de
+// pago ya hecho. Cerrar lo puede hacer cualquiera con acceso a Admin, porque
+// cerrar protege; reabrir desprotege.
+const CORREO_PUEDE_REABRIR_QUINCENA = 'interjosling@hotmail.com';
+function puedeReabrirQuincena(email) {
+  return (email || '').trim().toLowerCase() === CORREO_PUEDE_REABRIR_QUINCENA;
 }
 
 // ============================================================
@@ -16951,6 +17065,14 @@ function renderAdminQuincenas() {
   const selMes = document.getElementById('admin-quincena-mes-sel')?.value || mesPorDefecto() || meses[meses.length-1] || '';
   const q1Cerrada = selMes ? estaQuincenaCerrada(selMes, 1) : false;
   const q2Cerrada = selMes ? estaQuincenaCerrada(selMes, 2) : false;
+  // Cuantos registros congela (o congelaria) cada quincena, para que quien
+  // cierra vea el tamaño de lo que esta congelando. Usa getPeríodoPago(),
+  // que respeta la quincena elegida a mano.
+  const cuentaQ = q => selMes ? (appData.ventas||[]).filter(v => {
+    const pp = getPeríodoPago(v); return pp.mes === selMes && pp.q === q;
+  }).length : 0;
+  const nQ1 = cuentaQ(1), nQ2 = cuentaQ(2);
+  const puedeReabrir = puedeReabrirQuincena(currentUser ? currentUser.email : '');
   const auditMes = selMes ? (appData.auditLog||[]).filter(log => log.mes === selMes) : [];
 
   const auditHTML = auditMes.length ? `
@@ -16983,7 +17105,7 @@ function renderAdminQuincenas() {
   wrap.innerHTML = `
     <details class="section" style="border-left:4px solid #6A78D1;background:#F0EDFF">
       <summary style="cursor:pointer;font-size:13px;font-weight:700;color:#6A78D1">🔒 Control de Quincenas
-        <span style="font-size:10px;font-weight:400;color:#99ACC2;margin-left:6px">Cierra quincenas para evitar cambios no deseados — se refleja en TOP</span>
+        <span style="font-size:10px;font-weight:400;color:#99ACC2;margin-left:6px">Cerrar una quincena CONGELA sus registros: no se pueden editar, borrar, mover de quincena, aprobar de nuevo ni agregar nuevos. Solo Josling puede reabrir.</span>
       </summary>
       <div style="margin-top:14px">
         <select id="admin-quincena-mes-sel" onchange="renderAdminQuincenas()" style="background:#fff;border:1px solid #CBD6E2;color:#33475B;padding:7px 14px;border-radius:8px;font-size:13px;outline:none;font-weight:600;margin-bottom:14px">
@@ -16995,11 +17117,14 @@ function renderAdminQuincenas() {
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
                 <div style="font-size:12px;font-weight:700;color:#33475B">Q1 (1-14)</div>
-                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q1Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
+                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q1Cerrada?'🔒 CERRADA — congelada':'🔓 Abierta'}</div>
+                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${nQ1} registro${nQ1===1?'':'s'}${q1Cerrada?' congelado'+(nQ1===1?'':'s'):''}</div>
               </div>
-              <button class="btn ${q1Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q1Cerrada?`reabrirQuincenaClick(1)`:`cerrarQuincenaClick(1)`}">
-                ${q1Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
-              </button>
+              ${q1Cerrada
+                ? (puedeReabrir
+                    ? `<button class="btn btn-danger btn-sm" onclick="reabrirQuincenaClick(1)">🔓 Reabrir</button>`
+                    : `<span title="Solo Josling puede reabrir una quincena cerrada" style="font-size:10px;color:#99ACC2;font-weight:600;text-align:right;max-width:92px">🔒 Solo Josling puede reabrir</span>`)
+                : `<button class="btn btn-primary btn-sm" onclick="cerrarQuincenaClick(1)">🔒 Cerrar</button>`}
             </div>
             <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="solicitarDescarga('Informe Quincena Q1 AT&T', () => descargarResumenQuincena('${selMes}',1))">
               📥 Descargar informe Q1
@@ -17009,11 +17134,14 @@ function renderAdminQuincenas() {
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
                 <div style="font-size:12px;font-weight:700;color:#33475B">Q2 (15-fin)</div>
-                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q2Cerrada?'🔒 CERRADA':'🔓 Abierta'}</div>
+                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${q2Cerrada?'🔒 CERRADA — congelada':'🔓 Abierta'}</div>
+                <div style="font-size:10px;color:#7C98B6;margin-top:2px">${nQ2} registro${nQ2===1?'':'s'}${q2Cerrada?' congelado'+(nQ2===1?'':'s'):''}</div>
               </div>
-              <button class="btn ${q2Cerrada?'btn-danger':'btn-primary'} btn-sm" onclick="${q2Cerrada?`reabrirQuincenaClick(2)`:`cerrarQuincenaClick(2)`}">
-                ${q2Cerrada?'🔓 Reabrir':'🔒 Cerrar'}
-              </button>
+              ${q2Cerrada
+                ? (puedeReabrir
+                    ? `<button class="btn btn-danger btn-sm" onclick="reabrirQuincenaClick(2)">🔓 Reabrir</button>`
+                    : `<span title="Solo Josling puede reabrir una quincena cerrada" style="font-size:10px;color:#99ACC2;font-weight:600;text-align:right;max-width:92px">🔒 Solo Josling puede reabrir</span>`)
+                : `<button class="btn btn-primary btn-sm" onclick="cerrarQuincenaClick(2)">🔒 Cerrar</button>`}
             </div>
             <button class="btn btn-ghost btn-xs" style="width:100%;margin-top:8px" onclick="solicitarDescarga('Informe Quincena Q2 AT&T', () => descargarResumenQuincena('${selMes}',2))">
               📥 Descargar informe Q2
