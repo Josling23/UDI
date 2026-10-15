@@ -5295,20 +5295,49 @@ function mesAISO(mesStr) {
 //   Último día del mes anterior + días 1–14  → Q2 del mes calendario de esos días
 //   Días 15 hasta penúltimo del mes          → Q1 del mes siguiente
 // Override manual ('1' o '2'): usa v.mes como mes de pago
+// ============================================================
+// LA QUINCENA ES MANUAL
+// ------------------------------------------------------------
+// Decision de Josling: la quincena Q1/Q2 de cada registro la ELIGE la
+// persona que lo registra o lo edita, y se respeta siempre. Nada la
+// recalcula por fecha: ni al guardar, ni al fusionar con el servidor, ni en
+// el filtro, ni en los reportes y pagos.
+//
+// Antes el calculo automatico mandaba en cuanto el campo llegaba vacio, y el
+// campo se vaciaba solo: el selector de Ventas Pendientes se redibujaba en
+// "Auto" en cada refresco de la tabla y se perdia lo que Admin habia
+// elegido. Resultado real: 6 registros marcados Q1 aparecieron en Q2.
+//
+// quincenaElegida() devuelve 1, 2 o null (null = nadie la ha fijado todavia).
+// Acepta texto o numero: el campo se guarda como '1'/'2' desde los <select>,
+// pero un registro viejo o importado puede traer 1/2 numericos, y antes esos
+// no pasaban la comparacion estricta y caian al calculo automatico.
+function quincenaElegida(v) {
+  if(!v) return null;
+  const q = parseInt(v.quincenaPago);
+  return (q === 1 || q === 2) ? q : null;
+}
+
+// Periodo de pago de un registro. Devuelve { mes, q, sugerida }:
+//  - sugerida = false -> la quincena la fijo una persona. MANDA SIEMPRE.
+//  - sugerida = true  -> nadie la ha fijado (registro viejo): se devuelve la
+//    calculada por fecha SOLO como sugerencia, para no dejar el registro
+//    fuera de los totales mientras nadie la fije. En pantalla se marca como
+//    sugerencia, no como dato.
+// No se le escribe la quincena a ningun registro existente: los datos no se
+// tocan, solo se deja de recalcular lo que ya estaba elegido.
 function getPeríodoPago(v) {
-  // Override manual: usa la fecha para calcular el mes de pago correcto,
-  // pero fuerza la quincena indicada (Q1 o Q2) dentro de ese mes de pago auto.
-  // Si además se fija v.mesPago, se reemplaza también el MES de pago — ambos
-  // overrides van emparejados: no tiene sentido forzar el mes de pago sin
-  // forzar también la quincena, porque el cálculo automático siempre
-  // determina mes+quincena juntos a partir de la fecha.
-  if(v.quincenaPago === '1' || v.quincenaPago === '2') {
+  const elegida = quincenaElegida(v);
+  if(elegida !== null) {
+    // Mes de pago: el que se fijo a mano si existe; si no, el del calculo
+    // automatico (el MES no es lo que se esta volviendo manual, solo la
+    // quincena dentro de ese mes).
     const autoP = getPeríodoPagoAuto(v);
     const mesForzado = (v.mesPago && getMeses().includes(v.mesPago)) ? v.mesPago : autoP.mes;
-    return { mes: mesForzado, q: parseInt(v.quincenaPago) };
+    return { mes: mesForzado, q: elegida, sugerida: false };
   }
-
-  return getPeríodoPagoAuto(v);
+  const autoP = getPeríodoPagoAuto(v);
+  return { mes: autoP.mes, q: autoP.q, sugerida: true };
 }
 
 function getPeríodoPagoAuto(v) {
@@ -6379,10 +6408,11 @@ function renderVentasPendientesTabla() {
         <td>${enEdicion ? `<input type="text" value="${g.cuenta||''}" style="${iStyVp}" onchange="adminVPActualizarCampoGrupo(${grupoId},'cuenta',this.value)">` : (g.cuenta||'—')}</td>
         <td>${g.mes}</td>
         <td>
-          <select id="vp-quincena-${grupoId}" style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;background:#EAF7FB;color:#0057A8;font-weight:600">
-            <option value="">⚡ Auto</option>
-            <option value="1">Manual Q1</option>
-            <option value="2">Manual Q2</option>
+          <select id="vp-quincena-${grupoId}" onchange="vpSetQuincena(${grupoId}, this.value)"
+            style="border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;background:${vpGetQuincena(grupoId)?'#EAF7FB':'#FFFBE8'};color:${vpGetQuincena(grupoId)?'#0057A8':'#946C00'};font-weight:600">
+            <option value="" ${!vpGetQuincena(grupoId)?'selected':''}>⚠️ Elige Q1 o Q2</option>
+            <option value="1" ${vpGetQuincena(grupoId)==='1'?'selected':''}>Q1</option>
+            <option value="2" ${vpGetQuincena(grupoId)==='2'?'selected':''}>Q2</option>
           </select>
         </td>
         <td style="text-align:right;font-weight:800;color:#00BDA5">${fmt(total)}</td>
@@ -6427,6 +6457,17 @@ function ventaPendienteInlineEdit(id, field, value) {
 // cualquier otro clic. Sin esto, Admin puede hacer clic más rápido de lo que
 // tarda el guardado y encolar decenas -- que es justo lo que se pierde si
 // refresca la página antes de que la cola termine.
+// Quincena elegida por Admin para cada reporte pendiente, por grupoId.
+// Hace falta memoria aparte porque la tabla de Ventas Pendientes se redibuja
+// completa en cada refresco (un guardado propio, o el aviso en tiempo real de
+// otra sesion) y el <select> volvia a nacer en "Auto": se perdia en silencio
+// lo que Admin habia elegido, y al aprobar se guardaba la quincena vacia. Con
+// el campo vacio, getPeríodoPago() caia al calculo por fecha. Causa real
+// confirmada de 6 registros marcados Q1 que aparecieron en Q2.
+const _vpQuincenaElegida = {};
+function vpSetQuincena(grupoId, valor) { _vpQuincenaElegida[grupoId] = valor || ''; }
+function vpGetQuincena(grupoId) { return _vpQuincenaElegida[grupoId] || ''; }
+
 let _vpGuardandoEnCurso = false;
 function vpOcupado() {
   if(_vpGuardandoEnCurso) {
@@ -6506,7 +6547,9 @@ async function aprobarVentaPendiente(grupoId, opts = {}) {
     showNotif('ℹ️ Este reporte YA estaba aprobado y contado como venta. Se quito de Pendientes sin volver a crearlo (no se duplico ni se pago doble).', 'info', 10000);
     return true;
   }
-  const quincenaPago = document.getElementById('vp-quincena-'+grupoId)?.value || '';
+  // De la memoria, no del DOM: el <select> pudo haberse redibujado en blanco
+  // entre que Admin eligio y pulso aprobar (ver _vpQuincenaElegida).
+  const quincenaPago = vpGetQuincena(grupoId) || (document.getElementById('vp-quincena-'+grupoId)?.value || '');
   const aprobadoEn = new Date().toISOString();
   // Foto previa, por si el guardado no llega (ver el final de la función).
   const ventasAntes = [...appData.ventas];
@@ -8212,57 +8255,22 @@ async function aprobarVisiblesVentasPendientes() {
   showNotif(`✅ ${movidos} reporte${movidos>1?'s':''} activado${movidos>1?'s':''} — ya cuenta${movidos>1?'n':''} como ventas oficiales`);
 }
 
-// Aplicar fechas automáticas según quincena seleccionada
+// El filtro de quincena LEE EL CAMPO del registro, no la fecha.
+// Antes esta funcion traducia "Q1" a un rango de fechas y escribia esas
+// fechas en los filtros de Desde/Hasta: el resultado dependia de la fecha
+// del registro y no de la quincena que la persona habia elegido, asi que un
+// registro marcado a mano como Q1 con fecha del dia 15 salia en Q2. Ahora
+// solo pide el mes (que es lo que define de que quincena se habla) y deja
+// que renderVentas() compare contra getPeríodoPago(v).q, que respeta la
+// eleccion manual. Los filtros de fecha quedan independientes: ya no se
+// tocan desde aqui, para que se puedan combinar sin pisarse.
 function aplicarFechasQuincena() {
   const qSel = document.getElementById('fv-quincena-rapida')?.value || '';
-
-  // Si no selecciona quincena, limpiar fechas
-  if(!qSel) {
-    document.getElementById('fv-fecha-desde').value = '';
-    document.getElementById('fv-fecha-hasta').value = '';
-    renderVentas();
-    return;
-  }
-
-  // Obtener el mes actualmente seleccionado en fv-mes
-  const mesSel = document.getElementById('fv-mes')?.value || '';
-
-  if(!mesSel) {
-    alert('Por favor, selecciona un mes primero');
+  if(qSel && !(document.getElementById('fv-mes')?.value || '')) {
+    alert('Selecciona primero un mes: la quincena Q1/Q2 es dentro de un mes.');
     document.getElementById('fv-quincena-rapida').value = '';
     return;
   }
-
-  // Extraer año y mes del formato "Mes Año"
-  const partes = mesSel.split(' ');
-  const mesNombre = partes[0];
-  const yyyy = parseInt(partes[1]);
-  const mesIdx = MESES_ES.indexOf(mesNombre);
-  const mm = mesIdx + 1; // 1-12
-
-  // Obtener el último día del mes actual y el mes anterior
-  const ultimoDelMesActual = new Date(yyyy, mm, 0).getDate();
-  const ultimoDelMesAnterior = new Date(yyyy, mm - 1, 0).getDate();
-
-  let desde, hasta;
-
-  if(qSel === '1') {
-    // Q1: desde último día del mes anterior hasta el 14 del mes actual
-    const mmAnterior = mm - 1;
-    const yyyyAnterior = mmAnterior === 0 ? yyyy - 1 : yyyy;
-    const mmAnteriorAjustado = mmAnterior === 0 ? 12 : mmAnterior;
-    desde = `${yyyyAnterior}-${String(mmAnteriorAjustado).padStart(2,'0')}-${String(ultimoDelMesAnterior).padStart(2,'0')}`;
-    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-14`;
-  } else if(qSel === '2') {
-    // Q2: desde el 15 del mes actual hasta el penúltimo día del mes
-    const penultimoDia = ultimoDelMesActual - 1;
-    desde = `${yyyy}-${String(mm).padStart(2,'0')}-15`;
-    hasta = `${yyyy}-${String(mm).padStart(2,'0')}-${String(penultimoDia).padStart(2,'0')}`;
-  }
-
-  console.log('Aplicando fechas:', { desde, hasta, mes: mesSel, quincena: qSel });
-  document.getElementById('fv-fecha-desde').value = desde;
-  document.getElementById('fv-fecha-hasta').value = hasta;
   renderVentas();
 }
 
@@ -8276,10 +8284,17 @@ function renderVentas() {
   const fDesde = document.getElementById('fv-fecha-desde')?.value||'';
   const fHasta = document.getElementById('fv-fecha-hasta')?.value||'';
 
+  const fQuincena = document.getElementById('fv-quincena-rapida')?.value || '';
+
   let list = appData.ventas.filter(v=>{
     if(fCat && v.categoria!==fCat) return false;
     if(fAg && v.agente!==fAg) return false;
     if(fMes && v.mes!==fMes) return false;
+    // Quincena: se compara contra la ELEGIDA por la persona (getPeríodoPago
+    // la respeta siempre). Un registro viejo que nadie fijo entra por su
+    // quincena sugerida, para no desaparecer de la vista mientras nadie la
+    // fije -- en la tabla se ve marcada como sugerencia.
+    if(fQuincena && String(getPeríodoPago(v).q) !== String(fQuincena)) return false;
     if(fDesde && v.fecha < fDesde) return false;
     if(fHasta && v.fecha > fHasta) return false;
     if(search && !(v.cliente||'').toLowerCase().includes(search) && !(v.agente||'').toLowerCase().includes(search) && !getProdNombre(v.productoId).toLowerCase().includes(search)) return false;
@@ -8425,6 +8440,10 @@ function renderVentas() {
   const gruposConChatRenderizado = new Set();
   document.getElementById('ventas-body').innerHTML = list.length ? list.map((v,i)=>{
     const com = getComision(v);
+    // Quincena: la elegida a mano (manda siempre) y, si no hay, la sugerida
+    // por fecha solo para ofrecerla -- no se guarda hasta que alguien la fije.
+    const qElegida  = quincenaElegida(v);
+    const qSugerida = getPeríodoPagoAuto(v).q;
     // Product dropdown options for this category
     const catProds = getCatalogoCompleto().filter(p=>p.cat===v.categoria);
     const prodOpts = catProds.map(p=>`<option value="${p.id}" ${p.id===v.productoId?'selected':''}>${p.nombre}</option>`).join('');
@@ -8446,12 +8465,13 @@ function renderVentas() {
     <td style="font-weight:700;color:#33475B;background:${v.cliente?'#fff':'#FFF0F0'};border:${v.cliente?'none':'2px solid #F2545B'};padding:4px 8px;border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}${v.esChargeback?'<div style="font-size:9px;color:#F2545B;font-weight:800;margin-top:2px">⚠️ CHARGEBACK</div>':''}${v.grabadoPor?`<div style="display:inline-block;background:#F4F5FF;border:1px solid #6A78D1;border-radius:6px;padding:1px 6px;font-size:9px;color:#33475B;font-weight:600;margin-top:2px">🎙️ ${v.grabadoPor}</div>`:''}</td>
     <td style="color:#7C98B6">${v.cuenta||'—'}</td>
     <td>${v.mes}</td>
-    <td style="min-width:90px">
-      <select style="${iSty};width:88px;background:${v.quincenaPago?'#EAF7FB':'#fff'};font-weight:600;color:#0057A8"
+    <td style="min-width:104px">
+      <select style="${iSty};width:102px;background:${qElegida!==null?'#EAF7FB':'#FFFBE8'};font-weight:600;color:${qElegida!==null?'#0057A8':'#946C00'}"
+        title="${qElegida!==null?'Quincena fijada a mano — no se recalcula nunca':'Nadie la ha fijado: se muestra la sugerida por fecha. Eligela para fijarla.'}"
         onchange="ventaInlineEdit(${v.id},'quincenaPago',this.value)">
-        <option value="" ${!v.quincenaPago?'selected':''}>⚡ Auto</option>
-        <option value="1" ${v.quincenaPago==='1'?'selected':''}>Manual Q1</option>
-        <option value="2" ${v.quincenaPago==='2'?'selected':''}>Manual Q2</option>
+        <option value="" ${qElegida===null?'selected':''}>⚠️ Sugerido Q${qSugerida}</option>
+        <option value="1" ${qElegida===1?'selected':''}>Q1</option>
+        <option value="2" ${qElegida===2?'selected':''}>Q2</option>
       </select>
     </td>
     <td style="min-width:110px;font-size:11px">
