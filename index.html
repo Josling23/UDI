@@ -4319,6 +4319,41 @@ function conUid(registro) {
   }
   return registro;
 }
+
+// ============================================================
+// CANDADO DE DOBLE ENVIO para las cargas en LOTE (Importar Excel, Pegar
+// Ventas). Esas dos pantallas metian todas las filas de golpe, llamaban a
+// guardar() SIN esperar la respuesta y cerraban el modal de una vez. Si la
+// persona pulsaba Guardar dos veces -- o volvia a pulsar porque con miles
+// de registros el guardado tarda y parecia que no habia pasado nada -- el
+// lote ENTERO entraba dos veces, con ids distintos en cada pasada, asi que
+// las dos copias sobrevivian a la fusion y la comision se pagaba doble.
+// Causa real confirmada de bloques de filas consecutivas repetidas en
+// Registro Diario (8 y 9 de octubre).
+// Ahora: el segundo clic se ignora mientras el primero va en camino, se
+// ESPERA la confirmacion del servidor antes de cerrar el modal, y si el
+// guardado no llega se deshace la insercion completa y el modal se queda
+// abierto con los datos puestos, para reintentar sin teclear de nuevo.
+let _loteEnCurso = false;
+function loteOcupado() {
+  if(_loteEnCurso) {
+    showNotif('⏳ Espera — la carga anterior se está guardando. No vuelvas a pulsar.', 'info', 5000);
+    return true;
+  }
+  return false;
+}
+async function guardarLote(ventasAntes, onExito) {
+  _loteEnCurso = true;
+  let ok = false;
+  try { ok = await guardar(); } finally { _loteEnCurso = false; }
+  if(!ok) {
+    appData.ventas = ventasAntes;   // nada queda a medias
+    showNotif('🛑 No se guardó la carga — no se importó nada y no se duplicó nada. Los datos siguen en pantalla: revisa tu conexión y vuelve a pulsar Guardar.', 'error', 14000);
+    return false;
+  }
+  onExito();
+  return true;
+}
 let _syncSeq = 0;
 // true cuando esta sesión NO pudo confirmar que tiene los datos más
 // recientes del servidor (ej. cargar() tuvo que caer al respaldo de
@@ -6412,10 +6447,65 @@ function vpOcupado() {
 // Con opts.sinGuardar el llamador (la aprobación masiva) mueve todo en
 // memoria y guarda UNA sola vez al final, en vez de una vez por reporte.
 // Devuelve true solo si quedó guardado de verdad.
+// Un grupo ya aprobado: sus lineas viven en appData.ventas con ese grupoId.
+// Es la pregunta que hay que hacerse ANTES de aprobar, para no crear una
+// segunda copia del mismo reporte.
+function grupoYaAprobado(grupoId) {
+  if(grupoId == null) return false;
+  return (appData.ventas||[]).some(v => v && v.grupoId === grupoId);
+}
+
+// Marca de la venta que nace al APROBAR un reporte. A diferencia de
+// uidRegistro(), que es distinta en cada sesion, esta se DERIVA de la linea
+// pendiente de origen: aprobar la misma linea dos veces produce la MISMA
+// marca, y fusionarConServidor() las toma por un solo registro y se queda
+// con uno. Asi la aprobacion es idempotente en el DATO y no solo en la
+// pantalla -- hace falta porque el guardia grupoYaAprobado() solo puede
+// mirar la copia local, y una segunda sesion de Admin con datos un poco
+// viejos no ve todavia lo que acaba de aprobar la primera: las dos pasaban
+// el guardia y creaban cada una su copia completa del reporte.
+// Si la linea de origen no tiene id (datos muy viejos), devuelve null y
+// conUid() le pone una marca normal: se comporta como antes, sin romperse.
+function uidVentaAprobada(grupoId, linea) {
+  if(!linea || linea.id == null) return null;
+  return 'ap_' + grupoId + '_' + linea.id;
+}
+
 async function aprobarVentaPendiente(grupoId, opts = {}) {
   if(!opts.sinGuardar && vpOcupado()) return false;
   const lineas = (appData.ventasPendientes||[]).filter(v=>v.grupoId===grupoId);
   if(!lineas.length) return false;
+
+  // IDEMPOTENCIA. Aprobar el MISMO reporte dos veces creaba dos copias
+  // completas en appData.ventas, con ids distintos, asi que las dos
+  // sobrevivian y la comision se pagaba doble. Causa real confirmada de
+  // registros duplicados en Registro Diario, en bloques del 8 y 9 de
+  // octubre.
+  // Pasa de dos formas, las dos reales:
+  //  - El reporte vuelve a aparecer en Ventas Pendientes despues de haberse
+  //    aprobado (sesion desactualizada, guardado que no cuajo) y Admin lo
+  //    aprueba otra vez, de buena fe.
+  //  - Dos sesiones de Admin tienen el mismo reporte en pantalla y las dos
+  //    le dan aprobar.
+  // Aqui no se vuelve a crear nada: solo se limpia el pendiente que quedo
+  // colgado, que es lo que Admin queria lograr al darle aprobar.
+  if(grupoYaAprobado(grupoId)) {
+    const pendientesAntes = [...appData.ventasPendientes];
+    appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
+    if(opts.sinGuardar) return true;   // guarda el llamador
+    _vpGuardandoEnCurso = true;
+    const limpiado = await guardar();
+    _vpGuardandoEnCurso = false;
+    if(!limpiado) {
+      appData.ventasPendientes = pendientesAntes;
+      renderVentasPendientesTabla();
+      showNotif('🛑 No se pudo guardar. Este reporte YA estaba aprobado; no se duplico nada. Revisa tu conexion.', 'error', 12000);
+      return false;
+    }
+    renderVentasPendientesTabla();
+    showNotif('ℹ️ Este reporte YA estaba aprobado y contado como venta. Se quito de Pendientes sin volver a crearlo (no se duplico ni se pago doble).', 'info', 10000);
+    return true;
+  }
   const quincenaPago = document.getElementById('vp-quincena-'+grupoId)?.value || '';
   const aprobadoEn = new Date().toISOString();
   // Foto previa, por si el guardado no llega (ver el final de la función).
@@ -6435,6 +6525,7 @@ async function aprobarVentaPendiente(grupoId, opts = {}) {
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
+      _uid: uidVentaAprobada(l.grupoId, l),
     }));
   });
   appData.ventasPendientes = appData.ventasPendientes.filter(v=>v.grupoId!==grupoId);
@@ -6677,6 +6768,7 @@ function adminAprobarRechazada(grupoId) {
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
+      _uid: uidVentaAprobada(l.grupoId, l),
     }));
   });
   appData.ventasRechazadas = appData.ventasRechazadas.filter(v=>v.grupoId!==grupoId);
@@ -8802,7 +8894,8 @@ function mostrarPreviewImportacion() {
   else btnGuardar.style.display = 'none';
 }
 
-function guardarImportacionExcel() {
+async function guardarImportacionExcel() {
+  if(loteOcupado()) return;
   const validRows = _importData.filter(r=>r.valido);
   if(validRows.length === 0) {
     showNotif('⚠️ No hay registros válidos para guardar','error');
@@ -8810,6 +8903,7 @@ function guardarImportacionExcel() {
   }
 
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  const ventasAntes = [...appData.ventas];   // para deshacer si el guardado no llega
   let guardados = 0;
 
   validRows.forEach(r=>{
@@ -8836,10 +8930,11 @@ function guardarImportacionExcel() {
     guardados++;
   });
 
-  guardar();
-  showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''} exitosamente`);
-  closeModal('modal-importar-excel');
-  renderVentas();
+  await guardarLote(ventasAntes, () => {
+    showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''} exitosamente`);
+    closeModal('modal-importar-excel');
+    renderVentas();
+  });
 }
 
 // ============================================================
@@ -9005,11 +9100,13 @@ function renderPreviewVentasPegadas() {
   `;
 }
 
-function guardarVentasPegadas() {
+async function guardarVentasPegadas() {
+  if(loteOcupado()) return;
   const validas = ventasPegadasParseadas.filter(r => r.incluir && r.valido);
   if(validas.length === 0) { showNotif('⚠️ No hay ventas válidas marcadas para guardar','error'); return; }
 
   let maxId = appData.ventas.reduce((m,x)=>Math.max(m,x.id||0),0);
+  const ventasAntes = [...appData.ventas];   // para deshacer si el guardado no llega
   let guardados = 0, grabaciones = 0;
   // Varias líneas de producto para el MISMO cliente con la MISMA "Llamada
   // Grabada" (dentro del mismo día+agente) representan una sola llamada que
@@ -9065,10 +9162,11 @@ function guardarVentasPegadas() {
     }
   });
 
-  guardar();
-  showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''}${grabaciones?` (con ${grabaciones} grabación(es) de llamada)`:''} exitosamente`);
-  closeModal('modal-importar-ventas-texto');
-  renderVentas();
+  await guardarLote(ventasAntes, () => {
+    showNotif(`✅ ${guardados} venta${guardados>1?'s':''} importada${guardados>1?'s':''}${grabaciones?` (con ${grabaciones} grabación(es) de llamada)`:''} exitosamente`);
+    closeModal('modal-importar-ventas-texto');
+    renderVentas();
+  });
 }
 
 function populateAgenteGrabacion() {
