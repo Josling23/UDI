@@ -11202,11 +11202,32 @@ function pendInput(agente, mes, q) {
 // Cuentan: att-act8, att-act10 (activaciones de Mobility), y cualquier
 // venta de internet (categoría internet / otros-internet) EXCEPTO
 // AT&T Internet Air (att-air), que no cuenta para la meta.
+// Mes CALENDARIO en que se hizo la venta, sacado de su fecha ("Octubre 2026").
+// Es distinto de v.mes, que es el mes con que se REPORTA/coloca la venta en
+// udispot.com: una venta hecha en septiembre y activada en octubre se guarda
+// con fecha de septiembre y v.mes de octubre.
+// Si la venta no trae fecha usable, se cae a v.mes para no dejarla fuera.
+function mesDeLaVenta(v) {
+  const partes = String((v && v.fecha) || '').split('-');
+  if(partes.length < 3) return v ? v.mes : undefined;
+  const yyyy = parseInt(partes[0]), mm = parseInt(partes[1]);
+  if(!yyyy || !mm || mm < 1 || mm > 12) return v ? v.mes : undefined;
+  return mesStrDesdeNum(yyyy, mm);
+}
+
+// Activaciones de un agente que cuentan para el BONO de un mes.
+// Pedido de Jose (30-oct), autorizado por Josling: el bono cuenta cada
+// activacion en el MES DE LA VENTA, no en el mes del reporte. Antes filtraba
+// por v.mes, asi que las ventas hechas en septiembre y activadas en octubre
+// sumaban al bono de octubre. Ahora se usa mesDeLaVenta(v), que sale de la
+// fecha de la venta.
+// OJO: esto es SOLO para el bono. La COMISION sigue contando donde la venta
+// se coloca en udispot.com -- eso lo decide getPeríodoPago() y no se toca.
 function getActivacionesMes(agenteNombre, mes) {
   const nombreLow = (agenteNombre||'').trim().toLowerCase();
   const IDS_ACT = ['att-act8','att-act10'];
   return appData.ventas.filter(v=>
-    v.mes === mes &&
+    mesDeLaVenta(v) === mes &&
     (v.agente||'').trim().toLowerCase() === nombreLow &&
     (
       IDS_ACT.includes(v.productoId) ||
@@ -11566,6 +11587,7 @@ function renderPagos() {
             const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
             const comTotal = Math.max(rate, 0) * qty;
             return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:${v.cliente?'transparent':'#FFF0F0'}">
+              <td style="padding:4px 8px;color:#7C98B6;white-space:nowrap">${v.fecha?mdaFecha(v.fecha):'—'}</td>
               <td style="padding:4px 8px;color:#33475B;font-weight:${v.cliente?'400':'700'};background:${v.cliente?'transparent':'#FEE2E2'};border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}</td>
               <td style="padding:4px 8px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">${qty}</td>
@@ -11581,7 +11603,8 @@ function renderPagos() {
             const rate = e.comisionUnit||0;
             const comTotal = rate * qty;
             return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBE8">
-              <td style="padding:4px 8px;color:#99ACC2;font-style:italic" colspan="1">— (producto extra, mensual)</td>
+              <td style="padding:4px 8px;color:#99ACC2">—</td>
+              <td style="padding:4px 8px;color:#99ACC2;font-style:italic">— (producto extra, mensual)</td>
               <td style="padding:4px 8px;color:#7C98B6">📦 ${nombre}</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">${qty}</td>
               <td style="padding:4px 8px;color:#FF7A59;text-align:right;font-weight:600">$${rate.toFixed(2)}</td>
@@ -11592,6 +11615,7 @@ function renderPagos() {
           const filasGrabHTML = grabRows.map(v=>{
             const comG = parseFloat(v.comision)||0;
             return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#F4F5FF">
+              <td style="padding:4px 8px;color:#7C98B6;white-space:nowrap">${v.fecha?mdaFecha(v.fecha):'—'}</td>
               <td style="padding:4px 8px;color:#33475B;font-weight:600">📞 ${v.cliente||'Llamada grabada'}</td>
               <td style="padding:4px 8px;color:#7C98B6">Llamada Grabada</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">1</td>
@@ -11624,6 +11648,7 @@ function renderPagos() {
           const tablaHTML = filasTabla ? `<table style="width:100%;font-size:12px;border-collapse:collapse">
                 <thead style="background:#F5F8FA">
                   <tr style="font-size:11px;font-weight:600;color:#33475B">
+                    <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Fecha venta</th>
                     <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Cliente</th>
                     <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Producto</th>
                     <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2">Cant.</th>
