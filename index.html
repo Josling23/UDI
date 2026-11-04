@@ -23223,7 +23223,13 @@ function bravoAgregarAccesorio() {
   const notas = document.getElementById('bravo-acc-notas').value.trim();
   const campana = document.getElementById('bravo-acc-campana').value;
 
-  if(!tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
+  // El Costo puede ser $0.00 y el registro se cierra igual (pedido de Josling,
+  // 4-nov): hay ventas y reparaciones sin costo de repuesto. Antes "!costo"
+  // lo bloqueaba, porque en JavaScript 0 es falso igual que un campo vacio.
+  // No cambia el margen: el costo NO se resta de la ganancia aqui, se refleja
+  // como Gasto en ROI Bravo, y bravoLineaAGasto() ya no crea gasto para una
+  // linea sin costo, que es justo lo correcto.
+  if(!tipo || !precio) { showNotif('⚠️ Completa Tipo y Precio','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte).
@@ -23273,7 +23279,13 @@ function bravoAgregarLyca() {
   const notas = document.getElementById('bravo-lyca-notas').value.trim();
   const campana = document.getElementById('bravo-lyca-campana').value;
 
-  if(!cliente || !precio || !costo) { showNotif('⚠️ Completa Cliente/Agente, Precio Vendido y Costo','error'); return; }
+  // El Costo puede ser $0.00 y el registro se cierra igual (pedido de Josling,
+  // 4-nov): hay ventas y reparaciones sin costo de repuesto. Antes "!costo"
+  // lo bloqueaba, porque en JavaScript 0 es falso igual que un campo vacio.
+  // No cambia el margen: el costo NO se resta de la ganancia aqui, se refleja
+  // como Gasto en ROI Bravo, y bravoLineaAGasto() ya no crea gasto para una
+  // linea sin costo, que es justo lo correcto.
+  if(!cliente || !precio) { showNotif('⚠️ Completa Cliente/Agente y Precio Vendido','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte).
@@ -23334,7 +23346,13 @@ function bravoAgregarReparacion() {
   const motivoPerdida = document.getElementById('bravo-rep-motivo-perdida').value;
   const { procedencia, campana } = bravoRepProcedenciaDesdeSelect(document.getElementById('bravo-rep-campana').value);
 
-  if(!equipo || !tipo || !precio || !costo) { showNotif('⚠️ Completa todos los campos (incluyendo Costo del repuesto)','error'); return; }
+  // El Costo puede ser $0.00 y el registro se cierra igual (pedido de Josling,
+  // 4-nov): hay ventas y reparaciones sin costo de repuesto. Antes "!costo"
+  // lo bloqueaba, porque en JavaScript 0 es falso igual que un campo vacio.
+  // No cambia el margen: el costo NO se resta de la ganancia aqui, se refleja
+  // como Gasto en ROI Bravo, y bravoLineaAGasto() ya no crea gasto para una
+  // linea sin costo, que es justo lo correcto.
+  if(!equipo || !tipo || !precio) { showNotif('⚠️ Completa Equipo, Tipo y Precio','error'); return; }
   if(!fechaPromesaEntrega) { showNotif('⚠️ Selecciona la Fecha Promesa de Entrega','error'); return; }
   if(estado === 'perdido' && !motivoPerdida) { showNotif('⚠️ Selecciona el Motivo de Pérdida','error'); return; }
 
@@ -23439,7 +23457,13 @@ function bravoAgregarCombo() {
   const notas = document.getElementById('bravo-combo-notas').value.trim();
   const campana = document.getElementById('bravo-combo-campana').value;
 
-  if(!desc || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
+  // El Costo puede ser $0.00 y el registro se cierra igual (pedido de Josling,
+  // 4-nov): hay ventas y reparaciones sin costo de repuesto. Antes "!costo"
+  // lo bloqueaba, porque en JavaScript 0 es falso igual que un campo vacio.
+  // No cambia el margen: el costo NO se resta de la ganancia aqui, se refleja
+  // como Gasto en ROI Bravo, y bravoLineaAGasto() ya no crea gasto para una
+  // linea sin costo, que es justo lo correcto.
+  if(!desc || !precio) { showNotif('⚠️ Completa Descripción y Precio','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte). La comisión
@@ -23490,7 +23514,13 @@ function bravoAgregarTelefono() {
   const notas = document.getElementById('bravo-tel-notas').value.trim();
   const campana = document.getElementById('bravo-tel-campana').value;
 
-  if(!modelo || !precio || !costo) { showNotif('⚠️ Completa todos los campos','error'); return; }
+  // El Costo puede ser $0.00 y el registro se cierra igual (pedido de Josling,
+  // 4-nov): hay ventas y reparaciones sin costo de repuesto. Antes "!costo"
+  // lo bloqueaba, porque en JavaScript 0 es falso igual que un campo vacio.
+  // No cambia el margen: el costo NO se resta de la ganancia aqui, se refleja
+  // como Gasto en ROI Bravo, y bravoLineaAGasto() ya no crea gasto para una
+  // linea sin costo, que es justo lo correcto.
+  if(!modelo || !precio) { showNotif('⚠️ Completa Modelo y Precio','error'); return; }
 
   // El costo ya NO se resta aquí — se refleja como Gasto en ROI Bravo al
   // guardar el reporte (ver bravoSincronizarGastosDeReporte).
