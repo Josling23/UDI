@@ -691,6 +691,7 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
         <div class="section-header">
           <h2>🕓 Ventas Pendientes</h2>
           <button class="btn btn-success btn-sm" onclick="aprobarVisiblesVentasPendientes()">✅ Aprobar todas las visibles</button>
+          <button class="btn btn-sm" id="btn-limpiar-reaparecidos" onclick="abrirLimpiarReaparecidos()" style="display:none;background:#FFF3EE;border:1.5px solid #FF7A59;color:#C44122;font-weight:700">🔁 Limpiar reportes reaparecidos</button>
         </div>
         <div style="font-size:11px;color:#99ACC2;margin:-8px 0 14px">📌 Reportes enviados por agentes desde "Mis Ventas" — revisa/corrige los datos y aprueba para que cuenten oficialmente, o rechaza con un motivo.</div>
         <div class="filters">
@@ -2037,6 +2038,23 @@ body.tema-salud-gradientes th{background:#f7f8fb;color:#6D28D9}
 </div>
 
 <!-- ===== MODAL IMPORTAR EXCEL ===== -->
+<div class="modal-overlay" id="modal-reaparecidos">
+  <div class="modal" style="max-width:900px;max-height:88vh">
+    <div class="modal-header">
+      <h3>🔁 Limpiar reportes reaparecidos</h3>
+      <button class="modal-close" onclick="closeModal('modal-reaparecidos')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow:auto">
+      <div id="reap-contenido"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #EAF0F6;display:flex;gap:10px;justify-content:flex-end;align-items:center">
+      <span style="font-size:11px;color:#7C98B6;margin-right:auto">Nada se quita hasta que confirmes. Las ventas y las comisiones no se tocan.</span>
+      <button class="btn btn-ghost" onclick="closeModal('modal-reaparecidos')">Cancelar</button>
+      <button class="btn btn-danger" id="reap-btn-borrar" onclick="borrarReaparecidosMarcados()">Nada marcado</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-duplicados">
   <div class="modal" style="max-width:1000px;max-height:88vh">
     <div class="modal-header">
@@ -6536,6 +6554,14 @@ function actualizarBadgeRechazadosAgente() {
 }
 
 function renderVentasPendientes() {
+  // El botón de limpieza solo existe para quien puede borrar (Josling / José)
+  // y solo aparece si de verdad hay reportes reaparecidos que quitar.
+  const btnReap = document.getElementById('btn-limpiar-reaparecidos');
+  if(btnReap) {
+    const hay = puedeEliminarRegistros(currentUser ? currentUser.email : '')
+      && pendientesReaparecidos().reaparecidos.length > 0;
+    btnReap.style.display = hay ? 'inline-block' : 'none';
+  }
   populateAgente('vp-f-agente', true);
   populateMes('vp-f-mes', true);
   renderVentasPendientesTabla();
@@ -6699,6 +6725,129 @@ function vpOcupado() {
 function grupoYaAprobado(grupoId) {
   if(grupoId == null) return false;
   return (appData.ventas||[]).some(v => v && v.grupoId === grupoId);
+}
+
+// ============================================================
+// LIMPIAR REPORTES QUE REAPARECIERON (solo Josling o José)
+// ------------------------------------------------------------
+// Un reporte que esta en Ventas Pendientes pero cuyo grupo YA vive en
+// appData.ventas es, por definicion, uno que ya se aprobo y volvio a
+// aparecer: la venta oficial ya existe. Borrar el pendiente NO borra la
+// venta ni la comision -- solo quita el duplicado de la bandeja.
+// Es la misma prueba que usa aprobarVentaPendiente() para no crear una
+// segunda copia; aqui se aplica en lote para no tener que ir uno por uno
+// cuando reaparecen mas de cien.
+// Un reporte cuyo grupo NO esta en ventas es un reporte de verdad, sin
+// aprobar: NO se toca nunca, ni se lista para borrar.
+// ============================================================
+function pendientesReaparecidos() {
+  const porGrupo = {};
+  (appData.ventasPendientes||[]).forEach(v => {
+    if(!v) return;
+    const g = v.grupoId;
+    (porGrupo[g] = porGrupo[g] || []).push(v);
+  });
+  const reaparecidos = [], pendientesDeVerdad = [];
+  Object.keys(porGrupo).forEach(g => {
+    const lineas = porGrupo[g];
+    const grupoId = lineas[0].grupoId;
+    const destino = (grupoId != null && grupoYaAprobado(grupoId))
+      ? (appData.ventas||[]).filter(x => x && x.grupoId === grupoId) : [];
+    if(destino.length) {
+      reaparecidos.push({ grupoId, lineas, ventaIds: destino.map(x => x.id),
+        aprobadoEn: destino[0].aprobadoEn || '' });
+    } else {
+      pendientesDeVerdad.push({ grupoId, lineas });
+    }
+  });
+  return { reaparecidos, pendientesDeVerdad };
+}
+
+let _reapAnalisis = null;
+
+function abrirLimpiarReaparecidos() {
+  if(bloquearSiNoPuedeEliminar()) return;
+  const { reaparecidos, pendientesDeVerdad } = pendientesReaparecidos();
+  _reapAnalisis = { reaparecidos, pendientesDeVerdad };
+  const nLineas = reaparecidos.reduce((s,g)=>s+g.lineas.length, 0);
+  const nReales = pendientesDeVerdad.reduce((s,g)=>s+g.lineas.length, 0);
+
+  const filas = reaparecidos.map((g,i)=>`
+    <tr style="border-bottom:1px solid #EAF0F6">
+      <td style="padding:5px 7px"><input type="checkbox" class="reap-chk" onchange="actualizarConteoReaparecidos()" data-i="${i}" checked></td>
+      <td style="padding:5px 7px;font-size:11px">${mdaFecha(g.lineas[0].fecha)}</td>
+      <td style="padding:5px 7px;font-size:11px">${g.lineas[0].agente||'—'}</td>
+      <td style="padding:5px 7px;font-size:11px">${g.lineas[0].cliente||'—'}</td>
+      <td style="padding:5px 7px;font-size:11px;text-align:right">${g.lineas.length}</td>
+      <td style="padding:5px 7px;font-size:11px;color:#00BDA5;font-weight:600">✅ ya es venta (id ${g.ventaIds.join(', ')})</td>
+      <td style="padding:5px 7px;font-size:10px;color:#99ACC2">${g.aprobadoEn ? mdaFecha(g.aprobadoEn.slice(0,10)) : '—'}</td>
+    </tr>`).join('');
+
+  document.getElementById('reap-contenido').innerHTML = `
+    <div style="background:#FFF3EE;border:2px solid #FF7A59;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;color:#33475B;margin-bottom:4px">🔁 Reportes que REAPARECIERON — ${reaparecidos.length} reporte${reaparecidos.length===1?'':'s'} (${nLineas} línea${nLineas===1?'':'s'})</div>
+      <div style="font-size:11px;color:#7C98B6">Cada uno de estos YA está aprobado y YA cuenta como venta oficial: la columna de la derecha dice con qué venta. Borrarlos de Pendientes <b>no borra la venta ni la comisión</b>, solo quita el duplicado de la bandeja.</div>
+    </div>
+    ${reaparecidos.length ? `<div style="max-height:320px;overflow:auto;border:1px solid #CBD6E2;border-radius:8px;margin-bottom:16px"><table style="width:100%;border-collapse:collapse">
+      <tr style="background:#F5F8FA">
+        <th style="padding:6px 7px;text-align:left;font-size:10px">✓</th>
+        <th style="padding:6px 7px;text-align:left;font-size:10px">Fecha</th>
+        <th style="padding:6px 7px;text-align:left;font-size:10px">Agente</th>
+        <th style="padding:6px 7px;text-align:left;font-size:10px">Cliente</th>
+        <th style="padding:6px 7px;text-align:right;font-size:10px">Líneas</th>
+        <th style="padding:6px 7px;text-align:left;font-size:10px">Estado real</th>
+        <th style="padding:6px 7px;text-align:left;font-size:10px">Aprobado</th>
+      </tr>${filas}</table></div>`
+      : '<div style="font-size:12px;color:#00BDA5;font-weight:600;margin-bottom:16px">✅ No hay ningún reporte reaparecido. Todo lo que está en Pendientes está realmente sin aprobar.</div>'}
+
+    <div style="background:#F0FDF4;border:2px solid #00BDA5;border-radius:10px;padding:12px 14px">
+      <div style="font-size:13px;font-weight:800;color:#33475B;margin-bottom:4px">🛡️ Reportes de verdad, sin aprobar — ${pendientesDeVerdad.length} (${nReales} línea${nReales===1?'':'s'})</div>
+      <div style="font-size:11px;color:#7C98B6">Estos NO aparecen arriba y <b>no se tocan</b>: su venta no existe todavía, así que hay que revisarlos y aprobarlos normalmente.</div>
+    </div>`;
+  document.getElementById('modal-reaparecidos').classList.add('open');
+  actualizarConteoReaparecidos();
+}
+
+function actualizarConteoReaparecidos() {
+  const n = document.querySelectorAll('.reap-chk:checked').length;
+  const btn = document.getElementById('reap-btn-borrar');
+  if(!btn) return;
+  btn.textContent = n ? `🗑️ Quitar ${n} reporte${n===1?'':'s'} de Pendientes` : 'Nada marcado';
+  btn.disabled = !n;
+  btn.style.opacity = n ? '1' : '.5';
+  btn.style.cursor = n ? 'pointer' : 'not-allowed';
+}
+
+async function borrarReaparecidosMarcados() {
+  if(bloquearSiNoPuedeEliminar()) return;
+  if(!_reapAnalisis) return;
+  const grupos = Array.from(document.querySelectorAll('.reap-chk:checked'))
+    .map(c => _reapAnalisis.reaparecidos[parseInt(c.dataset.i)]);
+  if(!grupos.length) { showNotif('⚠️ No hay nada marcado', 'error'); return; }
+  const nLineas = grupos.reduce((s,g)=>s+g.lineas.length, 0);
+
+  if(!confirm(`¿Quitar ${grupos.length} reporte${grupos.length===1?'':'s'} (${nLineas} línea${nLineas===1?'':'s'}) de Ventas Pendientes?\n\n` +
+      `Todos YA están aprobados y YA cuentan como venta oficial.\n` +
+      `NO se borra ninguna venta ni ninguna comisión: solo se quitan de la bandeja de pendientes.\n\n` +
+      `Esto no se puede deshacer.`)) return;
+
+  const pendientesAntes = [...appData.ventasPendientes];
+  const gruposABorrar = new Set(grupos.map(g => g.grupoId));
+  appData.ventasPendientes = appData.ventasPendientes.filter(v => !gruposABorrar.has(v.grupoId));
+  agregarAuditLog(`Limpieza de ${grupos.length} reporte(s) reaparecidos (${nLineas} linea(s)); grupos: ${grupos.map(g=>g.grupoId).join(', ')}`, '', '');
+
+  const btn = document.getElementById('reap-btn-borrar');
+  if(btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+  const ok = await guardar();
+  if(!ok) {
+    appData.ventasPendientes = pendientesAntes;
+    actualizarConteoReaparecidos();
+    showNotif('🛑 No se quitó nada — el guardado no llegó al servidor y se deshizo todo. Revisa tu conexión e inténtalo otra vez.', 'error', 14000);
+    return;
+  }
+  closeModal('modal-reaparecidos');
+  renderVentasPendientesTabla();
+  showNotif(`🧹 ${grupos.length} reporte${grupos.length===1?'':'s'} reaparecido${grupos.length===1?'':'s'} quitado${grupos.length===1?'':'s'} de Pendientes — ninguna venta ni comisión se tocó`, 'success', 10000);
 }
 
 // Marca de la venta que nace al APROBAR un reporte. A diferencia de
