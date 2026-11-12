@@ -4586,7 +4586,12 @@ async function _guardarInterno() {
   try {
     const snapFresco = await fbDB.ref('appData').get();
     if (snapFresco.exists()) {
-      appData = fusionarConServidor(appData, snapFresco.val(), _ultimoSnapshotConfirmadoAppData || {});
+      // Mismo criterio que el listener: sin foto confirmada, el "conocido"
+      // es lo local, nunca {}. Con {} este guardado repondría en el servidor
+      // todo lo que esta sesión traiga de antes, incluido lo que otros ya
+      // habían quitado.
+      appData = fusionarConServidor(appData, snapFresco.val(),
+        _ultimoSnapshotConfirmadoAppData || JSON.parse(JSON.stringify(appData)));
       normalizarAppData();
     }
   } catch(e) {
@@ -4755,7 +4760,12 @@ function activarListenerAppData() {
     // sesión creó y el servidor aún no conoce se conserva, y lo que otro
     // borró/movió de verdad (una venta pendiente que ya aprobaron) sí se
     // respeta, porque estaba en la foto confirmada anterior.
-    appData = fusionarConServidor(appData, raw, _ultimoSnapshotConfirmadoAppData || {});
+    // Si esta sesión todavía no tiene una foto confirmada, el "conocido" es
+    // lo que ella misma trae, NO un objeto vacío: con {} todo lo local se
+    // lee como recién agregado y se repone lo que otros ya habían quitado
+    // (ver el comentario del respaldo del navegador en cargar()).
+    appData = fusionarConServidor(appData, raw,
+      _ultimoSnapshotConfirmadoAppData || JSON.parse(JSON.stringify(appData)));
     // Asegurar que José Piña está marcado como soloHQ
     if (appData.agentes) {
       appData.agentes.forEach(a => {
@@ -5006,6 +5016,18 @@ async function cargar() {
     // el listener en tiempo real confirme una actualización real del
     // servidor (o se recargue la página con mejor conexión).
     _appDataPuedeEstarDesactualizada = true;
+    // El "conocido" de esta sesión es ESTA copia del navegador, no "nada".
+    // Es la clave de todo: fusionarConServidor() trata lo que está en local
+    // pero NO en conocido como "esto lo agregó esta sesión, hay que
+    // conservarlo". Con conocido vacío, TODO lo que trae el respaldo del
+    // navegador se leía como recién agregado — incluidos los reportes
+    // pendientes que Admin ya había aprobado — y volvían a aparecer, y al
+    // siguiente guardado se reescribían en el servidor para todo el mundo.
+    // Reproducido: 100 pendientes de ayer resucitados y reescritos.
+    // Tomando esta copia como lo conocido, lo que el servidor ya no tiene se
+    // interpreta bien ("otra sesión lo quitó") y no se repone.
+    _ultimoSnapshotConfirmadoAppData = JSON.parse(JSON.stringify(appData));
+    _ultimoConteoConfirmadoAppData = contarRegistrosArbol(appData);
     return;
   }
   activarListenerAppData();
