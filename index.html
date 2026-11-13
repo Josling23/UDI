@@ -3997,6 +3997,8 @@ async function borrarDuplicadosMarcados() {
   const aBorrar = new Set(marcados);
   appData.ventas = appData.ventas.filter(v => !aBorrar.has(v));
   agregarAuditLog(`Borrado de ${marcados.length} duplicado(s): ids ${marcados.map(v=>v.id).join(', ')}`, '', '');
+  marcarBorradoIntencional();   // ya se confirmó en pantalla, con la lista y la cantidad
+
 
   const btn = document.getElementById('dup-btn-borrar');
   if(btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
@@ -4376,6 +4378,17 @@ function contarRegistrosArbol(data) {
   return total;
 }
 const UMBRAL_CAIDA_SOSPECHOSA_REGISTROS = 5;
+// Un borrado en lote que una persona YA confirmó en pantalla, con la lista
+// y la cantidad exacta delante (limpiar duplicados, limpiar reportes
+// reaparecidos, eliminar un agente). Sin esto, la protección de caída de
+// registros volvía a preguntar por encima de esa confirmación: al quitar
+// 102 reportes reaparecidos salía "esto eliminaría 135 registros de golpe,
+// normalmente indica un problema", que en ese caso es FALSO -- es justo lo
+// que se pidió. El riesgo real de ese aviso de más es que la gente se
+// acostumbre a pulsar Aceptar sin leerlo, y entonces deja de proteger.
+// Vale para UN solo guardado: se consume en _guardarInterno().
+let _borradoIntencionalConfirmado = false;
+function marcarBorradoIntencional() { _borradoIntencionalConfirmado = true; }
 
 // ============================================================
 // FUSIÓN CON EL SERVIDOR ANTES DE GUARDAR (protección permanente contra
@@ -4616,9 +4629,26 @@ async function _guardarInterno() {
     console.warn('No se pudo releer el servidor antes de guardar, se continúa con los datos locales:', e);
   }
   const conteoNuevo = contarRegistrosArbol(appData);
+  // El permiso se consume aquí: vale para este guardado y no para el siguiente.
+  const borradoIntencional = _borradoIntencionalConfirmado;
+  _borradoIntencionalConfirmado = false;
   if (_ultimoConteoConfirmadoAppData !== null && (_ultimoConteoConfirmadoAppData - conteoNuevo) > UMBRAL_CAIDA_SOSPECHOSA_REGISTROS) {
-    const ok = confirm(`⚠️ Este guardado eliminaría ${_ultimoConteoConfirmadoAppData - conteoNuevo} registros de golpe (de ${_ultimoConteoConfirmadoAppData} a ${conteoNuevo}). Esto normalmente indica un problema (datos desactualizados en esta sesión), no una acción intencional.\n\n¿Seguro que quieres guardar así de todas formas?`);
-    if (!ok) { showNotif('🛑 Guardado cancelado para proteger los datos existentes', 'error'); return false; }
+    const cuantos = _ultimoConteoConfirmadoAppData - conteoNuevo;
+    if (borradoIntencional) {
+      // Una persona ya lo confirmó con la lista y la cantidad delante. No se
+      // vuelve a preguntar: preguntar de más entrena a pulsar Aceptar a ciegas.
+    } else if (!puedeEliminarRegistros(currentUser ? currentUser.email : '')) {
+      // Quien no puede borrar registros nunca borra en lote a propósito, así
+      // que una caída así en SU sesión siempre es el problema que describe el
+      // aviso: datos desactualizados. No tiene cómo decidirlo -- antes se le
+      // preguntaba igual, con "Aceptar" al lado, y aceptar era justo lo
+      // peor. Ahora se cancela solo y se le dice qué hacer.
+      showNotif(`🛑 No se guardó: esta pestaña tiene datos desactualizados y el guardado habría borrado ${cuantos} registros. No se tocó nada. Cierra udispot.com y vuelve a abrirlo, y repite lo último que hiciste.`, 'error', 16000);
+      return false;
+    } else {
+      const ok = confirm(`⚠️ Este guardado eliminaría ${cuantos} registros de golpe (de ${_ultimoConteoConfirmadoAppData} a ${conteoNuevo}). Esto normalmente indica un problema (datos desactualizados en esta sesión), no una acción intencional.\n\n¿Seguro que quieres guardar así de todas formas?`);
+      if (!ok) { showNotif('🛑 Guardado cancelado para proteger los datos existentes', 'error'); return false; }
+    }
   }
   localStorage.setItem('attVND_v1', JSON.stringify(appData));
   _syncSeq++;
@@ -6835,6 +6865,8 @@ async function borrarReaparecidosMarcados() {
   const gruposABorrar = new Set(grupos.map(g => g.grupoId));
   appData.ventasPendientes = appData.ventasPendientes.filter(v => !gruposABorrar.has(v.grupoId));
   agregarAuditLog(`Limpieza de ${grupos.length} reporte(s) reaparecidos (${nLineas} linea(s)); grupos: ${grupos.map(g=>g.grupoId).join(', ')}`, '', '');
+  marcarBorradoIntencional();   // ya se confirmó en pantalla, con la lista y la cantidad
+
 
   const btn = document.getElementById('reap-btn-borrar');
   if(btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
@@ -10531,6 +10563,9 @@ function eliminarAgente(id) {
   if(!confirm('¿Eliminar agente?')) return;
   appData.agentes = appData.agentes.filter(a=>a.id!==id);
   appData.ventasExtra = (appData.ventasExtra||[]).filter(e=>e.agenteId!==id);
+  // Borrar un agente arrastra sus productos extra: puede pasar del umbral y
+  // disparar el aviso de caída sospechosa por encima del confirm de arriba.
+  marcarBorradoIntencional();
   guardar();
   renderAgentes();
   showNotif('🗑️ Agente eliminado');
