@@ -3588,6 +3588,26 @@ const PRODUCTOS_CATALOG = [
 // — son los que representan una línea nueva activada, no accesorios/upgrades.
 // ============================================================
 const PRODUCTOS_LINEA_MOBILITY = ['att-act8', 'att-act10'];
+// ============================================================
+// PROPINA DEL CLIENTE (pedido de Jose, 16-nov; autorizado por Josling)
+// ------------------------------------------------------------
+// En los combos el cliente a veces le deja una propina al vendedor. El
+// vendedor la escribe al reportar; Admin la REVISA y la puede corregir o
+// poner en 0 antes de aprobar; y solo al APROBAR entra en lo que se le
+// paga. Mientras el reporte esta pendiente no suma nada -- eso ya pasa
+// solo, porque lo pendiente nunca cuenta para comisiones.
+// Se guarda APARTE de la comision (campo propio `propina`), no sumada
+// dentro de ella: asi siempre se puede ver cuanto fue comision y cuanto
+// propina, y la propina NO se multiplica por la Cantidad (es una sola, del
+// cliente, no una por unidad).
+const PRODUCTOS_CON_PROPINA = ['att-combo'];
+function aceptaPropina(productoId) { return PRODUCTOS_CON_PROPINA.includes(productoId); }
+// Propina ya guardada en una venta o en un reporte pendiente.
+function propinaDe(v) {
+  if(!v || !aceptaPropina(v.productoId)) return 0;
+  const n = parseFloat(v.propina);
+  return isNaN(n) || n < 0 ? 0 : n;
+}
 function normalizarTelefono(tel) {
   return (tel || '').replace(/\D/g, '');
 }
@@ -5492,7 +5512,7 @@ function getComisionesMes(a, mes) {
   // Ventas directas propias → usa tarifa DIRECTA (la más alta)
   const propias = appData.ventas
     .filter(v=>v.mes===mes && (v.agente||'').trim().toLowerCase()===nombreLow)
-    .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1), 0);
+    .reduce((s,v)=>s + (parseFloat(v.comision)||0)*(parseFloat(v.cantidad)||1) + propinaDe(v), 0);
   // Productos extra custom
   const extras = getExtrasComMes(a.id, mes);
   // Gerentes/supervisores: también gana de agentes supervisados → usa tarifa DE SUPERVISIÓN (la pequeña)
@@ -5865,7 +5885,11 @@ function getComisionesQuincena(a, mes, q) {
       if(rate <= 0) {
         rate = getComisionDirectaAgente(v.productoId, a.nombre);
       }
-      return s + Math.max(rate, 0) * qty;
+      // + propina del cliente (solo combos). Va aparte de la tarifa y NO se
+      // multiplica por la Cantidad: es una sola propina, no una por unidad.
+      // Solo cuenta aqui porque esto lee appData.ventas: mientras el reporte
+      // esta pendiente no entra, que es justo lo que pidio Jose.
+      return s + Math.max(rate, 0) * qty + propinaDe(v);
     }, 0);
 
   // Comisiones extras
@@ -5908,7 +5932,11 @@ function getComisionesQuincenaDesglose(a, mes, q) {
       if(rate <= 0) {
         rate = getComisionDirectaAgente(v.productoId, a.nombre);
       }
-      return s + Math.max(rate, 0) * qty;
+      // + propina del cliente (solo combos). Va aparte de la tarifa y NO se
+      // multiplica por la Cantidad: es una sola propina, no una por unidad.
+      // Solo cuenta aqui porque esto lee appData.ventas: mientras el reporte
+      // esta pendiente no entra, que es justo lo que pidio Jose.
+      return s + Math.max(rate, 0) * qty + propinaDe(v);
     }, 0);
 
   // Comisiones de grabaciones
@@ -6637,7 +6665,8 @@ function renderVentasPendientesTabla() {
   body.innerHTML = ordenGrupos.map(grupoId=>{
     const lineas = grupos[grupoId];
     const g = lineas[0];
-    const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
+    // La propina NO se multiplica por la Cantidad: es una sola, del cliente.
+    const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1) + propinaDe(l), 0);
 
     const filasProductos = lineas.map(l=>`
       <tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:#FFFBEF">
@@ -6650,7 +6679,10 @@ function renderVentasPendientesTabla() {
         <td style="padding:4px 8px;color:#7C98B6">${CAT_LABELS[l.categoria]||l.categoria}</td>
         <td style="padding:4px 8px;text-align:right"><input type="number" min="1" value="${l.cantidad}" style="width:50px;border:1.5px solid #CBD6E2;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right" onchange="ventaPendienteInlineEdit(${l.id},'cantidad',parseInt(this.value)||1)"></td>
         <td style="padding:4px 8px;text-align:right"><input type="number" step="0.01" min="0" value="${l.comision}" style="width:70px;border:1.5px solid #009FDB;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right;color:#009FDB;font-weight:700" onchange="ventaPendienteInlineEdit(${l.id},'comision',parseFloat(this.value)||0)"></td>
-        <td style="padding:4px 8px;color:#7C98B6;font-size:10px" colspan="2">${l.notas||''}${l.telefonoLinea ? `${l.notas?' · ':''}<span style="color:#33475B;font-weight:600">📞 ${l.telefonoLinea}</span>` : ''}</td>
+        <td style="padding:4px 8px;text-align:right">${aceptaPropina(l.productoId)
+          ? `<input type="number" step="0.01" min="0" value="${propinaDe(l)||''}" placeholder="0.00" title="Propina que dice el vendedor que le dejó el cliente. Revísala: puedes corregirla o ponerla en 0 antes de aprobar." style="width:72px;border:1.5px solid #00BDA5;border-radius:6px;padding:4px 6px;font-size:11px;text-align:right;color:#00897B;font-weight:700;background:#F0FDF4" onchange="ventaPendienteInlineEdit(${l.id},'propina',parseFloat(this.value)||0)">`
+          : '<span style="color:#CBD6E2">—</span>'}</td>
+        <td style="padding:4px 8px;color:#7C98B6;font-size:10px">${l.notas||''}${l.telefonoLinea ? `${l.notas?' · ':''}<span style="color:#33475B;font-weight:600">📞 ${l.telefonoLinea}</span>` : ''}</td>
       </tr>`).join('');
 
     const enEdicion = _vpEditandoGrupoId===grupoId;
@@ -6960,6 +6992,10 @@ async function aprobarVentaPendiente(grupoId, opts = {}) {
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
+      // La propina viaja con la venta: aqui es donde se vuelve pagable.
+      // Esta lista de campos es FIJA -- un campo que no se nombre aqui se
+      // pierde en silencio al aprobar, por eso tiene que estar.
+      propina: propinaDe(l),
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
       _uid: uidVentaAprobada(l.grupoId, l),
     }));
@@ -7114,7 +7150,8 @@ function renderVentasRechazadasTabla() {
   body.innerHTML = ordenGrupos.map(grupoId=>{
     const lineas = grupos[grupoId];
     const g = lineas[0];
-    const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1), 0);
+    // La propina NO se multiplica por la Cantidad: es una sola, del cliente.
+    const total = lineas.reduce((s,l)=> s + (parseFloat(l.comision)||0)*(parseFloat(l.cantidad)||1) + propinaDe(l), 0);
     return `<tr>
         <td style="font-weight:600">${mdaFecha(g.fecha)}</td>
         <td style="font-weight:600">${g.agente}</td>
@@ -7207,6 +7244,10 @@ function adminAprobarRechazada(grupoId) {
       notas: l.notas, productoId: l.productoId, categoria: l.categoria,
       cantidad: l.cantidad, comision: l.comision, telefonoLinea: l.telefonoLinea||'', subAgente: l.subAgente||'',
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
+      // La propina viaja con la venta: aqui es donde se vuelve pagable.
+      // Esta lista de campos es FIJA -- un campo que no se nombre aqui se
+      // pierde en silencio al aprobar, por eso tiene que estar.
+      propina: propinaDe(l),
       reportadoPor: l.reportadoPor, grupoId: l.grupoId, aprobadoEn, creadoEn: l.creadoEn||'',
       _uid: uidVentaAprobada(l.grupoId, l),
     }));
@@ -9066,6 +9107,11 @@ function agregarLineaVenta(linea=null) {
           <input type="checkbox" id="vl-seg-previo-${idx}"> ¿Cliente ya tenía seguro de una orden anterior?
         </label>
       </div>
+    </div>
+    <div id="vl-propina-wrap-${idx}" style="display:none;margin-top:8px;background:#F0FDF4;border:1px solid #00BDA5;border-radius:8px;padding:10px">
+      <div style="font-size:9px;font-weight:700;color:#00897B;text-transform:uppercase;margin-bottom:6px">💵 Propina del cliente</div>
+      <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">Propina que el cliente le dejó al vendedor (déjalo vacío si no hubo)</div>
+      <input type="number" id="vl-propina-${idx}" min="0" step="0.01" placeholder="0.00" style="${iSty}" oninput="updateVentaTotal()">
     </div>`;
   document.getElementById('v-lineas-container').appendChild(div);
   if(linea) {
@@ -9083,6 +9129,9 @@ function agregarLineaVenta(linea=null) {
       actualizarVisibilidadSegLinea(idx, linea.productoId);
       document.getElementById('vl-seg-estado-'+idx).value = linea.segEstado||'';
       document.getElementById('vl-seg-previo-'+idx).checked = !!linea.segSeguroPrevio;
+      actualizarVisibilidadPropinaLinea(idx, linea.productoId);
+      const inpProp = document.getElementById('vl-propina-'+idx);
+      if(inpProp) inpProp.value = (linea.propina != null && parseFloat(linea.propina) > 0) ? linea.propina : '';
       updateVentaTotal();
     },10);
   }
@@ -9090,6 +9139,10 @@ function agregarLineaVenta(linea=null) {
 // Muestra/oculta los campos de la modalidad nueva de Seguro (Estado + seguro
 // previo) para una línea puntual del formulario -- solo aplica al producto
 // SEG y cuando el agente elegido en la venta aceptó la modalidad nueva.
+function actualizarVisibilidadPropinaLinea(idx, productoId) {
+  const wrap = document.getElementById('vl-propina-wrap-'+idx);
+  if(wrap) wrap.style.display = aceptaPropina(productoId) ? 'block' : 'none';
+}
 function actualizarVisibilidadSegLinea(idx, productoId) {
   const agente = document.getElementById('v-agente')?.value||'';
   const wrap = document.getElementById('vl-seg-wrap-'+idx);
@@ -9126,6 +9179,7 @@ function onLineProdChange(idx) {
   const telWrap = document.getElementById('vl-tel-wrap-'+idx);
   if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(pid) ? 'block' : 'none';
   actualizarVisibilidadSegLinea(idx, pid);
+  actualizarVisibilidadPropinaLinea(idx, pid);
   updateVentaTotal();
 }
 
@@ -9135,7 +9189,9 @@ function updateVentaTotal() {
     const idx = inp.id.replace('vl-com-','');
     const com = parseFloat(inp.value)||0;
     const qty = parseInt(document.getElementById('vl-qty-'+idx)?.value)||1;
-    total += com*qty;
+    // La propina va aparte y NO se multiplica por la Cantidad.
+    const prop = parseFloat(document.getElementById('vl-propina-'+idx)?.value);
+    total += com*qty + ((!isNaN(prop) && prop > 0) ? prop : 0);
   });
   const el = document.getElementById('v-total-preview');
   if(el) el.textContent = fmt(total);
@@ -9649,7 +9705,8 @@ function openVentaModal(id=null) {
     document.getElementById('v-agente-grabacion').value = v.agenteGrabacion||'';
     document.getElementById('v-comision-grabacion').value = '$2.00'; // Siempre $2
     document.getElementById('v-grab-fields').style.display = v.llamadaGrabada ? 'grid' : 'none';
-    agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision });
+    agregarLineaVenta({ categoria:v.categoria, productoId:v.productoId, cantidad:v.cantidad, comision:v.comision,
+      telefonoLinea:v.telefonoLinea, segEstado:v.segEstado, segSeguroPrevio:v.segSeguroPrevio, propina:v.propina, notas:v.notas });
   } else {
     document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('v-agente').value = ''; // Dejar en blanco - obligatorio seleccionar vendedor
@@ -9743,6 +9800,9 @@ function guardarVenta() {
     const nota = document.getElementById('vl-nota-'+idx)?.value?.trim()||'';
     const telefonoLinea = document.getElementById('vl-tel-'+idx)?.value?.trim()||'';
     const segEstado = document.getElementById('vl-seg-estado-'+idx)?.value||'';
+    // Propina: solo en los productos que la aceptan; negativo o basura => 0.
+    const propinaCrudaAdm = parseFloat(document.getElementById('vl-propina-'+idx)?.value);
+    const propina = (aceptaPropina(prod) && !isNaN(propinaCrudaAdm) && propinaCrudaAdm > 0) ? propinaCrudaAdm : 0;
     const segSeguroPrevio = !!document.getElementById('vl-seg-previo-'+idx)?.checked;
 
     if(!cat || !prod) {
@@ -9770,7 +9830,7 @@ function guardarVenta() {
     if(!telefonoInvalido && prod==='att-seg' && esAgenteNombreEnModalidadNueva(agente) && !segEstado) {
       telefonoInvalido = `⚠️ Línea ${visibleIdx+1}: selecciona el Estado del seguro`;
     }
-    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea, segEstado, segSeguroPrevio });
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea, segEstado, segSeguroPrevio, propina });
   });
 
   // Si hay líneas incompletas, mostrar error específico
@@ -9858,6 +9918,7 @@ function guardarVenta() {
         // se rescatara aquí, editar una venta de un Sub-Dealer lo borraría.
         subAgente: (original && original.subAgente) || '',
         ...(reportadoPor!==undefined ? { reportadoPor } : {}),
+        propina: parseFloat(l.propina)||0,
         ...(grupoId!==undefined ? { grupoId } : {}),
         ...(idx===0 ? chargebackFields : {}) };
       appData.ventas.push(conUid(ventaObj));
@@ -9894,6 +9955,7 @@ function guardarVenta() {
         notas: l.notaLinea ? (notas ? notas+' · '+l.notaLinea : l.notaLinea) : notas,
         productoId:l.productoId, categoria:l.categoria, cantidad:l.cantidad, comision:l.comision,
         telefonoLinea: l.telefonoLinea||'', segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
+        propina: parseFloat(l.propina)||0,
         ...(reportadoPorAuto!==undefined ? { reportadoPor: reportadoPorAuto, grupoId: grupoIdNuevo } : {}) };
       console.log(`Agregando venta ${idx+1}:`, ventaObj);
       appData.ventas.push(conUid(ventaObj));
@@ -11791,13 +11853,15 @@ function renderPagos() {
             const qty = parseFloat(v.cantidad)||1;
             const stored = parseFloat(v.comision);
             const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
-            const comTotal = Math.max(rate, 0) * qty;
+            const propina = propinaDe(v);
+            const comTotal = Math.max(rate, 0) * qty + propina;
             return `<tr style="border-bottom:1px solid #E5E7EB;font-size:11px;background:${v.cliente?'transparent':'#FFF0F0'}">
               <td style="padding:4px 8px;color:#7C98B6;white-space:nowrap">${v.fecha?mdaFecha(v.fecha):'—'}</td>
               <td style="padding:4px 8px;color:#33475B;font-weight:${v.cliente?'400':'700'};background:${v.cliente?'transparent':'#FEE2E2'};border-radius:4px">${v.cliente||'⚠️ SIN CLIENTE'}</td>
               <td style="padding:4px 8px;color:#7C98B6">${getProdNombre(v.productoId)}</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">${qty}</td>
               <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:600">$${Math.max(rate,0).toFixed(2)}</td>
+              <td style="padding:4px 8px;text-align:right;font-weight:700;color:${propina>0?'#00897B':'#CBD6E2'}">${propina>0?'$'+propina.toFixed(2):'—'}</td>
               <td style="padding:4px 8px;color:#009FDB;text-align:right;font-weight:700">$${comTotal.toFixed(2)}</td>
             </tr>`;
           }).join('');
@@ -11814,6 +11878,7 @@ function renderPagos() {
               <td style="padding:4px 8px;color:#7C98B6">📦 ${nombre}</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">${qty}</td>
               <td style="padding:4px 8px;color:#FF7A59;text-align:right;font-weight:600">$${rate.toFixed(2)}</td>
+              <td style="padding:4px 8px;text-align:right;color:#CBD6E2">—</td>
               <td style="padding:4px 8px;color:#FF7A59;text-align:right;font-weight:700">$${comTotal.toFixed(2)}</td>
             </tr>`;
           }).join('');
@@ -11826,6 +11891,7 @@ function renderPagos() {
               <td style="padding:4px 8px;color:#7C98B6">Llamada Grabada</td>
               <td style="padding:4px 8px;color:#33475B;text-align:right">1</td>
               <td style="padding:4px 8px;color:#6A78D1;text-align:right;font-weight:600">$${comG.toFixed(2)}</td>
+              <td style="padding:4px 8px;text-align:right;color:#CBD6E2">—</td>
               <td style="padding:4px 8px;color:#6A78D1;text-align:right;font-weight:700">$${comG.toFixed(2)}</td>
             </tr>`;
           }).join('');
@@ -11859,7 +11925,8 @@ function renderPagos() {
                     <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #CBD6E2">Producto</th>
                     <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2">Cant.</th>
                     <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2;color:#009FDB">Com./u</th>
-                    <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2;color:#009FDB">Total com.</th>
+                    <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2;color:#00897B">💵 Propina</th>
+                    <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #CBD6E2;color:#009FDB">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -12912,6 +12979,9 @@ function renderAgenteReportar() {
       agenteActualizarVisibilidadSegLinea(idx, l.productoId);
       document.getElementById('agv-seg-estado-'+idx).value = l.segEstado||'';
       document.getElementById('agv-seg-previo-'+idx).checked = !!l.segSeguroPrevio;
+      agenteActualizarVisibilidadPropinaLinea(idx, l.productoId);
+      const inpProp = document.getElementById('agv-propina-'+idx);
+      if(inpProp) inpProp.value = (l.propina != null && parseFloat(l.propina) > 0) ? l.propina : '';
     });
   } else {
     agenteAgregarLineaVenta();
@@ -12983,8 +13053,18 @@ function agenteAgregarLineaVenta() {
         </label>
       </div>
     </div>
+    <div id="agv-propina-wrap-${idx}" style="display:none;margin-top:8px;background:#F0FDF4;border:1px solid #00BDA5;border-radius:8px;padding:10px">
+      <div style="font-size:9px;font-weight:700;color:#00897B;text-transform:uppercase;margin-bottom:6px">💵 Propina del cliente</div>
+      <div style="font-size:10px;font-weight:600;color:#7C98B6;margin-bottom:4px">¿Cuánto te dejó de propina el cliente? (déjalo vacío si no hubo)</div>
+      <input type="number" id="agv-propina-${idx}" min="0" step="0.01" placeholder="0.00" style="${iSty}" oninput="agenteUpdateVentaTotal()">
+      <div style="font-size:10px;color:#7C98B6;margin-top:5px">Admin lo revisa antes de aprobar. Se te suma <b>solo cuando te aprueben el reporte</b>.</div>
+    </div>
     <input type="hidden" id="agv-com-${idx}">`;
   document.getElementById('agv-lineas-container').appendChild(div);
+}
+function agenteActualizarVisibilidadPropinaLinea(idx, productoId) {
+  const wrap = document.getElementById('agv-propina-wrap-'+idx);
+  if(wrap) wrap.style.display = aceptaPropina(productoId) ? 'block' : 'none';
 }
 function agenteActualizarVisibilidadSegLinea(idx, productoId) {
   const agente = document.getElementById('agv-agente-nombre')?.value||'';
@@ -13011,6 +13091,7 @@ function agenteOnLineProdChange(idx) {
   const telWrap = document.getElementById('agv-tel-wrap-'+idx);
   if(telWrap) telWrap.style.display = PRODUCTOS_LINEA_MOBILITY.includes(pid) ? 'block' : 'none';
   agenteActualizarVisibilidadSegLinea(idx, pid);
+  agenteActualizarVisibilidadPropinaLinea(idx, pid);
   agenteUpdateVentaTotal();
 }
 
@@ -13020,7 +13101,9 @@ function agenteUpdateVentaTotal() {
     const idx = inp.id.replace('agv-com-','');
     const com = parseFloat(inp.value)||0;
     const qty = parseInt(document.getElementById('agv-qty-'+idx)?.value)||1;
-    total += com*qty;
+    // La propina va aparte y NO se multiplica por la Cantidad.
+    const prop = parseFloat(document.getElementById('agv-propina-'+idx)?.value);
+    total += com*qty + ((!isNaN(prop) && prop > 0) ? prop : 0);
   });
   const el = document.getElementById('agv-total-preview');
   if(el) el.textContent = fmt(total);
@@ -13062,6 +13145,9 @@ async function guardarVentaAgente() {
     const telefonoLinea = document.getElementById('agv-tel-'+idx)?.value?.trim()||'';
     const segEstado = document.getElementById('agv-seg-estado-'+idx)?.value||'';
     const segSeguroPrevio = !!document.getElementById('agv-seg-previo-'+idx)?.checked;
+    // Propina: solo en los productos que la aceptan; negativo o basura => 0.
+    const propinaCruda = parseFloat(document.getElementById('agv-propina-'+idx)?.value);
+    const propina = (aceptaPropina(prod) && !isNaN(propinaCruda) && propinaCruda > 0) ? propinaCruda : 0;
     if(!cat || !prod) { hasIncompleteLines = true; return; }
     // Teléfono de la línea: obligatorio para los productos "Línea" de
     // Mobility (tanto al crear como al corregir un reporte, ya que sigue
@@ -13081,7 +13167,7 @@ async function guardarVentaAgente() {
     if(!telefonoInvalido && prod==='att-seg' && esAgenteNombreEnModalidadNueva(perms.nombre) && !segEstado) {
       telefonoInvalido = `⚠️ Línea ${visibleIdx+1}: selecciona el Estado del seguro`;
     }
-    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea, segEstado, segSeguroPrevio });
+    lineas.push({ categoria:cat, productoId:prod, cantidad:qty, comision:com, notaLinea:nota, telefonoLinea, segEstado, segSeguroPrevio, propina });
   });
 
   if(hasIncompleteLines) { showNotif('⚠️ Completa Categoría y Producto en todas las líneas','error'); return; }
@@ -13136,6 +13222,7 @@ async function guardarVentaAgente() {
       productoId: l.productoId, categoria: l.categoria, cantidad: l.cantidad, comision: l.comision,
       telefonoLinea: l.telefonoLinea||'', subAgente,
       segEstado: l.segEstado||'', segSeguroPrevio: !!l.segSeguroPrevio,
+      propina: parseFloat(l.propina)||0,
       reportadoPor: perms.agenteId, creadoEn: creadoEnOriginal,
     });
   });
@@ -14546,7 +14633,7 @@ function renderHQ() {
             const qtyV = parseFloat(v.cantidad)||1;
             const stored = parseFloat(v.comision);
             const rateV = stored > 0 ? stored : getComisionDirectaAgente(pid, a.nombre);
-            return s + Math.max(rateV,0)*qtyV;
+            return s + Math.max(rateV,0)*qtyV + propinaDe(v);
           }, 0);
           const rate = qty > 0 ? com/qty : 0;
           subProp += com;
@@ -14749,7 +14836,7 @@ function construirReporteHQTexto(a, msFiltro, qFiltro) {
       const qty = parseFloat(v.cantidad)||1;
       const stored = parseFloat(v.comision);
       const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
-      const com = Math.max(rate,0) * qty;
+      const com = Math.max(rate,0) * qty + propinaDe(v);
       subProp += com;
       const nombreProd = getProdNombre(v.productoId);
       const cliente = v.cliente || 'Sin cliente';
@@ -15624,7 +15711,8 @@ function renderTopRendimiento() {
       const qty = parseFloat(v.cantidad)||1;
       const stored = parseFloat(v.comision);
       const rateAgente = stored>0 ? stored : getComisionDirectaAgente(v.productoId, a.nombre);
-      const montoAgente = Math.max(rateAgente,0)*qty;
+      // La propina es del vendedor; no viene de AT&T, por eso solo suma aqui.
+      const montoAgente = Math.max(rateAgente,0)*qty + propinaDe(v);
       const montoATT = getComisionATT(v.productoId)*qty;
       ventasCount += qty;
       comAgente += montoAgente;
@@ -17605,7 +17693,7 @@ function descargarVentasFiltradas() {
     const stored = parseFloat(v.comision);
     const rate = stored > 0 ? stored : getComisionDirectaAgente(v.productoId, v.agente);
     porProdMap[v.productoId].Cantidad += qty;
-    porProdMap[v.productoId]['Comisión Total'] += Math.max(rate,0) * qty;
+    porProdMap[v.productoId]['Comisión Total'] += Math.max(rate,0) * qty + propinaDe(v);
   });
   const rowsProd = Object.values(porProdMap).sort((a,b)=>b['Comisión Total']-a['Comisión Total']);
   rowsProd.push({
